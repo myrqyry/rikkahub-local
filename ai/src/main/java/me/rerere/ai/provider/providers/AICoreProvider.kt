@@ -66,12 +66,6 @@ class AICoreProvider(private val context: Context) : Provider<ProviderSetting.AI
         messages: List<UIMessage>,
         params: TextGenerationParams,
     ): Flow<MessageChunk> = flow {
-        // Google policy: AICore inference only runs while the calling app is in the
-        // foreground (otherwise throws ErrorCode 30). When a turn fires from the Telegram
-        // bot, a cron job, or any path where RikkaHub is backgrounded, briefly bring our
-        // own UI to the foreground so the inference can proceed. Best-effort: if the OS
-        // refuses (locked screen, recent BAL restrictions), the call will surface the
-        // translated error.
         ensureAppForeground(context)
 
         val (preference, generativeModel) = openClient(providerSetting, params.model)
@@ -85,18 +79,26 @@ class AICoreProvider(private val context: Context) : Provider<ProviderSetting.AI
             if (status != FeatureStatus.AVAILABLE) {
                 error(unavailableMessage(status))
             }
-            try {
-                generativeModel.warmup()
-            } catch (t: Throwable) {
-                Log.w(TAG, "warmup threw", t)
-                error(translateAICoreError(t))
+
+            // Retry loop: warmup + generate can fail transiently (PREPARATION_ERROR,
+            // foreground race). Retry 3x with exponential backoff.
+            var retries = 0
+            val maxRetries = 3
+            while (true) {
+                try {
+                    generativeModel.warmup()
+                    break
+                } catch (t: Throwable) {
+                    if (retries < maxRetries && isRetryable(t)) {
+                        retries++
+                        Log.w(TAG, "warmup attempt $retries failed, retrying", t)
+                        delay(1000L * retries)
+                        continue
+                    }
+                    error(translateAICoreError(t))
+                }
             }
 
-            // Gemini Nano has a small context window (~4k tokens). The full agent-core skill
-            // bundle (~3k tokens of voice/posture/tool docs) used by the cloud providers
-            // overflows it, so we build a MINI version specifically for AICore: terse tool
-            // descriptions, no skill prose, no examples. Cloud providers continue to use the
-            // full agent-core via the assistant's enabledSkills.
             val systemPrefix = buildAiCoreMiniSystemPrefix(params.tools)
             val prompt = formatPromptFromMessages(truncateForAiCore(messages))
             val temperature = (params.temperature ?: 0.7f).coerceIn(0f, 1f)
@@ -110,68 +112,70 @@ class AICoreProvider(private val context: Context) : Provider<ProviderSetting.AI
 
             val streamId = "aicore-${System.currentTimeMillis()}"
             val parser = ToolTagParser(params.tools)
-            try {
-                generativeModel.generateContentStream(request).collect { response ->
-                    val candidate = response.candidates.firstOrNull()
-                    val rawDelta = candidate?.text.orEmpty()
-                    val rawFinish = candidate?.finishReason?.toString()
-                    val parts = parser.feed(rawDelta)
-                    if (parts.isNotEmpty()) {
-                        emit(
-                            MessageChunk(
-                                id = streamId,
-                                model = params.model.modelId,
-                                choices = listOf(
-                                    UIMessageChoice(
-                                        index = 0,
-                                        delta = UIMessage(
-                                            role = MessageRole.ASSISTANT,
-                                            parts = parts,
-                                        ),
-                                        message = null,
-                                        // If a tool tag was closed in this delta, signal
-                                        // tool_calls so the GenerationHandler dispatches the
-                                        // tool and resumes the conversation. Otherwise pass
-                                        // through whatever the model declared (usually null).
-                                        finishReason = parser.consumePendingFinishReason()
-                                            ?: rawFinish,
-                                    )
-                                ),
+            retries = 0
+            while (true) {
+                try {
+                    generativeModel.generateContentStream(request).collect { response ->
+                        val candidate = response.candidates.firstOrNull()
+                        val rawDelta = candidate?.text.orEmpty()
+                        val rawFinish = candidate?.finishReason?.toString()
+                        val parts = parser.feed(rawDelta)
+                        if (parts.isNotEmpty()) {
+                            emit(
+                                MessageChunk(
+                                    id = streamId,
+                                    model = params.model.modelId,
+                                    choices = listOf(
+                                        UIMessageChoice(
+                                            index = 0,
+                                            delta = UIMessage(
+                                                role = MessageRole.ASSISTANT,
+                                                parts = parts,
+                                            ),
+                                            message = null,
+                                            finishReason = parser.consumePendingFinishReason()
+                                                ?: rawFinish,
+                                        )
+                                    ),
+                                )
                             )
-                        )
-                    } else if (rawFinish != null) {
-                        // No content in this chunk but stream closed. Flush any partial buffer
-                        // as text so it isn't dropped.
-                        val flushed = parser.flushPending()
-                        emit(
-                            MessageChunk(
-                                id = streamId,
-                                model = params.model.modelId,
-                                choices = listOf(
-                                    UIMessageChoice(
-                                        index = 0,
-                                        delta = UIMessage(
-                                            role = MessageRole.ASSISTANT,
-                                            parts = flushed,
-                                        ),
-                                        message = null,
-                                        finishReason = parser.consumePendingFinishReason()
-                                            ?: rawFinish,
-                                    )
-                                ),
+                        } else if (rawFinish != null) {
+                            val flushed = parser.flushPending()
+                            emit(
+                                MessageChunk(
+                                    id = streamId,
+                                    model = params.model.modelId,
+                                    choices = listOf(
+                                        UIMessageChoice(
+                                            index = 0,
+                                            delta = UIMessage(
+                                                role = MessageRole.ASSISTANT,
+                                                parts = flushed,
+                                            ),
+                                            message = null,
+                                            finishReason = parser.consumePendingFinishReason()
+                                                ?: rawFinish,
+                                        )
+                                    ),
+                                )
                             )
-                        )
+                        }
                     }
+                    break
+                } catch (t: Throwable) {
+                    if (retries < maxRetries && isRetryable(t)) {
+                        retries++
+                        Log.w(TAG, "generate attempt $retries failed, retrying", t)
+                        delay(1000L * retries)
+                        continue
+                    }
+                    error(translateAICoreError(t))
                 }
-            } catch (t: Throwable) {
-                Log.w(TAG, "generateContentStream threw", t)
-                error(translateAICoreError(t))
             }
         } finally {
             try { generativeModel.close() } catch (t: Throwable) {
                 Log.w(TAG, "close failed", t)
             }
-            // Mark the preference as used so the inline cache is consistent
             require(preference.isNotEmpty())
         }
     }
@@ -271,6 +275,13 @@ class AICoreProvider(private val context: Context) : Provider<ProviderSetting.AI
      * on launch is `ErrorCode 606 - FEATURE_NOT_FOUND` which means the device has the AICore
      * system app installed but is not enrolled in the GenAI Prompt-API early-access channel.
      */
+    private fun isRetryable(t: Throwable): Boolean {
+        val msg = t.message ?: return false
+        return msg.contains("PREPARATION_ERROR", ignoreCase = true) ||
+                msg.contains("ErrorCode 30", ignoreCase = true) ||
+                msg.contains("Background usage is blocked", ignoreCase = true)
+    }
+
     private fun translateAICoreError(t: Throwable): String {
         val msg = (t.message ?: t::class.java.simpleName)
         return when {
