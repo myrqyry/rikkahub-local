@@ -40,3 +40,4 @@ app/google-services.json
 
 # Planning docs — not for the remote
 /plans/
+app/src/main/jni/litert/litert_cc_sdk/
