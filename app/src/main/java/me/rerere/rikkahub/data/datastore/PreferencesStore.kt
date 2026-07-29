@@ -459,7 +459,7 @@ class SettingsStore(
 
     val settingsFlow = settingsFlowRaw
         .distinctUntilChanged()
-        .toMutableStateFlow(scope, Settings.dummy())
+        .toMutableStateFlow(scope, Settings.createInitial())
 
     suspend fun update(settings: Settings) {
         if(settings.init) {
@@ -693,7 +693,7 @@ data class Settings(
 ) {
     companion object {
         // 构造一个用于初始化的settings, 但它不能用于保存，防止使用初始值存储
-        fun dummy() = Settings(init = true)
+        fun createInitial() = Settings(init = true)
     }
 }
 
