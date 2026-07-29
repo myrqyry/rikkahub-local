@@ -37,6 +37,7 @@ fun ASRProviderConfigure(
                     is ASRProviderSetting.Volcengine -> "Volcengine"
                     is ASRProviderSetting.MiMo -> "MiMo"
                     is ASRProviderSetting.Step -> "Step"
+                    is ASRProviderSetting.WhisperAsr -> "Whisper (Local)"
                 },
                 onValueChange = {},
                 readOnly = true,
@@ -62,6 +63,7 @@ fun ASRProviderConfigure(
             is ASRProviderSetting.Volcengine -> VolcengineASRConfiguration(setting, onValueChange)
             is ASRProviderSetting.MiMo -> MiMoASRConfiguration(setting, onValueChange)
             is ASRProviderSetting.Step -> StepASRConfiguration(setting, onValueChange)
+            is ASRProviderSetting.WhisperAsr -> WhisperASRConfiguration(setting, onValueChange)
         }
     }
 }
@@ -527,6 +529,35 @@ private fun StepASRConfiguration(
             },
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("热词1, 热词2, 热词3") }
+        )
+    }
+}
+
+@Composable
+private fun WhisperASRConfiguration(
+    setting: ASRProviderSetting.WhisperAsr,
+    onValueChange: (ASRProviderSetting) -> Unit
+) {
+    FormItem(
+        label = { Text("Model Path") },
+        description = { Text("Path to whisper.cpp model file") }
+    ) {
+        OutlinedTextField(
+            value = setting.modelPath,
+            onValueChange = { onValueChange(setting.copy(modelPath = it)) },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("ggml-base.bin") }
+        )
+    }
+    FormItem(
+        label = { Text("Language") },
+        description = { Text("Language code (auto = detect)") }
+    ) {
+        OutlinedTextField(
+            value = setting.language,
+            onValueChange = { onValueChange(setting.copy(language = it)) },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("auto") }
         )
     }
 }

@@ -20,6 +20,7 @@ import me.rerere.rikkahub.data.db.dao.ScheduledJobRunDao
 import me.rerere.rikkahub.data.db.dao.SshHostDao
 import me.rerere.rikkahub.data.db.dao.TelegramChatDao
 import me.rerere.rikkahub.data.db.dao.WorkspaceDAO
+import me.rerere.rikkahub.data.rag.VectorDao
 import me.rerere.rikkahub.data.db.entity.ConversationEntity
 import me.rerere.rikkahub.data.db.entity.FavoriteEntity
 import me.rerere.rikkahub.data.db.entity.FolderEntity
@@ -33,9 +34,11 @@ import me.rerere.rikkahub.data.db.entity.SshHostEntity
 import me.rerere.rikkahub.data.db.entity.TelegramChatEntity
 import me.rerere.rikkahub.data.db.entity.WorkspaceEntity
 import me.rerere.rikkahub.data.db.migrations.Migration_16_17
+import me.rerere.rikkahub.data.rag.VectorEntity
 import me.rerere.rikkahub.data.db.migrations.Migration_20_21
 import me.rerere.rikkahub.data.db.migrations.Migration_21_22
 import me.rerere.rikkahub.data.db.migrations.Migration_22_23
+import me.rerere.rikkahub.data.db.migrations.Migration_27_28
 import me.rerere.rikkahub.data.db.migrations.Migration_8_9
 import me.rerere.rikkahub.utils.JsonInstant
 import me.rerere.rikkahub.workflow.db.WorkflowDao
@@ -60,8 +63,9 @@ import me.rerere.rikkahub.workflow.db.WorkflowRunEntity
         AgentRun::class,
         WorkspaceEntity::class,
         FolderEntity::class,
+        VectorEntity::class,
     ],
-    version = 27,
+    version = 28,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
@@ -90,6 +94,8 @@ import me.rerere.rikkahub.workflow.db.WorkflowRunEntity
         // table) plus a folder_id column on ConversationEntity (defaultValue ""). Both are pure
         // additions; upstream numbered it as their v24, folded into the fork's version space here.
         AutoMigration(from = 26, to = 27),
+        // v28: RAG vector store table — manual migration (hand-written SQL, not AutoMigrationSpec)
+        // AutoMigration(from = 27, to = 28) removed; Migration_27_28 is registered in addMigrations()
     ]
 )
 @TypeConverters(TokenUsageConverter::class)
@@ -123,6 +129,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun workspaceDao(): WorkspaceDAO
 
     abstract fun folderDao(): FolderDAO
+
+    abstract fun vectorDao(): VectorDao
 }
 
 object TokenUsageConverter {

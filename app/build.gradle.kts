@@ -27,6 +27,12 @@ android {
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
         }
+        externalNativeBuild {
+            cmake {
+                cppFlags += "-std=c++20"
+                arguments += listOf("-DCMAKE_CXX_STANDARD=20")
+            }
+        }
     }
 
     splits {
@@ -95,6 +101,13 @@ android {
         buildConfig = true
         // agent-keyboard IPC: IKeyboardApi.aidl + EditorInfoBundle.aidl in src/main/aidl.
         aidl = true
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/jni/litert/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
     sourceSets {
         getByName("androidTest").assets.directories.add("$projectDir/schemas")
@@ -167,6 +180,9 @@ dependencies {
     implementation(libs.androidx.profileinstaller)
     implementation(libs.termux.terminal.view)
     implementation(libs.guava.listenablefuture)
+
+    // LiteRT CompiledModel (C++ SDK prebuilt .so)
+    implementation("com.google.ai.edge.litert:litert:2.1.6")
 
     // Compose
     implementation(libs.androidx.activity.compose)

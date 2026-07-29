@@ -282,6 +282,27 @@ sealed class TTSProviderSetting {
         }
     }
 
+    @Serializable
+    @SerialName("nekospeak")
+    data class NekoSpeakTts(
+        override var id: Uuid = Uuid.random(),
+        override var name: String = "NekoSpeak TTS",
+        val modelPath: String = "",
+        val voice: String = "default",
+        val speed: Float = 1.0f,
+        val pitch: Float = 1.0f,
+    ) : TTSProviderSetting() {
+        override fun copyProvider(
+            id: Uuid,
+            name: String,
+        ): TTSProviderSetting {
+            return this.copy(
+                id = id,
+                name = name,
+            )
+        }
+    }
+
     companion object {
         val Types by lazy {
             listOf(
@@ -296,6 +317,7 @@ sealed class TTSProviderSetting {
                 ElevenLabs::class,
                 Step::class,
                 FishAudio::class,
+                NekoSpeakTts::class,
             )
         }
     }

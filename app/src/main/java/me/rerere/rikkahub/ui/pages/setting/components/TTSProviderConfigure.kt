@@ -59,6 +59,7 @@ fun TTSProviderConfigure(
                         is TTSProviderSetting.Step -> "Step"
                         is TTSProviderSetting.ElevenLabs -> "ElevenLabs"
                         is TTSProviderSetting.FishAudio -> "Fish Audio"
+                        is TTSProviderSetting.NekoSpeakTts -> "NekoSpeak"
                     },
                     onValueChange = {},
                     readOnly = true,
@@ -188,6 +189,7 @@ fun TTSProviderConfigure(
             is TTSProviderSetting.ElevenLabs -> ElevenLabsTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.FishAudio -> FishAudioTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.Step -> StepTTSConfiguration(setting, onValueChange)
+            is TTSProviderSetting.NekoSpeakTts -> NekoSpeakTTSConfiguration(setting, onValueChange)
         }
     }
 }
@@ -1493,6 +1495,76 @@ private fun StepTTSConfiguration(
             placeholder = { Text("例如: 语气温柔, 语速偏慢") },
             minLines = 2,
             maxLines = 4,
+        )
+    }
+}
+
+@Composable
+private fun NekoSpeakTTSConfiguration(
+    setting: TTSProviderSetting.NekoSpeakTts,
+    onValueChange: (TTSProviderSetting) -> Unit
+) {
+    // Model Path
+    FormItem(
+        label = { Text(stringResource(R.string.setting_tts_page_api_key)) },
+        description = { Text("模型文件路径") }
+    ) {
+        OutlinedTextField(
+            value = setting.modelPath,
+            onValueChange = { newPath ->
+                onValueChange(setting.copy(modelPath = newPath))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("/data/local/tmp/tts_model.ort") },
+        )
+    }
+
+    // Voice
+    FormItem(
+        label = { Text("Voice") },
+        description = { Text("使用的音色") }
+    ) {
+        OutlinedTextField(
+            value = setting.voice,
+            onValueChange = { newVoice ->
+                onValueChange(setting.copy(voice = newVoice))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("default") },
+        )
+    }
+
+    // Speed
+    FormItem(
+        label = { Text(stringResource(R.string.setting_tts_page_speech_rate)) },
+        description = { Text(stringResource(R.string.setting_tts_page_speech_rate_description)) }
+    ) {
+        OutlinedNumberInput(
+            value = setting.speed,
+            onValueChange = { newSpeed ->
+                if (newSpeed in 0.1f..3.0f) {
+                    onValueChange(setting.copy(speed = newSpeed))
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = "Speed"
+        )
+    }
+
+    // Pitch
+    FormItem(
+        label = { Text(stringResource(R.string.setting_tts_page_pitch)) },
+        description = { Text(stringResource(R.string.setting_tts_page_pitch_description)) }
+    ) {
+        OutlinedNumberInput(
+            value = setting.pitch,
+            onValueChange = { newPitch ->
+                if (newPitch in 0.1f..2.0f) {
+                    onValueChange(setting.copy(pitch = newPitch))
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = "Pitch"
         )
     }
 }

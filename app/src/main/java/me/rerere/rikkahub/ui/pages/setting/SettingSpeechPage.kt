@@ -699,6 +699,7 @@ private fun TTSProviderItem(
                             is TTSProviderSetting.Step -> "Step"
                             is TTSProviderSetting.ElevenLabs -> "ElevenLabs"
                             is TTSProviderSetting.FishAudio -> "Fish Audio"
+                            is TTSProviderSetting.NekoSpeakTts -> "NekoSpeak"
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -840,6 +841,7 @@ private fun ASRProviderItem(
                             is ASRProviderSetting.Volcengine -> "Volcengine"
                             is ASRProviderSetting.MiMo -> "MiMo"
                             is ASRProviderSetting.Step -> "Step"
+                            is ASRProviderSetting.WhisperAsr -> "Whisper (Local)"
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

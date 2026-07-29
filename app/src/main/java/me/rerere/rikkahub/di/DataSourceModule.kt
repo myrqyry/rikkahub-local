@@ -15,11 +15,12 @@ import me.rerere.ai.provider.ProviderManager
 import me.rerere.common.http.AcceptLanguageBuilder
 import me.rerere.rikkahub.BuildConfig
 import me.rerere.rikkahub.AppScope
-import me.rerere.rikkahub.data.ai.AIRequestInterceptor
-import me.rerere.rikkahub.data.ai.RequestLoggingInterceptor
 import me.rerere.rikkahub.data.ai.transformers.AssistantTemplateLoader
-import me.rerere.rikkahub.data.ai.GenerationHandler
 import me.rerere.rikkahub.data.ai.transformers.TemplateTransformer
+import me.rerere.rikkahub.data.ai.AIRequestInterceptor
+import me.rerere.rikkahub.data.ai.GenerationHandler
+import me.rerere.rikkahub.data.ai.LocalDreamProvider
+import me.rerere.rikkahub.data.ai.RequestLoggingInterceptor
 import me.rerere.rikkahub.data.api.RikkaHubAPI
 import me.rerere.rikkahub.data.api.SponsorAPI
 import me.rerere.rikkahub.data.codex.CodexAccountRepository
@@ -34,6 +35,7 @@ import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.db.AppDatabase
 import me.rerere.rikkahub.data.db.fts.MessageFtsManager
 import me.rerere.rikkahub.data.db.fts.SimpleDictManager
+import me.rerere.rikkahub.data.db.migrations.Migration_27_28
 import me.rerere.rikkahub.data.db.migrations.Migration_6_7
 import me.rerere.rikkahub.data.db.migrations.Migration_11_12
 import me.rerere.rikkahub.data.db.migrations.Migration_13_14
@@ -43,6 +45,8 @@ import me.rerere.rikkahub.data.db.migrations.Migration_23_24
 import me.rerere.rikkahub.data.ai.mcp.McpManager
 import me.rerere.rikkahub.data.agentrun.AgentRunBootRecovery
 import me.rerere.rikkahub.data.agentrun.AgentRunRepository
+import me.rerere.rikkahub.data.rag.TextEmbedder
+import me.rerere.rikkahub.data.rag.VectorDao
 import me.rerere.rikkahub.data.sync.webdav.WebDavSync
 import me.rerere.search.SearchService
 import me.rerere.rikkahub.data.sync.S3Sync
@@ -65,7 +69,7 @@ val dataSourceModule = module {
         val context: Context = get()
         Room.databaseBuilder(context, AppDatabase::class.java, "rikka_hub")
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
-            .addMigrations(Migration_6_7, Migration_11_12, Migration_13_14, Migration_14_15, Migration_15_16, Migration_23_24)
+            .addMigrations(Migration_6_7, Migration_11_12, Migration_13_14, Migration_14_15, Migration_15_16, Migration_23_24, Migration_27_28)
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onOpen(db: SupportSQLiteDatabase) {
                     val dictDir = SimpleDictManager.extractDict(context)
@@ -148,7 +152,15 @@ val dataSourceModule = module {
     }
 
     single {
+        get<AppDatabase>().vectorDao()
+    }
+
+    single {
         MessageFtsManager(get())
+    }
+
+    single {
+        TextEmbedder(providerManager = get(), json = get())
     }
 
     // Phase 24 — unified AgentRun ledger. DAO + the single shared writer/reader + the
@@ -318,6 +330,13 @@ val dataSourceModule = module {
                     context = get(),
                     client = get(named("grok")),
                     repository = get<GrokAccountRepository>(),
+                    json = json,
+                )
+            )
+            pm.registerProvider(
+                "local_dream",
+                LocalDreamProvider(
+                    context = get(),
                     json = json,
                 )
             )

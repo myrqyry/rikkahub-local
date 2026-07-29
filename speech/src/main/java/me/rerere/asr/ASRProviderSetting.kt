@@ -169,6 +169,27 @@ sealed class ASRProviderSetting {
         }
     }
 
+    @Serializable
+    @SerialName("whisper")
+    data class WhisperAsr(
+        override val id: Uuid = Uuid.random(),
+        override val name: String = "Whisper ASR",
+        val modelPath: String = "",
+        val language: String = "auto",
+        val sampleRate: Int = 16000,
+        val vadThreshold: Float = 0.5f,
+    ) : ASRProviderSetting() {
+        override fun copyProvider(
+            id: Uuid,
+            name: String,
+        ): ASRProviderSetting {
+            return this.copy(
+                id = id,
+                name = name,
+            )
+        }
+    }
+
     companion object {
         val Types by lazy {
             listOf(
@@ -177,6 +198,7 @@ sealed class ASRProviderSetting {
                 Volcengine::class,
                 MiMo::class,
                 Step::class,
+                WhisperAsr::class,
             )
         }
     }

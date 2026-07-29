@@ -1,88 +1,122 @@
 package me.rerere.rikkahub.ui.theme
 
 import androidx.compose.material3.Typography
-import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import me.rerere.rikkahub.R
 
-val base = Typography()
-val Typography = Typography()
+val BricolageGrotesque = FontFamily(
+    Font(R.font.bricolage_regular, FontWeight.Normal),
+    Font(R.font.bricolage_medium, FontWeight.Medium),
+    Font(R.font.bricolage_semibold, FontWeight.SemiBold),
+    Font(R.font.bricolage_bold, FontWeight.Bold),
+)
 
-// Set of Material typography styles to start with
-//val Typography = Typography(
-//    displayLargeEmphasized = base.displayLargeEmphasized.copy(
-//        fontFamily = GoogleSansFlex.Display.Emphasized.Large,
-//        fontWeight = FontWeight.Bold
-//    ),
-//    displayMediumEmphasized = base.displayMediumEmphasized.copy(
-//        fontFamily = GoogleSansFlex.Display.Emphasized.Medium,
-//        fontWeight = FontWeight.Bold
-//    ),
-//    displaySmallEmphasized = base.displaySmallEmphasized.copy(
-//        fontFamily = GoogleSansFlex.Display.Emphasized.Large,
-//        fontWeight = FontWeight.Bold
-//    ),
-//    headlineLargeEmphasized = base.headlineLargeEmphasized.copy(
-//        fontFamily = GoogleSansFlex.Headline.Emphasized.Large,
-//        fontWeight = FontWeight.Bold
-//    ),
-//    headlineMediumEmphasized = base.headlineMediumEmphasized.copy(
-//        fontFamily = GoogleSansFlex.Headline.Emphasized.Medium,
-//        fontWeight = FontWeight.Bold
-//    ),
-//    headlineSmallEmphasized = base.headlineSmallEmphasized.copy(
-//        fontFamily = GoogleSansFlex.Headline.Emphasized.Large,
-//        fontWeight = FontWeight.Bold
-//    ),
-//    titleLargeEmphasized = base.titleLargeEmphasized.copy(
-//        fontFamily = GoogleSansFlex.Title.Emphasized.Large,
-//        fontWeight = FontWeight.Bold
-//    ),
-//    titleMediumEmphasized = base.titleMediumEmphasized.copy(
-//        fontFamily = GoogleSansFlex.Title.Emphasized.Medium,
-//        fontWeight = FontWeight.Bold
-//    ),
-//    titleSmallEmphasized = base.titleSmallEmphasized.copy(
-//        fontFamily = GoogleSansFlex.Title.Emphasized.Small,
-//        fontWeight = FontWeight.Bold
-//    ),
-//    bodyLargeEmphasized = base.bodyLargeEmphasized.copy(
-//        fontFamily = GoogleSansFlex.Body.Emphasized.Large,
-//        fontWeight = FontWeight.Bold
-//    ),
-//    bodyMediumEmphasized = base.bodyMediumEmphasized.copy(
-//        fontFamily = GoogleSansFlex.Body.Emphasized.Medium,
-//        fontWeight = FontWeight.Bold
-//    ),
-//    bodySmallEmphasized = base.bodySmallEmphasized.copy(
-//        fontFamily = GoogleSansFlex.Body.Emphasized.Small,
-//        fontWeight = FontWeight.Bold
-//    ),
-//    labelLargeEmphasized = base.labelLargeEmphasized.copy(
-//        fontFamily = GoogleSansFlex.Label.Emphasized.Large,
-//        fontWeight = FontWeight.Bold
-//    ),
-//    labelMediumEmphasized = base.labelMediumEmphasized.copy(
-//        fontFamily = GoogleSansFlex.Label.Emphasized.Medium,
-//        fontWeight = FontWeight.Bold
-//    ),
-//    labelSmallEmphasized = base.labelSmallEmphasized.copy(
-//        fontFamily = GoogleSansFlex.Label.Emphasized.Small,
-//        fontWeight = FontWeight.Bold
-//    ),
-//)
-
-@OptIn(ExperimentalTextApi::class)
 val JetbrainsMono = FontFamily(
-    Font(
-        resId = R.font.jetbrains_mono,
-        variationSettings = FontVariation.Settings(
-            FontVariation.weight(FontWeight.Normal.weight),
-        )
-    )
+    Font(R.font.jetbrains_mono, FontWeight.Normal),
+)
+
+val Typography = Typography(
+    displayLarge = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.Bold,
+        fontSize = 57.sp,
+        lineHeight = 64.sp,
+        letterSpacing = (-0.25).sp,
+    ),
+    displayMedium = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 45.sp,
+        lineHeight = 52.sp,
+    ),
+    displaySmall = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 36.sp,
+        lineHeight = 44.sp,
+    ),
+    headlineLarge = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 32.sp,
+        lineHeight = 40.sp,
+    ),
+    headlineMedium = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 28.sp,
+        lineHeight = 36.sp,
+    ),
+    headlineSmall = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 24.sp,
+        lineHeight = 32.sp,
+    ),
+    titleLarge = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.Medium,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
+    ),
+    titleMedium = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.Medium,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.15.sp,
+    ),
+    titleSmall = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.Medium,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.1.sp,
+    ),
+    bodyLarge = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.Normal,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.5.sp,
+    ),
+    bodyMedium = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.Normal,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.25.sp,
+    ),
+    bodySmall = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.4.sp,
+    ),
+    labelLarge = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.Medium,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.1.sp,
+    ),
+    labelMedium = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.Medium,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.5.sp,
+    ),
+    labelSmall = TextStyle(
+        fontFamily = BricolageGrotesque,
+        fontWeight = FontWeight.Medium,
+        fontSize = 11.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.5.sp,
+    ),
 )

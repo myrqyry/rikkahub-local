@@ -132,6 +132,10 @@ val appModule = module {
     single { me.rerere.rikkahub.skills.js.JsSkillRunner(get()) }
     single { me.rerere.rikkahub.skills.js.SkillSecretsStore(get()) }
 
+    // Skill System Enhancement
+    single { me.rerere.rikkahub.skills.SkillUrlResolver(get()) }
+    single { me.rerere.rikkahub.skills.SystemPromptFormatter() }
+
     // Phase 12: Workflows
     single {
         me.rerere.rikkahub.workflow.repository.WorkflowRepository(
