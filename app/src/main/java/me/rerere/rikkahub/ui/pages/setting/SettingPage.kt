@@ -324,6 +324,24 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         supportingContent = { Text(stringResource(R.string.setting_page_permissions_desc)) },
                         headlineContent = { Text(stringResource(R.string.setting_page_permissions)) },
                     )
+                    item(
+                        onClick = { navController.navigate(Screen.SettingRAG) },
+                        leadingContent = { Icon(HugeIcons.Database02, null) },
+                        supportingContent = { Text("RAG settings and vector store") },
+                        headlineContent = { Text("RAG") },
+                    )
+                    item(
+                        onClick = { navController.navigate(Screen.SettingLocalDream) },
+                        leadingContent = { Icon(HugeIcons.AiMagic, null) },
+                        supportingContent = { Text("Local Dream image generation settings") },
+                        headlineContent = { Text("Local Dream") },
+                    )
+                    item(
+                        onClick = { navController.navigate(Screen.SettingPlugin) },
+                        leadingContent = { Icon(HugeIcons.Package, null) },
+                        supportingContent = { Text("Manage plugins") },
+                        headlineContent = { Text("Plugins") },
+                    )
                 }
             }
 

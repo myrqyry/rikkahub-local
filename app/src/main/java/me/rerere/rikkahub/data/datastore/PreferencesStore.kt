@@ -191,6 +191,10 @@ class SettingsStore(
 
         // 赞助提醒
         val SPONSOR_ALERT_DISMISSED_AT = intPreferencesKey("sponsor_alert_dismissed_at")
+
+        // RAG
+        val ENABLE_RAG = booleanPreferencesKey("enable_rag")
+        val RAG_EMBEDDING_MODEL = stringPreferencesKey("rag_embedding_model")
     }
 
     private val dataStore = context.settingsStore
@@ -293,6 +297,8 @@ class SettingsStore(
                 } ?: BackupReminderConfig(),
                 launchCount = preferences[LAUNCH_COUNT] ?: 0,
                 sponsorAlertDismissedAt = preferences[SPONSOR_ALERT_DISMISSED_AT] ?: 0,
+                enableRag = preferences[ENABLE_RAG] == true,
+                ragEmbeddingModel = preferences[RAG_EMBEDDING_MODEL] ?: "text-embedding-3-small",
             )
         }
         .map {
@@ -531,6 +537,8 @@ class SettingsStore(
             preferences[BACKUP_REMINDER_CONFIG] = JsonInstant.encodeToString(settings.backupReminderConfig)
             preferences[LAUNCH_COUNT] = settings.launchCount
             preferences[SPONSOR_ALERT_DISMISSED_AT] = settings.sponsorAlertDismissedAt
+            preferences[ENABLE_RAG] = settings.enableRag
+            preferences[RAG_EMBEDDING_MODEL] = settings.ragEmbeddingModel
         }
     }
 
@@ -684,6 +692,8 @@ data class Settings(
     val backupReminderConfig: BackupReminderConfig = BackupReminderConfig(),
     val launchCount: Int = 0,
     val sponsorAlertDismissedAt: Int = 0,
+    val enableRag: Boolean = false,
+    val ragEmbeddingModel: String = "text-embedding-3-small",
 )
 
 @Serializable

@@ -125,6 +125,9 @@ import me.rerere.rikkahub.ui.pages.setting.SettingProviderPage
 import me.rerere.rikkahub.ui.pages.setting.SettingSearchDetailPage
 import me.rerere.rikkahub.ui.pages.setting.SettingSearchPage
 import me.rerere.rikkahub.ui.pages.setting.SettingTTSPage
+import me.rerere.rikkahub.ui.pages.setting.SettingRAGPage
+import me.rerere.rikkahub.ui.pages.setting.SettingLocalDreamPage
+import me.rerere.rikkahub.ui.pages.setting.SettingPluginPage
 import me.rerere.rikkahub.ui.pages.setting.SettingSpeechPage
 import me.rerere.rikkahub.ui.pages.setting.SettingTelegramPage
 import me.rerere.rikkahub.ui.pages.setting.SettingWebPage
@@ -472,6 +475,15 @@ class RouteActivity : ComponentActivity() {
                             entry<Screen.SettingTTS> {
                                 SettingTTSPage()
                             }
+                            entry<Screen.SettingRAG> {
+                                SettingRAGPage()
+                            }
+                            entry<Screen.SettingLocalDream> {
+                                SettingLocalDreamPage()
+                            }
+                            entry<Screen.SettingPlugin> {
+                                SettingPluginPage()
+                            }
                             entry<Screen.SettingSearchDetail> { key ->
                                 val id = Uuid.parse(key.serviceId)
                                 SettingSearchDetailPage(id)
@@ -739,6 +751,15 @@ sealed interface Screen : NavKey {
 
     @Serializable
     data object SettingSearch : Screen
+
+    @Serializable
+    data object SettingRAG : Screen
+
+    @Serializable
+    data object SettingLocalDream : Screen
+
+    @Serializable
+    data object SettingPlugin : Screen
 
     @Serializable
     data object SettingTTS : Screen

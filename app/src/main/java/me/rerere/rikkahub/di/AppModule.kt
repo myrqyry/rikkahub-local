@@ -96,6 +96,7 @@ val appModule = module {
 
     // Phase 11: Sub-agents
     single { me.rerere.rikkahub.subagent.SubAgentRegistry() }
+    single { me.rerere.rikkahub.skills.plugins.SlashCommandRegistry() }
     single {
         me.rerere.rikkahub.subagent.SubAgentEngine(
             registry = get(),
