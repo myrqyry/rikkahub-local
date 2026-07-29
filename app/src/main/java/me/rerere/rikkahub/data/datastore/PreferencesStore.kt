@@ -459,13 +459,9 @@ class SettingsStore(
 
     val settingsFlow = settingsFlowRaw
         .distinctUntilChanged()
-        .toMutableStateFlow(scope, Settings.createInitial())
+        .toMutableStateFlow(scope, Settings())
 
     suspend fun update(settings: Settings) {
-        if(settings.init) {
-            Log.w(TAG, "Cannot update dummy settings")
-            return
-        }
         settingsFlow.value = settings
         dataStore.edit { preferences ->
             preferences[DYNAMIC_COLOR] = settings.dynamicColor
@@ -626,8 +622,6 @@ class SettingsStore(
 
 @Serializable
 data class Settings(
-    @Transient
-    val init: Boolean = false,
     val dynamicColor: Boolean = true,
     val themeId: String = PresetThemes[0].id,
     val customThemes: List<CustomTheme> = emptyList(),
@@ -690,12 +684,7 @@ data class Settings(
     val backupReminderConfig: BackupReminderConfig = BackupReminderConfig(),
     val launchCount: Int = 0,
     val sponsorAlertDismissedAt: Int = 0,
-) {
-    companion object {
-        // 构造一个用于初始化的settings, 但它不能用于保存，防止使用初始值存储
-        fun createInitial() = Settings(init = true)
-    }
-}
+)
 
 @Serializable
 enum class AiLogLevel(val preferenceName: String) {
