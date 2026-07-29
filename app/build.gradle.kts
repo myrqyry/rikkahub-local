@@ -181,8 +181,7 @@ dependencies {
     implementation(libs.termux.terminal.view)
     implementation(libs.guava.listenablefuture)
 
-    // LiteRT CompiledModel (C++ SDK prebuilt .so)
-    implementation("com.google.ai.edge.litert:litert:2.1.6")
+    
 
     // Compose
     implementation(libs.androidx.activity.compose)
