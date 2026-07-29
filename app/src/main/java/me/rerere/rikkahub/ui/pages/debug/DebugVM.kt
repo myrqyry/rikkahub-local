@@ -28,7 +28,7 @@ class DebugVM(
     private val conversationRepository: ConversationRepository,
 ) : ViewModel() {
     val settings: StateFlow<Settings> = settingsStore.settingsFlow
-        .stateIn(viewModelScope, SharingStarted.Lazily, Settings.dummy())
+        .stateIn(viewModelScope, SharingStarted.Lazily, Settings())
 
     private val _conversationCount = MutableStateFlow<Int?>(null)
     val conversationCount: StateFlow<Int?> = _conversationCount.asStateFlow()

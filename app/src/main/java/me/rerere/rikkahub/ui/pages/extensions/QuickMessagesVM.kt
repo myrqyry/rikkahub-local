@@ -14,7 +14,7 @@ class QuickMessagesVM(
     private val settingsStore: SettingsStore
 ) : ViewModel() {
     val settings = settingsStore.settingsFlow
-        .stateIn(viewModelScope, SharingStarted.Lazily, Settings.dummy())
+        .stateIn(viewModelScope, SharingStarted.Lazily, Settings())
 
     fun addQuickMessage(title: String, content: String) {
         updateQuickMessages(

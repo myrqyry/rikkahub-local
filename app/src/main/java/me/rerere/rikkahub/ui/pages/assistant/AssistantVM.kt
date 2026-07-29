@@ -22,7 +22,7 @@ class AssistantVM(
     private val filesManager: FilesManager,
 ) : ViewModel() {
     val settings: StateFlow<Settings> = settingsStore.settingsFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, Settings.dummy())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, Settings())
 
     fun updateSettings(settings: Settings) {
         viewModelScope.launch {
