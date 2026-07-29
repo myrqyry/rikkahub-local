@@ -1215,7 +1215,7 @@ private fun StepTTSConfiguration(
     // API Key
     FormItem(
         label = { Text(stringResource(R.string.setting_tts_page_api_key)) },
-        description = { Text("从阶跃星辰官网获取密钥: platform.stepfun.com/interface-key") }
+        description = { Text("Get API key from StepFun: platform.stepfun.com/interface-key") }
     ) {
         OutlinedTextField(
             value = setting.apiKey,
@@ -1223,7 +1223,7 @@ private fun StepTTSConfiguration(
                 onValueChange(setting.copy(apiKey = newApiKey))
             },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("从阶跃星辰官网获取密钥") },
+            placeholder = { Text("Get API key from StepFun") },
         )
     }
 
@@ -1369,7 +1369,7 @@ private fun StepTTSConfiguration(
 
     FormItem(
         label = { Text("Response Format") },
-        description = { Text("音频编码格式 (注意 StepFun API 字段名为 camelCase)") }
+        description = { Text("Audio encoding format (note: StepFun API field is camelCase)") }
     ) {
         ExposedDropdownMenuBox(
             expanded = formatExpanded,
@@ -1407,7 +1407,7 @@ private fun StepTTSConfiguration(
     // Speed
     FormItem(
         label = { Text(stringResource(R.string.setting_tts_page_speed)) },
-        description = { Text("语速 (0.5 - 2.0, 1.0 为正常)") }
+        description = { Text("Speed (0.5 - 2.0, 1.0 is normal)") }
     ) {
         OutlinedNumberInput(
             value = setting.speed,
@@ -1424,7 +1424,7 @@ private fun StepTTSConfiguration(
     // Volume
     FormItem(
         label = { Text("Volume") },
-        description = { Text("音量 (0.1 - 2.0, 1.0 为正常)") }
+        description = { Text("Volume (0.1 - 2.0, 1.0 is normal)") }
     ) {
         OutlinedNumberInput(
             value = setting.volume,
@@ -1444,7 +1444,7 @@ private fun StepTTSConfiguration(
 
     FormItem(
         label = { Text("Sample Rate") },
-        description = { Text("采样率 (Hz)") }
+        description = { Text("Sampling rate (Hz)") }
     ) {
         ExposedDropdownMenuBox(
             expanded = sampleRateExpanded,
@@ -1481,7 +1481,7 @@ private fun StepTTSConfiguration(
     // Instruction (仅 stepaudio-2.5-tts 生效)
     FormItem(
         label = { Text("Instruction") },
-        description = { Text("全局语境指令, 仅 stepaudio-2.5-tts 生效 (≤200 字符, 留空不下发)") }
+        description = { Text("Global context instruction, only applies to stepaudio-2.5-tts (≤200 chars, leave empty to skip)") }
     ) {
         OutlinedTextField(
             value = setting.instruction,
@@ -1492,7 +1492,7 @@ private fun StepTTSConfiguration(
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("例如: 语气温柔, 语速偏慢") },
+            placeholder = { Text("e.g. gentle tone, slower pace") },
             minLines = 2,
             maxLines = 4,
         )
@@ -1507,7 +1507,7 @@ private fun NekoSpeakTTSConfiguration(
     // Model Path
     FormItem(
         label = { Text(stringResource(R.string.setting_tts_page_api_key)) },
-        description = { Text("模型文件路径") }
+        description = { Text("Model file path") }
     ) {
         OutlinedTextField(
             value = setting.modelPath,
@@ -1522,7 +1522,7 @@ private fun NekoSpeakTTSConfiguration(
     // Voice
     FormItem(
         label = { Text("Voice") },
-        description = { Text("使用的音色") }
+        description = { Text("Voice/timbre to use") }
     ) {
         OutlinedTextField(
             value = setting.voice,

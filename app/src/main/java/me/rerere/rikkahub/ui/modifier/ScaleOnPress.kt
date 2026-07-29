@@ -2,8 +2,6 @@ package me.rerere.rikkahub.ui.modifier
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
@@ -11,14 +9,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.semantics.Role
 
 @Composable
-fun Modifier.onClick(
+fun Modifier.scaleOnPress(
     enabled: Boolean = true,
-    onClick: () -> Unit
+    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ): Modifier {
-    val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed && enabled) 0.97f else 1f,
@@ -28,12 +24,5 @@ fun Modifier.onClick(
         ),
         label = "scaleOnPress",
     )
-    return this
-        .scale(scale)
-        .clickable(
-            onClick = onClick,
-            interactionSource = interactionSource,
-            indication = LocalIndication.current,
-            role = Role.Button,
-        )
+    return this.then(Modifier.scale(scale))
 }

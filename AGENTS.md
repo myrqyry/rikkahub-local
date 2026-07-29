@@ -35,14 +35,21 @@ cd locale-tui && uv sync
 cd web-ui && pnpm run dev
 
 # Locale TUI
-cd locale-tui && locale-tui
+cd locale-tui && uv run locale-tui
 ```
 
 ## Testing
 
 ```bash
-# Android
+# Android — unit tests
 ./gradlew test
+
+# Android — coverage report (app module)
+./gradlew :app:jacocoTestReport
+# Results: app/build/reports/jacoco/jacocoTestReport/html/index.html
+
+# Android — instrumented tests (requires device/emulator)
+./gradlew connectedDebugAndroidTest
 
 # Locale TUI
 cd locale-tui && uv run pytest

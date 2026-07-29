@@ -81,7 +81,7 @@ class DebugVM(
                 val assistantMessage = UIMessage(
                     id = Uuid.random(),
                     role = MessageRole.ASSISTANT,
-                    parts = listOf(UIMessagePart.Text("回复: $largeText")),
+                    parts = listOf(UIMessagePart.Text("Reply: $largeText")),
                     createdAt = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
                 )
 

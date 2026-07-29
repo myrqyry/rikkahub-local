@@ -1,7 +1,7 @@
 package me.rerere.rikkahub.ui.components.ui
 
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -76,7 +76,7 @@ fun Switch(
         } else {
             0.dp
         },
-        animationSpec = tween(durationMillis = 150),
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f),
         label = "thumbOffset"
     )
 

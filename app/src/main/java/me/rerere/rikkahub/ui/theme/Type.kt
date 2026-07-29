@@ -19,6 +19,120 @@ val JetbrainsMono = FontFamily(
     Font(R.font.jetbrains_mono, FontWeight.Normal),
 )
 
+val emphasizedDisplayLarge = TextStyle(
+    fontFamily = BricolageGrotesque,
+    fontWeight = FontWeight.Bold,
+    fontSize = 57.sp,
+    lineHeight = 64.sp,
+    letterSpacing = (-0.25).sp,
+)
+
+val emphasizedDisplayMedium = TextStyle(
+    fontFamily = BricolageGrotesque,
+    fontWeight = FontWeight.Bold,
+    fontSize = 45.sp,
+    lineHeight = 52.sp,
+)
+
+val emphasizedDisplaySmall = TextStyle(
+    fontFamily = BricolageGrotesque,
+    fontWeight = FontWeight.Bold,
+    fontSize = 36.sp,
+    lineHeight = 44.sp,
+)
+
+val emphasizedHeadlineLarge = TextStyle(
+    fontFamily = BricolageGrotesque,
+    fontWeight = FontWeight.Bold,
+    fontSize = 32.sp,
+    lineHeight = 40.sp,
+)
+
+val emphasizedHeadlineMedium = TextStyle(
+    fontFamily = BricolageGrotesque,
+    fontWeight = FontWeight.Bold,
+    fontSize = 28.sp,
+    lineHeight = 36.sp,
+)
+
+val emphasizedHeadlineSmall = TextStyle(
+    fontFamily = BricolageGrotesque,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 24.sp,
+    lineHeight = 32.sp,
+)
+
+val emphasizedTitleLarge = TextStyle(
+    fontFamily = BricolageGrotesque,
+    fontWeight = FontWeight.Bold,
+    fontSize = 22.sp,
+    lineHeight = 28.sp,
+)
+
+val emphasizedTitleMedium = TextStyle(
+    fontFamily = BricolageGrotesque,
+    fontWeight = FontWeight.Bold,
+    fontSize = 16.sp,
+    lineHeight = 24.sp,
+    letterSpacing = 0.15.sp,
+)
+
+val emphasizedTitleSmall = TextStyle(
+    fontFamily = BricolageGrotesque,
+    fontWeight = FontWeight.Bold,
+    fontSize = 14.sp,
+    lineHeight = 20.sp,
+    letterSpacing = 0.1.sp,
+)
+
+val emphasizedBodyLarge = TextStyle(
+    fontFamily = BricolageGrotesque,
+    fontWeight = FontWeight.Bold,
+    fontSize = 16.sp,
+    lineHeight = 24.sp,
+    letterSpacing = 0.5.sp,
+)
+
+val emphasizedBodyMedium = TextStyle(
+    fontFamily = BricolageGrotesque,
+    fontWeight = FontWeight.Bold,
+    fontSize = 14.sp,
+    lineHeight = 20.sp,
+    letterSpacing = 0.25.sp,
+)
+
+val emphasizedBodySmall = TextStyle(
+    fontFamily = BricolageGrotesque,
+    fontWeight = FontWeight.Bold,
+    fontSize = 12.sp,
+    lineHeight = 16.sp,
+    letterSpacing = 0.4.sp,
+)
+
+val emphasizedLabelLarge = TextStyle(
+    fontFamily = BricolageGrotesque,
+    fontWeight = FontWeight.Bold,
+    fontSize = 14.sp,
+    lineHeight = 20.sp,
+    letterSpacing = 0.1.sp,
+)
+
+val emphasizedLabelMedium = TextStyle(
+    fontFamily = BricolageGrotesque,
+    fontWeight = FontWeight.Bold,
+    fontSize = 12.sp,
+    lineHeight = 16.sp,
+    letterSpacing = 0.5.sp,
+)
+
+val emphasizedLabelSmall = TextStyle(
+    fontFamily = BricolageGrotesque,
+    fontWeight = FontWeight.Bold,
+    fontSize = 11.sp,
+    lineHeight = 16.sp,
+    letterSpacing = 0.5.sp,
+)
+
 val Typography = Typography(
     displayLarge = TextStyle(
         fontFamily = BricolageGrotesque,
