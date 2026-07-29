@@ -220,6 +220,12 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         supportingContent = { Text(stringResource(R.string.setting_page_extensions_desc)) },
                         headlineContent = { Text(stringResource(R.string.setting_page_extensions)) },
                     )
+                    item(
+                        onClick = { navController.navigate(Screen.SettingPlugin) },
+                        leadingContent = { Icon(HugeIcons.Package, null) },
+                        supportingContent = { Text("Manage plugins") },
+                        headlineContent = { Text("Plugins") },
+                    )
                 }
             }
 
@@ -335,12 +341,6 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         leadingContent = { Icon(HugeIcons.AiMagic, null) },
                         supportingContent = { Text("Local Dream image generation settings") },
                         headlineContent = { Text("Local Dream") },
-                    )
-                    item(
-                        onClick = { navController.navigate(Screen.SettingPlugin) },
-                        leadingContent = { Icon(HugeIcons.Package, null) },
-                        supportingContent = { Text("Manage plugins") },
-                        headlineContent = { Text("Plugins") },
                     )
                 }
             }
