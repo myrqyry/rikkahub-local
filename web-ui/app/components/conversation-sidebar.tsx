@@ -21,10 +21,12 @@ import {
   Plus,
   RefreshCw,
   LogOut,
+  Settings,
   Sun,
   Trash2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 
 import { InfiniteScrollArea } from "~/components/extended/infinite-scroll-area";
 import { Badge } from "~/components/ui/badge";
@@ -780,6 +782,7 @@ export const ConversationSidebar = React.memo(
     onDeleteFolder,
     onMoveToFolder,
   }: ConversationSidebarProps) => {
+    const navigate = useNavigate();
     const { t, i18n } = useTranslation();
     const { theme, setTheme, colorTheme, setColorTheme, customThemeCss, setCustomThemeCss } =
       useTheme();
@@ -1141,6 +1144,18 @@ export const ConversationSidebar = React.memo(
                 <LogOut className="size-4" />
               </Button>
             )}
+
+            <Button
+              variant="outline"
+              size="icon-sm"
+              className="text-foreground"
+              type="button"
+              onClick={() => navigate("/settings")}
+              aria-label="Settings"
+              title="Settings"
+            >
+              <Settings className="size-4" />
+            </Button>
 
             <LanguageSwitcher />
 

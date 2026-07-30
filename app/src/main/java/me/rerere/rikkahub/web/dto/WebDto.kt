@@ -141,6 +141,11 @@ data class UpdateFavoriteModelsRequest(
 )
 
 @Serializable
+data class UpdateSystemPromptRequest(
+    val customSystemPrompt: String? = null,
+)
+
+@Serializable
 data class WebAuthTokenRequest(
     val password: String,
 )

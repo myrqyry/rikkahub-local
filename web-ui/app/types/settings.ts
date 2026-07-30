@@ -156,5 +156,10 @@ export interface Settings {
   searchServices: SearchServiceOption[];
   quickMessages?: QuickMessage[];
   searchServiceSelected: number;
+  webServerEnabled: boolean;
+  webServerPort: number;
+  webServerJwtEnabled: boolean;
+  webServerAccessPassword: string;
+  webServerLocalhostOnly: boolean;
   [key: string]: unknown;
 }

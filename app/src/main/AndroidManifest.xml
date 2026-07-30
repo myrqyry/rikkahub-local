@@ -75,7 +75,7 @@
        allow-external-apps=true in ~/.termux/termux.properties on their side. -->
   <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
 
-  <!-- Phase 25 — Phase 3 second cut. SEND_SMS is a runtime (dangerous) permission granted
+    <!-- Phase 25 — Phase 3 second cut. SEND_SMS is a runtime (dangerous) permission granted
        at toggle-on for the send_sms tool. SET_WALLPAPER and NFC are install-time. SAF and
        the archive tools need no manifest change (SAF is grant-driven; zip is pure JDK). -->
   <uses-permission android:name="android.permission.SEND_SMS" />
@@ -139,6 +139,9 @@
     android:theme="@style/Theme.Rikkahub"
     android:usesCleartextTraffic="true"
     tools:targetApi="33">
+    <property
+      android:name="android.app.appfunctions.app_metadata"
+      android:resource="@xml/app_metadata" />
     <!--
       Game Mode preferences. Declares to the OEM Game Mode framework (Pixel, Samsung,
       Asus, Nothing, Xiaomi, etc.) that this app accepts PERFORMANCE and BATTERY mode
@@ -395,6 +398,22 @@
         android:value="androidx.startup"
         tools:node="remove" />
     </provider>
+
+    <service
+      android:name=".appfunctions.RikkaAppFunctionService"
+      android:permission="android.permission.BIND_APP_FUNCTION_SERVICE"
+      android:exported="true"
+      tools:targetApi="36">
+      <property
+        android:name="android.app.appfunctions.schema"
+        android:value="app_functions_schema.xsd" />
+      <property
+        android:name="android.app.appfunctions.v2"
+        android:value="rikka_app_function_service.xml" />
+      <intent-filter>
+        <action android:name="android.app.appfunctions.AppFunctionService" />
+      </intent-filter>
+    </service>
   </application>
 
 </manifest>

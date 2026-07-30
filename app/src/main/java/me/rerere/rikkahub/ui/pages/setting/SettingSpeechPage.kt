@@ -40,6 +40,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -64,9 +65,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.rerere.rikkahub.R
 import me.rerere.asr.ASRProviderSetting
 import me.rerere.rikkahub.data.datastore.DEFAULT_SYSTEM_TTS_ID
+import me.rerere.rikkahub.data.datastore.DisplaySetting
 import me.rerere.rikkahub.data.datastore.Settings
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.AutoAIIcon
+import me.rerere.rikkahub.ui.components.ui.CardGroup
 import me.rerere.rikkahub.ui.components.ui.Tag
 import me.rerere.rikkahub.ui.components.ui.TagType
 import me.rerere.rikkahub.ui.context.LocalTTSState
@@ -85,7 +88,13 @@ fun SettingSpeechPage(vm: SettingVM = koinViewModel()) {
     var editingTTSProvider by remember { mutableStateOf<TTSProviderSetting?>(null) }
     var editingASRProvider by remember { mutableStateOf<ASRProviderSetting?>(null) }
     var selectedPage by remember { mutableIntStateOf(0) }
+    var ttsDisplaySetting by remember(settings) { mutableStateOf(settings.displaySetting) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
+    fun updateTTSDisplay(setting: DisplaySetting) {
+        ttsDisplaySetting = setting
+        vm.updateSettings(settings.copy(displaySetting = setting))
+    }
 
     Scaffold(
         topBar = {
@@ -144,6 +153,8 @@ fun SettingSpeechPage(vm: SettingVM = koinViewModel()) {
         when (selectedPage) {
             0 -> TTSProviderList(
                 settings = settings,
+                ttsDisplaySetting = ttsDisplaySetting,
+                onUpdateDisplaySetting = ::updateTTSDisplay,
                 onUpdateSettings = vm::updateSettings,
                 onEdit = { editingTTSProvider = it },
                 modifier = Modifier.padding(innerPadding)
@@ -289,6 +300,8 @@ fun SettingSpeechPage(vm: SettingVM = koinViewModel()) {
 @Composable
 private fun TTSProviderList(
     settings: Settings,
+    ttsDisplaySetting: DisplaySetting,
+    onUpdateDisplaySetting: (DisplaySetting) -> Unit,
     onUpdateSettings: (Settings) -> Unit,
     onEdit: (TTSProviderSetting) -> Unit,
     modifier: Modifier = Modifier
@@ -309,6 +322,50 @@ private fun TTSProviderList(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         state = lazyListState
     ) {
+        item(key = "tts_prefs") {
+            CardGroup(
+                modifier = Modifier.padding(horizontal = 8.dp),
+                title = { Text(stringResource(R.string.setting_page_tts_settings)) },
+            ) {
+                item(
+                    headlineContent = { Text(stringResource(R.string.setting_display_page_tts_only_read_quoted_title)) },
+                    supportingContent = { Text(stringResource(R.string.setting_display_page_tts_only_read_quoted_desc)) },
+                    trailingContent = {
+                        Switch(
+                            checked = ttsDisplaySetting.ttsOnlyReadQuoted,
+                            onCheckedChange = {
+                                onUpdateDisplaySetting(ttsDisplaySetting.copy(ttsOnlyReadQuoted = it))
+                            }
+                        )
+                    },
+                )
+                item(
+                    headlineContent = { Text(stringResource(R.string.setting_display_page_tts_read_outside_brackets_title)) },
+                    supportingContent = { Text(stringResource(R.string.setting_display_page_tts_read_outside_brackets_desc)) },
+                    trailingContent = {
+                        Switch(
+                            checked = ttsDisplaySetting.ttsOnlyReadOutsideBrackets,
+                            onCheckedChange = {
+                                onUpdateDisplaySetting(ttsDisplaySetting.copy(ttsOnlyReadOutsideBrackets = it))
+                            }
+                        )
+                    },
+                )
+                item(
+                    headlineContent = { Text(stringResource(R.string.setting_display_page_auto_play_tts_title)) },
+                    supportingContent = { Text(stringResource(R.string.setting_display_page_auto_play_tts_desc)) },
+                    trailingContent = {
+                        Switch(
+                            checked = ttsDisplaySetting.autoPlayTTSAfterGeneration,
+                            onCheckedChange = {
+                                onUpdateDisplaySetting(ttsDisplaySetting.copy(autoPlayTTSAfterGeneration = it))
+                            }
+                        )
+                    },
+                )
+            }
+        }
+
         items(settings.ttsProviders, key = { it.id }) { provider ->
             ReorderableItem(
                 state = reorderableState,

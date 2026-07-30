@@ -61,4 +61,6 @@ data class PluginToolDef(
     val description: String,
     @SerialName("input_schema")
     val inputSchema: JsonObject,
+    @SerialName("x-rikkahub-command")
+    val rikkahubCommand: String? = null,
 )

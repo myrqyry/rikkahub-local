@@ -278,6 +278,7 @@ class GenerationHandler(
     private val conversationRepo: ConversationRepository,
     private val aiLoggingManager: AILoggingManager,
     private val systemPromptBuilder: SystemPromptBuilder,
+    private val pluginManager: me.rerere.rikkahub.skills.plugins.PluginManager? = null,
 ) {
     fun generateText(
         settings: Settings,
@@ -305,6 +306,7 @@ class GenerationHandler(
         conversationModeInjectionIds: Set<Uuid> = emptySet(),
         conversationLorebookIds: Set<Uuid> = emptySet(),
         workspaceCwd: String? = null,
+        conversationId: String? = null,
     ): Flow<GenerationChunk> = flow {
         val provider = model.findProvider(settings.providers) ?: error("Provider not found")
         val providerImpl = providerManager.getProviderByType(provider)
@@ -789,7 +791,14 @@ class GenerationHandler(
                                     put("detail", JsonPrimitive("turn budget exceeded before tool started"))
                                 })))
                             } else {
-                                withTimeoutOrNull(remainingMs) { toolDef.execute(args) }
+                                pluginManager?.emitHook(
+                                    me.rerere.rikkahub.skills.plugins.PluginHookEvent.PreToolUse(
+                                        conversationId = conversationId,
+                                        toolName = toolDef.name,
+                                        args = tool.input,
+                                    )
+                                )
+                                val executeResult = withTimeoutOrNull(remainingMs) { toolDef.execute(args) }
                                     ?: run {
                                         Log.w(TAG, "generateText: ${toolDef.name} cancelled — wall-clock budget exhausted mid-execution")
                                         listOf(UIMessagePart.Text(json.encodeToString(buildJsonObject {
@@ -800,6 +809,15 @@ class GenerationHandler(
                                             )
                                         })))
                                     }
+                                pluginManager?.emitHook(
+                                    me.rerere.rikkahub.skills.plugins.PluginHookEvent.PostToolUse(
+                                        conversationId = conversationId,
+                                        toolName = toolDef.name,
+                                        args = tool.input,
+                                        resultPreview = executeResult.toString().take(500),
+                                    )
+                                )
+                                executeResult
                             }
                             // Upstream tool-output truncation: when the workspace shell is
                             // available, oversized text output is spilled to /tool_outputs/

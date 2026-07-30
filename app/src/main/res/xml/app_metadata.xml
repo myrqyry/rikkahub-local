@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppFunctionAppMetadata xmlns:appfn="http://schemas.android.com/apk/androidx.appfunctions"
+    appfn:description="On-device AI chat client with LLM inference, agent tools, and MCP support.
+
+Operational Patterns:
+- Always call 'listConversations' to find existing conversation IDs before calling 'sendChatMessage' to reuse an existing conversation.
+- Create a new conversation with 'createConversation' for unrelated topics to keep context separate.
+- Use 'searchConversations' to find conversations about a specific topic before asking a new question.
+
+Constraints:
+- sendChatMessage may take up to 120 seconds to generate a response.
+- conversationId strings must be UUID format (e.g., from listConversations or createConversation)."
+    appfn:displayDescription="AI chat and agent tools" />

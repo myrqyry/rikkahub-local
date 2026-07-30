@@ -1076,6 +1076,21 @@ function ConversationsPageInner() {
             onSelectBranch={handleSelectBranch}
             onToolApproval={handleToolApproval}
           />
+          {!isNewChat && activeId && currentAssistant?.allowConversationSystemPrompt && (
+            <SystemPromptSection
+              value={detail?.customSystemPrompt ?? ""}
+              onSave={async (prompt) => {
+                try {
+                  await api.post(`conversations/${activeId}/system-prompt`, {
+                    customSystemPrompt: prompt || null,
+                  });
+                  toast.success("System prompt saved");
+                } catch {
+                  toast.error("Failed to save system prompt");
+                }
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -1221,3 +1236,80 @@ function ConversationsPageInner() {
     </SidebarProvider>
   );
 }
+
+function SystemPromptSection({
+  value,
+  onSave,
+}: {
+  value: string;
+  onSave: (prompt: string) => Promise<void>;
+}) {
+  const [open, setOpen] = React.useState(!!value);
+  const [draft, setDraft] = React.useState(value);
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  if (!open) {
+    return (
+      <div className="flex justify-center py-1">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {value ? (
+            <><span className="inline-block size-1.5 rounded-full bg-primary" /> System prompt set</>
+          ) : (
+            "+ System prompt"
+          )}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-3xl space-y-2 px-4 pb-2">
+      <div className="space-y-2 rounded-lg border bg-muted/50 px-3 py-2.5">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-muted-foreground">System Prompt</span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={async () => {
+                setSaving(true);
+                await onSave(draft);
+                setSaving(false);
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setDraft(value);
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-2"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Set a custom system prompt for this conversation..."
+          className="w-full resize-none rounded-md border bg-background px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring"
+          rows={3}
+        />
+      </div>
+    </div>
+  );
+}
+
+

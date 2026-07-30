@@ -38,6 +38,7 @@ import me.rerere.rikkahub.web.dto.ToolApprovalRequest
 import me.rerere.rikkahub.web.dto.MessageSearchResultDto
 import me.rerere.rikkahub.web.dto.UpdateConversationInjectionsRequest
 import me.rerere.rikkahub.web.dto.UpdateConversationTitleRequest
+import me.rerere.rikkahub.web.dto.UpdateSystemPromptRequest
 import me.rerere.rikkahub.web.dto.toDto
 import me.rerere.rikkahub.web.dto.toListDto
 import me.rerere.rikkahub.utils.JsonInstant
@@ -355,6 +356,27 @@ fun Route.conversationRoutes(
             val uuid = call.parameters["id"].toUuid("conversation id")
             chatService.stopGeneration(uuid)
             call.respond(HttpStatusCode.OK, mapOf("status" to "stopped"))
+        }
+
+        // POST /api/conversations/{id}/system-prompt - Update conversation system prompt
+        post("/{id}/system-prompt") {
+            val uuid = call.parameters["id"].toUuid("conversation id")
+            val request = call.receive<UpdateSystemPromptRequest>()
+
+            chatService.initializeConversation(uuid)
+            val conversation = chatService.getConversationFlow(uuid).first()
+            val settings = settingsStore.settingsFlow.first()
+            val assistant = settings.assistants.firstOrNull { it.id == conversation.assistantId }
+                ?: throw NotFoundException("Assistant not found")
+            if (!assistant.allowConversationSystemPrompt) {
+                throw BadRequestException("Conversation system prompt is not enabled for this assistant")
+            }
+
+            chatService.saveConversation(
+                uuid,
+                conversation.copy(customSystemPrompt = request.customSystemPrompt?.trim()?.ifBlank { null })
+            )
+            call.respond(HttpStatusCode.OK, mapOf("status" to "updated"))
         }
 
         // POST /api/conversations/{id}/tool-approval - Handle tool approval

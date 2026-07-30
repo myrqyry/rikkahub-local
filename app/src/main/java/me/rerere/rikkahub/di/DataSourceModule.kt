@@ -50,6 +50,8 @@ import me.rerere.rikkahub.data.rag.VectorDao
 import me.rerere.rikkahub.data.sync.webdav.WebDavSync
 import me.rerere.search.SearchService
 import me.rerere.rikkahub.data.sync.S3Sync
+import me.rerere.rikkahub.skills.plugins.PluginManager
+import me.rerere.rikkahub.skills.plugins.SlashCommandRegistry
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -181,6 +183,7 @@ val dataSourceModule = module {
             conversationRepo = get(),
             aiLoggingManager = get(),
             systemPromptBuilder = get(),
+            pluginManager = getOrNull(),
         )
     }
 
@@ -387,5 +390,14 @@ val dataSourceModule = module {
 
     single<RikkaHubAPI> {
         get<Retrofit>().create(RikkaHubAPI::class.java)
+    }
+
+    single {
+        PluginManager(
+            context = get(),
+            settingsStore = get(),
+            httpClient = get(),
+            registry = get<SlashCommandRegistry>(),
+        )
     }
 }

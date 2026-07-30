@@ -165,6 +165,7 @@ class ChatService(
     private val toolApprovalPreferences: me.rerere.rikkahub.data.preferences.ToolApprovalPreferences,
     private val workspaceRepository: WorkspaceRepository,
     private val folderRepository: FolderRepository,
+    private val pluginManager: me.rerere.rikkahub.skills.plugins.PluginManager,
 ) {
     // workspace 系统提示注入 (依赖 workspaceRepository, 故在类内构造)
     private val workspaceReminderTransformer = WorkspaceReminderTransformer(workspaceRepository)
@@ -412,6 +413,17 @@ class ChatService(
                     ).toMessageNode(),
                 )
                 saveConversation(conversationId, withUser)
+
+                val contentPreview = processedContent.firstOrNull()?.let { part ->
+                    if (part is me.rerere.ai.ui.UIMessagePart.Text) part.text.take(200)
+                    else part::class.simpleName
+                }.orEmpty()
+                pluginManager.emitHook(
+                    me.rerere.rikkahub.skills.plugins.PluginHookEvent.UserPromptSubmit(
+                        conversationId = conversationId.toString(),
+                        contentPreview = contentPreview,
+                    )
+                )
 
                 // Phase 16 — fast-path router. If the assistant has it enabled and the user's
                 // message matches a deterministic intent, run the matching tool and inject the
@@ -897,7 +909,12 @@ class ChatService(
                         modelCanSeeImages = Modality.IMAGE in model.inputModalities,
                     )
                     addAll(localTools.getTools(assistant.localTools, invocationCtx))
-                    addAll(createWorkspaceToolsIfReady(assistant.workspaceId?.toString(), conversation.workspaceCwd))
+                    val workspaceIdStr = assistant.workspaceId?.toString()
+                    val workspaceTools = createWorkspaceToolsIfReady(workspaceIdStr, conversation.workspaceCwd)
+                    addAll(workspaceTools)
+                    if (workspaceTools.isNotEmpty()) {
+                        addAll(pluginManager.createPluginTools(workspaceIdStr!!, workspaceRepository))
+                    }
                     if (assistant.enabledSkills.isNotEmpty()) {
                         addAll(
                             createSkillTools(
@@ -966,7 +983,13 @@ class ChatService(
                         )
                     }
                 },
+                conversationId = conversationId.toString(),
             ).onCompletion {
+                pluginManager.emitHook(
+                    me.rerere.rikkahub.skills.plugins.PluginHookEvent.SessionEnd(
+                        conversationId = conversationId.toString(),
+                    )
+                )
                 // 取消 Live Update 通知
                 cancelLiveUpdateNotification(conversationId)
 
@@ -1828,6 +1851,11 @@ class ChatService(
         // cancelAndJoin BEFORE the mutex so the cancelled coroutine can drain its own
         // writes (which may try to acquire the same mutex via their save path).
         sessions[conversationId]?.getJob()?.let { runCatching { it.cancelAndJoin() } }
+        pluginManager.emitHook(
+            me.rerere.rikkahub.skills.plugins.PluginHookEvent.Stop(
+                conversationId = conversationId.toString(),
+            )
+        )
 
         convMutex.withLock {
             // Hydrate from disk so we mark Pending tools cancelled even when the user

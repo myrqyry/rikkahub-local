@@ -164,6 +164,7 @@ tasks.register("buildAll") {
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
+    arg("appfunctions:aggregateAppFunctions", "true")
 }
 
 kotlin {
@@ -180,6 +181,8 @@ dependencies {
     implementation(libs.androidx.browser)
     implementation(libs.androidx.webkit)
     implementation(libs.androidx.profileinstaller)
+    implementation(libs.androidx.appfunctions)
+    ksp(libs.androidx.appfunctions.compiler)
     implementation(libs.termux.terminal.view)
     implementation(libs.guava.listenablefuture)
 

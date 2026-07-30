@@ -3,7 +3,9 @@ package me.rerere.rikkahub.web.routes
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
+import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import io.ktor.server.routing.put
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.route
 import me.rerere.ai.provider.BuiltInTools
@@ -27,6 +29,16 @@ fun Route.settingsRoutes(
     settingsStore: SettingsStore
 ) {
     route("/settings") {
+        get {
+            call.respond(settingsStore.settingsFlow.value)
+        }
+
+        put {
+            val body = call.receive<me.rerere.rikkahub.data.datastore.Settings>()
+            settingsStore.update(body)
+            call.respond(HttpStatusCode.OK, mapOf("status" to "ok"))
+        }
+
         post("/assistant") {
             val request = call.receive<UpdateAssistantRequest>()
             val assistantId = request.assistantId.toUuid("assistantId")
