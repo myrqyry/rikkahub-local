@@ -168,6 +168,7 @@ class ChatService(
     private val folderRepository: FolderRepository,
     private val pluginManager: me.rerere.rikkahub.skills.plugins.PluginManager,
     private val agentMemoryManager: me.rerere.rikkahub.data.ai.memory.AgentMemoryManager,
+    private val contentCompressorStore: me.rerere.rikkahub.data.ai.compressor.CompressedContentStore?,
 ) {
     // workspace 系统提示注入 (依赖 workspaceRepository, 故在类内构造)
     private val workspaceReminderTransformer = WorkspaceReminderTransformer(workspaceRepository)
@@ -927,6 +928,9 @@ class ChatService(
                         )
                     }
                     addAll(createAgentMemoryTools(agentMemoryManager))
+                    if (contentCompressorStore != null) {
+                        add(me.rerere.rikkahub.data.ai.compressor.createRetrievalTool(contentCompressorStore))
+                    }
                     mcpManager.getAllAvailableTools().also { allTools ->
                         // Upstream name validation: a server name that isn't pure
                         // English+digits would produce an invalid `mcp__<name>__tool`
@@ -1084,7 +1088,10 @@ class ChatService(
             )
             return emptyList()
         }
-        return createWorkspaceTools(workspaceId, workspaceRepository, cwd)
+        val tools = createWorkspaceTools(workspaceId, workspaceRepository, cwd)
+        return if (contentCompressorStore != null) {
+            tools.map { me.rerere.rikkahub.data.ai.compressor.ContentCompressor.wrapTool(it, contentCompressorStore) }
+        } else tools
     }
 
     // ---- 检查无效消息 ----

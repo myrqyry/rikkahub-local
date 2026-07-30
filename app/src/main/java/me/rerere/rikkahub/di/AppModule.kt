@@ -38,6 +38,7 @@ val appModule = module {
     }
 
     single { me.rerere.rikkahub.data.ai.memory.AgentMemoryManager(get()) }
+    single { me.rerere.rikkahub.data.ai.compressor.CompressedContentStore(java.io.File(get<android.content.Context>().filesDir, "compressed_outputs")) }
     single { CameraResultBuffer() }
     single { BiometricResultBuffer() }
     // Phase 25 — NFC reader-mode + SAF directory-picker Activity bridges, and the SAF
@@ -255,6 +256,7 @@ val appModule = module {
             folderRepository = get(),
             pluginManager = get(),
             agentMemoryManager = get(),
+            contentCompressorStore = get(),
         )
     }
 
