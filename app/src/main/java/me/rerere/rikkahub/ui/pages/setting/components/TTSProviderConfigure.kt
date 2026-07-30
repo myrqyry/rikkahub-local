@@ -36,7 +36,12 @@ fun TTSProviderConfigure(
     ) {
         // Provider type selector
         var expanded by remember { mutableStateOf(false) }
-        val providers = remember { TTSProviderSetting.Types }
+        val providers = remember {
+            val types = TTSProviderSetting.Types
+            val local = types.filter { it == TTSProviderSetting.SystemTTS::class || it == TTSProviderSetting.NekoSpeakTts::class }
+            val cloud = types.filter { it != TTSProviderSetting.SystemTTS::class && it != TTSProviderSetting.NekoSpeakTts::class }
+            local + cloud
+        }
 
         FormItem(
             label = { Text(stringResource(R.string.setting_tts_page_provider_type)) },
@@ -50,7 +55,7 @@ fun TTSProviderConfigure(
                     value = when (setting) {
                         is TTSProviderSetting.OpenAI -> "OpenAI"
                         is TTSProviderSetting.Gemini -> "Gemini"
-                        is TTSProviderSetting.SystemTTS -> "System TTS"
+                        is TTSProviderSetting.SystemTTS -> "System TTS (Local)"
                         is TTSProviderSetting.MiniMax -> "MiniMax"
                         is TTSProviderSetting.Qwen -> "Qwen"
                         is TTSProviderSetting.Groq -> "Groq"
@@ -59,7 +64,7 @@ fun TTSProviderConfigure(
                         is TTSProviderSetting.Step -> "Step"
                         is TTSProviderSetting.ElevenLabs -> "ElevenLabs"
                         is TTSProviderSetting.FishAudio -> "Fish Audio"
-                        is TTSProviderSetting.NekoSpeakTts -> "NekoSpeak"
+                        is TTSProviderSetting.NekoSpeakTts -> "NekoSpeak (Local)"
                     },
                     onValueChange = {},
                     readOnly = true,
@@ -81,7 +86,7 @@ fun TTSProviderConfigure(
                                     when (providerClass) {
                                         TTSProviderSetting.OpenAI::class -> "OpenAI"
                                         TTSProviderSetting.Gemini::class -> "Gemini"
-                                        TTSProviderSetting.SystemTTS::class -> "System TTS"
+                                        TTSProviderSetting.SystemTTS::class -> "System TTS (Local)"
                                         TTSProviderSetting.MiniMax::class -> "MiniMax"
                                         TTSProviderSetting.Qwen::class -> "Qwen"
                                         TTSProviderSetting.Groq::class -> "Groq"
@@ -90,6 +95,7 @@ fun TTSProviderConfigure(
                                         TTSProviderSetting.ElevenLabs::class -> "ElevenLabs"
                                         TTSProviderSetting.FishAudio::class -> "Fish Audio"
                                         TTSProviderSetting.Step::class -> "Step"
+                                        TTSProviderSetting.NekoSpeakTts::class -> "NekoSpeak (Local)"
                                         else -> providerClass.simpleName ?: "Unknown"
                                     }
                                 )
@@ -149,6 +155,11 @@ fun TTSProviderConfigure(
                                     TTSProviderSetting.Step::class -> TTSProviderSetting.Step(
                                         id = setting.id,
                                         name = "Step TTS"
+                                    )
+
+                                    TTSProviderSetting.NekoSpeakTts::class -> TTSProviderSetting.NekoSpeakTts(
+                                        id = setting.id,
+                                        name = "NekoSpeak TTS"
                                     )
 
                                     else -> setting

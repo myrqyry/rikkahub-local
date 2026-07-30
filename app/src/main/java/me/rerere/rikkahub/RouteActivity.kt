@@ -109,7 +109,6 @@ import me.rerere.rikkahub.ui.pages.setting.SettingAboutPage
 import me.rerere.rikkahub.ui.pages.setting.SettingAccessibilityPage
 import me.rerere.rikkahub.ui.pages.setting.SettingNotificationsPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPermissionsPage
-import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesThemePage
 import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesNotificationPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesGeneralPage
@@ -429,10 +428,6 @@ class RouteActivity : ComponentActivity() {
 
                             entry<Screen.SettingTheme> {
                                 SettingThemePage()
-                            }
-
-                            entry<Screen.SettingPreferences> {
-                                SettingPreferencesPage()
                             }
 
                             entry<Screen.SettingPreferencesTheme> {

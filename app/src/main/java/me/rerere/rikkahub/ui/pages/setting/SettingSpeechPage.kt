@@ -591,6 +591,14 @@ private fun AddASRProviderButton(onAdd: (ASRProviderSetting) -> Unit) {
             onDismissRequest = { showTypeMenu = false }
         ) {
             DropdownMenuItem(
+                text = { Text("Whisper (Local)") },
+                onClick = {
+                    currentProvider = ASRProviderSetting.WhisperAsr()
+                    showTypeMenu = false
+                    showBottomSheet = true
+                }
+            )
+            DropdownMenuItem(
                 text = { Text("OpenAI Realtime") },
                 onClick = {
                     currentProvider = ASRProviderSetting.OpenAIRealtime()
