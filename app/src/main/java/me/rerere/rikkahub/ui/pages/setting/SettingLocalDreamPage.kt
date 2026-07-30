@@ -27,6 +27,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,12 +51,14 @@ import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.AiMagic
 import me.rerere.hugeicons.stroke.CheckmarkCircle02
 import me.rerere.hugeicons.stroke.Download02
+import me.rerere.hugeicons.stroke.Link02
 import me.rerere.hugeicons.stroke.Search01
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.CardGroup
 import me.rerere.rikkahub.ui.context.LocalSettings
 import me.rerere.rikkahub.ui.theme.CustomColors
+import me.rerere.rikkahub.utils.openUrl
 import me.rerere.rikkahub.utils.plus
 import okhttp3.OkHttpClient
 import org.koin.compose.koinInject
@@ -268,7 +271,14 @@ fun SettingLocalDreamPage() {
             }
 
             item("model_download_header") {
-                Text("Model Download", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 12.dp))
+                Column {
+                    Text("Model Download", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 12.dp))
+                    TextButton(onClick = { context.openUrl("https://huggingface.co/xororz/sd-qnn/tree/main") }, modifier = Modifier.padding(horizontal = 4.dp)) {
+                        Icon(HugeIcons.Link02, null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Browse all models on HuggingFace", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
             }
 
             if (isLoadingModels) {

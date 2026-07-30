@@ -65,6 +65,7 @@ import me.rerere.rikkahub.data.ai.GenerationHandler
 import me.rerere.rikkahub.data.ai.mcp.McpManager
 import me.rerere.rikkahub.data.ai.tools.LocalTools
 import me.rerere.rikkahub.data.ai.tools.createSearchTools
+import me.rerere.rikkahub.data.ai.memory.createAgentMemoryTools
 import me.rerere.rikkahub.data.ai.tools.createSkillTools
 import me.rerere.rikkahub.data.ai.tools.createWorkspaceTools
 import me.rerere.rikkahub.data.files.SkillManager
@@ -166,6 +167,7 @@ class ChatService(
     private val workspaceRepository: WorkspaceRepository,
     private val folderRepository: FolderRepository,
     private val pluginManager: me.rerere.rikkahub.skills.plugins.PluginManager,
+    private val agentMemoryManager: me.rerere.rikkahub.data.ai.memory.AgentMemoryManager,
 ) {
     // workspace 系统提示注入 (依赖 workspaceRepository, 故在类内构造)
     private val workspaceReminderTransformer = WorkspaceReminderTransformer(workspaceRepository)
@@ -924,6 +926,7 @@ class ChatService(
                             )
                         )
                     }
+                    addAll(createAgentMemoryTools(agentMemoryManager))
                     mcpManager.getAllAvailableTools().also { allTools ->
                         // Upstream name validation: a server name that isn't pure
                         // English+digits would produce an invalid `mcp__<name>__tool`

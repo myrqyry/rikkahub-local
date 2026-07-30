@@ -37,6 +37,7 @@ val appModule = module {
         AppEventBus()
     }
 
+    single { me.rerere.rikkahub.data.ai.memory.AgentMemoryManager(get()) }
     single { CameraResultBuffer() }
     single { BiometricResultBuffer() }
     // Phase 25 — NFC reader-mode + SAF directory-picker Activity bridges, and the SAF
@@ -253,6 +254,7 @@ val appModule = module {
             workspaceRepository = get(),
             folderRepository = get(),
             pluginManager = get(),
+            agentMemoryManager = get(),
         )
     }
 
