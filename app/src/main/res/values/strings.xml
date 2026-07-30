@@ -1679,6 +1679,7 @@
   <string name="local_llm_catalog_tag_multimodal">Multimodal</string>
   <string name="local_llm_catalog_tag_thinking">Thinking</string>
   <string name="local_llm_catalog_tag_speculative">Speculative decoding</string>
+  <string name="local_llm_import_filesystem">Load from filesystem</string>
   <string name="mcp_error_reconnect_exhausted">Connection lost — maximum reconnect attempts reached</string>
   <string name="ocr_status_recognizing">Recognizing image…</string>
   <string name="share_sheet_title">Share your LLM models</string>

@@ -1277,6 +1277,7 @@
   <string name="local_llm_catalog_subtitle">Курировано Google AI Edge Gallery. Выберите одну для установки в одно нажатие.</string>
   <string name="local_llm_catalog_tag_multimodal">Мультимодальная</string>
   <string name="local_llm_catalog_tag_speculative">Спекулятивное декодирование</string>
+  <string name="local_llm_import_filesystem">Загрузить из файловой системы</string>
   <string name="local_llm_catalog_tag_thinking">Мышление</string>
   <string name="local_llm_catalog_title">Рекомендуемые модели</string>
   <string name="local_llm_crash_recovery_format">Восстановлено: локальная модель аварийно завершилась в прошлой сессии на %1$s — автоматически переключено на CPU. Нажмите, чтобы закрыть; переключите &#8220;Попробовать ускорение GPU&#8221; ниже, чтобы повторить.</string>

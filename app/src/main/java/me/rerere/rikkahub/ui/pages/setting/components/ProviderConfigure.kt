@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.background
 import androidx.compose.ui.Alignment
@@ -867,6 +868,14 @@ private fun ColumnScope.ProviderConfigureLiteRT(
     val visionUnavailableSet by vm.visionUnavailableSet.collectAsStateWithLifecycle()
     val perfTelemetry by vm.perfTelemetry.collectAsStateWithLifecycle()
 
+    val scope = rememberCoroutineScope()
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        vm.importModelFromUri(uri)
+    }
+
     provider.description()
 
     // Friendly post-crash banner. Default tone is "we handled it", not "panic".
@@ -984,6 +993,14 @@ private fun ColumnScope.ProviderConfigureLiteRT(
                 downloadInProgress = downloadProgress != null,
                 onInstall = { vm.startManualDownload(entry.resolveUrl()) },
             )
+        }
+
+        OutlinedButton(
+            onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
+            enabled = downloadProgress == null,
+            modifier = Modifier.padding(top = 4.dp),
+        ) {
+            Text(stringResource(R.string.local_llm_import_filesystem))
         }
     }
 

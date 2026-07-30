@@ -1277,6 +1277,7 @@ mDNSアドレス: .localホスト名を使用し、IPを知らなくても同じ
   <string name="local_llm_catalog_subtitle">Google AI Edge Gallery が厳選。ワンタップインストールするものを 1 つ選んでください。</string>
   <string name="local_llm_catalog_tag_multimodal">マルチモーダル</string>
   <string name="local_llm_catalog_tag_speculative">投機的デコード</string>
+  <string name="local_llm_import_filesystem">ファイルシステムから読み込む</string>
   <string name="local_llm_catalog_tag_thinking">思考</string>
   <string name="local_llm_catalog_title">推奨モデル</string>
   <string name="local_llm_crash_recovery_format">復旧しました：ローカルモデルが前回のセッションで %1$s 上でクラッシュしました — 自動的に CPU に切り替えました。タップして閉じる。再試行するには下の &#8220;GPU アクセラレーションを試す&#8221; を切り替えてください。</string>

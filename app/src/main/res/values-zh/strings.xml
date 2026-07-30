@@ -1305,6 +1305,7 @@ mDNS 地址：使用 .local 主机名，同一网络中的其他设备可通过�
   <string name="local_llm_catalog_subtitle">由 Google AI Edge Gallery 精选。选择一个即可一键安装。</string>
   <string name="local_llm_catalog_tag_multimodal">多模态</string>
   <string name="local_llm_catalog_tag_speculative">推测解码</string>
+  <string name="local_llm_import_filesystem">从文件系统加载</string>
   <string name="local_llm_catalog_tag_thinking">思考</string>
   <string name="local_llm_catalog_title">推荐模型</string>
   <string name="local_llm_crash_recovery_format">已恢复：本地模型上次会话在 %1$s 上崩溃 — 已自动切换到 CPU。点击关闭；切换下方的 &#8220;尝试 GPU 加速&#8221; 以重试。</string>

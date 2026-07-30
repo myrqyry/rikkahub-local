@@ -1275,6 +1275,7 @@
   <string name="local_llm_catalog_subtitle">由 Google AI Edge Gallery 精選。選擇一個即可一鍵安裝。</string>
   <string name="local_llm_catalog_tag_multimodal">多模態</string>
   <string name="local_llm_catalog_tag_speculative">推測解碼</string>
+  <string name="local_llm_import_filesystem">從檔案系統載入</string>
   <string name="local_llm_catalog_tag_thinking">思考</string>
   <string name="local_llm_catalog_title">推薦模型</string>
   <string name="local_llm_crash_recovery_format">已復原：本機模型上次工作階段在 %1$s 上當機 — 已自動切換到 CPU。點選關閉；切換下方的 &#8220;嘗試 GPU 加速&#8221; 以重試。</string>

@@ -1427,6 +1427,7 @@
   <string name="local_llm_catalog_tag_multimodal">متعدد الوسائط</string>
   <string name="local_llm_catalog_tag_thinking">تفكير</string>
   <string name="local_llm_catalog_tag_speculative">فك ترميز تخميني</string>
+  <string name="local_llm_import_filesystem">تحميل من نظام الملفات</string>
   <string name="asr_button_content_description">التعرف على الكلام</string>
   <string name="asr_button_stop">إيقاف</string>
   <string name="assistant_page_temperature_warning">عادةً 1. لا يُنصح بتغييرها لنماذج الاستدلال.</string>

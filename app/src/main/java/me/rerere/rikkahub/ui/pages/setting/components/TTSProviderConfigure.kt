@@ -1,10 +1,16 @@
 package me.rerere.rikkahub.ui.pages.setting.components
 
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -15,14 +21,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.ui.components.ui.FormItem
 import me.rerere.rikkahub.ui.components.ui.OutlinedNumberInput
 import me.rerere.tts.provider.TTSProviderSetting
+import java.io.File
 
 @Composable
 fun TTSProviderConfigure(
@@ -1515,19 +1527,41 @@ private fun NekoSpeakTTSConfiguration(
     setting: TTSProviderSetting.NekoSpeakTts,
     onValueChange: (TTSProviderSetting) -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val dest = copyModelToAppDir(context, uri, "neko-speak")
+            if (dest != null) {
+                onValueChange(setting.copy(modelPath = dest.absolutePath))
+            }
+        }
+    }
+
     // Model Path
     FormItem(
         label = { Text(stringResource(R.string.setting_tts_page_api_key)) },
         description = { Text("Model file path") }
     ) {
-        OutlinedTextField(
-            value = setting.modelPath,
-            onValueChange = { newPath ->
-                onValueChange(setting.copy(modelPath = newPath))
-            },
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("/data/local/tmp/tts_model.ort") },
-        )
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedTextField(
+                value = setting.modelPath,
+                onValueChange = { newPath ->
+                    onValueChange(setting.copy(modelPath = newPath))
+                },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("/data/local/tmp/tts_model.ort") },
+            )
+            Button(onClick = { filePickerLauncher.launch(arrayOf("*/*")) }) {
+                Text("Browse")
+            }
+        }
     }
 
     // Voice
@@ -1578,4 +1612,17 @@ private fun NekoSpeakTTSConfiguration(
             label = "Pitch"
         )
     }
+}
+
+private suspend fun copyModelToAppDir(context: Context, uri: Uri, subDir: String): File? = withContext(Dispatchers.IO) {
+    val dir = File(context.filesDir, "models/$subDir").apply { mkdirs() }
+    val name = uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+        ?: "${subDir}_${System.currentTimeMillis()}"
+    val target = File(dir, name)
+    try {
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            target.outputStream().use { output -> input.copyTo(output) }
+        } ?: return@withContext null
+        target
+    } catch (_: Exception) { null }
 }

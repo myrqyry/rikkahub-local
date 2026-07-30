@@ -1,20 +1,33 @@
 package me.rerere.rikkahub.ui.pages.setting.components
 
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.rerere.asr.ASRProviderSetting
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.ui.components.ui.FormItem
 import me.rerere.rikkahub.ui.components.ui.OutlinedNumberInput
+import java.io.File
 
 @Composable
 fun ASRProviderConfigure(
@@ -538,16 +551,38 @@ private fun WhisperASRConfiguration(
     setting: ASRProviderSetting.WhisperAsr,
     onValueChange: (ASRProviderSetting) -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val dest = copyModelToAppDir(context, uri, "whisper")
+            if (dest != null) {
+                onValueChange(setting.copy(modelPath = dest.absolutePath))
+            }
+        }
+    }
+
     FormItem(
         label = { Text("Model Path") },
         description = { Text("Path to whisper.cpp model file") }
     ) {
-        OutlinedTextField(
-            value = setting.modelPath,
-            onValueChange = { onValueChange(setting.copy(modelPath = it)) },
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("ggml-base.bin") }
-        )
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedTextField(
+                value = setting.modelPath,
+                onValueChange = { onValueChange(setting.copy(modelPath = it)) },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("ggml-base.bin") },
+            )
+            Button(onClick = { filePickerLauncher.launch(arrayOf("*/*")) }) {
+                Text("Browse")
+            }
+        }
     }
     FormItem(
         label = { Text("Language") },
@@ -560,4 +595,17 @@ private fun WhisperASRConfiguration(
             placeholder = { Text("auto") }
         )
     }
+}
+
+private suspend fun copyModelToAppDir(context: Context, uri: Uri, subDir: String): File? = withContext(Dispatchers.IO) {
+    val dir = File(context.filesDir, "models/$subDir").apply { mkdirs() }
+    val name = uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+        ?: "${subDir}_${System.currentTimeMillis()}"
+    val target = File(dir, name)
+    try {
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            target.outputStream().use { output -> input.copyTo(output) }
+        } ?: return@withContext null
+        target
+    } catch (_: Exception) { null }
 }

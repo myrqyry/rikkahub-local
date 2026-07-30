@@ -337,14 +337,14 @@ fun SettingLocalDreamPage() {
                                                     state is LocalDreamModelDownloader.Progress.Failed -> {
                                                         Button(onClick = {
                                                             val dl = model
-                                                            scope.launch { LocalDreamModelDownloader.downloadModel(context, httpClient, dl).collect { p -> downloadProgress[dl.fileName] = p; if (p is LocalDreamModelDownloader.Progress.Done) downloadedModels[dl.fileName] = true } }
+                                                            scope.launch { LocalDreamModelDownloader.downloadModel(context, httpClient, dl).collect { p -> downloadProgress[dl.fileName] = p; if (p is LocalDreamModelDownloader.Progress.Done) { downloadedModels[dl.fileName] = true; modelId = dl.modelName; save() } } }
                                                         }) { Text("Retry") }
                                                     }
                                                     state != null -> {}
                                                     else -> {
                                                         Button(onClick = {
                                                             val dl = model
-                                                            scope.launch { LocalDreamModelDownloader.downloadModel(context, httpClient, dl).collect { p -> downloadProgress[dl.fileName] = p; if (p is LocalDreamModelDownloader.Progress.Done) downloadedModels[dl.fileName] = true } }
+                                                            scope.launch { LocalDreamModelDownloader.downloadModel(context, httpClient, dl).collect { p -> downloadProgress[dl.fileName] = p; if (p is LocalDreamModelDownloader.Progress.Done) { downloadedModels[dl.fileName] = true; modelId = dl.modelName; save() } } }
                                                         }) {
                                                             Icon(HugeIcons.Download02, null, Modifier.size(16.dp))
                                                             Spacer(Modifier.width(4.dp))

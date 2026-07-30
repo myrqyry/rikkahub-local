@@ -1,8 +1,10 @@
 package me.rerere.rikkahub.ui.pages.setting.locallm
 
 import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -11,6 +13,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelAbility
 import me.rerere.ai.provider.ProviderSetting
@@ -23,7 +26,9 @@ import me.rerere.locallm.MemoryGuard
 import me.rerere.locallm.ModelInstall
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.SettingsStore
+import me.rerere.rikkahub.data.files.FileUtils
 import okhttp3.OkHttpClient
+import java.io.File
 
 /**
  * Drives the LiteRT provider configure pane inside the standard
@@ -325,6 +330,58 @@ class SettingLocalLlmViewModel(
                 return@launch
             }
             executeDownload(url)
+        }
+    }
+
+    fun importModelFromUri(uri: Uri) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                val baseDir = ModelInstall.localModelsDir(context)
+                val displayName = FileUtils.getFileNameFromUri(context, uri)
+                    ?.takeIf { it.isNotBlank() }
+                    ?: "model_${System.currentTimeMillis()}.litertlm"
+                val safeName = if (displayName.endsWith(".litertlm")) displayName else "$displayName.litertlm"
+                val targetFile = ModelInstall.targetFile(baseDir, runtime, safeName)
+                try {
+                    targetFile.delete()
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        targetFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    } ?: run {
+                        _errorMessage.value = "Could not open selected file"
+                        return@withContext
+                    }
+                    targetFile.inputStream().use { stream ->
+                        val buf = ByteArray(8)
+                        val n = stream.read(buf)
+                        if (n <= 0 || !ModelInstall.isValidMagicForExtension("litertlm", buf.copyOf(n))) {
+                            targetFile.delete()
+                            _errorMessage.value = "Invalid or corrupted model file"
+                            return@withContext
+                        }
+                    }
+                    prefs.addInstalledModel(runtime, safeName, targetFile.absolutePath)
+                    val caps = LiteRtModelMetadata.deriveCapabilities(safeName)
+                    val model = Model(
+                        modelId = safeName,
+                        displayName = safeName,
+                        inputModalities = caps.inputModalities,
+                        abilities = caps.abilities,
+                    )
+                    updateMyProvider { provider -> provider.addModel(model) }
+                    updateMyProvider { provider ->
+                        when (provider) {
+                            is ProviderSetting.LiteRtLocal -> provider.copy(enabled = true)
+                            else -> provider
+                        }
+                    }
+                    refreshFromDisk()
+                } catch (e: Exception) {
+                    _errorMessage.value = e.message ?: "Import failed"
+                    runCatching { targetFile.delete() }
+                }
+            }
         }
     }
 
