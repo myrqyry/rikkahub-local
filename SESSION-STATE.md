@@ -269,6 +269,53 @@ MODIFIED:
 
 KEY API FACTS (local-llm, package me.rerere.locallm): ModelInventory (in-memory map; add/remove/getById/list/listByRuntime/findByFilePath — NOT persisted); ImageProfileStore (in-memory map; save/delete/getById/list/listByModelId); ModelEntry(id, displayName, runtime: LocalRuntime, family, format, source: ModelSource{Catalog(entryId)/CustomUrl(url)/LocalImport}, sourceUrl, filePath, sizeBytes, license, validated, addedAt); SdCatalogEntry(displayName, family, format, description, modelId, modelFile, sizeBytes, license, minDeviceMemoryGb, recommended, tags){resolveUrl()}; SdCatalog.ENTRIES currently EMPTY (verified entries only); ImageProfile(id, name, modelId, width, height, steps, cfgScale, seed, negativePrompt).
 
-DEFERRED (ponytail): plan step 4 "slim ProviderConfigureLiteRT" NOT done — keep LiteRT tile as-is; do in follow-up if user wants. T9/T10 next.
+DEFERRED (ponytail): plan step 4 "slim ProviderConfigureLiteRT" NOT done — keep LiteRT tile as-is; do in follow-up if user wants.
 
-NEXT: T9/T10 per plan (docs/superpowers/plans/2026-08-01-local-image-generation.md lines ~1017+). Commit T8 as "feat: add Model Manager UI page with tabs" (--no-verify repo convention). git add: 2 new modelmanager files + RouteActivity.kt + SettingPage.kt + SESSION-STATE.md.
+---
+## Session: 2026-08-01 — T9/T10 COMPLETE, ALL 10 PLAN TASKS DONE
+
+**TASK 9** (commit 3a672128 "test: add SdCatalog unit tests"): Created local-llm/src/test/java/me/rerere/locallm/SdCatalogTest.kt (34 lines, 4 backtick-named JUnit4 tests): empty catalog returns empty; findById on empty returns null; findByFamily on empty returns empty; resolveUrl builds "https://huggingface.co/test/model/resolve/main/test.gguf". Ran `./gradlew :local-llm:testDebugUnitTest` → BUILD SUCCESSFUL (all module tests pass).
+
+**TASK 10** (commit f9ca6eb2 "test: add device tests for JNI lifecycle safety"): Created app/src/androidTest/java/me/rerere/rikkahub/data/ai/StableDiffusionBridgeTest.kt (27 lines): @RunWith(AndroidJUnit4::class), 3 tests — nativeInit("/nonexistent/model.gguf", 1) returns false; nativeRelease safe when not initialized; nativeGenerate returns null when not initialized. NOT run (requires device/emulator).
+
+**PLAN COMPLETE**: docs/superpowers/plans/2026-08-01-local-image-generation.md (1134 lines) — all 10 tasks done, no further tasks. On-device Stable Diffusion image generation (stable-diffusion.cpp JNI) shipped across ai/ + app/ + local-llm/.
+
+**FULL COMMIT HISTORY** (oldest→newest): 366fbc55 (T1 JNI bridge + .so), d85de91d (T5 ModelInstall GGUF), 9e62c3b0 (T2 ModelEntry+Inventory), cafe86f7 (T3 SdCatalog), 6a63ec7d (T4 ImageProfile+Store), 47db3f20 (T6 StableDiffusionProvider), 7e9bfa00 (T7 ProviderSetting.StableDiffusion + DI), aff0a507 (T8 Model Manager page), 3a672128 (T9 SdCatalog tests), f9ca6eb2 (T10 device tests), 9b763043 (wire Model Manager + SD provider pane to koin + SdCatalog), 11da291a (add SD GGUF catalog entries to SdCatalog), 5cd09092 (add generation-parameter UIs to SD + LiteRT provider panes). HEAD = 5cd09092.
+
+## Session: 2026-08-01 — SD/LiteRT generation-parameter panes COMPLETE
+
+Commit 5cd09092 "feat: add generation-parameter UIs to SD and LiteRT provider panes" (4 files, +171/-3):
+- ProviderSetting.StableDiffusion fields (ai/ProviderSetting.kt): width=512, height=512, steps=20, cfgScale=7.0f, seed=-1, negativePrompt="", useVulkan=true — used directly as gen params.
+- ProviderConfigure.kt SD pane: "Generation parameters" section (title string provider_sd_gen_params_title) with 3 rows — Width/Height (Int fields, range 64..2048 via takeIf commit), Steps (1..150)/CFG scale (0.0..30.0 Double), Seed (allowNegative=true, -1=random, no range check) + negativePrompt OutlinedTextField (3 lines) + useVulkan switch. Also added generic composables `IntParamField`/`DoubleParamField` (OutlinedTextField with parse validation + `remember(value)` text state, commit-on-parse pattern matching existing maxTokens).
+- LiteRT pane: "Sampling overrides" section — Top-K (Int, nullable, no range check), Top-P (Double 0.0..1.0 via takeIf), Temperature (Double 0.0..2.0 via takeIf) + "Reset sampling" TextButton clearing topK/topP/temperature. Wired to ProviderSetting.LiteRtLocal nullable fields (topK:Int?, topP:Double?, temperature:Double?) — null = fall back to curated per-model defaults. LiteRtProvider (local-llm/litert/LiteRtProvider.kt) now reads these via `setting.topK ?: curatedDefault` and passes to ensureLoaded sampling params.
+- New strings.xml keys: provider_sd_gen_params_title/width/height/steps/cfg/seed/negative_prompt/use_vulkan labels + provider_litert_sampling_title/topk/topp/temperature/sampling_reset.
+- LESSON: don't coerceIn inside onCommit when field uses `remember(value)` key — the value change resets the text mid-typing. Use takeIf range-guard instead (only commit in-range values), mirroring existing maxNumTokensOverride pattern.
+- Verified: `./gradlew :app:compileDebugKotlin` BUILD SUCCESSFUL.
+
+Working tree: only SESSION-STATE.md modified (this doc); `.superpowers/` untracked (ignore).
+
+NEXT (optional follow-ups, only if user asks): implement ModelManager tabs (Installed/Catalog/HF URL/Local Import) + real SdCatalog.ENTRIES with model cards; slim ProviderConfigureLiteRT (deferred by ponytail); run connectedDebugAndroidTest on a device; verify SD runtime picks up new provider defaults (ModelManagerViewModel wired via koin in 9b763043).
+
+## Session: 2026-08-02 — Local TTS Constraint
+
+- User explicitly corrected the direction: the fork's purpose is local/on-device; remote self-hosted TTS is not an acceptable substitute.
+- Do not frame quantization as absent. Evaluate existing quantized/checkpoint variants and realistic conversion paths first.
+- TTS-Audio-Suite must be mined for portable model families and techniques, then compared against Android deployment options and RikkaHub's existing local model manager/LiteRT/JNI architecture.
+- Candidate analysis must cover quantized models, mobile runtime compatibility, RAM/storage, accelerator support, streaming latency, multilingual/voice-cloning/emotion capability, and model licenses.
+
+## Session: 2026-08-02 — Local Pocket TTS PoC: five-graph loader + tokenizer + config + synthesizer helpers
+
+User directive: "the best tools for the best jobs for long term robustness" — port the synthesis coordinator using the NekoSpeak Android Kotlin engine (`/tmp/opencode/NekoSpeak/app/src/main/java/com/nekospeak/tts/engine/pocket/PocketTtsEngine.kt` + `MimiCodec.kt`) as the tensor-wrangling reference, NOT a hand-port of C++ speech-core. Keep the soniqo bundle file names/contract already locked into `PocketTtsBundle`.
+
+IMPLEMENTED (speech module, package `me.rerere.tts.pocket`, all test-first TDD green):
+- `gradle/libs.versions.toml`: added `onnxruntime = "1.25.0"` + alias `onnxruntime-android = { module = "com.microsoft.onnxruntime:onnxruntime-android", version.ref = "onnxruntime" }`.
+- `speech/build.gradle.kts`: `implementation(libs.onnxruntime.android)`.
+- `PocketTtsBundle.kt`: five-graph OrtSession loader (Graph enum TEXT_CONDITIONER/ENCODER/LM_MAIN/LM_FLOW/DECODER), `GraphInfo(graph, inputs:Set<String>, outputs:Set<String>)`, `graphInfo()`, `close()`, `open(directory, environment: OrtEnvironment? = null)` validates dir + `requiredFiles` (5 graph filenames + `vocab.json`/`token_scores.json`/`tokenizer.model`/`manifest.json`) before lazy OrtEnvironment creation; closes partially opened sessions on failure; nullable environment so incomplete-bundle validation never loads ONNX native lib.
+- `PocketTtsTokenizer.kt`: SentencePiece-DP unigram tokenizer over UTF-8 bytes (kNegativeInfinity=-1.0e30f; whitespace marker E2 96 81; trie of TrieNode{next:HashMap<Int,Int>,tokenId=-1,score=0.0f}; byte tokens `<0x%02X>`; encodeIds = space→marker, prepend marker, DP best/back/backId, byte fallback, throws 'could not reconstruct its best path').
+- `PocketTtsConfig.kt`: bounded config (flowSteps[1,32] default 4, maxFrames[1,1000] default 1000, framesAfterEos[0,50] default 0, temperature finite[0,10] default 0.8f, eosThreshold finite default 0.5f, intraThreads[1,64] default 4, seed default -1=random). NOTE: NekoSpeak hardcodes LM EOS threshold -4.0f; we expose eosThreshold from config (deviation to verify on device).
+- `PocketTtsSynthesizer.kt`: pure orchestration helpers in companion — `stateSize(shape):Int` (fold; any dim<0→0, coerce>=0), `stateInputName(out_state_N)->state_N` (null for non-numeric), `shouldStopAfterEos(generatedFrames,eosStep,framesAfterEos)`, `flowBuffers(steps): List<Pair<Float,Float>>` ((j/steps, j/steps+dt)), `chunkPlan(frameCount,chunkSize): List<IntRange>`.
+- Tests: `PocketTtsBundleTest`, `PocketTtsTokenizerTest` (3 cases [1,2,3]/[4,5]/[4,7,8]), `PocketTtsConfigTest` (7), `PocketTtsSynthesizerTest` (8). JUnit4 ONLY (speech unit-test classpath has NO kotlin.test).
+
+VERIFIED: `./gradlew :speech:testDebugUnitTest :speech:assembleDebug` BUILD SUCCESSFUL; `git diff --check` clean.
+
+NEXT SLICE (not done): synthesis coordinator engine — stateful lm flow-lm-main pass (dynamic state_/out_state_ tensors), text_conditioner run, voice embedding from encoder cached once then encoder released (fixed alba voice), priming passes (empty seq{1,0,32} + voice then text embeddings), autoregressive EOS loop, runFlowMatching Euler over c/s/t/x inputs, MimiCodec-style decoder decode to 1920-sample frames (80ms @ 24kHz), batch chunk plan via chunkPlan. Constants: SAMPLE_RATE=24000, LATENT_DIM=32, EMBED_DIM=1024. Then curated TTSProvider/routing only when a runnable backend exists.
