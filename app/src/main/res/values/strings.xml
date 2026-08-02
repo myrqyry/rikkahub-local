@@ -1645,6 +1645,19 @@
   <string name="local_llm_max_tokens_desc">Override the curated default. The model file\'s KV cache is the hard ceiling — Qwen ekv4096 caps at 4096 regardless. Capable models (Gemma 4 E2B = 32000) benefit from a larger value. Leave blank to use the curated default.</string>
   <string name="local_llm_max_tokens_placeholder">curated default</string>
   <string name="local_llm_max_tokens_reset">Reset</string>
+  <string name="provider_sd_gen_params_title">Generation parameters</string>
+  <string name="provider_sd_width_label">Width</string>
+  <string name="provider_sd_height_label">Height</string>
+  <string name="provider_sd_steps_label">Steps</string>
+  <string name="provider_sd_cfg_label">CFG scale</string>
+  <string name="provider_sd_seed_label">Seed (-1 = random)</string>
+  <string name="provider_sd_negative_prompt_label">Negative prompt</string>
+  <string name="provider_sd_use_vulkan_label">Use Vulkan</string>
+  <string name="provider_litert_sampling_title">Sampling overrides</string>
+  <string name="provider_litert_topk_label">Top-K</string>
+  <string name="provider_litert_topp_label">Top-P</string>
+  <string name="provider_litert_temperature_label">Temperature</string>
+  <string name="provider_litert_sampling_reset">Reset sampling</string>
   <string name="local_llm_crash_recovery_format">Recovered: the local model crashed last session on %1$s — switched to CPU automatically. Tap to dismiss; toggle &#8220;Try GPU acceleration&#8221; below to retry.</string>
   <string name="local_llm_delete_model">Delete model</string>
   <string name="local_llm_insufficient_memory_format">Need about %1$d MB of free RAM (model is %2$d MB plus runtime headroom) but only %3$d MB is available. Close other apps or pick a smaller model.</string>

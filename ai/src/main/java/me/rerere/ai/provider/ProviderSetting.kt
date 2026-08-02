@@ -307,6 +307,9 @@ sealed class ProviderSetting {
         @Transient override val builtIn: Boolean = true,
         @Transient override val description: @Composable (() -> Unit) = {},
         @Transient override val shortDescription: @Composable (() -> Unit) = {},
+        var topK: Int? = null,
+        var topP: Double? = null,
+        var temperature: Double? = null,
     ) : ProviderSetting() {
         override fun addModel(model: Model): ProviderSetting = copy(models = models + model)
         override fun editModel(model: Model): ProviderSetting =

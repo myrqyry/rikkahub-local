@@ -1098,6 +1098,43 @@ private fun ColumnScope.ProviderConfigureLiteRT(
         }
     }
 
+    // Sampling overrides — blank = fall back to the curated per-model defaults.
+    Text(
+        text = stringResource(R.string.provider_litert_sampling_title),
+        style = MaterialTheme.typography.titleSmall,
+        modifier = Modifier.padding(top = 8.dp),
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        IntParamField(
+            label = stringResource(R.string.provider_litert_topk_label),
+            value = provider.topK,
+            allowNegative = false,
+            modifier = Modifier.weight(1f),
+            onCommit = { it?.let { v -> onEdit(provider.copy(topK = v.coerceIn(1, 256))) } },
+        )
+        DoubleParamField(
+            label = stringResource(R.string.provider_litert_topp_label),
+            value = provider.topP,
+            modifier = Modifier.weight(1f),
+            onCommit = { it?.let { v -> onEdit(provider.copy(topP = v.coerceIn(0.0, 1.0))) } },
+        )
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        DoubleParamField(
+            label = stringResource(R.string.provider_litert_temperature_label),
+            value = provider.temperature,
+            modifier = Modifier.weight(1f),
+            onCommit = { it?.let { v -> onEdit(provider.copy(temperature = v.coerceIn(0.0, 2.0))) } },
+        )
+        OutlinedButton(
+            onClick = { onEdit(provider.copy(topK = null, topP = null, temperature = null)) },
+            enabled = provider.topK != null || provider.topP != null || provider.temperature != null,
+            modifier = Modifier.weight(1f),
+        ) {
+            Text(stringResource(R.string.provider_litert_sampling_reset))
+        }
+    }
+
     // Download progress indicator.
     downloadProgress?.let { progress ->
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1180,6 +1217,69 @@ private fun ColumnScope.ProviderConfigureStableDiffusion(
         modifier = Modifier.fillMaxWidth(),
         maxLines = 3,
     )
+
+    // Generation parameters — persisted into the provider setting so every image
+    // generation uses them.
+    Text(
+        text = stringResource(R.string.provider_sd_gen_params_title),
+        style = MaterialTheme.typography.titleSmall,
+        modifier = Modifier.padding(top = 8.dp),
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        IntParamField(
+            label = stringResource(R.string.provider_sd_width_label),
+            value = provider.width,
+            modifier = Modifier.weight(1f),
+            onCommit = { it?.takeIf { v -> v in 64..2048 }?.let { v -> onEdit(provider.copy(width = v)) } },
+        )
+        IntParamField(
+            label = stringResource(R.string.provider_sd_height_label),
+            value = provider.height,
+            modifier = Modifier.weight(1f),
+            onCommit = { it?.takeIf { v -> v in 64..2048 }?.let { v -> onEdit(provider.copy(height = v)) } },
+        )
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        IntParamField(
+            label = stringResource(R.string.provider_sd_steps_label),
+            value = provider.steps,
+            modifier = Modifier.weight(1f),
+            onCommit = { it?.takeIf { v -> v in 1..150 }?.let { v -> onEdit(provider.copy(steps = v)) } },
+        )
+        DoubleParamField(
+            label = stringResource(R.string.provider_sd_cfg_label),
+            value = provider.cfgScale.toDouble(),
+            modifier = Modifier.weight(1f),
+            onCommit = { it?.takeIf { v -> v in 0.0..30.0 }?.let { v -> onEdit(provider.copy(cfgScale = v.toFloat())) } },
+        )
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        IntParamField(
+            label = stringResource(R.string.provider_sd_seed_label),
+            value = provider.seed,
+            allowNegative = true,
+            modifier = Modifier.weight(1f),
+            onCommit = { it?.let { v -> onEdit(provider.copy(seed = v)) } },
+        )
+    }
+    OutlinedTextField(
+        value = provider.negativePrompt,
+        onValueChange = { onEdit(provider.copy(negativePrompt = it)) },
+        label = { Text(stringResource(R.string.provider_sd_negative_prompt_label)) },
+        modifier = Modifier.fillMaxWidth(),
+        maxLines = 3,
+    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            stringResource(R.string.provider_sd_use_vulkan_label),
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Switch(
+            checked = provider.useVulkan,
+            onCheckedChange = { onEdit(provider.copy(useVulkan = it)) },
+        )
+    }
 
     Text(
         text = stringResource(R.string.local_llm_installed_models_count, provider.models.size),
@@ -1388,6 +1488,58 @@ private fun SdCatalogEntryCard(
             }
         }
     }
+}
+
+@Composable
+private fun IntParamField(
+    label: String,
+    value: Int?,
+    allowNegative: Boolean = false,
+    modifier: Modifier = Modifier,
+    onCommit: (Int?) -> Unit,
+) {
+    var text by remember(value) { mutableStateOf(value?.toString() ?: "") }
+    OutlinedTextField(
+        value = text,
+        onValueChange = { new ->
+            if (allowNegative) {
+                if (new == "-" || new.toIntOrNull() != null || new.isEmpty()) {
+                    text = new
+                    onCommit(new.toIntOrNull())
+                }
+            } else {
+                if (new.isEmpty() || new.toIntOrNull() != null) {
+                    text = new
+                    onCommit(new.toIntOrNull())
+                }
+            }
+        },
+        label = { Text(label) },
+        modifier = modifier,
+        singleLine = true,
+    )
+}
+
+@Composable
+private fun DoubleParamField(
+    label: String,
+    value: Double?,
+    modifier: Modifier = Modifier,
+    onCommit: (Double?) -> Unit,
+) {
+    var text by remember(value) { mutableStateOf(value?.toString() ?: "") }
+    OutlinedTextField(
+        value = text,
+        onValueChange = { new ->
+            if (new.isEmpty() || new.toDoubleOrNull() != null) {
+                text = new
+                onCommit(new.toDoubleOrNull())
+            }
+        },
+        label = { Text(label) },
+        modifier = modifier,
+        singleLine = true,
+    )
 }
 
 @Composable

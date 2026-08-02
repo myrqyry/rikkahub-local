@@ -376,9 +376,9 @@ class LiteRtProvider(
                 // instead of producing free-form "I can't do that" text. OFF for plain
                 // chat turns to avoid biasing normal language.
                 constrainedDecoding = params.tools.isNotEmpty(),
-                topK = config.topK,
-                topP = config.topP,
-                temperature = config.temperature,
+                topK = providerSetting.topK ?: config.topK,
+                topP = providerSetting.topP ?: config.topP,
+                temperature = providerSetting.temperature ?: config.temperature,
             )
         } catch (corrupt: LiteRtModelCorruptException) {
             handleCorruptModel(corrupt)
