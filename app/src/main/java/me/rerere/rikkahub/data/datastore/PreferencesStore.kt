@@ -424,6 +424,9 @@ class SettingsStore(
                         )
 
                         is ProviderSetting.LocalDream -> provider
+                        is ProviderSetting.StableDiffusion -> provider.copy(
+                            models = provider.models.distinctBy { model -> model.id }
+                        )
                     }
                 },
                 assistants = settings.assistants.distinctBy { it.id }.map { assistant ->

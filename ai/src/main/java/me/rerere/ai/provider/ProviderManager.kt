@@ -59,6 +59,7 @@ class ProviderManager(client: OkHttpClient, context: Context) {
             is ProviderSetting.Codex -> getProvider("codex")
             is ProviderSetting.Grok -> getProvider("grok")
             is ProviderSetting.LocalDream -> getProvider("local_dream")
+            is ProviderSetting.StableDiffusion -> getProvider("stable_diffusion")
         } as Provider<T>
     }
 }

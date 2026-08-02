@@ -18,6 +18,7 @@ import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelAbility
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.LITERT_PROVIDER_ID
+import me.rerere.ai.provider.STABLE_DIFFUSION_PROVIDER_ID
 import me.rerere.locallm.AcceleratorProbe
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
@@ -127,6 +128,7 @@ class SettingLocalLlmViewModel(
      *  by adding a `when` arm without touching every flow above. */
     private fun providerIdForRuntime(): kotlin.uuid.Uuid = when (runtime) {
         LocalRuntime.LiteRT -> LITERT_PROVIDER_ID
+        LocalRuntime.StableDiffusion -> STABLE_DIFFUSION_PROVIDER_ID
     }
 
     init {
@@ -257,6 +259,7 @@ class SettingLocalLlmViewModel(
         val forceCpuNow = prefs.forceCpu(runtime)
         val accel = when (runtime) {
             LocalRuntime.LiteRT -> AcceleratorProbe.probeLiteRt(context, forceCpu = forceCpuNow)
+            LocalRuntime.StableDiffusion -> "CPU"
         }
         prefs.setAccelerator(runtime, accel)
         _accelerator.value = accel
@@ -509,5 +512,6 @@ class SettingLocalLlmViewModel(
     private fun estimatedSize(rt: LocalRuntime): Long = when (rt) {
         // Gallery allowlist sizeInBytes = 1_597_931_520 (~1.49 GB) + 200 MB safety pad.
         LocalRuntime.LiteRT -> 1_800_000_000L
+        LocalRuntime.StableDiffusion -> 2_000_000_000L
     }
 }

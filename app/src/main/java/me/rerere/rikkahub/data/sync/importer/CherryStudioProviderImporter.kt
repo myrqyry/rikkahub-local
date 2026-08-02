@@ -131,6 +131,7 @@ object CherryStudioProviderImporter {
             is ProviderSetting.Codex -> "codex|${provider.id}"
             is ProviderSetting.Grok -> "grok|${provider.id}"
             is ProviderSetting.LocalDream -> "local_dream|${provider.id}"
+            is ProviderSetting.StableDiffusion -> "stable_diffusion|${provider.id}"
         }
     }
 }

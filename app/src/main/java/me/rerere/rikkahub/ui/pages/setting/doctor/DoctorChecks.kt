@@ -794,6 +794,7 @@ class DoctorChecks(
                     is me.rerere.ai.provider.ProviderSetting.Codex -> p.enabled  // OAuth, no API key
                     is me.rerere.ai.provider.ProviderSetting.Grok -> p.enabled  // OAuth, no API key
                     is me.rerere.ai.provider.ProviderSetting.LocalDream -> p.enabled  // on-device, no API key
+                    is me.rerere.ai.provider.ProviderSetting.StableDiffusion -> p.enabled && p.currentModelPath != null
                 }
             }
             add(
