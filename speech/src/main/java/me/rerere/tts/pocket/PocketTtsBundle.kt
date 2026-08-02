@@ -6,7 +6,8 @@ import java.io.File
 
 /** Opens the complete five-graph Pocket TTS ONNX bundle without running inference. */
 class PocketTtsBundle private constructor(
-    private val sessions: Map<Graph, OrtSession>,
+    private val sessions: MutableMap<Graph, OrtSession>,
+    val environment: OrtEnvironment,
 ) : AutoCloseable {
     enum class Graph(val fileName: String) {
         TEXT_CONDITIONER("text_conditioner.onnx"),
@@ -21,6 +22,13 @@ class PocketTtsBundle private constructor(
         val inputs: Set<String>,
         val outputs: Set<String>,
     )
+
+    fun session(graph: Graph): OrtSession = sessions.getValue(graph)
+
+    /** Closes and forgets one graph session, e.g. the encoder after caching the voice embedding. */
+    fun release(graph: Graph) {
+        sessions.remove(graph)?.close()
+    }
 
     fun graphInfo(): List<GraphInfo> = sessions.map { (graph, session) ->
         GraphInfo(graph, session.inputInfo.keys, session.outputInfo.keys)
@@ -53,7 +61,7 @@ class PocketTtsBundle private constructor(
                 Graph.entries.forEach { graph ->
                     opened[graph] = ortEnvironment.createSession(File(directory, graph.fileName).path)
                 }
-                return PocketTtsBundle(opened)
+                return PocketTtsBundle(opened, ortEnvironment)
             } catch (error: Throwable) {
                 opened.values.forEach(OrtSession::close)
                 throw error

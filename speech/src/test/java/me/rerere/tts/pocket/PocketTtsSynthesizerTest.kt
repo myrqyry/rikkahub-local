@@ -7,6 +7,39 @@ import org.junit.Test
 class PocketTtsSynthesizerTest {
 
     @Test
+    fun lmCacheLengthReadsFifthDimOfTheLMStateInput() {
+        assertEquals(1000, PocketTtsSynthesizer.lmCacheLength(longArrayOf(1L, 1L, 1000L, 64L, 64L)))
+        assertEquals(512, PocketTtsSynthesizer.lmCacheLength(longArrayOf(1L, 1L, 512L, 64L, 64L)))
+    }
+
+    @Test
+    fun lmCacheLengthFallsBackWhenShapeIsNotRankFiveOrCacheDimNotPositive() {
+        assertEquals(1000, PocketTtsSynthesizer.lmCacheLength(longArrayOf(1L, 1L, 64L, 64L)))
+        assertEquals(1000, PocketTtsSynthesizer.lmCacheLength(longArrayOf(1L, 1L, 0L, 64L, 64L)))
+        assertEquals(1000, PocketTtsSynthesizer.lmCacheLength(longArrayOf(1L, 1L, -1L, 64L, 64L)))
+    }
+
+    @Test
+    fun stateKindClassifiesOnnxElementTypes() {
+        assertEquals(PocketTtsSynthesizer.StateKind.LONG, PocketTtsSynthesizer.stateKind("tensor(int64)"))
+        assertEquals(PocketTtsSynthesizer.StateKind.BOOL, PocketTtsSynthesizer.stateKind("tensor(bool)"))
+        assertEquals(PocketTtsSynthesizer.StateKind.FLOAT, PocketTtsSynthesizer.stateKind("tensor(float)"))
+        assertEquals(PocketTtsSynthesizer.StateKind.FLOAT, PocketTtsSynthesizer.stateKind("tensor(float16)"))
+    }
+
+    @Test
+    fun zeroStateBuildsTypedZeroedArray() {
+        val longState = PocketTtsSynthesizer.zeroState(PocketTtsSynthesizer.StateKind.LONG, 3)
+        val boolState = PocketTtsSynthesizer.zeroState(PocketTtsSynthesizer.StateKind.BOOL, 3)
+        val floatState = PocketTtsSynthesizer.zeroState(PocketTtsSynthesizer.StateKind.FLOAT, 3)
+        org.junit.Assert.assertTrue(longState is LongArray)
+        org.junit.Assert.assertTrue(boolState is ByteArray)
+        org.junit.Assert.assertTrue(floatState is FloatArray)
+        assertEquals(longArrayOf(0L, 0L, 0L).toList(), (longState as LongArray).toList())
+        assertEquals(0.0f, (floatState as FloatArray)[2], 0.0f)
+    }
+
+    @Test
     fun stateSizeProductOfShapeDims() {
         assertEquals(32, PocketTtsSynthesizer.stateSize(longArrayOf(1L, 1L, 32L)))
         assertEquals(0, PocketTtsSynthesizer.stateSize(longArrayOf(0L, 0L)))

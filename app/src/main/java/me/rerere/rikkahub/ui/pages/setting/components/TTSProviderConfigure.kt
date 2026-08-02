@@ -50,8 +50,8 @@ fun TTSProviderConfigure(
         var expanded by remember { mutableStateOf(false) }
         val providers = remember {
             val types = TTSProviderSetting.Types
-            val local = types.filter { it == TTSProviderSetting.SystemTTS::class || it == TTSProviderSetting.NekoSpeakTts::class }
-            val cloud = types.filter { it != TTSProviderSetting.SystemTTS::class && it != TTSProviderSetting.NekoSpeakTts::class }
+            val local = types.filter { it == TTSProviderSetting.SystemTTS::class || it == TTSProviderSetting.NekoSpeakTts::class || it == TTSProviderSetting.PocketTts::class }
+            val cloud = types.filter { it != TTSProviderSetting.SystemTTS::class && it != TTSProviderSetting.NekoSpeakTts::class && it != TTSProviderSetting.PocketTts::class }
             local + cloud
         }
 
@@ -77,6 +77,7 @@ fun TTSProviderConfigure(
                         is TTSProviderSetting.ElevenLabs -> "ElevenLabs"
                         is TTSProviderSetting.FishAudio -> "Fish Audio"
                         is TTSProviderSetting.NekoSpeakTts -> "NekoSpeak (Local)"
+                        is TTSProviderSetting.PocketTts -> "Pocket TTS (Local)"
                     },
                     onValueChange = {},
                     readOnly = true,
@@ -108,6 +109,7 @@ fun TTSProviderConfigure(
                                         TTSProviderSetting.FishAudio::class -> "Fish Audio"
                                         TTSProviderSetting.Step::class -> "Step"
                                         TTSProviderSetting.NekoSpeakTts::class -> "NekoSpeak (Local)"
+                                        TTSProviderSetting.PocketTts::class -> "Pocket TTS (Local)"
                                         else -> providerClass.simpleName ?: "Unknown"
                                     }
                                 )
@@ -174,6 +176,11 @@ fun TTSProviderConfigure(
                                         name = "NekoSpeak TTS"
                                     )
 
+                                    TTSProviderSetting.PocketTts::class -> TTSProviderSetting.PocketTts(
+                                        id = setting.id,
+                                        name = "Pocket TTS (Local)"
+                                    )
+
                                     else -> setting
                                 }
                                 onValueChange(newSetting)
@@ -213,6 +220,7 @@ fun TTSProviderConfigure(
             is TTSProviderSetting.FishAudio -> FishAudioTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.Step -> StepTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.NekoSpeakTts -> NekoSpeakTTSConfiguration(setting, onValueChange)
+            is TTSProviderSetting.PocketTts -> PocketTTSConfiguration(setting, onValueChange)
         }
     }
 }
@@ -1610,6 +1618,58 @@ private fun NekoSpeakTTSConfiguration(
             },
             modifier = Modifier.fillMaxWidth(),
             label = "Pitch"
+        )
+    }
+}
+
+@Composable
+private fun PocketTTSConfiguration(
+    setting: TTSProviderSetting.PocketTts,
+    onValueChange: (TTSProviderSetting) -> Unit
+) {
+    FormItem(
+        label = { Text("Model directory") },
+        description = { Text("Directory containing the Pocket TTS ONNX bundle (9 files)") }
+    ) {
+        OutlinedTextField(
+            value = setting.modelPath,
+            onValueChange = { newPath ->
+                onValueChange(setting.copy(modelPath = newPath))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("/storage/emulated/0/Download/pocket-tts") },
+        )
+    }
+
+    FormItem(
+        label = { Text("Flow steps") },
+        description = { Text("ODE integration steps per frame (1..32, higher = better quality)") }
+    ) {
+        OutlinedTextField(
+            value = setting.flowSteps.toString(),
+            onValueChange = { text ->
+                text.toIntOrNull()?.takeIf { it in 1..32 }?.let {
+                    onValueChange(setting.copy(flowSteps = it))
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("4") },
+        )
+    }
+
+    FormItem(
+        label = { Text("Temperature") },
+        description = { Text("Sampling noise level (0..10)") }
+    ) {
+        OutlinedNumberInput(
+            value = setting.temperature,
+            onValueChange = { newTemperature ->
+                if (newTemperature.isFinite() && newTemperature in 0f..10f) {
+                    onValueChange(setting.copy(temperature = newTemperature))
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = "Temperature"
         )
     }
 }

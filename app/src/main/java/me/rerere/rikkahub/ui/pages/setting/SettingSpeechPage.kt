@@ -765,6 +765,7 @@ private fun TTSProviderItem(
                             is TTSProviderSetting.ElevenLabs -> "ElevenLabs"
                             is TTSProviderSetting.FishAudio -> "Fish Audio"
                             is TTSProviderSetting.NekoSpeakTts -> "NekoSpeak"
+                            is TTSProviderSetting.PocketTts -> "Pocket TTS"
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

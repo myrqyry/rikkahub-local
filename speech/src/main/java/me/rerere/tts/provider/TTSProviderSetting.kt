@@ -303,6 +303,26 @@ sealed class TTSProviderSetting {
         }
     }
 
+    @Serializable
+    @SerialName("pocket-tts")
+    data class PocketTts(
+        override var id: Uuid = Uuid.random(),
+        override var name: String = "Pocket TTS (Local)",
+        val modelPath: String = "",
+        val flowSteps: Int = 4,
+        val temperature: Float = 0.8f,
+    ) : TTSProviderSetting() {
+        override fun copyProvider(
+            id: Uuid,
+            name: String,
+        ): TTSProviderSetting {
+            return this.copy(
+                id = id,
+                name = name,
+            )
+        }
+    }
+
     companion object {
         val Types by lazy {
             listOf(
@@ -318,6 +338,7 @@ sealed class TTSProviderSetting {
                 Step::class,
                 FishAudio::class,
                 NekoSpeakTts::class,
+                PocketTts::class,
             )
         }
     }

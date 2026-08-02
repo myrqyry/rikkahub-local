@@ -1,0 +1,73 @@
+package me.rerere.tts.provider.providers
+
+import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
+import me.rerere.tts.model.AudioChunk
+import me.rerere.tts.model.AudioFormat
+import me.rerere.tts.model.TTSRequest
+import me.rerere.tts.pocket.PocketTtsBundle
+import me.rerere.tts.pocket.PocketTtsConfig
+import me.rerere.tts.pocket.PocketTtsEngine
+import me.rerere.tts.provider.TTSProvider
+import me.rerere.tts.provider.TTSProviderSetting
+import java.io.File
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+
+/**
+ * Fully local Pocket TTS (Kyutai 100M) via the soniqo/Pocket-TTS-100M-ONNX-INT8
+ * five-graph ONNX bundle. Streams 80 ms PCM frames at 24 kHz as they decode.
+ * English only, fixed baked voice (no cloning).
+ */
+class PocketTTSProvider : TTSProvider<TTSProviderSetting.PocketTts> {
+    override fun generateSpeech(
+        context: Context,
+        providerSetting: TTSProviderSetting.PocketTts,
+        request: TTSRequest
+    ): Flow<AudioChunk> = callbackFlow {
+        launch(Dispatchers.IO) {
+            val directory = File(providerSetting.modelPath)
+            PocketTtsBundle.open(directory).use { bundle ->
+                val engine = PocketTtsEngine.create(
+                    directory = directory,
+                    bundle = bundle,
+                    config = PocketTtsConfig(
+                        flowSteps = providerSetting.flowSteps,
+                        temperature = providerSetting.temperature,
+                    ),
+                )
+                engine.synthesize(request.text) { frame ->
+                    val pcm = ByteBuffer.allocate(frame.size * 2).order(ByteOrder.LITTLE_ENDIAN)
+                    for (sample in frame) {
+                        pcm.putShort(
+                            (sample.coerceIn(-1f, 1f) * 32767f).toInt().toShort()
+                        )
+                    }
+                    trySend(
+                        AudioChunk(
+                            data = pcm.array(),
+                            format = AudioFormat.PCM,
+                            sampleRate = PocketTtsEngine.SAMPLE_RATE,
+                            metadata = mapOf("provider" to "pocket-tts"),
+                        )
+                    )
+                }
+            }
+            trySend(
+                AudioChunk(
+                    data = ByteArray(0),
+                    format = AudioFormat.PCM,
+                    sampleRate = PocketTtsEngine.SAMPLE_RATE,
+                    isLast = true,
+                    metadata = mapOf("provider" to "pocket-tts"),
+                )
+            )
+            close()
+        }
+        awaitClose { }
+    }
+}

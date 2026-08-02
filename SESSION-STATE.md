@@ -319,3 +319,21 @@ IMPLEMENTED (speech module, package `me.rerere.tts.pocket`, all test-first TDD g
 VERIFIED: `./gradlew :speech:testDebugUnitTest :speech:assembleDebug` BUILD SUCCESSFUL; `git diff --check` clean.
 
 NEXT SLICE (not done): synthesis coordinator engine — stateful lm flow-lm-main pass (dynamic state_/out_state_ tensors), text_conditioner run, voice embedding from encoder cached once then encoder released (fixed alba voice), priming passes (empty seq{1,0,32} + voice then text embeddings), autoregressive EOS loop, runFlowMatching Euler over c/s/t/x inputs, MimiCodec-style decoder decode to 1920-sample frames (80ms @ 24kHz), batch chunk plan via chunkPlan. Constants: SAMPLE_RATE=24000, LATENT_DIM=32, EMBED_DIM=1024. Then curated TTSProvider/routing only when a runnable backend exists.
+
+## Session: 2026-08-02 — Pocket TTS PoC: ONNX engine + provider wiring + REAL AUDIO VERIFIED
+
+COMPLETED (speech + app modules):
+- `PocketTtsEngine.kt` (~280 lines): full ONNX-bound frame-loop coordinator. `create(directory, bundle, config)` reads vocab.json/token_scores.json, runs encoder once for voice embedding ({1,voiceTokens,1024}), releases ENCODER session, reads lmCacheLength from lm_main input[2]. `synthesize(text, onFrame): Outcome` runs: tokenize → text_conditioner → prime LM (empty{1,0,32}+voice, empty+text) → autoregressive loop (runLm→conditioning/eosLogit, eosFrame>threshold, noiseFrame rng/sqrt(temp), runFlow Euler c/s/t/x, runDecoder→1920 float samples/frame, EOS stop via shouldStopAfterEos). Positional IO resolution from inputInfo.keys; StateSlot(type/shape/data) with dim<0→1L (speech-core semantics). Companion: SAMPLE_RATE=24000, LATENT_DIM=32, EMBED_DIM=1024, SAMPLES_PER_FRAME=1920, noiseFrame, flowEuler, requireInputs, primaryOutput, expectedAudioSamples.
+- BUG FIXED: constructor resolved `encoderInput` AFTER create() released ENCODER session → NoSuchElementException at runtime; removed unused field (only needed inside create()).
+- `PocketTTSProvider.kt`: TTSProvider<TTSProviderSetting.PocketTts>; callbackFlow, Dispatchers.IO, bundle.open(directory).use, engine.create, synthesize with PCM16 conversion (clamp -1..1 ×32767), AudioChunk(PCM, 24kHz, metadata provider=pocket-tts), final empty isLast chunk.
+- `TTSProviderSetting.kt`: added `@SerialName("pocket-tts") data class PocketTts(modelPath="", flowSteps=4, temperature=0.8f)` + Types entry.
+- `TTSManager.kt`: pocketTTSProvider field + generateSpeech/getPromptGuidance branches.
+- `SettingSpeechPage.kt` + `TTSProviderConfigure.kt`: PocketTts in local provider group, all exhaustive when branches, PocketTTSConfiguration composable (modelPath text field, flowSteps int guard 1..32, temperature float guard 0..10).
+
+CONTRACT VERIFIED against real artifact (soniqo/Pocket-TTS-100M-ONNX-INT8, ~120MiB, sha 68ab0441, downloaded to /tmp/opencode/pocket-tts-bundle): all five graphs' declared IO match engine's positional resolution; lm_main 20 in/20 out (states state_0..17 = (FLOAT[2,1,1000,16,64], FLOAT[-1], INT64[1])×6), lm_flow 4 in c/s/t/x, decoder 57 in/57 out, voice tokens FIXED at 125.
+
+REAL AUDIO SMOKE-TESTED on desktop JVM (java 21 + onnxruntime-1.25.0 jar + compiled speech classes + /tmp/opencode/pocket-smoke/Harness.java): "Hello world." → frames=19, eos=true, 36480 samples, TTFA=474ms, total=2827ms; WAV RMS=4548 peak=19103 = REAL AUDIO. Harness kept at /tmp/opencode/pocket-smoke/ for rerun.
+
+VERIFIED: `./gradlew :speech:testDebugUnitTest :app:assembleDebug` EXIT=0; `git diff --check` clean.
+
+NEXT: model download/install UX (user currently must manually place 9-file bundle and type path), on-device Android runtime test, edge-tts optional cloud provider (approved, deferred).
