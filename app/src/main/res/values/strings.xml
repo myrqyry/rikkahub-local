@@ -1680,6 +1680,13 @@
   <string name="local_llm_catalog_tag_thinking">Thinking</string>
   <string name="local_llm_catalog_tag_speculative">Speculative decoding</string>
   <string name="local_llm_import_filesystem">Load from filesystem</string>
+  <string name="model_manager_title">Model Manager</string>
+  <string name="model_manager_tab_installed">Installed</string>
+  <string name="model_manager_tab_catalog">Catalog</string>
+  <string name="model_manager_tab_hf_url">HF URL</string>
+  <string name="model_manager_tab_local_import">Local Import</string>
+  <string name="model_manager_sd_catalog_subtitle">Stable Diffusion GGUF models, one-tap install.</string>
+  <string name="model_manager_no_models">No models installed yet</string>
   <string name="mcp_error_reconnect_exhausted">Connection lost — maximum reconnect attempts reached</string>
   <string name="ocr_status_recognizing">Recognizing image…</string>
   <string name="share_sheet_title">Share your LLM models</string>

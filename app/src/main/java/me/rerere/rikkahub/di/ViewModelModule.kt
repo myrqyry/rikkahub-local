@@ -22,6 +22,7 @@ import me.rerere.rikkahub.ui.pages.setting.SettingVM
 import me.rerere.rikkahub.ui.pages.setting.browser.SettingBrowserViewModel
 import me.rerere.rikkahub.ui.pages.setting.termux.SettingTermuxViewModel
 import me.rerere.rikkahub.ui.pages.setting.locallm.SettingLocalLlmViewModel
+import me.rerere.rikkahub.ui.pages.modelmanager.ModelManagerViewModel
 import me.rerere.rikkahub.ui.pages.share.handler.ShareHandlerVM
 import me.rerere.rikkahub.ui.pages.translator.TranslatorVM
 import me.rerere.rikkahub.ui.pages.setting.doctor.DoctorViewModel
@@ -99,6 +100,14 @@ val viewModelModule = module {
     viewModel<SettingLocalLlmViewModel> { params ->
         SettingLocalLlmViewModel(
             runtime = params.get(),
+            context = get(),
+            prefs = get(),
+            httpClient = get(),
+            settingsStore = get(),
+        )
+    }
+    viewModel<ModelManagerViewModel> { params ->
+        ModelManagerViewModel(
             context = get(),
             prefs = get(),
             httpClient = get(),

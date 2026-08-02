@@ -62,6 +62,8 @@ import com.dokar.sonner.ToastType
 import me.rerere.ai.provider.ClaudePromptCacheTtl
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.locallm.LocalRuntime
+import me.rerere.locallm.SdCatalog
+import me.rerere.locallm.SdCatalogEntry
 import me.rerere.locallm.litert.LiteRtCatalog
 import me.rerere.locallm.litert.LiteRtCatalogEntry
 import me.rerere.rikkahub.R
@@ -130,7 +132,9 @@ fun ProviderConfigure(
             is ProviderSetting.Codex -> Unit
             is ProviderSetting.Grok -> Unit
             is ProviderSetting.LocalDream -> Unit
-            is ProviderSetting.StableDiffusion -> Unit
+            is ProviderSetting.StableDiffusion -> {
+                ProviderConfigureStableDiffusion(provider, onEdit)
+            }
         }
     }
 }
@@ -1132,6 +1136,253 @@ private fun ColumnScope.ProviderConfigureLiteRT(
                             text = stringResource(R.string.local_llm_delete_model) +
                                 if (provider.models.size > 1) " ${model.modelId}" else "",
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.ProviderConfigureStableDiffusion(
+    provider: ProviderSetting.StableDiffusion,
+    onEdit: (ProviderSetting.StableDiffusion) -> Unit,
+) {
+    val vm = koinViewModel<SettingLocalLlmViewModel>(
+        key = "configure-${LocalRuntime.StableDiffusion.displayName}",
+        parameters = { parametersOf(LocalRuntime.StableDiffusion) },
+    )
+    val downloadProgress by vm.downloadProgress.collectAsStateWithLifecycle()
+    val errorMessage by vm.errorMessage.collectAsStateWithLifecycle()
+    val installedModelFiles by vm.installedModelFiles.collectAsStateWithLifecycle()
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        vm.importModelFromUri(uri)
+    }
+
+    provider.description()
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(id = R.string.setting_provider_page_enable), modifier = Modifier.weight(1f))
+        Checkbox(
+            checked = provider.enabled,
+            onCheckedChange = { onEdit(provider.copy(enabled = it)) },
+        )
+    }
+
+    OutlinedTextField(
+        value = provider.name,
+        onValueChange = { onEdit(provider.copy(name = it.trim())) },
+        label = { Text(stringResource(id = R.string.setting_provider_page_name)) },
+        modifier = Modifier.fillMaxWidth(),
+        maxLines = 3,
+    )
+
+    Text(
+        text = stringResource(R.string.local_llm_installed_models_count, provider.models.size),
+        style = MaterialTheme.typography.bodySmall,
+    )
+
+    // URL install field — paste an HF GGUF URL, hit Install.
+    var manualUrl by remember { mutableStateOf("") }
+    OutlinedTextField(
+        value = manualUrl,
+        onValueChange = { manualUrl = it },
+        label = { Text(stringResource(R.string.local_llm_install_url_label)) },
+        supportingText = { Text(stringResource(R.string.local_llm_install_url_hint)) },
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Button(
+            onClick = {
+                vm.startManualDownload(manualUrl)
+                manualUrl = ""
+            },
+            enabled = manualUrl.isNotBlank() && downloadProgress == null,
+        ) {
+            Text(stringResource(R.string.local_llm_install_url_action))
+        }
+        OutlinedButton(
+            onClick = { vm.startDefaultDownload() },
+            enabled = downloadProgress == null,
+        ) {
+            Text(stringResource(R.string.local_llm_download_default))
+        }
+    }
+
+    // Manage installed files — rename or delete each downloaded GGUF.
+    if (provider.models.isNotEmpty()) {
+        Text(
+            stringResource(R.string.local_llm_manage_files_title),
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        provider.models.forEach { model ->
+            InstalledModelRow(
+                model = model,
+                visionUnavailable = false,
+                allowVisionRetry = false,
+                perfSample = null,
+                onRename = { newName -> vm.renameModel(model.modelId, newName) },
+                onDelete = { vm.deleteModel(model.modelId) },
+                onRetryVision = {},
+            )
+        }
+    }
+
+    // Curated Stable Diffusion GGUF picker.
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+        Text(
+            stringResource(R.string.local_llm_catalog_title),
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Text(
+            stringResource(R.string.model_manager_sd_catalog_subtitle),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        SdCatalog.ENTRIES.forEach { entry ->
+            SdCatalogEntryCard(
+                entry = entry,
+                installed = entry.modelFile in installedModelFiles,
+                downloadInProgress = downloadProgress != null,
+                onInstall = { vm.startManualDownload(entry.resolveUrl()) },
+            )
+        }
+
+        OutlinedButton(
+            onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
+            enabled = downloadProgress == null,
+            modifier = Modifier.padding(top = 4.dp),
+        ) {
+            Text(stringResource(R.string.local_llm_import_filesystem))
+        }
+    }
+
+    // Download progress indicator.
+    downloadProgress?.let { progress ->
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (progress.totalBytes != null && progress.totalBytes > 0) {
+                LinearProgressIndicator(
+                    progress = { progress.percent / 100f },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+            Text(
+                text = stringResource(R.string.local_llm_download_progress, progress.percent),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+    }
+
+    errorMessage?.let { msg ->
+        Text(
+            text = stringResource(R.string.local_llm_status_error_format, msg),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+        if (provider.models.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                provider.models.forEach { model ->
+                    OutlinedButton(onClick = { vm.deleteModel(model.modelId) }) {
+                        Text(
+                            text = stringResource(R.string.local_llm_delete_model) +
+                                if (provider.models.size > 1) " ${model.modelId}" else "",
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SdCatalogEntryCard(
+    entry: SdCatalogEntry,
+    installed: Boolean,
+    downloadInProgress: Boolean,
+    onInstall: () -> Unit,
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(12.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    entry.displayName,
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f),
+                )
+                if (entry.recommended) {
+                    Text(
+                        text = stringResource(R.string.local_llm_catalog_recommended),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier
+                            .clip(MaterialTheme.shapes.small)
+                            .background(MaterialTheme.colorScheme.secondaryContainer)
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                    )
+                }
+            }
+
+            Text(
+                entry.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+
+            Text(
+                text = String.format(
+                    java.util.Locale.US,
+                    stringResource(R.string.local_llm_catalog_size_format),
+                    entry.sizeBytes / 1_000_000_000.0,
+                    entry.minDeviceMemoryGb,
+                ),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (installed) {
+                    Text(
+                        text = stringResource(R.string.local_llm_catalog_installed),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                } else {
+                    Button(
+                        onClick = onInstall,
+                        enabled = !downloadInProgress,
+                    ) {
+                        Text(stringResource(R.string.local_llm_catalog_install))
                     }
                 }
             }
