@@ -2,9 +2,14 @@
 
 ## Overview
 
-Local Dream provides **on-device Stable Diffusion image generation** using Qualcomm Snapdragon NPU acceleration (via QNN SDK) or CPU fallback (via Alibaba MNN). It runs as a separate native C++ process (`libstable_diffusion_core.so`) that RikkaHub communicates with over HTTP/SSE on `127.0.0.1:8081`.
+Local Dream provides **on-device Stable Diffusion image generation** using Qualcomm Snapdragon NPU acceleration (via QNN SDK) or CPU fallback (via Alibaba MNN). It is designed to run as a separate native C++ process (`libstable_diffusion_core.so`) that RikkaHub communicates with over HTTP/SSE on `127.0.0.1:8081`.
 
 No JNI bridge — RikkaHub spawns the native executable via `ProcessBuilder` and talks to it via HTTP.
+
+The current RikkaHub build does not compile or package this executable, so the
+provider cannot start. Integrating Local Dream requires a separately built
+arm64 binary, the QNN SDK, and a distribution decision compatible with the
+upstream license.
 
 ## Architecture
 
@@ -244,9 +249,13 @@ The QNN runtime libraries (`libQnnHtp.so`, `libQnnSystem.so`) are expected at `c
 The local-dream native project lives at `/home/myrqyry/MQR/local-dream`:
 - **Author:** xororz
 - **Package:** `io.github.xororz.localdream`
-- **License:** GPL-3.0
+- **License:** CC BY-NC 4.0
 - **Native source:** `app/src/main/cpp/src/`
 - **Latest version:** 2.8.1
+
+Its standalone build uses an initialized set of C++ submodules and a locally
+installed QNN SDK. It only produces an `arm64-v8a` executable, then manually
+copies it into the Local Dream app's `jniLibs` directory.
 
 ## Stable Diffusion.cpp Inspiration
 
