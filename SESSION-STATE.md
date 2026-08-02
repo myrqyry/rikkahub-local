@@ -232,3 +232,9 @@ design: docs/superpowers/specs/2026-08-01-local-image-generation-design.md.
 
 ### Plan task numbering (authoritative):
 T1 Bridge JNI (committed 366fbc55) / T2 ModelEntry+ModelInventory (this commit) / T3 SdCatalog (empty catalog, entries after device testing) / T4 ImageProfile / T5 ModelInstall GGUF (committed d85de91d) / T6 StableDiffusionProvider / T7 ProviderSetting.StableDiffusion + DataSourceModule / T8 Model Manager UI / T9 Unit tests / T10 Device tests.
+
+### Plan T4: ImageProfile + ImageProfileStore — DONE (TDD, tests pass)
+- TDD: wrote `local-llm/src/test/java/me/rerere/locallm/ImageProfileTest.kt` first (4 tests: createProfile stores/retrieves, updateProfile modifies in place, deleteProfile removes entry, listByModelId filters). Confirmed RED (`Unresolved reference 'ImageProfile'`).
+- Created `local-llm/src/main/java/me/rerere/locallm/ImageProfile.kt`: `data class ImageProfile(id, name, modelId, width=512, height=512, steps=20, cfgScale=7.0f, seed=-1, negativePrompt="")` + `class ImageProfileStore` (save/delete/getById/list/listByModelId, in-memory mutableMap).
+- `./gradlew :local-llm:testDebugUnitTest --tests "me.rerere.locallm.ImageProfileTest"` → BUILD SUCCESSFUL (4 pass). NOTE: `./gradlew :local-llm:test --tests` fails — must use `:local-llm:testDebugUnitTest --tests`.
+- NEXT: Plan T6 StableDiffusionProvider (spec in plan lines 644-811), then T7 ProviderSetting.StableDiffusion + DataSourceModule, T8 Model Manager UI, T9 Unit tests, T10 Device tests.
