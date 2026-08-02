@@ -23,15 +23,16 @@ class ModelInstallTest {
         assertEquals(false, ModelInstall.isValidDownloadUrl("file:///etc/passwd"))
     }
 
-    @Test fun `runtimeForExtension routes litertlm to LiteRT and unknowns to null`() {
+    @Test fun `runtimeForExtension routes litertlm to LiteRT and gguf to StableDiffusion`() {
         assertEquals(LocalRuntime.LiteRT, ModelInstall.runtimeForExtension("litertlm"))
-        assertEquals(null, ModelInstall.runtimeForExtension("gguf"))
+        assertEquals(LocalRuntime.StableDiffusion, ModelInstall.runtimeForExtension("gguf"))
         assertEquals(null, ModelInstall.runtimeForExtension("task"))
         assertEquals(null, ModelInstall.runtimeForExtension("tflite"))
     }
 
     @Test fun `runtimeForExtension is case-insensitive`() {
         assertEquals(LocalRuntime.LiteRT, ModelInstall.runtimeForExtension("LITERTLM"))
+        assertEquals(LocalRuntime.StableDiffusion, ModelInstall.runtimeForExtension("GGUF"))
     }
 
     @Test fun `runtimeForExtension returns null for unrecognised extension`() {
@@ -58,6 +59,15 @@ class ModelInstallTest {
         val out = ModelInstall.targetFile(baseDir, LocalRuntime.LiteRT, "model.task")
         assertEquals(
             "/data/data/com.test/files/local-models/litert/model.task",
+            out.absolutePath,
+        )
+    }
+
+    @Test fun `targetFile resolves StableDiffusion to the stable-diffusion subdir`() {
+        val baseDir = File("/data/data/com.test/files/local-models")
+        val out = ModelInstall.targetFile(baseDir, LocalRuntime.StableDiffusion, "sd_xl_base_1.0.gguf")
+        assertEquals(
+            "/data/data/com.test/files/local-models/stable-diffusion/sd_xl_base_1.0.gguf",
             out.absolutePath,
         )
     }
@@ -144,6 +154,22 @@ class ModelInstallTest {
         // Any buffer < 4 bytes returns false regardless of extension.
         assertFalse(ModelInstall.isValidMagicForExtension("litertlm", byteArrayOf()))
         assertFalse(ModelInstall.isValidMagicForExtension("litertlm", byteArrayOf(0x4c)))
+    }
+
+    @Test fun `isValidMagicForExtension accepts GGUF magic for gguf`() {
+        val bytes = byteArrayOf(0x47, 0x47, 0x55, 0x46) + ByteArray(12)  // "GGUF"
+        assertTrue(ModelInstall.isValidMagicForExtension("gguf", bytes))
+        assertTrue(ModelInstall.isValidMagicForExtension("GGUF", bytes))  // case-insensitive extension
+    }
+
+    @Test fun `isValidMagicForExtension rejects all-zero file for gguf`() {
+        val bytes = ByteArray(16)
+        assertFalse(ModelInstall.isValidMagicForExtension("gguf", bytes))
+    }
+
+    @Test fun `isValidMagicForExtension rejects HTML file for gguf`() {
+        val bytes = "<!DOCTYPE html><html>".toByteArray().copyOf(16)
+        assertFalse(ModelInstall.isValidMagicForExtension("gguf", bytes))
     }
 
     @Test fun `isValidMagicForExtension unknown extension rejects all-zero bytes`() {

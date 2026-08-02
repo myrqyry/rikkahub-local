@@ -198,7 +198,26 @@ design: docs/superpowers/specs/2026-08-01-local-image-generation-design.md.
   `../` levels to reach repo root, and parent project must enable `C` language or
   CMake fails "No known features for C compiler".
 
+### Task 1 — COMMITTED
+- `git commit -m "feat: stable-diffusion.cpp JNI bridge for local image generation"`
+  → commit 366fbc55 on master (10 files, 325 insertions). `.superpowers/` untracked
+  scaffolding intentionally not committed.
+
+### Task 2 (LocalRuntime integration) — COMPLETE, tests pass
+- `ModelInstall.kt`: `runtimeForExtension()` now routes "gguf" → LocalRuntime.StableDiffusion;
+  `targetFile()` maps StableDiffusion → "stable-diffusion" subdir (fixes non-exhaustive
+  `when`); `isValidMagicForExtension()` adds "gguf" branch checking GGUF magic bytes
+  0x47 0x47 0x55 0x46 at offset 0.
+- `ModelInstallTest.kt`: updated runtimeForExtension gguf expectation, added targetFile
+  StableDiffusion test + 3 GGUF magic tests (accept, reject zeros, reject HTML).
+- `./gradlew :local-llm:testDebugUnitTest --tests "me.rerere.locallm.ModelInstallTest"`
+  → BUILD SUCCESSFUL (35 tasks).
+
 ### Next steps
-- Commit task 1 to master (git add all task-1 files; message e.g. "feat: stable-diffusion.cpp JNI bridge for local image generation").
-- Mark T1 done, T2 in_progress. T2 = LocalRuntime integration (LocalRuntime.kt already has
-  @Serializable data object StableDiffusion(displayName "Stable Diffusion", fileExtension "gguf")).
+- Commit task 2 to master (stage SESSION-STATE.md, local-llm/ModelInstall.kt,
+  local-llm/src/test/.../ModelInstallTest.kt; message "feat: register StableDiffusion runtime in local-llm model install").
+- Mark T2 done, T3 in_progress. T3 = runtime backend/native orchestration: foreground
+  job, preflight (file exists / arm64 check), generation service wiring
+  StableDiffusionBridge.nativeInit/nativeGenerate/nativeRelease, 120s timeout →
+  Error("Generation timed out..."), 512x512 RGBA ByteArray→Bitmap. Explore app module
+  existing job/service patterns first.
