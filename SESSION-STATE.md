@@ -221,3 +221,14 @@ design: docs/superpowers/specs/2026-08-01-local-image-generation-design.md.
   StableDiffusionBridge.nativeInit/nativeGenerate/nativeRelease, 120s timeout →
   Error("Generation timed out..."), 512x512 RGBA ByteArray→Bitmap. Explore app module
   existing job/service patterns first.
+
+## Session: 2026-08-01 — Local Image Generation (Plan T2 COMPLETE)
+
+### Plan T2: ModelEntry + ModelInventory — DONE (tests pass)
+- Created `local-llm/src/main/java/me/rerere/locallm/ModelEntry.kt`: `data class ModelEntry(id, displayName, runtime: LocalRuntime, family: String?=null, format, source: ModelSource, sourceUrl: String?=null, filePath, sizeBytes, license: String?=null, validated, addedAt)`. Sealed interface `ModelSource { Catalog(entryId), CustomUrl(url), LocalImport }`.
+- Created `local-llm/src/main/java/me/rerere/locallm/ModelInventory.kt`: in-memory map-backed `class ModelInventory { add, remove, getById, list, listByRuntime(runtime), findByFilePath(path) }`.
+- Created `local-llm/src/test/java/me/rerere/locallm/ModelInventoryTest.kt`: 4 tests (add/retrieve by id, remove, listByRuntime filter, ModelSource.Catalog round-trip). `./gradlew :local-llm:testDebugUnitTest --tests "me.rerere.locallm.ModelInventoryTest"` → BUILD SUCCESSFUL.
+- NOTE: plan task numbering is authoritative (10 tasks). My earlier todo numbering diverged; realigned todos to plan. Plan T5 (ModelInstall GGUF) was completed earlier as "task 2" commit d85de91d.
+
+### Plan task numbering (authoritative):
+T1 Bridge JNI (committed 366fbc55) / T2 ModelEntry+ModelInventory (this commit) / T3 SdCatalog (empty catalog, entries after device testing) / T4 ImageProfile / T5 ModelInstall GGUF (committed d85de91d) / T6 StableDiffusionProvider / T7 ProviderSetting.StableDiffusion + DataSourceModule / T8 Model Manager UI / T9 Unit tests / T10 Device tests.
