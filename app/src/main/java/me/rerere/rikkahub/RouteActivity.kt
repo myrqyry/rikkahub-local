@@ -125,6 +125,7 @@ import me.rerere.rikkahub.ui.pages.setting.SettingSearchDetailPage
 import me.rerere.rikkahub.ui.pages.setting.SettingSearchPage
 
 import me.rerere.rikkahub.ui.pages.setting.SettingRAGPage
+import me.rerere.rikkahub.ui.pages.modelmanager.ModelManagerPage
 import me.rerere.rikkahub.ui.pages.setting.SettingLocalDreamPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPluginPage
 import me.rerere.rikkahub.ui.pages.setting.SettingSpeechPage
@@ -475,6 +476,9 @@ class RouteActivity : ComponentActivity() {
                             entry<Screen.SettingLocalDream> {
                                 SettingLocalDreamPage()
                             }
+                            entry<Screen.SettingModelManager> {
+                                ModelManagerPage()
+                            }
                             entry<Screen.SettingPlugin> {
                                 SettingPluginPage()
                             }
@@ -751,6 +755,9 @@ sealed interface Screen : NavKey {
 
     @Serializable
     data object SettingLocalDream : Screen
+
+    @Serializable
+    data object SettingModelManager : Screen
 
     @Serializable
     data object SettingPlugin : Screen

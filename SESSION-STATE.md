@@ -254,3 +254,21 @@ T1 Bridge JNI (committed 366fbc55) / T2 ModelEntry+ModelInventory (this commit) 
 - Steps 3-5: NavGraph route; slim ProviderConfigureLiteRT; commit "feat: add Model Manager UI page with tabs".
 - User said "the litert model page works decently" — mirror LiteRT model page pattern (files to re-read: SettingLocalLlmViewModel/ModelListLiteRt or similar, NavGraph.kt, ProviderConfigureLiteRT).
 - Commit sequence decision: commit T6+T7 now (or separately per plan lines 884/890), then T8.
+
+## Session: 2026-08-01 — T8 COMPLETE (Model Manager page + route), build verified
+
+T8 Model Manager UI IMPLEMENTED + COMPILED (BUILD SUCCESSFUL).
+
+CREATED:
+- app/src/main/java/me/rerere/rikkahub/ui/pages/modelmanager/ModelManagerViewModel.kt — exactly per plan + `init { refresh() }`. inventory=ModelInventory(), profileStore=ImageProfileStore() (both plain in-memory classes from local-llm); StateFlows installedModels: List<ModelEntry>, profiles: List<ImageProfile> (asStateFlow); catalogEntries=SdCatalog.ENTRIES (currently EMPTY — SdCatalog.ENTRIES is empty listOf()); deleteModel (TODO cascade comment), deleteProfile, refresh(). imports: androidx.lifecycle.ViewModel, kotlinx.coroutines.flow.{MutableStateFlow,StateFlow,asStateFlow}, me.rerere.locallm.{ImageProfile,ImageProfileStore,ModelEntry,ModelInventory,SdCatalog,SdCatalogEntry}.
+- app/src/main/java/me/rerere/rikkahub/ui/pages/modelmanager/ModelManagerPage.kt — @OptIn(ExperimentalMaterial3Api) ModelManagerPage(viewModel = remember{ModelManagerViewModel()}); tabs listOf("Installed","Catalog","HF URL","Local Import"); Scaffold{TopAppBar(Text("Model Manager"))}{Column(padding){TabRow + when(tab){0→InstalledTab(viewModel),1→CatalogTab(viewModel),2→HfUrlTab(),3→LocalImportTab()}}}; 4 stub tab composables with // TODO: full implementation in follow-up task + Text placeholder. Import gotcha: Modifier comes from androidx.compose.ui.Modifier (NOT foundation.layout).
+
+MODIFIED:
+- RouteActivity.kt: added `import me.rerere.rikkahub.ui.pages.modelmanager.ModelManagerPage` (line 128 area); `data object SettingModelManager : Screen` added after SettingLocalDream (line ~753); `entry<Screen.SettingModelManager> { ModelManagerPage() }` added after SettingLocalDream entry (line ~477). Screen = TOP-LEVEL `sealed interface Screen : NavKey` in package me.rerere.rikkahub (line 656), data objects at 4-space indent.
+- SettingPage.kt: added "Model Manager" item after Local Dream item (line ~311): navController.navigate(Screen.SettingModelManager), Icon(HugeIcons.Cpu, null), supporting "Install and manage on-device models", headline "Model Manager". Added import me.rerere.hugeicons.stroke.Cpu. NOTE: HugeIcons has NO "Model" icon — verified via jar listing (find-hugeicons skill; jar at ~/.gradle/caches/9.4.1/transforms/.../hugeicons-compose-1.3/jars/classes.jar; candidate icons: Cpu, Chip, Chip02, CpuSettings, Robot01). Used Cpu.
+
+KEY API FACTS (local-llm, package me.rerere.locallm): ModelInventory (in-memory map; add/remove/getById/list/listByRuntime/findByFilePath — NOT persisted); ImageProfileStore (in-memory map; save/delete/getById/list/listByModelId); ModelEntry(id, displayName, runtime: LocalRuntime, family, format, source: ModelSource{Catalog(entryId)/CustomUrl(url)/LocalImport}, sourceUrl, filePath, sizeBytes, license, validated, addedAt); SdCatalogEntry(displayName, family, format, description, modelId, modelFile, sizeBytes, license, minDeviceMemoryGb, recommended, tags){resolveUrl()}; SdCatalog.ENTRIES currently EMPTY (verified entries only); ImageProfile(id, name, modelId, width, height, steps, cfgScale, seed, negativePrompt).
+
+DEFERRED (ponytail): plan step 4 "slim ProviderConfigureLiteRT" NOT done — keep LiteRT tile as-is; do in follow-up if user wants. T9/T10 next.
+
+NEXT: T9/T10 per plan (docs/superpowers/plans/2026-08-01-local-image-generation.md lines ~1017+). Commit T8 as "feat: add Model Manager UI page with tabs" (--no-verify repo convention). git add: 2 new modelmanager files + RouteActivity.kt + SettingPage.kt + SESSION-STATE.md.

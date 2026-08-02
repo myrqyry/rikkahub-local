@@ -55,6 +55,7 @@ import me.rerere.hugeicons.stroke.Clapping01
 import me.rerere.hugeicons.stroke.Clock02
 import me.rerere.hugeicons.stroke.Database02
 import me.rerere.hugeicons.stroke.Console
+import me.rerere.hugeicons.stroke.Cpu
 import me.rerere.hugeicons.stroke.Earth
 import me.rerere.hugeicons.stroke.Wrench01
 import me.rerere.hugeicons.stroke.Developer
@@ -307,6 +308,12 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         leadingContent = { Icon(HugeIcons.AiMagic, null) },
                         supportingContent = { Text("Local Dream image generation settings") },
                         headlineContent = { Text("Local Dream") },
+                    )
+                    item(
+                        onClick = { navController.navigate(Screen.SettingModelManager) },
+                        leadingContent = { Icon(HugeIcons.Cpu, null) },
+                        supportingContent = { Text("Install and manage on-device models") },
+                        headlineContent = { Text("Model Manager") },
                     )
                     item(
                         onClick = { navController.navigate(Screen.SettingRAG) },
