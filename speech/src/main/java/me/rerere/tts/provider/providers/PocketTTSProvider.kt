@@ -38,6 +38,11 @@ class PocketTTSProvider : TTSProvider<TTSProviderSetting.PocketTts> {
                     config = PocketTtsConfig(
                         flowSteps = providerSetting.flowSteps,
                         temperature = providerSetting.temperature,
+                        maxFrames = providerSetting.maxFrames,
+                        framesAfterEos = providerSetting.framesAfterEos,
+                        eosThreshold = providerSetting.eosThreshold,
+                        intraThreads = providerSetting.intraThreads,
+                        seed = providerSetting.seed,
                     ),
                 )
                 engine.synthesize(request.text) { frame ->

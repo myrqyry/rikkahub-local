@@ -8,9 +8,10 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.foundation.clickable
@@ -42,8 +43,11 @@ import androidx.compose.foundation.background
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import android.content.Context
+import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.core.net.toUri
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -997,12 +1001,14 @@ private fun ColumnScope.ProviderConfigureLiteRT(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        val context = LocalContext.current
         LiteRtCatalog.ENTRIES.forEach { entry ->
             LiteRtCatalogEntryCard(
                 entry = entry,
                 installed = entry.modelFile in installedModelFiles,
                 downloadInProgress = downloadProgress != null,
                 onInstall = { vm.startManualDownload(entry.resolveUrl()) },
+                onOpenSource = { openModelSourceUrl(context, entry.sourceUrl) },
             )
         }
 
@@ -1347,12 +1353,14 @@ private fun ColumnScope.ProviderConfigureStableDiffusion(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        val sdContext = LocalContext.current
         SdCatalog.ENTRIES.forEach { entry ->
             SdCatalogEntryCard(
                 entry = entry,
                 installed = entry.modelFile in installedModelFiles,
                 downloadInProgress = downloadProgress != null,
                 onInstall = { vm.startManualDownload(entry.resolveUrl()) },
+                onOpenSource = { openModelSourceUrl(sdContext, entry.sourceUrl) },
             )
         }
 
@@ -1413,6 +1421,7 @@ private fun SdCatalogEntryCard(
     installed: Boolean,
     downloadInProgress: Boolean,
     onInstall: () -> Unit,
+    onOpenSource: () -> Unit,
 ) {
     Card(
         colors = CardDefaults.cardColors(
@@ -1485,6 +1494,10 @@ private fun SdCatalogEntryCard(
                         Text(stringResource(R.string.local_llm_catalog_install))
                     }
                 }
+                Spacer(Modifier.width(8.dp))
+                OutlinedButton(onClick = onOpenSource) {
+                    Text(stringResource(R.string.model_manager_catalog_source))
+                }
             }
         }
     }
@@ -1548,6 +1561,7 @@ private fun LiteRtCatalogEntryCard(
     installed: Boolean,
     downloadInProgress: Boolean,
     onInstall: () -> Unit,
+    onOpenSource: () -> Unit,
 ) {
     Card(
         colors = CardDefaults.cardColors(
@@ -1651,8 +1665,20 @@ private fun LiteRtCatalogEntryCard(
                         Text(stringResource(R.string.local_llm_catalog_install))
                     }
                 }
+                Spacer(Modifier.width(8.dp))
+                OutlinedButton(onClick = onOpenSource) {
+                    Text(stringResource(R.string.model_manager_catalog_source))
+                }
             }
         }
+    }
+}
+
+private fun openModelSourceUrl(context: Context, url: String) {
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+    } catch (_: Exception) {
+        // Activity not found or malformed URL — safe no-op.
     }
 }
 

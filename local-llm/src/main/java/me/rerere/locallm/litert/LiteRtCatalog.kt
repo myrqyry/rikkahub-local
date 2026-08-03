@@ -15,6 +15,8 @@ data class LiteRtCatalogEntry(
 ) {
     /** Pre-built download URL on HuggingFace's `resolve` path. Same format ModelInstall already validates. */
     fun resolveUrl(): String = "https://huggingface.co/$modelId/resolve/main/$modelFile"
+    /** Where the user obtains this model — shown in the catalog UI and opened via ACTION_VIEW. */
+    val sourceUrl: String get() = "https://huggingface.co/$modelId"
     /** Lookup the matching config defaults. */
     fun config(): LiteRtModelConfig = LiteRtModelDefaults.forModelFile(modelFile)
 }

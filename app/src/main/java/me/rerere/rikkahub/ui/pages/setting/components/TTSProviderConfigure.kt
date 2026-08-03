@@ -1,6 +1,7 @@
 package me.rerere.rikkahub.ui.pages.setting.components
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,6 +16,9 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,13 +31,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
+import com.dokar.sonner.ToastType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import me.rerere.locallm.ModelInstall
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.ui.components.ui.FormItem
 import me.rerere.rikkahub.ui.components.ui.OutlinedNumberInput
+import me.rerere.rikkahub.ui.context.LocalToaster
+import me.rerere.tts.kitten.KittenTtsBundle
+import me.rerere.tts.kitten.KittenTtsCatalog
+import me.rerere.tts.kitten.KittenTtsConfig
+import me.rerere.tts.pocket.PocketTtsBundle
+import me.rerere.tts.pocket.PocketTtsCatalog
 import me.rerere.tts.provider.TTSProviderSetting
+import okhttp3.OkHttpClient
+import org.koin.compose.koinInject
 import java.io.File
 
 @Composable
@@ -50,8 +65,18 @@ fun TTSProviderConfigure(
         var expanded by remember { mutableStateOf(false) }
         val providers = remember {
             val types = TTSProviderSetting.Types
-            val local = types.filter { it == TTSProviderSetting.SystemTTS::class || it == TTSProviderSetting.NekoSpeakTts::class || it == TTSProviderSetting.PocketTts::class }
-            val cloud = types.filter { it != TTSProviderSetting.SystemTTS::class && it != TTSProviderSetting.NekoSpeakTts::class && it != TTSProviderSetting.PocketTts::class }
+            val local = types.filter {
+                it == TTSProviderSetting.SystemTTS::class ||
+                    it == TTSProviderSetting.NekoSpeakTts::class ||
+                    it == TTSProviderSetting.PocketTts::class ||
+                    it == TTSProviderSetting.KittenTts::class
+            }
+            val cloud = types.filter {
+                it != TTSProviderSetting.SystemTTS::class &&
+                    it != TTSProviderSetting.NekoSpeakTts::class &&
+                    it != TTSProviderSetting.PocketTts::class &&
+                    it != TTSProviderSetting.KittenTts::class
+            }
             local + cloud
         }
 
@@ -78,6 +103,7 @@ fun TTSProviderConfigure(
                         is TTSProviderSetting.FishAudio -> "Fish Audio"
                         is TTSProviderSetting.NekoSpeakTts -> "NekoSpeak (Local)"
                         is TTSProviderSetting.PocketTts -> "Pocket TTS (Local)"
+                        is TTSProviderSetting.KittenTts -> "Kitten TTS (Local)"
                     },
                     onValueChange = {},
                     readOnly = true,
@@ -110,6 +136,7 @@ fun TTSProviderConfigure(
                                         TTSProviderSetting.Step::class -> "Step"
                                         TTSProviderSetting.NekoSpeakTts::class -> "NekoSpeak (Local)"
                                         TTSProviderSetting.PocketTts::class -> "Pocket TTS (Local)"
+                                        TTSProviderSetting.KittenTts::class -> "Kitten TTS (Local)"
                                         else -> providerClass.simpleName ?: "Unknown"
                                     }
                                 )
@@ -181,6 +208,11 @@ fun TTSProviderConfigure(
                                         name = "Pocket TTS (Local)"
                                     )
 
+                                    TTSProviderSetting.KittenTts::class -> TTSProviderSetting.KittenTts(
+                                        id = setting.id,
+                                        name = "Kitten TTS (Local)"
+                                    )
+
                                     else -> setting
                                 }
                                 onValueChange(newSetting)
@@ -221,6 +253,7 @@ fun TTSProviderConfigure(
             is TTSProviderSetting.Step -> StepTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.NekoSpeakTts -> NekoSpeakTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.PocketTts -> PocketTTSConfiguration(setting, onValueChange)
+            is TTSProviderSetting.KittenTts -> KittenTTSConfiguration(setting, onValueChange)
         }
     }
 }
@@ -1627,23 +1660,205 @@ private fun PocketTTSConfiguration(
     setting: TTSProviderSetting.PocketTts,
     onValueChange: (TTSProviderSetting) -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val httpClient = koinInjectOkHttp()
+    val toaster = LocalToaster.current
+    val doneTemplate = stringResource(R.string.local_tts_download_done)
+    val errorTemplate = stringResource(R.string.local_tts_download_error)
+
+    // States
+    var downloading by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf(0) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var doneMsg by remember { mutableStateOf<String?>(null) }
+
+    // Folder picker (whole bundle) — OpenDocumentTree to select a directory.
+    val folderPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            runCatching {
+                LocalTtsModelManager.importBundleFromTree(
+                    context, "pocket-tts", uri, PocketTtsBundle.requiredFiles,
+                )
+            }.onSuccess { dest ->
+                onValueChange(setting.copy(modelPath = dest.absolutePath))
+                toaster.show(
+                    doneTemplate.format(dest.absolutePath),
+                    type = ToastType.Success,
+                )
+            }.onFailure { e ->
+                toaster.show(e.message ?: "Import failed", type = ToastType.Error)
+            }
+        }
+    }
+
+    // Model directory
     FormItem(
-        label = { Text("Model directory") },
-        description = { Text("Directory containing the Pocket TTS ONNX bundle (9 files)") }
+        label = { Text(stringResource(R.string.local_tts_model_dir_label)) },
+        description = { Text(stringResource(R.string.local_tts_model_dir_desc)) }
     ) {
-        OutlinedTextField(
-            value = setting.modelPath,
-            onValueChange = { newPath ->
-                onValueChange(setting.copy(modelPath = newPath))
-            },
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("/storage/emulated/0/Download/pocket-tts") },
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedTextField(
+                value = setting.modelPath,
+                onValueChange = { onValueChange(setting.copy(modelPath = it)) },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text(stringResource(R.string.local_tts_model_dir_placeholder_pocket)) },
+            )
+            Button(onClick = { folderPicker.launch(null) }) {
+                Text(stringResource(R.string.local_tts_browse))
+            }
+        }
+    }
+
+    // Download section
+    FormItem(
+        label = { Text(stringResource(R.string.local_tts_download_section)) },
+        description = { Text(stringResource(R.string.local_tts_download_desc)) }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            val entry = PocketTtsCatalog.ENTRIES.first()
+            val installed = LocalTtsModelManager
+                .missingFiles(
+                    File(setting.modelPath),
+                    PocketTtsBundle.requiredFiles
+                ).isEmpty() && setting.modelPath.isNotBlank()
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    entry.displayName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                if (installed) {
+                    Text(
+                        text = stringResource(R.string.local_tts_installed),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                } else {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                downloading = true
+                                error = null; doneMsg = null
+                                runCatching {
+                                    val urls = PocketTtsBundle.requiredFiles.map { file ->
+                                        entry.resolveFileUrl(file) to file
+                                    }
+                                    LocalTtsModelManager.downloadBundle(
+                                        context, httpClient, "pocket-tts", urls,
+                                        onProgress = { progress = it },
+                                    )
+                                }.onSuccess { dest ->
+                                    onValueChange(setting.copy(modelPath = dest.absolutePath))
+                                    doneMsg = dest.absolutePath
+                                    toaster.show(
+                                        doneTemplate.format(dest.absolutePath),
+                                        type = ToastType.Success,
+                                    )
+                                }.onFailure { e ->
+                                    error = e.message ?: "Download failed"
+                                    toaster.show(
+                                        errorTemplate.format(error!!),
+                                        type = ToastType.Error,
+                                    )
+                                }
+                                downloading = false
+                            }
+                        },
+                        enabled = !downloading,
+                    ) { Text(stringResource(R.string.local_tts_install)) }
+                }
+                OutlinedButton(onClick = { openModelSourceUrl(context, entry.sourceUrl) }) {
+                    Text(stringResource(R.string.local_tts_source))
+                }
+            }
+
+            // Paste link
+            var manualUrl by remember { mutableStateOf(setting.hfLink) }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = manualUrl,
+                    onValueChange = { manualUrl = it },
+                    label = { Text(stringResource(R.string.local_tts_paste_link)) },
+                    placeholder = { Text(stringResource(R.string.local_tts_paste_link_hint)) },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                )
+                OutlinedButton(
+                    onClick = {
+                        val url = manualUrl.trim()
+                        if (url.isBlank()) return@OutlinedButton
+                        scope.launch {
+                            downloading = true
+                            error = null; doneMsg = null
+                            runCatching {
+                                val normalized = ModelInstall.normalizeHuggingFaceUrl(url)
+                                if (!ModelInstall.isValidDownloadUrl(normalized)) {
+                                    throw IllegalArgumentException("Invalid HuggingFace URL")
+                                }
+                                val urls = PocketTtsBundle.requiredFiles.map { file ->
+                                    normalized.trimEnd('/') + "/resolve/main/" + file to file
+                                }
+                                LocalTtsModelManager.downloadBundle(
+                                    context, httpClient, "pocket-tts", urls,
+                                    onProgress = { progress = it },
+                                )
+                            }.onSuccess { dest ->
+                                onValueChange(setting.copy(modelPath = dest.absolutePath, hfLink = manualUrl))
+                                toaster.show(
+                                    doneTemplate.format(dest.absolutePath),
+                                    type = ToastType.Success,
+                                )
+                            }.onFailure { e ->
+                                error = e.message ?: "Download failed"
+                                toaster.show(
+                                    errorTemplate.format(error!!),
+                                    type = ToastType.Error,
+                                )
+                            }
+                            downloading = false
+                        }
+                    },
+                    enabled = manualUrl.isNotBlank() && !downloading,
+                ) { Text(stringResource(R.string.local_tts_download_paste)) }
+            }
+        }
+    }
+
+    // Progress / status
+    if (downloading) {
+        LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth())
+        Text(
+            text = stringResource(R.string.local_tts_download_progress, progress),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    error?.let { msg ->
+        Text(
+            text = stringResource(R.string.local_tts_download_error, msg),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
         )
     }
 
+    // --- Full synthesis settings ---
     FormItem(
-        label = { Text("Flow steps") },
-        description = { Text("ODE integration steps per frame (1..32, higher = better quality)") }
+        label = { Text(stringResource(R.string.local_tts_flow_steps)) },
+        description = { Text(stringResource(R.string.local_tts_flow_steps_desc)) }
     ) {
         OutlinedTextField(
             value = setting.flowSteps.toString(),
@@ -1658,19 +1873,344 @@ private fun PocketTTSConfiguration(
     }
 
     FormItem(
-        label = { Text("Temperature") },
-        description = { Text("Sampling noise level (0..10)") }
+        label = { Text(stringResource(R.string.local_tts_temperature)) },
+        description = { Text(stringResource(R.string.local_tts_temperature_desc)) }
     ) {
         OutlinedNumberInput(
             value = setting.temperature,
-            onValueChange = { newTemperature ->
-                if (newTemperature.isFinite() && newTemperature in 0f..10f) {
-                    onValueChange(setting.copy(temperature = newTemperature))
+            onValueChange = { v ->
+                if (v.isFinite() && v in 0f..10f) onValueChange(setting.copy(temperature = v))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = "Temperature",
+        )
+    }
+
+    FormItem(
+        label = { Text(stringResource(R.string.local_tts_max_frames)) },
+        description = { Text(stringResource(R.string.local_tts_max_frames_desc)) }
+    ) {
+        OutlinedTextField(
+            value = setting.maxFrames.toString(),
+            onValueChange = { text ->
+                text.toIntOrNull()?.takeIf { it in 1..1000 }?.let {
+                    onValueChange(setting.copy(maxFrames = it))
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            label = "Temperature"
+            placeholder = { Text("1000") },
         )
+    }
+
+    FormItem(
+        label = { Text(stringResource(R.string.local_tts_frames_after_eos)) },
+        description = { Text(stringResource(R.string.local_tts_frames_after_eos_desc)) }
+    ) {
+        OutlinedTextField(
+            value = setting.framesAfterEos.toString(),
+            onValueChange = { text ->
+                text.toIntOrNull()?.takeIf { it in 0..50 }?.let {
+                    onValueChange(setting.copy(framesAfterEos = it))
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("0") },
+        )
+    }
+
+    FormItem(
+        label = { Text(stringResource(R.string.local_tts_eos_threshold)) },
+        description = { Text(stringResource(R.string.local_tts_eos_threshold_desc)) }
+    ) {
+        OutlinedNumberInput(
+            value = setting.eosThreshold,
+            onValueChange = { v ->
+                if (v.isFinite()) onValueChange(setting.copy(eosThreshold = v))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = "EOS threshold",
+        )
+    }
+
+    FormItem(
+        label = { Text(stringResource(R.string.local_tts_intra_threads)) },
+        description = { Text(stringResource(R.string.local_tts_intra_threads_desc)) }
+    ) {
+        OutlinedTextField(
+            value = setting.intraThreads.toString(),
+            onValueChange = { text ->
+                text.toIntOrNull()?.takeIf { it in 1..64 }?.let {
+                    onValueChange(setting.copy(intraThreads = it))
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("4") },
+        )
+    }
+
+    FormItem(
+        label = { Text(stringResource(R.string.local_tts_seed)) },
+        description = { Text(stringResource(R.string.local_tts_seed_desc)) }
+    ) {
+        OutlinedTextField(
+            value = setting.seed.toString(),
+            onValueChange = { text ->
+                text.toLongOrNull()?.let { onValueChange(setting.copy(seed = it)) }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("-1") },
+        )
+    }
+}
+
+@Composable
+private fun KittenTTSConfiguration(
+    setting: TTSProviderSetting.KittenTts,
+    onValueChange: (TTSProviderSetting) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val httpClient = koinInjectOkHttp()
+    val toaster = LocalToaster.current
+    val doneTemplate = stringResource(R.string.local_tts_download_done)
+    val errorTemplate = stringResource(R.string.local_tts_download_error)
+
+    var downloading by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf(0) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    val folderPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            runCatching {
+                LocalTtsModelManager.importBundleFromTree(
+                    context, "kitten-tts", uri, KittenTtsBundle.requiredFiles,
+                )
+            }.onSuccess { dest ->
+                onValueChange(setting.copy(modelPath = dest.absolutePath))
+                toaster.show(
+                    doneTemplate.format(dest.absolutePath),
+                    type = ToastType.Success,
+                )
+            }.onFailure { e ->
+                toaster.show(e.message ?: "Import failed", type = ToastType.Error)
+            }
+        }
+    }
+
+    FormItem(
+        label = { Text(stringResource(R.string.local_tts_model_dir_label)) },
+        description = { Text(stringResource(R.string.local_tts_model_dir_desc)) }
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedTextField(
+                value = setting.modelPath,
+                onValueChange = { onValueChange(setting.copy(modelPath = it)) },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text(stringResource(R.string.local_tts_model_dir_placeholder_kitten)) },
+            )
+            Button(onClick = { folderPicker.launch(null) }) {
+                Text(stringResource(R.string.local_tts_browse))
+            }
+        }
+    }
+
+    FormItem(
+        label = { Text(stringResource(R.string.local_tts_download_section)) },
+        description = { Text(stringResource(R.string.local_tts_download_desc)) }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            val entry = KittenTtsCatalog.ENTRIES.first()
+            val installed = LocalTtsModelManager
+                .missingFiles(File(setting.modelPath), entry.requiredFiles)
+                .isEmpty() && setting.modelPath.isNotBlank()
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    entry.displayName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                if (installed) {
+                    Text(
+                        text = stringResource(R.string.local_tts_installed),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                } else {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                downloading = true
+                                error = null
+                                runCatching {
+                                    val urls = entry.requiredFiles.map { file ->
+                                        entry.resolveFileUrl(file) to file
+                                    }
+                                    LocalTtsModelManager.downloadBundle(
+                                        context, httpClient, "kitten-tts", urls,
+                                        onProgress = { progress = it },
+                                    )
+                            }.onSuccess { dest ->
+                                onValueChange(setting.copy(modelPath = dest.absolutePath, hfLink = entry.sourceUrl))
+                                toaster.show(
+                                    doneTemplate.format(dest.absolutePath),
+                                    type = ToastType.Success,
+                                )
+                            }.onFailure { e ->
+                                error = e.message ?: "Download failed"
+                                toaster.show(
+                                    errorTemplate.format(error!!),
+                                    type = ToastType.Error,
+                                )
+                            }
+                                downloading = false
+                            }
+                        },
+                        enabled = !downloading,
+                    ) { Text(stringResource(R.string.local_tts_install)) }
+                }
+                OutlinedButton(onClick = { openModelSourceUrl(context, entry.sourceUrl) }) {
+                    Text(stringResource(R.string.local_tts_source))
+                }
+            }
+
+            var manualUrl by remember { mutableStateOf(setting.hfLink) }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = manualUrl,
+                    onValueChange = { manualUrl = it },
+                    label = { Text(stringResource(R.string.local_tts_paste_link)) },
+                    placeholder = { Text(stringResource(R.string.local_tts_paste_link_hint)) },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                )
+                OutlinedButton(
+                    onClick = {
+                        val url = manualUrl.trim()
+                        if (url.isBlank()) return@OutlinedButton
+                        scope.launch {
+                            downloading = true
+                            error = null
+                            runCatching {
+                                val normalized = ModelInstall.normalizeHuggingFaceUrl(url)
+                                if (!ModelInstall.isValidDownloadUrl(normalized)) {
+                                    throw IllegalArgumentException("Invalid HuggingFace URL")
+                                }
+                                val urls = entry.requiredFiles.map { file ->
+                                    normalized.trimEnd('/') + "/resolve/main/" + file to file
+                                }
+                                LocalTtsModelManager.downloadBundle(
+                                    context, httpClient, "kitten-tts", urls,
+                                    onProgress = { progress = it },
+                                )
+                            }.onSuccess { dest ->
+                                onValueChange(setting.copy(modelPath = dest.absolutePath, hfLink = manualUrl))
+                                toaster.show(
+                                    doneTemplate.format(dest.absolutePath),
+                                    type = ToastType.Success,
+                                )
+                            }.onFailure { e ->
+                                error = e.message ?: "Download failed"
+                                toaster.show(
+                                    errorTemplate.format(error!!),
+                                    type = ToastType.Error,
+                                )
+                            }
+                            downloading = false
+                        }
+                    },
+                    enabled = manualUrl.isNotBlank() && !downloading,
+                ) { Text(stringResource(R.string.local_tts_download_paste)) }
+            }
+        }
+    }
+
+    if (downloading) {
+        LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth())
+        Text(
+            text = stringResource(R.string.local_tts_download_progress, progress),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    error?.let { msg ->
+        Text(
+            text = stringResource(R.string.local_tts_download_error, msg),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+
+    // Voice selector
+    var voiceExpanded by remember { mutableStateOf(false) }
+    FormItem(
+        label = { Text(stringResource(R.string.local_tts_voice)) },
+        description = { Text(stringResource(R.string.local_tts_voice_desc)) }
+    ) {
+        ExposedDropdownMenuBox(
+            expanded = voiceExpanded,
+            onExpandedChange = { voiceExpanded = !voiceExpanded },
+        ) {
+            OutlinedTextField(
+                value = KittenTtsConfig.VOICE_LABELS[setting.voice] ?: setting.voice,
+                onValueChange = {},
+                readOnly = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = voiceExpanded) },
+            )
+            ExposedDropdownMenu(expanded = voiceExpanded, onDismissRequest = { voiceExpanded = false }) {
+                KittenTtsConfig.AVAILABLE_VOICES.forEach { voice ->
+                    DropdownMenuItem(
+                        text = { Text(KittenTtsConfig.VOICE_LABELS[voice] ?: voice) },
+                        onClick = {
+                            voiceExpanded = false
+                            onValueChange(setting.copy(voice = voice))
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    // Speed
+    FormItem(
+        label = { Text(stringResource(R.string.local_tts_speed)) },
+        description = { Text(stringResource(R.string.local_tts_speed_desc)) }
+    ) {
+        OutlinedNumberInput(
+            value = setting.speed,
+            onValueChange = { v ->
+                if (v.isFinite() && v in 0.25f..4.0f) onValueChange(setting.copy(speed = v))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = "Speed",
+        )
+    }
+}
+
+/** Locally-injected OkHttp client for TTS bundle downloads. */
+@Composable
+private fun koinInjectOkHttp(): OkHttpClient = koinInject<OkHttpClient>()
+
+private fun openModelSourceUrl(context: Context, url: String) {
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+    } catch (_: Exception) {
+        // no handler — safe no-op
     }
 }
 

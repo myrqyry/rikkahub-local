@@ -309,8 +309,38 @@ sealed class TTSProviderSetting {
         override var id: Uuid = Uuid.random(),
         override var name: String = "Pocket TTS (Local)",
         val modelPath: String = "",
+        // Core quality knobs
         val flowSteps: Int = 4,
         val temperature: Float = 0.8f,
+        // Full config — surfaced in the settings UI
+        val maxFrames: Int = 1000,
+        val framesAfterEos: Int = 0,
+        val eosThreshold: Float = 0.5f,
+        val intraThreads: Int = 4,
+        val seed: Long = -1,
+        // UX helper (non-synth)
+        val hfLink: String = "https://huggingface.co/soniqo/Pocket-TTS-100M-ONNX-INT8",
+    ) : TTSProviderSetting() {
+        override fun copyProvider(
+            id: Uuid,
+            name: String,
+        ): TTSProviderSetting {
+            return this.copy(
+                id = id,
+                name = name,
+            )
+        }
+    }
+
+    @Serializable
+    @SerialName("kitten-tts")
+    data class KittenTts(
+        override var id: Uuid = Uuid.random(),
+        override var name: String = "Kitten TTS (Local)",
+        val modelPath: String = "",
+        val voice: String = "expr-voice-2-m",
+        val speed: Float = 1.0f,
+        val hfLink: String = "https://huggingface.co/KittenML/kitten-tts-nano-0.1",
     ) : TTSProviderSetting() {
         override fun copyProvider(
             id: Uuid,
@@ -339,6 +369,7 @@ sealed class TTSProviderSetting {
                 FishAudio::class,
                 NekoSpeakTts::class,
                 PocketTts::class,
+                KittenTts::class,
             )
         }
     }

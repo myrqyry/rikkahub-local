@@ -337,3 +337,24 @@ REAL AUDIO SMOKE-TESTED on desktop JVM (java 21 + onnxruntime-1.25.0 jar + compi
 VERIFIED: `./gradlew :speech:testDebugUnitTest :app:assembleDebug` EXIT=0; `git diff --check` clean.
 
 NEXT: model download/install UX (user currently must manually place 9-file bundle and type path), on-device Android runtime test, edge-tts optional cloud provider (approved, deferred).
+
+## Session: 2026-08-02 — Pocket + Kitten TTS setup overhaul (delivery)
+
+USER: "for pocket and kitten tts you need to heavily improve the setup and downloads, open local file paste link to model full settings menu options etc"
+
+SHIPPED (unit-tested + assembleDebug green BEFORE commit):
+- speech kitten stack (new package me.rerere.tts.kitten): KittenTtsBundle (single ONNX kitten_tts_nano_v0_1.onnx + voices.npz), KittenTtsTokenizer (175-symbol BOS/EOS one-shot grapheme→IPA fallback; espeak-ng phonemizer intentionally NOT shipped — no neutral native lib), KittenTtsConfig (voice expr-voice-2-m default, speed 0.25..4.0, intraThreads 1..16, SAMPLE_RATE 24000), KittenTtsCatalog (KittenML/kitten-tts-nano-0.1, apache-2.0, ~24MB), KittenTtsEngine (input_ids INT64[1,seq], style FLOAT[1,256], speed FLOAT[1] → waveform FLOAT[num_samples]; create(bundle,config), one-shot), KittenTTSProvider (PCM16 24kHz isLast=true single chunk).
+- speech pocket additions: PocketTtsCatalog (soniqo/Pocket-TTS-100M-ONNX-INT8, cc-by-4.0, ~120MiB, requiredFiles + resolveFileUrl/sourceUrl); PocketTTSProvider passes full PocketTtsConfig from setting; PocketTts setting expanded to modelPath/flowSteps/temperature/maxFrames/framesAfterEos/eosThreshold/intraThreads/seed/hfLink.
+- TTSProviderSetting.kt: PocketTts full config + new KittenTts @SerialName("kitten-tts") (modelPath/voice/speed/hfLink); dead downloadState field removed from both; Types list updated.
+- TTSManager.kt: KittenTTSProvider wired (import/field + generateSpeech + getPromptGuidance branches).
+- UI (TTSProviderConfigure.kt): local/cloud filter includes PocketTts+KittenTts; dropdown label/newSetting/config-dispatch for both; PocketTTSConfiguration fully rewritten + new KittenTTSConfiguration sharing UX shell (OpenDocumentTree folder picker → LocalTtsModelManager.importBundleFromTree; curated Install button; paste-link download w/ ModelInstall.normalizeHuggingFaceUrl+isValidDownloadUrl; LinearProgressIndicator; error/done toasts; Source button via openModelSourceUrl; full param fields for Pocket; voice ExposedDropdownMenu + speed for Kitten). Helpers: koinInjectOkHttp() (plain, no remember), openModelSourceUrl(context,url) Intent ACTION_VIEW. SettingSpeechPage.kt subtitle + "Kitten TTS".
+- New LocalTtsModelManager.kt (app setting/components): engineDir filesDir/local-models/tts-<engine>, missingFiles, importBundleFromTree (DocumentFile.fromTreeUri + contentResolver copy), downloadBundle (ModelInstall.download per file, Started/Tick/Done/Failed, progress callback).
+- strings.xml: ~30 local_tts_* strings (dir/browse/download/paste-link/install/source/progress/error/done/missing_files/voice/speed/flow_steps/temperature/max_frames/frames_after_eos/eos_threshold/intra_threads/seed).
+- Tests: KittenTtsTest.kt (5 tokenizer + 2 NpzParser, JUnit4 only — no kotlin.test in speech classpath).
+- Also carries prior ModelManager crash fix (duplicate modelId LazyColumn key → modelFile) + sourceUrl/Source buttons (ModelManagerPage.kt, ProviderConfigure.kt, SdCatalog.kt, LiteRtCatalog.kt, SdCatalogTest.kt, model_manager_catalog_source string).
+
+VERIFIED: `./gradlew :speech:testDebugUnitTest :app:assembleDebug -q` EXIT=0; `git diff --check` clean.
+
+HOOK NOTE: pre-push hook greps placeholder/simulation/XXX/TODO/FIXME/stub/.WIP tree-wide; staged commit has zero matches (verified). .superpowers/ excluded from staging (NEVER stage).
+
+NEXT: on-device runtime test of both engines; Kitten espeak-ng phonemizer if quality warrants (needs neutral native lib); edge-tts optional cloud provider (approved, deferred).

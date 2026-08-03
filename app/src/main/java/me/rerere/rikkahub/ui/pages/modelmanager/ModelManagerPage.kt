@@ -38,8 +38,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.Delete01
@@ -51,7 +54,10 @@ import org.koin.androidx.compose.koinViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModelManagerPage(
-    viewModel: ModelManagerViewModel = koinViewModel(),
+    // Koin registers this VM parameterised ({ params -> ... }) even though it takes no
+    // parameters, so the type-less koinViewModel() overload can't match a definition and
+    // the page crashed on open. The explicit type parameter picks the parameterised one.
+    viewModel: ModelManagerViewModel = koinViewModel<ModelManagerViewModel>(),
 ) {
     var tab by remember { mutableStateOf(0) }
     val provider by viewModel.provider.collectAsStateWithLifecycle()
@@ -177,12 +183,16 @@ private fun ColumnScope.CatalogTab(
                 )
             }
         }
-        items(viewModel.catalogEntries, key = { it.modelId }) { entry ->
+        items(viewModel.catalogEntries, key = { it.modelFile }) { entry ->
+            val context = LocalContext.current
             SdCatalogEntryCard(
                 entry = entry,
                 installed = entry.modelFile in installedFiles,
                 downloadInProgress = downloadInProgress,
                 onInstall = { viewModel.startManualDownload(entry.resolveUrl()) },
+                onOpenSource = {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, entry.sourceUrl.toUri()))
+                },
             )
         }
     }
@@ -252,6 +262,7 @@ private fun SdCatalogEntryCard(
     installed: Boolean,
     downloadInProgress: Boolean,
     onInstall: () -> Unit,
+    onOpenSource: () -> Unit,
 ) {
     Card(
         colors = CardDefaults.cardColors(
@@ -319,6 +330,10 @@ private fun SdCatalogEntryCard(
                     ) {
                         Text(stringResource(R.string.local_llm_catalog_install))
                     }
+                }
+                Spacer(Modifier.width(8.dp))
+                OutlinedButton(onClick = onOpenSource) {
+                    Text(stringResource(R.string.model_manager_catalog_source))
                 }
             }
         }
