@@ -1268,11 +1268,11 @@
   <string name="image_preview_saved">圖片已儲存</string>
   <string name="image_preview_saving">正在儲存…</string>
   <string name="local_llm_accelerator_label">加速器：%1$s</string>
-  <string name="local_llm_catalog_install">安裝</string>
+  <string name="local_llm_catalog_get_on_hf">在 Hugging Face 上取得</string>
   <string name="local_llm_catalog_installed">已安裝</string>
   <string name="local_llm_catalog_recommended">推薦</string>
   <string name="local_llm_catalog_size_format">%1$.1f GB · 需要 %2$d GB 記憶體</string>
-  <string name="local_llm_catalog_subtitle">由 Google AI Edge Gallery 精選。選擇一個即可一鍵安裝。</string>
+  <string name="local_llm_catalog_subtitle">由 Google AI Edge Gallery 精選。選擇一個即可開啟其 Hugging Face 模型頁面。</string>
   <string name="local_llm_catalog_tag_multimodal">多模態</string>
   <string name="local_llm_catalog_tag_speculative">推測解碼</string>
   <string name="local_llm_import_filesystem">從檔案系統載入</string>

@@ -989,8 +989,9 @@ private fun ColumnScope.ProviderConfigureLiteRT(
     }
 
     // Recommended-models curated picker. Sourced from Google AI Edge Gallery's allowlist
-    // (LiteRtCatalog.ENTRIES). Per-entry Install button calls the same startManualDownload
-    // path the URL-paste field uses, so the install flow is identical.
+    // (LiteRtCatalog.ENTRIES). Each card links to the model's HuggingFace page — the user
+    // gets the file there (copy the URL into the paste field, or download + import from the
+    // filesystem), since the app never downloads a catalog model directly.
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
         Text(
             stringResource(R.string.local_llm_catalog_title),
@@ -1006,8 +1007,6 @@ private fun ColumnScope.ProviderConfigureLiteRT(
             LiteRtCatalogEntryCard(
                 entry = entry,
                 installed = entry.modelFile in installedModelFiles,
-                downloadInProgress = downloadProgress != null,
-                onInstall = { vm.startManualDownload(entry.resolveUrl()) },
                 onOpenSource = { openModelSourceUrl(context, entry.sourceUrl) },
             )
         }
@@ -1342,7 +1341,8 @@ private fun ColumnScope.ProviderConfigureStableDiffusion(
         }
     }
 
-    // Curated Stable Diffusion GGUF picker.
+    // Curated Stable Diffusion GGUF picker. Cards link to each model's HuggingFace page —
+    // the file is obtained there and imported via the URL-paste field or filesystem picker.
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
         Text(
             stringResource(R.string.local_llm_catalog_title),
@@ -1358,8 +1358,6 @@ private fun ColumnScope.ProviderConfigureStableDiffusion(
             SdCatalogEntryCard(
                 entry = entry,
                 installed = entry.modelFile in installedModelFiles,
-                downloadInProgress = downloadProgress != null,
-                onInstall = { vm.startManualDownload(entry.resolveUrl()) },
                 onOpenSource = { openModelSourceUrl(sdContext, entry.sourceUrl) },
             )
         }
@@ -1419,8 +1417,6 @@ private fun ColumnScope.ProviderConfigureStableDiffusion(
 private fun SdCatalogEntryCard(
     entry: SdCatalogEntry,
     installed: Boolean,
-    downloadInProgress: Boolean,
-    onInstall: () -> Unit,
     onOpenSource: () -> Unit,
 ) {
     Card(
@@ -1488,15 +1484,10 @@ private fun SdCatalogEntryCard(
                     )
                 } else {
                     Button(
-                        onClick = onInstall,
-                        enabled = !downloadInProgress,
+                        onClick = onOpenSource,
                     ) {
-                        Text(stringResource(R.string.local_llm_catalog_install))
+                        Text(stringResource(R.string.local_llm_catalog_get_on_hf))
                     }
-                }
-                Spacer(Modifier.width(8.dp))
-                OutlinedButton(onClick = onOpenSource) {
-                    Text(stringResource(R.string.model_manager_catalog_source))
                 }
             }
         }
@@ -1559,8 +1550,6 @@ private fun DoubleParamField(
 private fun LiteRtCatalogEntryCard(
     entry: LiteRtCatalogEntry,
     installed: Boolean,
-    downloadInProgress: Boolean,
-    onInstall: () -> Unit,
     onOpenSource: () -> Unit,
 ) {
     Card(
@@ -1659,15 +1648,10 @@ private fun LiteRtCatalogEntryCard(
                     )
                 } else {
                     Button(
-                        onClick = onInstall,
-                        enabled = !downloadInProgress,
+                        onClick = onOpenSource,
                     ) {
-                        Text(stringResource(R.string.local_llm_catalog_install))
+                        Text(stringResource(R.string.local_llm_catalog_get_on_hf))
                     }
-                }
-                Spacer(Modifier.width(8.dp))
-                OutlinedButton(onClick = onOpenSource) {
-                    Text(stringResource(R.string.model_manager_catalog_source))
                 }
             }
         }

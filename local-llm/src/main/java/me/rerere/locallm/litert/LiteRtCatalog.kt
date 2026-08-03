@@ -25,15 +25,18 @@ object LiteRtCatalog {
     /**
      * Curated picker list — order matters (top of list shown first).
      *
+     * These are links, not installers: each card opens the model's HuggingFace page
+     * (`sourceUrl`), and the user gets the file themselves — by copying the URL into the
+     * paste-install field, or downloading it and importing from the filesystem. The app never
+     * downloads a catalog model directly, so repo gating (401 for token-less downloads) is
+     * irrelevant to curation: a gated repo is still a perfectly good pick.
+     *
      * Curation criteria — an entry stays ONLY if BOTH hold:
-     *  1. **Installable.** Its HuggingFace repo must be ungated. The app's downloader is a
-     *     plain HTTP client with no HF token, so a gated repo just returns 401 and the
-     *     install silently fails. Verified ungated: litert-community/gemma-4-E2B-it-litert-lm,
-     *     litert-community/gemma-4-E4B-it-litert-lm, litert-community/Qwen2.5-1.5B-Instruct.
-     *     Dropped as gated (401, un-installable): litert-community/Gemma3-1B-IT (gated=auto),
-     *     google/gemma-3n-E2B-it-litert-lm and google/gemma-3n-E4B-it-litert-lm (gated=manual),
+     *  1. **Reachable model page.** The HF repo must exist and host the referenced .litertlm
+     *     file. Verified present: litert-community/gemma-4-E2B-it-litert-lm,
+     *     litert-community/gemma-4-E4B-it-litert-lm, litert-community/Qwen2.5-1.5B-Instruct,
      *     litert-community/functiongemma-270m-ft-mobile-actions (gated=auto, gemma license —
-     *     right tool-calling fit but the token-less downloader gets 401 on both .litertlm files).
+     *     a first-class tool-calling fit despite being gated).
      *  2. **Tool-calling capable.** RikkaHub drives these models through the prompt-engineered
      *     tool protocol in LiteRtToolPrefix, so the model must be instruction-tuned for tool /
      *     function calling. Dropped on this rule: DeepSeek-R1-Distill-Qwen-1.5B (a reasoning
@@ -69,6 +72,16 @@ object LiteRtCatalog {
             minDeviceMemoryGb = 6,
             recommended = true,
             tags = emptyList(),
+        ),
+        LiteRtCatalogEntry(
+            displayName = "FunctionGemma 270M",
+            modelId = "litert-community/functiongemma-270m-ft-mobile-actions",
+            modelFile = "mobile_actions_q8_ekv1024.litertlm",
+            description = "A finetune of Google's FunctionGemma 270M for on-device tool / function calling, built for LiteRT-LM. Gated repo (Gemma license) — grab the file from the model page, then import it.",
+            sizeBytes = 288964608L,
+            minDeviceMemoryGb = 4,
+            recommended = false,
+            tags = listOf("tool-calling"),
         ),
     )
 

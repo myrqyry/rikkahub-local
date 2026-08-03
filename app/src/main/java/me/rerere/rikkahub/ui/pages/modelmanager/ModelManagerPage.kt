@@ -188,8 +188,6 @@ private fun ColumnScope.CatalogTab(
             SdCatalogEntryCard(
                 entry = entry,
                 installed = entry.modelFile in installedFiles,
-                downloadInProgress = downloadInProgress,
-                onInstall = { viewModel.startManualDownload(entry.resolveUrl()) },
                 onOpenSource = {
                     context.startActivity(Intent(Intent.ACTION_VIEW, entry.sourceUrl.toUri()))
                 },
@@ -260,8 +258,6 @@ private fun LocalImportTab(
 private fun SdCatalogEntryCard(
     entry: SdCatalogEntry,
     installed: Boolean,
-    downloadInProgress: Boolean,
-    onInstall: () -> Unit,
     onOpenSource: () -> Unit,
 ) {
     Card(
@@ -325,15 +321,10 @@ private fun SdCatalogEntryCard(
                     )
                 } else {
                     Button(
-                        onClick = onInstall,
-                        enabled = !downloadInProgress,
+                        onClick = onOpenSource,
                     ) {
-                        Text(stringResource(R.string.local_llm_catalog_install))
+                        Text(stringResource(R.string.local_llm_catalog_get_on_hf))
                     }
-                }
-                Spacer(Modifier.width(8.dp))
-                OutlinedButton(onClick = onOpenSource) {
-                    Text(stringResource(R.string.model_manager_catalog_source))
                 }
             }
         }

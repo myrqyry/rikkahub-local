@@ -1270,11 +1270,11 @@
   <string name="image_preview_saved">Изображение сохранено</string>
   <string name="image_preview_saving">Сохранение…</string>
   <string name="local_llm_accelerator_label">Ускоритель: %1$s</string>
-  <string name="local_llm_catalog_install">Установить</string>
+  <string name="local_llm_catalog_get_on_hf">Открыть на Hugging Face</string>
   <string name="local_llm_catalog_installed">Установлено</string>
   <string name="local_llm_catalog_recommended">Рекомендуется</string>
   <string name="local_llm_catalog_size_format">%1$.1f ГБ · нужно %2$d ГБ ОЗУ</string>
-  <string name="local_llm_catalog_subtitle">Курировано Google AI Edge Gallery. Выберите одну для установки в одно нажатие.</string>
+  <string name="local_llm_catalog_subtitle">Курировано Google AI Edge Gallery. Выберите модель — откроется её страница на Hugging Face.</string>
   <string name="local_llm_catalog_tag_multimodal">Мультимодальная</string>
   <string name="local_llm_catalog_tag_speculative">Спекулятивное декодирование</string>
   <string name="local_llm_import_filesystem">Загрузить из файловой системы</string>

@@ -1298,11 +1298,11 @@ mDNS 地址：使用 .local 主机名，同一网络中的其他设备可通过�
   <string name="image_preview_saved">图片已保存</string>
   <string name="image_preview_saving">正在保存…</string>
   <string name="local_llm_accelerator_label">加速器：%1$s</string>
-  <string name="local_llm_catalog_install">安装</string>
+  <string name="local_llm_catalog_get_on_hf">在 Hugging Face 上获取</string>
   <string name="local_llm_catalog_installed">已安装</string>
   <string name="local_llm_catalog_recommended">推荐</string>
   <string name="local_llm_catalog_size_format">%1$.1f GB · 需要 %2$d GB 内存</string>
-  <string name="local_llm_catalog_subtitle">由 Google AI Edge Gallery 精选。选择一个即可一键安装。</string>
+  <string name="local_llm_catalog_subtitle">由 Google AI Edge Gallery 精选。选择一个即可打开其 Hugging Face 模型页面。</string>
   <string name="local_llm_catalog_tag_multimodal">多模态</string>
   <string name="local_llm_catalog_tag_speculative">推测解码</string>
   <string name="local_llm_import_filesystem">从文件系统加载</string>

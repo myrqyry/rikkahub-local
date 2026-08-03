@@ -1270,11 +1270,11 @@ mDNSアドレス: .localホスト名を使用し、IPを知らなくても同じ
   <string name="image_preview_saved">画像を保存しました</string>
   <string name="image_preview_saving">保存中…</string>
   <string name="local_llm_accelerator_label">アクセラレータ：%1$s</string>
-  <string name="local_llm_catalog_install">インストール</string>
+  <string name="local_llm_catalog_get_on_hf">Hugging Face で入手</string>
   <string name="local_llm_catalog_installed">インストール済み</string>
   <string name="local_llm_catalog_recommended">推奨</string>
   <string name="local_llm_catalog_size_format">%1$.1f GB · %2$d GB の RAM が必要</string>
-  <string name="local_llm_catalog_subtitle">Google AI Edge Gallery が厳選。ワンタップインストールするものを 1 つ選んでください。</string>
+  <string name="local_llm_catalog_subtitle">Google AI Edge Gallery が厳選。選ぶと Hugging Face のモデルページが開きます。</string>
   <string name="local_llm_catalog_tag_multimodal">マルチモーダル</string>
   <string name="local_llm_catalog_tag_speculative">投機的デコード</string>
   <string name="local_llm_import_filesystem">ファイルシステムから読み込む</string>

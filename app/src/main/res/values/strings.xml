@@ -1684,8 +1684,8 @@
   <string name="local_llm_invalid_url">Invalid URL: must be https and well-formed</string>
   <string name="local_llm_download_progress">Downloading… %1$d%%</string>
   <string name="local_llm_catalog_title">Recommended models</string>
-  <string name="local_llm_catalog_subtitle">Curated by Google AI Edge Gallery. Pick one for one-tap install.</string>
-  <string name="local_llm_catalog_install">Install</string>
+  <string name="local_llm_catalog_subtitle">Curated by Google AI Edge Gallery. Pick one — open its model page on Hugging Face.</string>
+  <string name="local_llm_catalog_get_on_hf">Get on Hugging Face</string>
   <string name="local_llm_catalog_installed">Installed</string>
   <string name="local_llm_catalog_recommended">Recommended</string>
   <string name="local_llm_catalog_size_format">%1$.1f GB · needs %2$d GB RAM</string>
@@ -1696,10 +1696,9 @@
   <string name="model_manager_title">Model Manager</string>
   <string name="model_manager_tab_installed">Installed</string>
   <string name="model_manager_tab_catalog">Catalog</string>
-  <string name="model_manager_catalog_source">Source</string>
   <string name="model_manager_tab_hf_url">HF URL</string>
   <string name="model_manager_tab_local_import">Local Import</string>
-  <string name="model_manager_sd_catalog_subtitle">Stable Diffusion GGUF models, one-tap install.</string>
+  <string name="model_manager_sd_catalog_subtitle">Stable Diffusion GGUF models from Hugging Face.</string>
   <string name="model_manager_no_models">No models installed yet</string>
   <string name="local_tts_model_dir_label">Model directory</string>
   <string name="local_tts_model_dir_desc">Folder containing the model files. Browse to pick a folder, or download below.</string>
