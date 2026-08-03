@@ -31,7 +31,9 @@ object LiteRtCatalog {
      *     install silently fails. Verified ungated: litert-community/gemma-4-E2B-it-litert-lm,
      *     litert-community/gemma-4-E4B-it-litert-lm, litert-community/Qwen2.5-1.5B-Instruct.
      *     Dropped as gated (401, un-installable): litert-community/Gemma3-1B-IT (gated=auto),
-     *     google/gemma-3n-E2B-it-litert-lm and google/gemma-3n-E4B-it-litert-lm (gated=manual).
+     *     google/gemma-3n-E2B-it-litert-lm and google/gemma-3n-E4B-it-litert-lm (gated=manual),
+     *     litert-community/functiongemma-270m-ft-mobile-actions (gated=auto, gemma license —
+     *     right tool-calling fit but the token-less downloader gets 401 on both .litertlm files).
      *  2. **Tool-calling capable.** RikkaHub drives these models through the prompt-engineered
      *     tool protocol in LiteRtToolPrefix, so the model must be instruction-tuned for tool /
      *     function calling. Dropped on this rule: DeepSeek-R1-Distill-Qwen-1.5B (a reasoning
