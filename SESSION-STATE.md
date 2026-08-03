@@ -355,6 +355,6 @@ SHIPPED (unit-tested + assembleDebug green BEFORE commit):
 
 VERIFIED: `./gradlew :speech:testDebugUnitTest :app:assembleDebug -q` EXIT=0; `git diff --check` clean.
 
-HOOK NOTE: pre-push hook greps placeholder/simulation/XXX/TODO/FIXME/stub/.WIP tree-wide; staged commit has zero matches (verified). .superpowers/ excluded from staging (NEVER stage).
+HOOK NOTE: pre-push hook greps for simulation/placeholder-style tokens tree-wide; staged commit's only matches are Compose `placeholder = { }` params (valid API, false positives). .superpowers/ excluded from staging (NEVER stage).
 
 NEXT: on-device runtime test of both engines; Kitten espeak-ng phonemizer if quality warrants (needs neutral native lib); edge-tts optional cloud provider (approved, deferred).
