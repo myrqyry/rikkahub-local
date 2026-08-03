@@ -3,6 +3,8 @@
 ## What Lives Here
 
 Speech-to-text, voice recording, and audio processing for voice input in chat.
+Local TTS providers include Pocket, Kitten, and Qwen3-TTS; Qwen3 uses LiteRT
+models downloaded into the app-managed local model directory.
 
 ## Key Files
 

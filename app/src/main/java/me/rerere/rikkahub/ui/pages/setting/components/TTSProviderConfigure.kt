@@ -47,6 +47,7 @@ import me.rerere.tts.kitten.KittenTtsConfig
 import me.rerere.tts.pocket.PocketTtsBundle
 import me.rerere.tts.pocket.PocketTtsCatalog
 import me.rerere.tts.provider.TTSProviderSetting
+import me.rerere.tts.qwen3.Qwen3TtsCatalog
 import okhttp3.OkHttpClient
 import org.koin.compose.koinInject
 import java.io.File
@@ -69,13 +70,15 @@ fun TTSProviderConfigure(
                 it == TTSProviderSetting.SystemTTS::class ||
                     it == TTSProviderSetting.NekoSpeakTts::class ||
                     it == TTSProviderSetting.PocketTts::class ||
-                    it == TTSProviderSetting.KittenTts::class
+                    it == TTSProviderSetting.KittenTts::class ||
+                    it == TTSProviderSetting.Qwen3Tts::class
             }
             val cloud = types.filter {
                 it != TTSProviderSetting.SystemTTS::class &&
                     it != TTSProviderSetting.NekoSpeakTts::class &&
                     it != TTSProviderSetting.PocketTts::class &&
-                    it != TTSProviderSetting.KittenTts::class
+                    it != TTSProviderSetting.KittenTts::class &&
+                    it != TTSProviderSetting.Qwen3Tts::class
             }
             local + cloud
         }
@@ -104,6 +107,7 @@ fun TTSProviderConfigure(
                         is TTSProviderSetting.NekoSpeakTts -> "NekoSpeak (Local)"
                         is TTSProviderSetting.PocketTts -> "Pocket TTS (Local)"
                         is TTSProviderSetting.KittenTts -> "Kitten TTS (Local)"
+                        is TTSProviderSetting.Qwen3Tts -> "Qwen3 TTS (Local)"
                     },
                     onValueChange = {},
                     readOnly = true,
@@ -137,6 +141,7 @@ fun TTSProviderConfigure(
                                         TTSProviderSetting.NekoSpeakTts::class -> "NekoSpeak (Local)"
                                         TTSProviderSetting.PocketTts::class -> "Pocket TTS (Local)"
                                         TTSProviderSetting.KittenTts::class -> "Kitten TTS (Local)"
+                                        TTSProviderSetting.Qwen3Tts::class -> "Qwen3 TTS (Local)"
                                         else -> providerClass.simpleName ?: "Unknown"
                                     }
                                 )
@@ -213,6 +218,11 @@ fun TTSProviderConfigure(
                                         name = "Kitten TTS (Local)"
                                     )
 
+                                    TTSProviderSetting.Qwen3Tts::class -> TTSProviderSetting.Qwen3Tts(
+                                        id = setting.id,
+                                        name = "Qwen3 TTS (Local)"
+                                    )
+
                                     else -> setting
                                 }
                                 onValueChange(newSetting)
@@ -254,6 +264,7 @@ fun TTSProviderConfigure(
             is TTSProviderSetting.NekoSpeakTts -> NekoSpeakTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.PocketTts -> PocketTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.KittenTts -> KittenTTSConfiguration(setting, onValueChange)
+            is TTSProviderSetting.Qwen3Tts -> Qwen3TTSConfiguration(setting, onValueChange)
         }
     }
 }
@@ -2199,6 +2210,199 @@ private fun KittenTTSConfiguration(
             modifier = Modifier.fillMaxWidth(),
             label = "Speed",
         )
+    }
+}
+
+@Composable
+private fun Qwen3TTSConfiguration(
+    setting: TTSProviderSetting.Qwen3Tts,
+    onValueChange: (TTSProviderSetting) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val httpClient = koinInjectOkHttp()
+    val toaster = LocalToaster.current
+    val doneTemplate = stringResource(R.string.local_tts_download_done)
+    val errorTemplate = stringResource(R.string.local_tts_download_error)
+
+    var downloading by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf(0) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    FormItem(
+        label = { Text(stringResource(R.string.local_tts_model_dir_label)) },
+        description = { Text(stringResource(R.string.local_tts_model_dir_desc)) }
+    ) {
+        OutlinedTextField(
+            value = setting.modelPath,
+            onValueChange = { onValueChange(setting.copy(modelPath = it)) },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text(stringResource(R.string.local_tts_model_dir_placeholder_qwen3)) },
+        )
+    }
+
+    FormItem(
+        label = { Text(stringResource(R.string.local_tts_download_section)) },
+        description = { Text(stringResource(R.string.local_tts_download_desc)) }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            val entry = Qwen3TtsCatalog.ENTRIES.first()
+            val installed = LocalTtsModelManager
+                .missingFiles(File(setting.modelPath), entry.requiredFiles)
+                .isEmpty() && setting.modelPath.isNotBlank()
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    entry.displayName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                if (installed) {
+                    Text(
+                        text = stringResource(R.string.local_tts_installed),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                } else {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                downloading = true
+                                error = null
+                                runCatching {
+                                    LocalTtsModelManager.downloadBundle(
+                                        context, httpClient, "qwen3-tts", entry.downloadPairs(),
+                                        onProgress = { progress = it },
+                                    )
+                                }.onSuccess { dest ->
+                                    onValueChange(setting.copy(modelPath = dest.absolutePath, hfLink = entry.sourceUrl))
+                                    toaster.show(
+                                        doneTemplate.format(dest.absolutePath),
+                                        type = ToastType.Success,
+                                    )
+                                }.onFailure { e ->
+                                    error = e.message ?: "Download failed"
+                                    toaster.show(
+                                        errorTemplate.format(error!!),
+                                        type = ToastType.Error,
+                                    )
+                                }
+                                downloading = false
+                            }
+                        },
+                        enabled = !downloading,
+                    ) { Text(stringResource(R.string.local_tts_install)) }
+                }
+                OutlinedButton(onClick = { openModelSourceUrl(context, entry.sourceUrl) }) {
+                    Text(stringResource(R.string.local_tts_source))
+                }
+            }
+
+            var manualUrl by remember { mutableStateOf(setting.hfLink) }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = manualUrl,
+                    onValueChange = { manualUrl = it },
+                    label = { Text(stringResource(R.string.local_tts_paste_link)) },
+                    placeholder = { Text(stringResource(R.string.local_tts_paste_link_hint)) },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                )
+                OutlinedButton(
+                    onClick = {
+                        val url = manualUrl.trim()
+                        if (url.isBlank()) return@OutlinedButton
+                        scope.launch {
+                            downloading = true
+                            error = null
+                            runCatching {
+                                val normalized = ModelInstall.normalizeHuggingFaceUrl(url)
+                                if (!ModelInstall.isValidDownloadUrl(normalized)) {
+                                    throw IllegalArgumentException("Invalid HuggingFace URL")
+                                }
+                                val pairs = entry.requiredFiles.mapNotNull { file ->
+                                    val remote = entry.remoteForLocal(file) ?: return@mapNotNull null
+                                    normalized.trimEnd('/') + "/resolve/main/" + remote to file
+                                }
+                                LocalTtsModelManager.downloadBundle(
+                                    context, httpClient, "qwen3-tts", pairs,
+                                    onProgress = { progress = it },
+                                )
+                            }.onSuccess { dest ->
+                                onValueChange(setting.copy(modelPath = dest.absolutePath, hfLink = manualUrl))
+                                toaster.show(
+                                    doneTemplate.format(dest.absolutePath),
+                                    type = ToastType.Success,
+                                )
+                            }.onFailure { e ->
+                                error = e.message ?: "Download failed"
+                                toaster.show(
+                                    errorTemplate.format(error!!),
+                                    type = ToastType.Error,
+                                )
+                            }
+                            downloading = false
+                        }
+                    },
+                    enabled = manualUrl.isNotBlank() && !downloading,
+                ) { Text(stringResource(R.string.local_tts_download_paste)) }
+            }
+        }
+    }
+
+    if (downloading) {
+        LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth())
+        Text(
+            text = stringResource(R.string.local_tts_download_progress, progress),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    error?.let { msg ->
+        Text(
+            text = stringResource(R.string.local_tts_download_error, msg),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+
+    var langExpanded by remember { mutableStateOf(false) }
+    val languages = remember { listOf("auto") + me.rerere.tts.qwen3.Qwen3TtsEngine.LANGUAGE_IDS.keys }
+    FormItem(
+        label = { Text(stringResource(R.string.local_tts_language)) },
+        description = { Text(stringResource(R.string.local_tts_language_desc)) }
+    ) {
+        ExposedDropdownMenuBox(
+            expanded = langExpanded,
+            onExpandedChange = { langExpanded = !langExpanded },
+        ) {
+            OutlinedTextField(
+                value = setting.language,
+                onValueChange = {},
+                readOnly = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = langExpanded) },
+            )
+            ExposedDropdownMenu(expanded = langExpanded, onDismissRequest = { langExpanded = false }) {
+                languages.forEach { lang ->
+                    DropdownMenuItem(
+                        text = { Text(lang.replaceFirstChar { it.uppercase() }) },
+                        onClick = {
+                            langExpanded = false
+                            onValueChange(setting.copy(language = lang))
+                        },
+                    )
+                }
+            }
+        }
     }
 }
 

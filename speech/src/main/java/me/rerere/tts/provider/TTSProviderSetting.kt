@@ -353,6 +353,28 @@ sealed class TTSProviderSetting {
         }
     }
 
+    @Serializable
+    @SerialName("qwen3-tts")
+    data class Qwen3Tts(
+        override var id: Uuid = Uuid.random(),
+        override var name: String = "Qwen3 TTS (Local)",
+        val modelPath: String = "",
+        // english | chinese | japanese | korean | german | french | spanish |
+        // italian | portuguese | russian | auto
+        val language: String = "auto",
+        val hfLink: String = "https://huggingface.co/litert-community/Qwen3-TTS-12Hz-0.6B-Base",
+    ) : TTSProviderSetting() {
+        override fun copyProvider(
+            id: Uuid,
+            name: String,
+        ): TTSProviderSetting {
+            return this.copy(
+                id = id,
+                name = name,
+            )
+        }
+    }
+
     companion object {
         val Types by lazy {
             listOf(
@@ -370,6 +392,7 @@ sealed class TTSProviderSetting {
                 NekoSpeakTts::class,
                 PocketTts::class,
                 KittenTts::class,
+                Qwen3Tts::class,
             )
         }
     }

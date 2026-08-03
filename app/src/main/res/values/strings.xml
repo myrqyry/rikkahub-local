@@ -1704,6 +1704,7 @@
   <string name="local_tts_model_dir_desc">Folder containing the model files. Browse to pick a folder, or download below.</string>
   <string name="local_tts_model_dir_placeholder_pocket">/storage/emulated/0/Download/pocket-tts</string>
   <string name="local_tts_model_dir_placeholder_kitten">/storage/emulated/0/Download/kitten-tts</string>
+  <string name="local_tts_model_dir_placeholder_qwen3">/storage/emulated/0/Download/qwen3-tts</string>
   <string name="local_tts_browse">Browse</string>
   <string name="local_tts_download_section">Download from HuggingFace</string>
   <string name="local_tts_download_desc">One-tap install of a curated model bundle, or paste any HuggingFace link.</string>
@@ -1720,6 +1721,8 @@
   <string name="local_tts_missing_files">Missing files in folder: %1$s</string>
   <string name="local_tts_voice">Voice</string>
   <string name="local_tts_voice_desc">Speaker timbre (8 voices bundled).</string>
+  <string name="local_tts_language">Language</string>
+  <string name="local_tts_language_desc">Spoken language for synthesis. Auto detects from the text; picking one forces it.</string>
   <string name="local_tts_speed">Speed</string>
   <string name="local_tts_speed_desc">Speech rate multiplier (0.25 – 4.0, 1.0 normal).</string>
   <string name="local_tts_flow_steps">Flow steps</string>

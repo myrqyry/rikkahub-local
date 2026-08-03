@@ -15,6 +15,7 @@ import me.rerere.tts.provider.providers.OpenAITTSProvider
 import me.rerere.tts.provider.providers.KittenTTSProvider
 import me.rerere.tts.provider.providers.PocketTTSProvider
 import me.rerere.tts.provider.providers.QwenTTSProvider
+import me.rerere.tts.provider.providers.Qwen3TtsProvider
 import me.rerere.tts.provider.providers.StepTTSProvider
 import me.rerere.tts.provider.providers.SystemTTSProvider
 import me.rerere.tts.provider.providers.XAITTSProvider
@@ -34,6 +35,7 @@ class TTSManager(private val context: Context) {
     private val nekoSpeakProvider = NekoSpeakTTSProvider()
     private val pocketTTSProvider = PocketTTSProvider()
     private val kittenTTSProvider = KittenTTSProvider()
+    private val qwen3TTSProvider = Qwen3TtsProvider()
 
     fun generateSpeech(
         providerSetting: TTSProviderSetting,
@@ -54,6 +56,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.NekoSpeakTts -> nekoSpeakProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.PocketTts -> pocketTTSProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.generateSpeech(context, providerSetting, request)
+            is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.generateSpeech(context, providerSetting, request)
         }
     }
 
@@ -77,6 +80,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.NekoSpeakTts -> nekoSpeakProvider.promptGuidance
             is TTSProviderSetting.PocketTts -> pocketTTSProvider.promptGuidance
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.promptGuidance
+            is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.promptGuidance
         }
     }
 }

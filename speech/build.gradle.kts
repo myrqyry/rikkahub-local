@@ -29,11 +29,24 @@ android {
     buildFeatures {
         compose = true
     }
+    packaging {
+        jniLibs {
+            pickFirsts += setOf(
+                "**/libc++_shared.so",
+                "**/libtensorflowlite_jni.so",
+                "**/libtensorflowlite_gpu_jni.so",
+            )
+        }
+    }
+    androidResources {
+        noCompress += listOf("json", "npy", "npz", "tflite", "txt")
+    }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     tasks.withType<KotlinCompile>().configureEach {
+        compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         compilerOptions.optIn.add("androidx.compose.material3.ExperimentalMaterial3Api")
         compilerOptions.optIn.add("androidx.compose.material3.ExperimentalMaterial3ExpressiveApi")
         compilerOptions.optIn.add("androidx.compose.animation.ExperimentalAnimationApi")
@@ -55,6 +68,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.onnxruntime.android)
+    implementation("com.google.ai.edge.litert:litert:2.1.6")
 
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
