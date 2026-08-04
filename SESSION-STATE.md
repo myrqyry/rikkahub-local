@@ -375,3 +375,35 @@ VERIFIED: `./gradlew :app:assembleDebug` EXIT=0 (only pre-existing TabRow deprec
 HOOK NOTE: same as prior — pre-push hook token-scan may flag benign Compose `placeholder = { }`/`sk-xxx`/SESSION-STATE hits; use --no-verify if only pre-existing false positives. .superpowers/ NEVER staged.
 
 NEXT: none pending — task delivered. Optional future: SD subtitle translations (currently English-only fallback in non-en locales).
+
+## Session: 2026-08-03 — Stub elimination audit
+
+- User requested a meticulous repository-wide search for stubs, placeholders, and mocks of any kind, replacing confirmed production-code gaps with complete working implementations.
+- Invoked `stub-eliminator` before exploration.
+- Initial worktree state: modified `app/build.gradle.kts`, modified `speech/build.gradle.kts`, untracked `.superpowers/`; do not revert or stage unrelated changes.
+- Root guidance requires WAL updates, module-specific `AGENTS.md`, Android verification via Gradle, and never staging `.superpowers/`.
+- Audit completed: scanned production Kotlin for literal TODO/stub markers and reviewed suspicious candidates. Replaced `Provider.getBalance()`'s literal `"TODO"` with the explicit unsupported-capability error `"Balance lookup is not supported"`; OpenAI and AICore retain their real overrides.
+- Deferred browser search-engine preference wiring and external `RUN_CHAT` UI prefill remain documented product scope, not accidental stubs. LocalDream/StableDiffusion unsupported operations and test doubles are intentional capability/test behavior. BugReportBuilder's resolved-by-rules documentation is stale but has no active missing implementation.
+- Verification passed: `./gradlew :ai:compileDebugKotlin`, `./gradlew test`, and `git diff --check`. The repository test task completed with only pre-existing warnings in `LocalDreamProvider.kt` and `ChatService.kt`.
+- Task code change is limited to `ai/src/main/java/me/rerere/ai/provider/Provider.kt`; existing `SESSION-STATE.md`, `app/build.gradle.kts`, `speech/build.gradle.kts`, and untracked `.superpowers/` remain unrelated worktree changes. Never stage `.superpowers/`.
+
+## Session: 2026-08-03 — Settings page reorganization
+
+- User pasted a Perplexity export proposing a full settings-page reorganization and asked to continue implementing it (implicit ask: reduce user friction).
+- Reorganized `app/src/main/java/me/rerere/rikkahub/ui/pages/setting/SettingPage.kt` from 8 mixed groups into 11 coherent groups:
+  G1 AI & Models [Providers/Brain02, Default Model/AiMagic, Model Manager/Cpu, Assistants/LookTop]
+  G2 AI Features [Search/GlobalSearch, MCP/McpServer, RAG/Database02, Local Dream/Image02, Browser/Earth]
+  G3 Chat & Input [Chat Preferences/Settings03, UI Preferences/Sun01, Speech/Megaphone01]
+  G4 Appearance [Theme/Sun01→SettingPreferencesTheme (newly surfaced), Color Mode Select/Moon01 inline, Dynamic Color Switch inline]
+  G5 Automation [Web Server, Workflows, Scheduled Jobs, Telegram, + Accessibility/SmartPhone01 moved from System]
+  G6 Device & Extensions [Extensions/Package, Plugins/Link02, Workspaces/Developer, Termux/Console]
+  G7 System [Notifications/Alert01, + Notification Preferences/MessageNotification01→SettingPreferencesNotification (newly surfaced orphaned page)]
+  G8 Data & Diagnostics [Data Backup, Chat Storage/Folder01, Request Logs/Bookshelf01 (moved from About), Doctor/Wrench01 (moved from System)]
+  G9 Privacy & Safety [Permissions/Shield01, Tool Approvals/Tick01]
+  G10 Resources [4 external links, icons deduped: Plugins/Package, Skills/Book03, Models Hub/Download01, OpenCode Docs/Code]
+  G11 About [About, Documentation, Donate, Share — unchanged]
+- Icon collisions fixed: Local Dream AiMagic→Image02; Chat Storage ImageUpload→Folder01; color mode Select Sun01→Moon01; Resources Link02×2→Download01/Code.
+- ProviderConfigWarningCard: replaced trailing TextButton with a full-width error-colored Button (Brain02 icon + setting_page_config), Column alignment End→default (content aligned), added ButtonDefaults import.
+- Added 8 new i18n keys via locale-tui `add` (module app) to all 7 locale dirs (auto-translate 401 without OPENAI_API_KEY, so hand-translated): setting_page_group_ai_models='AI & Models', _ai_features='AI Features', _chat_input='Chat & Input', _appearance='Appearance', _device_extensions='Device & Extensions', _privacy_safety='Privacy & Safety', _data_diagnostics='Data & Diagnostics', setting_page_chat_preferences='Chat Preferences'.
+- VERIFIED: `./gradlew :app:compileDebugKotlin` BUILD SUCCESSFUL (only pre-existing ListItem deprecation warnings), `./gradlew test` BUILD SUCCESSFUL. No new routes needed — all Screen.* constants already existed in RouteActivity.kt.
+- Files changed: SettingPage.kt, 7 strings.xml files (values, values-zh, values-zh-rTW, values-ja, values-ko-rKR, values-ru, values-ar). Pre-existing unrelated worktree changes (app/build.gradle.kts, speech/build.gradle.kts, ai/Provider.kt, SESSION-STATE.md, .superpowers/) left untouched; .superpowers/ never staged.
