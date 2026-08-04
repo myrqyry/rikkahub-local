@@ -1939,4 +1939,12 @@
   <string name="chat_page_folder_add">New</string>
   <string name="chat_page_delete_folder_confirm">Delete folder "%1$s"? Conversations inside will not be deleted, only removed from the folder.</string>
   <string name="chat_page_delete_folder_generating">Some conversations in this folder are still generating. Please stop them before deleting.</string>
+  <string name="setting_page_group_ai_models">AI &amp; Models</string>
+  <string name="setting_page_group_ai_features">AI Features</string>
+  <string name="setting_page_group_chat_input">Chat &amp; Input</string>
+  <string name="setting_page_group_appearance">Appearance</string>
+  <string name="setting_page_group_device_extensions">Device &amp; Extensions</string>
+  <string name="setting_page_group_privacy_safety">Privacy &amp; Safety</string>
+  <string name="setting_page_group_data_diagnostics">Data &amp; Diagnostics</string>
+  <string name="setting_page_chat_preferences">Chat Preferences</string>
 </resources>

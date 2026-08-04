@@ -1775,4 +1775,12 @@ mDNS 주소: .local 호스트네임을 사용하며, IP를 몰라도 같은 네�
   <string name="chat_page_delete_folder_generating">이 폴더의 일부 대화가 아직 생성 중입니다. 삭제하기 전에 중지해 주세요.</string>
   <string name="setting_display_page_tts_read_outside_brackets_title">TTS 괄호 안 내용 읽지 않기</string>
   <string name="setting_display_page_tts_read_outside_brackets_desc">활성화하면 TTS가 괄호 안의 내용을 읽지 않습니다</string>
+  <string name="setting_page_group_ai_models">AI 및 모델</string>
+  <string name="setting_page_group_ai_features">AI 기능</string>
+  <string name="setting_page_group_chat_input">채팅 및 입력</string>
+  <string name="setting_page_group_appearance">모양</string>
+  <string name="setting_page_group_device_extensions">기기 및 확장 프로그램</string>
+  <string name="setting_page_group_privacy_safety">개인정보 및 보안</string>
+  <string name="setting_page_group_data_diagnostics">데이터 및 진단</string>
+  <string name="setting_page_chat_preferences">채팅 설정</string>
 </resources>

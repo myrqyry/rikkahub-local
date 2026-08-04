@@ -1773,4 +1773,12 @@
   <string name="chat_page_delete_folder_generating">此資料夾中的部分對話仍在生成中。請先停止它們再刪除。</string>
   <string name="setting_display_page_tts_read_outside_brackets_title">TTS 不朗讀括號內的內容</string>
   <string name="setting_display_page_tts_read_outside_brackets_desc">啟用後，TTS 將不朗讀括號內的內容</string>
+  <string name="setting_page_group_ai_models">AI 與模型</string>
+  <string name="setting_page_group_ai_features">AI 功能</string>
+  <string name="setting_page_group_chat_input">聊天與輸入</string>
+  <string name="setting_page_group_appearance">外觀</string>
+  <string name="setting_page_group_device_extensions">裝置與擴充</string>
+  <string name="setting_page_group_privacy_safety">隱私與安全</string>
+  <string name="setting_page_group_data_diagnostics">資料與診斷</string>
+  <string name="setting_page_chat_preferences">聊天偏好設定</string>
 </resources>

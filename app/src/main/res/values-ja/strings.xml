@@ -1775,5 +1775,12 @@ mDNSアドレス: .localホスト名を使用し、IPを知らなくても同じ
   <string name="chat_page_delete_folder_generating">フォルダ内の一部の会話がまだ生成中です。削除する前にそれらを停止してください。</string>
   <string name="setting_display_page_tts_read_outside_brackets_title">TTS 括弧内を読み上げない</string>
   <string name="setting_display_page_tts_read_outside_brackets_desc">有効にすると、TTS は括弧内の内容を読み上げません</string>
+  <string name="setting_page_group_ai_models">AI とモデル</string>
+  <string name="setting_page_group_ai_features">AI 機能</string>
+  <string name="setting_page_group_chat_input">チャットと入力</string>
+  <string name="setting_page_group_appearance">外観</string>
+  <string name="setting_page_group_device_extensions">デバイスと拡張機能</string>
+  <string name="setting_page_group_privacy_safety">プライバシーと安全性</string>
+  <string name="setting_page_group_data_diagnostics">データと診断</string>
+  <string name="setting_page_chat_preferences">チャット設定</string>
 </resources>
-

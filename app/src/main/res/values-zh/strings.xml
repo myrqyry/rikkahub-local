@@ -1778,5 +1778,12 @@ mDNS 地址：使用 .local 主机名，同一网络中的其他设备可通过�
   <string name="chat_page_folder_add">新建</string>
   <string name="chat_page_delete_folder_confirm">删除文件夹 "%1$s"？其中的对话不会被删除，只会从文件夹中移除。</string>
   <string name="chat_page_delete_folder_generating">此文件夹中有对话仍在生成中，请停止后再删除。</string>
+  <string name="setting_page_group_ai_models">AI 与模型</string>
+  <string name="setting_page_group_ai_features">AI 功能</string>
+  <string name="setting_page_group_chat_input">聊天与输入</string>
+  <string name="setting_page_group_appearance">外观</string>
+  <string name="setting_page_group_device_extensions">设备与扩展</string>
+  <string name="setting_page_group_privacy_safety">隐私与安全</string>
+  <string name="setting_page_group_data_diagnostics">数据与诊断</string>
+  <string name="setting_page_chat_preferences">聊天偏好</string>
 </resources>
-

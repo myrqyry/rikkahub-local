@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -53,18 +54,23 @@ import me.rerere.hugeicons.stroke.Bookshelf01
 import me.rerere.hugeicons.stroke.Brain02
 import me.rerere.hugeicons.stroke.Clapping01
 import me.rerere.hugeicons.stroke.Clock02
+import me.rerere.hugeicons.stroke.Code
 import me.rerere.hugeicons.stroke.Database02
 import me.rerere.hugeicons.stroke.Console
 import me.rerere.hugeicons.stroke.Cpu
+import me.rerere.hugeicons.stroke.Download01
 import me.rerere.hugeicons.stroke.Earth
 import me.rerere.hugeicons.stroke.Wrench01
 import me.rerere.hugeicons.stroke.Developer
+import me.rerere.hugeicons.stroke.Folder01
 import me.rerere.hugeicons.stroke.GlobalSearch
-import me.rerere.hugeicons.stroke.ImageUpload
+import me.rerere.hugeicons.stroke.Image02
 import me.rerere.hugeicons.stroke.InLove
 import me.rerere.hugeicons.stroke.LookTop
 import me.rerere.hugeicons.stroke.McpServer
 import me.rerere.hugeicons.stroke.Megaphone01
+import me.rerere.hugeicons.stroke.MessageNotification01
+import me.rerere.hugeicons.stroke.Moon01
 import me.rerere.hugeicons.stroke.Package
 import me.rerere.hugeicons.stroke.Connect
 import me.rerere.hugeicons.stroke.ServerStack01
@@ -167,28 +173,86 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                 }
             }
 
-            item("generalSettings") {
-                var colorMode by rememberColorMode()
-                val selectedColorModeText = when (colorMode) {
-                    ColorMode.SYSTEM -> stringResource(R.string.setting_page_color_mode_system)
-                    ColorMode.LIGHT -> stringResource(R.string.setting_page_color_mode_light)
-                    ColorMode.DARK -> stringResource(R.string.setting_page_color_mode_dark)
-                }
+            item("groupAiModels") {
                 CardGroup(
                     modifier = Modifier.padding(horizontal = 8.dp),
-                    title = { Text(stringResource(R.string.setting_page_general_settings)) },
+                    title = { Text(stringResource(R.string.setting_page_group_ai_models)) },
                 ) {
+                    item(
+                        onClick = { navController.navigate(Screen.SettingProvider) },
+                        leadingContent = { Icon(HugeIcons.Brain02, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_providers_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_providers)) },
+                    )
+                    item(
+                        onClick = { navController.navigate(Screen.SettingModels) },
+                        leadingContent = { Icon(HugeIcons.AiMagic, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_default_model_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_default_model)) },
+                    )
+                    item(
+                        onClick = { navController.navigate(Screen.SettingModelManager) },
+                        leadingContent = { Icon(HugeIcons.Cpu, null) },
+                        supportingContent = { Text("Install and manage on-device models") },
+                        headlineContent = { Text("Model Manager") },
+                    )
                     item(
                         onClick = { navController.navigate(Screen.Assistant) },
                         leadingContent = { Icon(HugeIcons.LookTop, null) },
                         supportingContent = { Text(stringResource(R.string.setting_page_assistant_desc)) },
                         headlineContent = { Text(stringResource(R.string.setting_page_assistant)) },
                     )
+                }
+            }
+
+            item("groupAiFeatures") {
+                CardGroup(
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                    title = { Text(stringResource(R.string.setting_page_group_ai_features)) },
+                ) {
+                    item(
+                        onClick = { navController.navigate(Screen.SettingSearch) },
+                        leadingContent = { Icon(HugeIcons.GlobalSearch, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_search_service_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_search_service)) },
+                    )
+                    item(
+                        onClick = { navController.navigate(Screen.SettingMcp) },
+                        leadingContent = { Icon(HugeIcons.McpServer, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_mcp_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_mcp)) },
+                    )
+                    item(
+                        onClick = { navController.navigate(Screen.SettingRAG) },
+                        leadingContent = { Icon(HugeIcons.Database02, null) },
+                        supportingContent = { Text("RAG settings and vector store") },
+                        headlineContent = { Text("RAG") },
+                    )
+                    item(
+                        onClick = { navController.navigate(Screen.SettingLocalDream) },
+                        leadingContent = { Icon(HugeIcons.Image02, null) },
+                        supportingContent = { Text("Local Dream image generation settings") },
+                        headlineContent = { Text("Local Dream") },
+                    )
+                    item(
+                        onClick = { navController.navigate(Screen.SettingBrowser) },
+                        leadingContent = { Icon(HugeIcons.Earth, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_browser_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_browser)) },
+                    )
+                }
+            }
+
+            item("groupChatInput") {
+                CardGroup(
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                    title = { Text(stringResource(R.string.setting_page_group_chat_input)) },
+                ) {
                     item(
                         onClick = { navController.navigate(Screen.SettingPreferencesGeneral) },
                         leadingContent = { Icon(HugeIcons.Settings03, null) },
                         supportingContent = { Text(stringResource(R.string.setting_page_preferences_general_desc)) },
-                        headlineContent = { Text("Chat") },
+                        headlineContent = { Text(stringResource(R.string.setting_page_chat_preferences)) },
                     )
                     item(
                         onClick = { navController.navigate(Screen.SettingPreferencesUI) },
@@ -197,7 +261,33 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         headlineContent = { Text(stringResource(R.string.setting_page_preferences_ui)) },
                     )
                     item(
+                        onClick = { navController.navigate(Screen.SettingSpeech) },
+                        leadingContent = { Icon(HugeIcons.Megaphone01, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_tts_service_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_tts_service)) },
+                    )
+                }
+            }
+
+            item("groupAppearance") {
+                var colorMode by rememberColorMode()
+                val selectedColorModeText = when (colorMode) {
+                    ColorMode.SYSTEM -> stringResource(R.string.setting_page_color_mode_system)
+                    ColorMode.LIGHT -> stringResource(R.string.setting_page_color_mode_light)
+                    ColorMode.DARK -> stringResource(R.string.setting_page_color_mode_dark)
+                }
+                CardGroup(
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                    title = { Text(stringResource(R.string.setting_page_group_appearance)) },
+                ) {
+                    item(
+                        onClick = { navController.navigate(Screen.SettingPreferencesTheme) },
                         leadingContent = { Icon(HugeIcons.Sun01, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_preferences_theme_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_preferences_theme)) },
+                    )
+                    item(
+                        leadingContent = { Icon(HugeIcons.Moon01, null) },
                         trailingContent = {
                             Select(
                                 options = ColorMode.entries,
@@ -233,104 +323,10 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                             )
                         },
                     )
-                    item(
-                        onClick = { navController.navigate(Screen.SettingTheme) },
-                        leadingContent = { Icon(HugeIcons.Sun01, null) },
-                        supportingContent = { Text("Color presets and custom themes") },
-                        headlineContent = { Text("Presets") },
-                    )
                 }
             }
 
-            item("modelsAi") {
-                CardGroup(
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                    title = { Text("Models & AI") },
-                ) {
-                    item(
-                        onClick = { navController.navigate(Screen.SettingModels) },
-                        leadingContent = { Icon(HugeIcons.AiMagic, null) },
-                        supportingContent = { Text(stringResource(R.string.setting_page_default_model_desc)) },
-                        headlineContent = { Text(stringResource(R.string.setting_page_default_model)) },
-                    )
-                    item(
-                        onClick = { navController.navigate(Screen.SettingProvider) },
-                        leadingContent = { Icon(HugeIcons.Brain02, null) },
-                        supportingContent = { Text(stringResource(R.string.setting_page_providers_desc)) },
-                        headlineContent = { Text(stringResource(R.string.setting_page_providers)) },
-                    )
-                }
-            }
-
-            item("features") {
-                CardGroup(
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                    title = { Text("Features") },
-                ) {
-                    item(
-                        onClick = { navController.navigate(Screen.SettingSpeech) },
-                        leadingContent = { Icon(HugeIcons.Megaphone01, null) },
-                        supportingContent = { Text(stringResource(R.string.setting_page_tts_service_desc)) },
-                        headlineContent = { Text(stringResource(R.string.setting_page_tts_service)) },
-                    )
-                    item(
-                        onClick = { navController.navigate(Screen.Extensions) },
-                        leadingContent = { Icon(HugeIcons.Package, null) },
-                        supportingContent = { Text(stringResource(R.string.setting_page_extensions_desc)) },
-                        headlineContent = { Text(stringResource(R.string.setting_page_extensions)) },
-                    )
-                    item(
-                        onClick = { navController.navigate(Screen.SettingPlugin) },
-                        leadingContent = { Icon(HugeIcons.Link02, null) },
-                        supportingContent = { Text("Manage locally installed plugins") },
-                        headlineContent = { Text("Plugins") },
-                    )
-                    item(
-                        onClick = { navController.navigate(Screen.Workspaces) },
-                        leadingContent = { Icon(HugeIcons.Developer, null) },
-                        supportingContent = { Text("Manage workspaces and file access") },
-                        headlineContent = { Text("Workspaces") },
-                    )
-                    item(
-                        onClick = { navController.navigate(Screen.SettingSearch) },
-                        leadingContent = { Icon(HugeIcons.GlobalSearch, null) },
-                        supportingContent = { Text(stringResource(R.string.setting_page_search_service_desc)) },
-                        headlineContent = { Text(stringResource(R.string.setting_page_search_service)) },
-                    )
-                    item(
-                        onClick = { navController.navigate(Screen.SettingMcp) },
-                        leadingContent = { Icon(HugeIcons.McpServer, null) },
-                        supportingContent = { Text(stringResource(R.string.setting_page_mcp_desc)) },
-                        headlineContent = { Text(stringResource(R.string.setting_page_mcp)) },
-                    )
-                    item(
-                        onClick = { navController.navigate(Screen.SettingLocalDream) },
-                        leadingContent = { Icon(HugeIcons.AiMagic, null) },
-                        supportingContent = { Text("Local Dream image generation settings") },
-                        headlineContent = { Text("Local Dream") },
-                    )
-                    item(
-                        onClick = { navController.navigate(Screen.SettingModelManager) },
-                        leadingContent = { Icon(HugeIcons.Cpu, null) },
-                        supportingContent = { Text("Install and manage on-device models") },
-                        headlineContent = { Text("Model Manager") },
-                    )
-                    item(
-                        onClick = { navController.navigate(Screen.SettingRAG) },
-                        leadingContent = { Icon(HugeIcons.Database02, null) },
-                        supportingContent = { Text("RAG settings and vector store") },
-                        headlineContent = { Text("RAG") },
-                    )
-                    item(
-                        onClick = { navController.navigate(Screen.SettingBrowser) },
-                        leadingContent = { Icon(HugeIcons.Earth, null) },
-                        supportingContent = { Text(stringResource(R.string.setting_page_browser_desc)) },
-                        headlineContent = { Text(stringResource(R.string.setting_page_browser)) },
-                    )
-                }
-            }
-
-            item("automation") {
+            item("groupAutomation") {
                 CardGroup(
                     modifier = Modifier.padding(horizontal = 8.dp),
                     title = { Text("Automation") },
@@ -359,31 +355,37 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         supportingContent = { Text(stringResource(R.string.setting_page_telegram_desc)) },
                         headlineContent = { Text(stringResource(R.string.setting_page_telegram)) },
                     )
-                }
-            }
-
-            item("system") {
-                CardGroup(
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                    title = { Text("System") },
-                ) {
                     item(
                         onClick = { navController.navigate(Screen.SettingAccessibility) },
                         leadingContent = { Icon(HugeIcons.SmartPhone01, null) },
                         supportingContent = { Text(stringResource(R.string.setting_page_accessibility_desc)) },
                         headlineContent = { Text(stringResource(R.string.setting_page_accessibility)) },
                     )
+                }
+            }
+
+            item("groupDeviceExtensions") {
+                CardGroup(
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                    title = { Text(stringResource(R.string.setting_page_group_device_extensions)) },
+                ) {
                     item(
-                        onClick = { navController.navigate(Screen.SettingNotifications) },
-                        leadingContent = { Icon(HugeIcons.Alert01, null) },
-                        supportingContent = { Text(stringResource(R.string.setting_page_notifications_desc)) },
-                        headlineContent = { Text(stringResource(R.string.setting_page_notifications)) },
+                        onClick = { navController.navigate(Screen.Extensions) },
+                        leadingContent = { Icon(HugeIcons.Package, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_extensions_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_extensions)) },
                     )
                     item(
-                        onClick = { navController.navigate(Screen.SettingPermissions) },
-                        leadingContent = { Icon(HugeIcons.Shield01, null) },
-                        supportingContent = { Text(stringResource(R.string.setting_page_permissions_desc)) },
-                        headlineContent = { Text(stringResource(R.string.setting_page_permissions)) },
+                        onClick = { navController.navigate(Screen.SettingPlugin) },
+                        leadingContent = { Icon(HugeIcons.Link02, null) },
+                        supportingContent = { Text("Manage locally installed plugins") },
+                        headlineContent = { Text("Plugins") },
+                    )
+                    item(
+                        onClick = { navController.navigate(Screen.Workspaces) },
+                        leadingContent = { Icon(HugeIcons.Developer, null) },
+                        supportingContent = { Text("Manage workspaces and file access") },
+                        headlineContent = { Text("Workspaces") },
                     )
                     item(
                         onClick = { navController.navigate(Screen.SettingTermux) },
@@ -391,28 +393,36 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         supportingContent = { Text(stringResource(R.string.setting_page_termux_desc)) },
                         headlineContent = { Text(stringResource(R.string.setting_page_termux)) },
                     )
+                }
+            }
+
+            item("groupSystem") {
+                CardGroup(
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                    title = { Text("System") },
+                ) {
                     item(
-                        onClick = { navController.navigate(Screen.SettingToolApprovals) },
-                        leadingContent = { Icon(HugeIcons.Tick01, null) },
-                        supportingContent = { Text(stringResource(R.string.setting_page_tool_approvals_desc)) },
-                        headlineContent = { Text(stringResource(R.string.setting_page_tool_approvals)) },
+                        onClick = { navController.navigate(Screen.SettingNotifications) },
+                        leadingContent = { Icon(HugeIcons.Alert01, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_notifications_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_notifications)) },
                     )
                     item(
-                        onClick = { navController.navigate(Screen.SettingDoctor) },
-                        leadingContent = { Icon(HugeIcons.Wrench01, null) },
-                        supportingContent = { Text(stringResource(R.string.setting_page_doctor_desc)) },
-                        headlineContent = { Text(stringResource(R.string.setting_page_doctor)) },
+                        onClick = { navController.navigate(Screen.SettingPreferencesNotification) },
+                        leadingContent = { Icon(HugeIcons.MessageNotification01, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_preferences_notification_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_preferences_notification)) },
                     )
                 }
             }
 
-            item("dataSettings") {
+            item("groupDataDiagnostics") {
                 val storageState by produceState(-1 to 0L) {
                     value = filesManager.countChatFiles()
                 }
                 CardGroup(
                     modifier = Modifier.padding(horizontal = 8.dp),
-                    title = { Text(stringResource(R.string.setting_page_data_settings)) },
+                    title = { Text(stringResource(R.string.setting_page_group_data_diagnostics)) },
                 ) {
                     item(
                         onClick = { navController.navigate(Screen.Backup) },
@@ -422,7 +432,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     )
                     item(
                         onClick = { navController.navigate(Screen.SettingFiles) },
-                        leadingContent = { Icon(HugeIcons.ImageUpload, null) },
+                        leadingContent = { Icon(HugeIcons.Folder01, null) },
                         supportingContent = {
                             if (storageState.first == -1) {
                                 Text(stringResource(R.string.calculating))
@@ -437,6 +447,38 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                             }
                         },
                         headlineContent = { Text(stringResource(R.string.setting_page_chat_storage)) },
+                    )
+                    item(
+                        onClick = { navController.navigate(Screen.Log) },
+                        leadingContent = { Icon(HugeIcons.Bookshelf01, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_request_logs_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_request_logs)) },
+                    )
+                    item(
+                        onClick = { navController.navigate(Screen.SettingDoctor) },
+                        leadingContent = { Icon(HugeIcons.Wrench01, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_doctor_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_doctor)) },
+                    )
+                }
+            }
+
+            item("groupPrivacySafety") {
+                CardGroup(
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                    title = { Text(stringResource(R.string.setting_page_group_privacy_safety)) },
+                ) {
+                    item(
+                        onClick = { navController.navigate(Screen.SettingPermissions) },
+                        leadingContent = { Icon(HugeIcons.Shield01, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_permissions_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_permissions)) },
+                    )
+                    item(
+                        onClick = { navController.navigate(Screen.SettingToolApprovals) },
+                        leadingContent = { Icon(HugeIcons.Tick01, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_tool_approvals_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_tool_approvals)) },
                     )
                 }
             }
@@ -461,13 +503,13 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     )
                     item(
                         onClick = { context.openUrl("https://huggingface.co") },
-                        leadingContent = { Icon(HugeIcons.Link02, null) },
+                        leadingContent = { Icon(HugeIcons.Download01, null) },
                         supportingContent = { Text("Download models from HuggingFace") },
                         headlineContent = { Text("Models Hub") },
                     )
                     item(
                         onClick = { context.openUrl("https://opencode.ai") },
-                        leadingContent = { Icon(HugeIcons.Link02, null) },
+                        leadingContent = { Icon(HugeIcons.Code, null) },
                         supportingContent = { Text("OpenCode agent documentation") },
                         headlineContent = { Text("OpenCode Docs") },
                     )
@@ -536,12 +578,6 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         headlineContent = { Text(stringResource(R.string.setting_page_documentation)) },
                     )
                     item(
-                        onClick = { navController.navigate(Screen.Log) },
-                        leadingContent = { Icon(HugeIcons.Bookshelf01, null) },
-                        supportingContent = { Text(stringResource(R.string.setting_page_request_logs_desc)) },
-                        headlineContent = { Text(stringResource(R.string.setting_page_request_logs)) },
-                    )
-                    item(
                         onClick = { navController.navigate(Screen.SettingDonate) },
                         leadingContent = { Icon(HugeIcons.InLove, null) },
                         supportingContent = { Text(stringResource(R.string.setting_page_donate_desc)) },
@@ -579,8 +615,7 @@ private fun ProviderConfigWarningCard(navController: Navigator) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
-            horizontalAlignment = Alignment.End
+                .padding(8.dp)
         ) {
             ListItem(
                 headlineContent = {
@@ -597,11 +632,19 @@ private fun ProviderConfigWarningCard(navController: Navigator) {
                 )
             )
 
-            TextButton(
+            Button(
                 onClick = {
                     navController.navigate(Screen.SettingProvider)
-                }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                )
             ) {
+                Icon(HugeIcons.Brain02, null, modifier = Modifier.padding(end = 8.dp))
                 Text(stringResource(R.string.setting_page_config))
             }
         }

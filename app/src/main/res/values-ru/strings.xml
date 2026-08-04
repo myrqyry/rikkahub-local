@@ -1775,4 +1775,12 @@
   <string name="chat_page_delete_folder_generating">Некоторые беседы в этой папке все еще генерируются. Пожалуйста, остановите их перед удалением.</string>
   <string name="setting_display_page_tts_read_outside_brackets_title">TTS не читает текст в скобках</string>
   <string name="setting_display_page_tts_read_outside_brackets_desc">Если включено, TTS не будет читать содержимое в скобках</string>
+  <string name="setting_page_group_ai_models">AI и модели</string>
+  <string name="setting_page_group_ai_features">Возможности AI</string>
+  <string name="setting_page_group_chat_input">Чат и ввод</string>
+  <string name="setting_page_group_appearance">Внешний вид</string>
+  <string name="setting_page_group_device_extensions">Устройства и расширения</string>
+  <string name="setting_page_group_privacy_safety">Конфиденциальность и безопасность</string>
+  <string name="setting_page_group_data_diagnostics">Данные и диагностика</string>
+  <string name="setting_page_chat_preferences">Настройки чата</string>
 </resources>
