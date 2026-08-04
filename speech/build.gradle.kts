@@ -33,6 +33,7 @@ android {
         jniLibs {
             pickFirsts += setOf(
                 "**/libc++_shared.so",
+                "**/libLiteRtClGlAccelerator.so",
                 "**/libtensorflowlite_jni.so",
                 "**/libtensorflowlite_gpu_jni.so",
             )
@@ -68,7 +69,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.onnxruntime.android)
-    implementation("com.google.ai.edge.litert:litert:2.1.6")
+    implementation("com.google.ai.edge.litert:litert:2.1.5")
 
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)

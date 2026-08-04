@@ -121,6 +121,7 @@ android {
             useLegacyPackaging = true
             pickFirsts += "lib/*/libtermux.so"
             pickFirsts += "lib/*/libLiteRt.so"
+            pickFirsts += "lib/*/libLiteRtClGlAccelerator.so"
         }
     }
     lint {
@@ -328,11 +329,11 @@ dependencies {
     // modules
     implementation(project(":ai"))
     implementation(project(":local-llm"))
+    implementation(project(":speech"))
     implementation(project(":web"))
     implementation(project(":document"))
     implementation(project(":highlight"))
     implementation(project(":search"))
-    implementation(project(":speech"))
     implementation(project(":common"))
     implementation(project(":material3"))
     implementation(project(":workspace"))
