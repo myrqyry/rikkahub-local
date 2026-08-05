@@ -2,6 +2,7 @@ package me.rerere.rikkahub.ui.pages.models
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,7 +28,10 @@ data class LegacyAssignments(
 
 sealed interface RepairState {
     data class ModelUnavailable(val role: ModelRole, val modelId: String) : RepairState
+    data class LegacyModelUnavailable(val key: LegacyAssignmentKey, val modelId: String) : RepairState
 }
+
+enum class LegacyAssignmentKey { TITLE, TRANSLATION }
 
 class UnifiedModelsViewModel(
     private val registry: ModelRegistry,
@@ -63,7 +67,7 @@ class UnifiedModelsViewModel(
         val normalizedQuery = query.trim().lowercase()
         models.filter { model ->
             val modelProvider = (model.source as? ModelSource.Cloud)?.providerId
-            modelProvider == null || modelProvider in enabledProviders
+            model.providerEnabled && (modelProvider == null || modelProvider in enabledProviders)
         }.filter { model ->
             selectedProvider == null || (model.source as? ModelSource.Cloud)?.providerId == selectedProvider
         }.filter { model ->
@@ -91,14 +95,22 @@ class UnifiedModelsViewModel(
     ) { title, translation -> LegacyAssignments(title, translation) }
         .stateIn(ownerScope, SharingStarted.Eagerly, LegacyAssignments())
 
-    val repairState: StateFlow<RepairState?> = combine(registry.models, registry.assignments) { models, current ->
-        current.defaults.entries.firstNotNullOfOrNull { (role, modelId) ->
-            modelId?.let { id ->
-                val model = models.firstOrNull { it.id == id }
-                if (model == null || !usableFor(model, role)) RepairState.ModelUnavailable(role, id) else null
-            }
-        }
-    }.stateIn(ownerScope, SharingStarted.Eagerly, null)
+    val repairState: StateFlow<RepairState?> = combine(
+        registry.models,
+        registry.assignments,
+        legacyAdapter.titleModelId,
+        legacyAdapter.translationModelId,
+    ) { models, current, titleId, translationId -> repairStateFor(models, current, titleId, translationId)
+    }.stateIn(
+        ownerScope,
+        SharingStarted.Eagerly,
+        repairStateFor(
+            registry.models.value,
+            registry.assignments.value,
+            legacyAdapter.titleModelId.value,
+            legacyAdapter.translationModelId.value,
+        ),
+    )
 
     private val _operationError = MutableStateFlow<String?>(null)
     val operationError: StateFlow<String?> = _operationError.asStateFlow()
@@ -115,34 +127,75 @@ class UnifiedModelsViewModel(
     fun assign(role: ModelRole, modelId: String?) = ownerScope.launch {
         _operationError.value = null
         try {
-            if (modelId != null) {
-                val model = registry.models.value.firstOrNull { it.id == modelId }
-                    ?: error("Unknown model: $modelId")
-                check(usableFor(model, role)) { "Model $modelId is not compatible with $role" }
-            }
+            validate(modelId, role.capability())
             registry.assign(role, modelId)
-        } catch (error: Throwable) {
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
             _operationError.value = error.message ?: error::class.simpleName
         }
     }
 
-    fun assignTitle(modelId: String?) = ownerScope.launch {
+    fun assignTitle(modelId: String?) = assignLegacy(LegacyAssignmentKey.TITLE, modelId)
+    fun assignTranslation(modelId: String?) = assignLegacy(LegacyAssignmentKey.TRANSLATION, modelId)
+
+    fun assignLegacy(key: LegacyAssignmentKey, modelId: String?) = ownerScope.launch {
         _operationError.value = null
-        try { legacyAdapter.setTitleModel(modelId) } catch (error: Throwable) {
+        try {
+            validate(modelId, ModelCapability.CHAT)
+            when (key) {
+                LegacyAssignmentKey.TITLE -> legacyAdapter.setTitleModel(modelId)
+                LegacyAssignmentKey.TRANSLATION -> legacyAdapter.setTranslationModel(modelId)
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
             _operationError.value = error.message ?: error::class.simpleName
         }
     }
 
-    fun assignTranslation(modelId: String?) = ownerScope.launch {
-        _operationError.value = null
-        try { legacyAdapter.setTranslationModel(modelId) } catch (error: Throwable) {
-            _operationError.value = error.message ?: error::class.simpleName
+    private fun validate(modelId: String?, capability: ModelCapability) {
+        if (modelId == null) return
+        val model = registry.models.value.firstOrNull { it.id == modelId }
+            ?: error("Unknown model: $modelId")
+        check(model.providerEnabled) { "Model $modelId provider is disabled" }
+        check(model.supports(capability)) { "Model $modelId does not support $capability" }
+        check(model.source !is ModelSource.Local || model.lifecycle == ModelLifecycle.READY) {
+            "Model $modelId is not ready"
         }
     }
+
+    private fun legacyRepair(
+        models: List<ModelDescriptor>,
+        key: LegacyAssignmentKey,
+        modelId: String?,
+    ): RepairState? {
+        if (modelId == null) return null
+        val model = models.firstOrNull { it.id == modelId }
+        return if (model == null || !modelUsable(model, ModelCapability.CHAT)) {
+            RepairState.LegacyModelUnavailable(key, modelId)
+        } else null
+    }
+
+    private fun repairStateFor(
+        models: List<ModelDescriptor>,
+        current: ModelAssignments,
+        titleId: String?,
+        translationId: String?,
+    ): RepairState? = current.defaults.entries.firstNotNullOfOrNull { (role, modelId) ->
+        modelId?.let { id ->
+            val model = models.firstOrNull { it.id == id }
+            if (model == null || !usableFor(model, role)) RepairState.ModelUnavailable(role, id) else null
+        }
+    } ?: legacyRepair(models, LegacyAssignmentKey.TITLE, titleId)
+        ?: legacyRepair(models, LegacyAssignmentKey.TRANSLATION, translationId)
+
+    private fun modelUsable(model: ModelDescriptor, capability: ModelCapability): Boolean =
+        model.providerEnabled && model.supports(capability) &&
+            (model.source !is ModelSource.Local || model.lifecycle == ModelLifecycle.READY)
 
     private fun usableFor(model: ModelDescriptor, role: ModelRole): Boolean =
-        model.providerEnabled && model.supports(role.capability()) &&
-            (model.source !is ModelSource.Local || model.lifecycle == ModelLifecycle.READY)
+        modelUsable(model, role.capability())
 
     private data class FilterState(
         val tab: ModelTab,
