@@ -70,8 +70,10 @@ import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.RikkaConfirmDialog
 import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.context.LocalToaster
+import me.rerere.rikkahub.ui.pages.setting.ArtifactImportReviewDialog
 import me.rerere.rikkahub.ui.theme.CustomColors
 import me.rerere.rikkahub.utils.plus
+import me.rerere.rikkahub.utils.openUrl
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -85,6 +87,7 @@ fun SkillsPage() {
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var showImportDialog by rememberSaveable { mutableStateOf(false) }
     var showCatalog by rememberSaveable { mutableStateOf(false) }
+    var pendingImportUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<SkillMetadata?>(null) }
 
     Scaffold(
@@ -97,6 +100,12 @@ fun SkillsPage() {
                         Icon(
                             imageVector = Lucide.Globe,
                             contentDescription = stringResource(R.string.skill_catalog_title),
+                        )
+                    }
+                    IconButton(onClick = { context.openUrl("https://skills.sh") }) {
+                        Icon(
+                            imageVector = Lucide.Globe,
+                            contentDescription = stringResource(R.string.setting_home_browse_catalogs),
                         )
                     }
                 },
@@ -209,14 +218,8 @@ fun SkillsPage() {
         ImportSkillDialog(
             onDismiss = { showImportDialog = false },
             onConfirm = { repoUrl ->
-                vm.importSkillFromGitHub(repoUrl) { success, message ->
-                    showImportDialog = false
-                    if (success) {
-                        toaster.show(context.getString(R.string.skills_page_import_success, message))
-                    } else {
-                        toaster.show(context.getString(R.string.skills_page_import_failed, message))
-                    }
-                }
+                showImportDialog = false
+                pendingImportUrl = repoUrl.trim()
             },
             onPickFile = {
                 openDocumentLauncher.launch(arrayOf(
@@ -225,6 +228,25 @@ fun SkillsPage() {
                     "application/zip",
                     "application/octet-stream",
                 ))
+            },
+        )
+    }
+
+    pendingImportUrl?.let { source ->
+        ArtifactImportReviewDialog(
+            kind = "skill",
+            source = source,
+            details = "The existing importer validates the URL, format, name, and file size before saving.",
+            onDismiss = { pendingImportUrl = null },
+            onConfirm = {
+                pendingImportUrl = null
+                vm.importSkillFromGitHub(source) { success, message ->
+                    if (success) {
+                        toaster.show(context.getString(R.string.skills_page_import_success, message))
+                    } else {
+                        toaster.show(context.getString(R.string.skills_page_import_failed, message))
+                    }
+                }
             },
         )
     }

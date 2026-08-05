@@ -25,36 +25,55 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.Add01
 import me.rerere.hugeicons.stroke.Delete02
+import me.rerere.hugeicons.stroke.Earth
 import me.rerere.hugeicons.stroke.Package
+import me.rerere.rikkahub.R
 import me.rerere.rikkahub.skills.plugins.PluginManager
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.theme.CustomColors
+import me.rerere.rikkahub.utils.openUrl
 import me.rerere.rikkahub.utils.plus
 import org.koin.compose.koinInject
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun SettingPluginPage() {
     val manager: PluginManager = koinInject()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var installUrl by remember { mutableStateOf("") }
     var installError by remember { mutableStateOf<String?>(null) }
-    val plugins = remember { manager.getInstalledPlugins() }
+    var pendingInstall by rememberSaveable { mutableStateOf<String?>(null) }
+    val plugins by manager.installedPlugins.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
             LargeFlexibleTopAppBar(
                 title = { Text("Plugins") },
                 navigationIcon = { BackButton() },
+                actions = {
+                    IconButton(onClick = {
+                        context.openUrl("https://github.com/anthropics/claude-code/tree/main/plugins")
+                    }) {
+                        Icon(
+                            HugeIcons.Earth,
+                            contentDescription = stringResource(R.string.setting_home_browse_catalogs),
+                        )
+                    }
+                },
                 scrollBehavior = scrollBehavior,
                 colors = CustomColors.topBarColors,
             )
@@ -93,14 +112,7 @@ fun SettingPluginPage() {
                             IconButton(onClick = {
                                 val url = installUrl.trim()
                                 if (url.isBlank()) return@IconButton
-                                scope.launch {
-                                    manager.installFromUrl(url)
-                                        .onSuccess {
-                                            installUrl = ""
-                                            installError = null
-                                        }
-                                        .onFailure { installError = it.message }
-                                }
+                                pendingInstall = url
                             }) {
                                 Icon(HugeIcons.Add01, "Install")
                             }
@@ -168,5 +180,25 @@ fun SettingPluginPage() {
                 }
             }
         }
+    }
+
+    pendingInstall?.let { source ->
+        ArtifactImportReviewDialog(
+            kind = "plugin",
+            source = source,
+            details = "The archive will be downloaded, checked for one plugin.json, and extracted only after validation.",
+            onDismiss = { pendingInstall = null },
+            onConfirm = {
+                pendingInstall = null
+                scope.launch {
+                    manager.installFromUrl(source)
+                        .onSuccess {
+                            installUrl = ""
+                            installError = null
+                        }
+                        .onFailure { installError = it.message }
+                }
+            },
+        )
     }
 }

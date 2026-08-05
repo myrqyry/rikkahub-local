@@ -211,12 +211,12 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     onClick = { navController.navigate(Screen.Assistant) },
                 ),
                 SettingsHomeItem(
-                    id = "localDream",
-                    title = stringResource(R.string.setting_home_local_dream),
-                    description = stringResource(R.string.setting_home_local_dream_desc),
-                    icon = HugeIcons.Image02,
-                    keywords = listOf("image", "generation", "diffusion", "local dream"),
-                    onClick = { navController.navigate(Screen.SettingLocalDream) },
+                    id = "promptLibrary",
+                    title = stringResource(R.string.setting_home_prompt_library),
+                    description = stringResource(R.string.setting_home_prompt_library_desc),
+                    icon = HugeIcons.Book03,
+                    keywords = listOf("prompt", "quick message", "template", "instruction"),
+                    onClick = { navController.navigate(Screen.Prompts) },
                 ),
             ),
         ),
@@ -248,6 +248,14 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     icon = HugeIcons.Megaphone01,
                     keywords = listOf("tts", "asr", "whisper", "voice", "audio"),
                     onClick = { navController.navigate(Screen.SettingSpeech) },
+                ),
+                SettingsHomeItem(
+                    id = "chatNotifications",
+                    title = stringResource(R.string.setting_page_preferences_notification),
+                    description = stringResource(R.string.setting_page_preferences_notification_desc),
+                    icon = HugeIcons.MessageNotification01,
+                    keywords = listOf("conversation", "response", "message alert"),
+                    onClick = { navController.navigate(Screen.SettingPreferencesNotification) },
                 ),
             ),
         ),
@@ -311,9 +319,9 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
             ),
         ),
         SettingsHomeSection(
-            id = "toolsKnowledge",
+            id = "searchKnowledge",
             title = stringResource(R.string.setting_home_group_tools_knowledge),
-            keywords = listOf("tools", "knowledge", "search", "browser", "mcp", "rag"),
+            keywords = listOf("knowledge", "search", "rag", "retrieval", "browser"),
             items = listOf(
                 SettingsHomeItem(
                     id = "search",
@@ -322,14 +330,6 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     icon = HugeIcons.GlobalSearch,
                     keywords = listOf("web search", "engine", "provider"),
                     onClick = { navController.navigate(Screen.SettingSearch) },
-                ),
-                SettingsHomeItem(
-                    id = "mcp",
-                    title = stringResource(R.string.setting_page_mcp),
-                    description = stringResource(R.string.setting_page_mcp_desc),
-                    icon = HugeIcons.McpServer,
-                    keywords = listOf("server", "tools", "protocol", "connector"),
-                    onClick = { navController.navigate(Screen.SettingMcp) },
                 ),
                 SettingsHomeItem(
                     id = "rag",
@@ -346,6 +346,45 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     icon = HugeIcons.Earth,
                     keywords = listOf("webview", "headless", "website", "internet"),
                     onClick = { navController.navigate(Screen.SettingBrowser) },
+                ),
+            ),
+        ),
+        SettingsHomeSection(
+            id = "tools",
+            title = stringResource(R.string.setting_home_group_tools),
+            keywords = listOf("tools", "skills", "plugins", "mcp", "termux"),
+            items = listOf(
+                SettingsHomeItem(
+                    id = "skills",
+                    title = stringResource(R.string.setting_home_skills_page),
+                    description = stringResource(R.string.setting_home_skills_page_desc),
+                    icon = HugeIcons.Book03,
+                    keywords = listOf("agent", "expertise", "workflow", "skills.sh"),
+                    onClick = { navController.navigate(Screen.Skills) },
+                ),
+                SettingsHomeItem(
+                    id = "mcp",
+                    title = stringResource(R.string.setting_page_mcp),
+                    description = stringResource(R.string.setting_page_mcp_desc),
+                    icon = HugeIcons.McpServer,
+                    keywords = listOf("server", "protocol", "connector"),
+                    onClick = { navController.navigate(Screen.SettingMcp) },
+                ),
+                SettingsHomeItem(
+                    id = "plugins",
+                    title = stringResource(R.string.setting_home_plugins),
+                    description = stringResource(R.string.setting_home_plugins_desc),
+                    icon = HugeIcons.Package,
+                    keywords = listOf("installed", "commands", "tools"),
+                    onClick = { navController.navigate(Screen.SettingPlugin) },
+                ),
+                SettingsHomeItem(
+                    id = "termux",
+                    title = stringResource(R.string.setting_page_termux),
+                    description = stringResource(R.string.setting_page_termux_desc),
+                    icon = HugeIcons.Console,
+                    keywords = listOf("shell", "terminal", "command", "android"),
+                    onClick = { navController.navigate(Screen.SettingTermux) },
                 ),
             ),
         ),
@@ -386,37 +425,13 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     keywords = listOf("bot", "messaging", "remote"),
                     onClick = { navController.navigate(Screen.SettingTelegram) },
                 ),
-                SettingsHomeItem(
-                    id = "accessibility",
-                    title = stringResource(R.string.setting_page_accessibility),
-                    description = stringResource(R.string.setting_page_accessibility_desc),
-                    icon = HugeIcons.SmartPhone01,
-                    keywords = listOf("android", "service", "device control", "automation"),
-                    onClick = { navController.navigate(Screen.SettingAccessibility) },
-                ),
             ),
         ),
         SettingsHomeSection(
-            id = "workspaceExtensions",
+            id = "workspace",
             title = stringResource(R.string.setting_home_group_workspace_extensions),
-            keywords = listOf("workspace", "extension", "plugin", "termux", "files"),
+            keywords = listOf("workspace", "project", "folder", "files"),
             items = listOf(
-                SettingsHomeItem(
-                    id = "extensions",
-                    title = stringResource(R.string.setting_page_extensions),
-                    description = stringResource(R.string.setting_page_extensions_desc),
-                    icon = HugeIcons.Package,
-                    keywords = listOf("add-on", "capability"),
-                    onClick = { navController.navigate(Screen.Extensions) },
-                ),
-                SettingsHomeItem(
-                    id = "plugins",
-                    title = stringResource(R.string.setting_home_plugins),
-                    description = stringResource(R.string.setting_home_plugins_desc),
-                    icon = HugeIcons.Link02,
-                    keywords = listOf("local plugin", "installed"),
-                    onClick = { navController.navigate(Screen.SettingPlugin) },
-                ),
                 SettingsHomeItem(
                     id = "workspaces",
                     title = stringResource(R.string.setting_home_workspaces),
@@ -424,37 +439,6 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     icon = HugeIcons.Developer,
                     keywords = listOf("project", "folder", "drive", "portable"),
                     onClick = { navController.navigate(Screen.Workspaces) },
-                ),
-                SettingsHomeItem(
-                    id = "termux",
-                    title = stringResource(R.string.setting_page_termux),
-                    description = stringResource(R.string.setting_page_termux_desc),
-                    icon = HugeIcons.Console,
-                    keywords = listOf("shell", "terminal", "command", "android"),
-                    onClick = { navController.navigate(Screen.SettingTermux) },
-                ),
-            ),
-        ),
-        SettingsHomeSection(
-            id = "deviceNotifications",
-            title = stringResource(R.string.setting_home_group_device_notifications),
-            keywords = listOf("device", "notification", "alert", "message"),
-            items = listOf(
-                SettingsHomeItem(
-                    id = "systemNotifications",
-                    title = stringResource(R.string.setting_page_notifications),
-                    description = stringResource(R.string.setting_page_notifications_desc),
-                    icon = HugeIcons.Alert01,
-                    keywords = listOf("android notification", "channel", "system"),
-                    onClick = { navController.navigate(Screen.SettingNotifications) },
-                ),
-                SettingsHomeItem(
-                    id = "chatNotifications",
-                    title = stringResource(R.string.setting_page_preferences_notification),
-                    description = stringResource(R.string.setting_page_preferences_notification_desc),
-                    icon = HugeIcons.MessageNotification01,
-                    keywords = listOf("conversation", "response", "message alert"),
-                    onClick = { navController.navigate(Screen.SettingPreferencesNotification) },
                 ),
             ),
         ),
@@ -506,6 +490,16 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                 )
                 add(
                     SettingsHomeItem(
+                        id = "systemNotifications",
+                        title = stringResource(R.string.setting_page_notifications),
+                        description = stringResource(R.string.setting_page_notifications_desc),
+                        icon = HugeIcons.Alert01,
+                        keywords = listOf("android notification", "channel", "system"),
+                        onClick = { navController.navigate(Screen.SettingNotifications) },
+                    )
+                )
+                add(
+                    SettingsHomeItem(
                         id = "toolApprovals",
                         title = stringResource(R.string.setting_page_tool_approvals),
                         description = stringResource(R.string.setting_page_tool_approvals_desc),
@@ -532,6 +526,16 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         icon = HugeIcons.Wrench01,
                         keywords = listOf("health check", "repair", "troubleshoot", "diagnostics"),
                         onClick = { navController.navigate(Screen.SettingDoctor) },
+                    )
+                )
+                add(
+                    SettingsHomeItem(
+                        id = "accessibility",
+                        title = stringResource(R.string.setting_page_accessibility),
+                        description = stringResource(R.string.setting_page_accessibility_desc),
+                        icon = HugeIcons.SmartPhone01,
+                        keywords = listOf("android", "service", "device control", "automation"),
+                        onClick = { navController.navigate(Screen.SettingAccessibility) },
                     )
                 )
                 if (settings.developerMode) {
@@ -617,38 +621,6 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                             Toast.makeText(context, noShareApp, Toast.LENGTH_SHORT).show()
                         }
                     },
-                ),
-                SettingsHomeItem(
-                    id = "pluginDocs",
-                    title = stringResource(R.string.setting_home_plugin_docs),
-                    description = stringResource(R.string.setting_home_plugin_docs_desc),
-                    icon = HugeIcons.Package,
-                    keywords = listOf("claude code", "opencode", "marketplace"),
-                    onClick = { context.openUrl("https://docs.anthropic.com/en/docs/claude-code/plugins") },
-                ),
-                SettingsHomeItem(
-                    id = "skillsDirectory",
-                    title = stringResource(R.string.setting_home_skills),
-                    description = stringResource(R.string.setting_home_skills_desc),
-                    icon = HugeIcons.Book03,
-                    keywords = listOf("skill", "agent", "extension"),
-                    onClick = { context.openUrl("https://skills.sh") },
-                ),
-                SettingsHomeItem(
-                    id = "modelHub",
-                    title = stringResource(R.string.setting_home_model_hub),
-                    description = stringResource(R.string.setting_home_model_hub_desc),
-                    icon = HugeIcons.Download01,
-                    keywords = listOf("hugging face", "download", "models"),
-                    onClick = { context.openUrl("https://huggingface.co") },
-                ),
-                SettingsHomeItem(
-                    id = "openCodeDocs",
-                    title = stringResource(R.string.setting_home_opencode_docs),
-                    description = stringResource(R.string.setting_home_opencode_docs_desc),
-                    icon = HugeIcons.Code,
-                    keywords = listOf("opencode", "agent", "documentation"),
-                    onClick = { context.openUrl("https://opencode.ai") },
                 ),
             ),
         ),

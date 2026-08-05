@@ -2,6 +2,7 @@ package me.rerere.rikkahub
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
@@ -40,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.core.content.IntentCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavKey
@@ -148,6 +150,7 @@ private const val TAG = "RouteActivity"
 class RouteActivity : ComponentActivity() {
     companion object {
         const val EXTRA_OPEN_CODEX_SETTINGS = "open_codex_settings"
+        private const val MAX_SHARED_TEXT_LENGTH = 256 * 1024
     }
 
     private val highlighter by inject<Highlighter>()
@@ -213,26 +216,16 @@ class RouteActivity : ComponentActivity() {
 
     @Composable
     private fun ShareHandler(backStack: MutableList<NavKey>) {
-        val shareIntent = remember {
-            Intent().apply {
-                action = intent?.action
-                putExtra(Intent.EXTRA_TEXT, intent?.getStringExtra(Intent.EXTRA_TEXT))
-                putExtra(Intent.EXTRA_STREAM, intent?.getStringExtra(Intent.EXTRA_STREAM))
-                putExtra(Intent.EXTRA_PROCESS_TEXT, intent?.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT))
-            }
-        }
+        val shareIntent = remember { sanitizeIncomingShareIntent(intent) }
 
-        LaunchedEffect(backStack) {
-            when (shareIntent.action) {
+        LaunchedEffect(backStack, shareIntent) {
+            when (shareIntent?.action) {
                 Intent.ACTION_SEND -> {
-                    val text = shareIntent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
-                    val imageUri = shareIntent.getStringExtra(Intent.EXTRA_STREAM)
-                    backStack.add(Screen.ShareHandler(text, imageUri))
+                    appendShareRoute(backStack, shareIntent)
                 }
 
                 Intent.ACTION_PROCESS_TEXT -> {
-                    val text = shareIntent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString() ?: ""
-                    backStack.add(Screen.ShareHandler(text, null))
+                    appendShareRoute(backStack, shareIntent)
                 }
             }
         }
@@ -241,7 +234,8 @@ class RouteActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.getBooleanExtra(EXTRA_OPEN_CODEX_SETTINGS, false)) {
+        navStack?.let { appendShareRoute(it, sanitizeIncomingShareIntent(intent)) }
+        if (isInternalIntent(intent) && intent.getBooleanExtra(EXTRA_OPEN_CODEX_SETTINGS, false)) {
             val destination = Screen.SettingProviderDetail(DEFAULT_CODEX_PROVIDER_ID.toString())
             navStack?.let { stack ->
                 if (stack.lastOrNull() != destination) stack.add(destination)
@@ -249,10 +243,60 @@ class RouteActivity : ComponentActivity() {
             intent.removeExtra(EXTRA_OPEN_CODEX_SETTINGS)
         }
         // Navigate to the chat screen if a conversation ID is provided
-        intent.getStringExtra("conversationId")?.let { text ->
-            navStack?.add(Screen.Chat(text))
+        if (isInternalIntent(intent)) {
+            intent.getStringExtra("conversationId")?.let { text ->
+                runCatching { Uuid.parse(text) }
+                    .onSuccess { navStack?.add(Screen.Chat(it.toString())) }
+            }
         }
     }
+
+    private fun appendShareRoute(backStack: MutableList<NavKey>, shareIntent: Intent?) {
+        when (shareIntent?.action) {
+            Intent.ACTION_SEND, Intent.ACTION_PROCESS_TEXT -> {
+                val text = if (shareIntent.action == Intent.ACTION_PROCESS_TEXT) {
+                    shareIntent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
+                } else {
+                    shareIntent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+                }.orEmpty().take(MAX_SHARED_TEXT_LENGTH)
+                val stream = IntentCompat.getParcelableExtra(
+                    shareIntent,
+                    Intent.EXTRA_STREAM,
+                    Uri::class.java,
+                )?.takeIf { it.scheme == "content" }?.toString()
+                backStack.add(Screen.ShareHandler(text, stream))
+            }
+        }
+    }
+
+    private fun sanitizeIncomingShareIntent(source: Intent?): Intent? {
+        source ?: return null
+        return when (source.action) {
+            Intent.ACTION_PROCESS_TEXT -> Intent(Intent.ACTION_PROCESS_TEXT).apply {
+                putExtra(
+                    Intent.EXTRA_PROCESS_TEXT,
+                    source.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)
+                        ?.toString()?.take(MAX_SHARED_TEXT_LENGTH),
+                )
+            }
+            Intent.ACTION_SEND -> {
+                val stream = IntentCompat.getParcelableExtra(source, Intent.EXTRA_STREAM, Uri::class.java)
+                    ?.takeIf { it.scheme == "content" }
+                Intent(Intent.ACTION_SEND).apply {
+                    putExtra(
+                        Intent.EXTRA_TEXT,
+                        source.getCharSequenceExtra(Intent.EXTRA_TEXT)
+                            ?.toString()?.take(MAX_SHARED_TEXT_LENGTH),
+                    )
+                    if (stream != null) putExtra(Intent.EXTRA_STREAM, stream)
+                }
+            }
+            else -> null
+        }
+    }
+
+    private fun isInternalIntent(source: Intent): Boolean =
+        source.component?.packageName == packageName
 
     @OptIn(ExperimentalComposeUiApi::class)
     @Composable
@@ -287,7 +331,7 @@ class RouteActivity : ComponentActivity() {
         SideEffect { this@RouteActivity.navStack = backStack }
 
         LaunchedEffect(backStack) {
-            if (intent.getBooleanExtra(EXTRA_OPEN_CODEX_SETTINGS, false)) {
+            if (isInternalIntent(intent) && intent.getBooleanExtra(EXTRA_OPEN_CODEX_SETTINGS, false)) {
                 val destination = Screen.SettingProviderDetail(DEFAULT_CODEX_PROVIDER_ID.toString())
                 if (backStack.lastOrNull() != destination) backStack.add(destination)
                 intent.removeExtra(EXTRA_OPEN_CODEX_SETTINGS)

@@ -12,11 +12,14 @@ import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.repository.WorkspaceRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import me.rerere.workspace.WorkspaceManager
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
 
 class PluginManager(
@@ -31,6 +34,12 @@ class PluginManager(
 
     private val _hookFlow = MutableSharedFlow<PluginHookEvent>(extraBufferCapacity = 16)
     val hookFlow: SharedFlow<PluginHookEvent> = _hookFlow.asSharedFlow()
+    private val _installedPlugins = MutableStateFlow<List<PluginBrief>>(emptyList())
+    val installedPlugins: StateFlow<List<PluginBrief>> = _installedPlugins
+
+    init {
+        refreshInventory()
+    }
 
     fun emitHook(event: PluginHookEvent) {
         _hookFlow.tryEmit(event)
@@ -55,6 +64,10 @@ class PluginManager(
             }
         } ?: emptyList()
 
+    fun refreshInventory() {
+        _installedPlugins.value = getInstalledPlugins()
+    }
+
     data class PluginBrief(
         val name: String,
         val description: String,
@@ -74,42 +87,76 @@ class PluginManager(
                 .build()
 
             val response = httpClient.newCall(request).execute()
-            if (!response.isSuccessful) {
-                error("GitHub API ${response.code}: ${response.message}")
+            val body = response.use {
+                if (!it.isSuccessful) error("GitHub API ${it.code}: ${it.message}")
+                it.body.bytes()
             }
-            val body = response.body.bytes()
+            if (body.size > MAX_ARCHIVE_BYTES) {
+                error("plugin archive exceeds ${MAX_ARCHIVE_BYTES / 1024 / 1024} MB")
+            }
 
             val tempDir = File(context.cacheDir, "plugin_${repo}")
             tempDir.deleteRecursively()
             tempDir.mkdirs()
 
-            ZipInputStream(body.inputStream()).use { zis ->
+            try {
+                var entryCount = 0
+                var uncompressedBytes = 0L
+                ZipInputStream(ByteArrayInputStream(body)).use { zis ->
                 var entry = zis.nextEntry
                 while (entry != null) {
-                    val target = File(tempDir, entry.name)
+                    if (++entryCount > MAX_ARCHIVE_ENTRIES) error("plugin archive has too many files")
+                    val target = safeZipTarget(tempDir, entry.name)
                     if (entry.isDirectory) target.mkdirs()
-                    else target.outputStream().use { zis.copyTo(it) }
+                    else target.outputStream().use { out ->
+                        val buffer = ByteArray(COPY_BUFFER)
+                        while (true) {
+                            val count = zis.read(buffer)
+                            if (count <= 0) break
+                            uncompressedBytes += count
+                            if (uncompressedBytes > MAX_UNCOMPRESSED_BYTES) {
+                                error("plugin archive expands beyond ${MAX_UNCOMPRESSED_BYTES / 1024 / 1024} MB")
+                            }
+                            out.write(buffer, 0, count)
+                        }
+                    }
                     zis.closeEntry()
                     entry = zis.nextEntry
                 }
+                }
+
+                val manifests = tempDir.walkTopDown()
+                .filter { it.isFile && it.name == "plugin.json" }
+                .toList()
+                if (manifests.size != 1) error("plugin archive must contain exactly one plugin.json")
+                val manifestFile = manifests.single()
+
+                val manifest = PluginManifest.parse(manifestFile.readText()).getOrThrow()
+                require(PLUGIN_ID.matches(manifest.name)) { "invalid plugin id" }
+
+                val sourceRoot = manifestFile.parentFile ?: error("plugin manifest has no parent")
+                val stagingDir = File(pluginsDir, ".staging-${manifest.name}")
+                stagingDir.deleteRecursively()
+                stagingDir.mkdirs()
+                sourceRoot.walkTopDown().forEach { src ->
+                    val dest = File(stagingDir, src.relativeTo(sourceRoot).path)
+                    if (src.isDirectory) dest.mkdirs() else src.copyTo(dest, overwrite = true)
+                }
+                val pluginDir = safePluginDir(manifest.name)
+                val backupDir = File(pluginsDir, ".backup-${manifest.name}")
+                backupDir.deleteRecursively()
+                if (pluginDir.exists() && !pluginDir.renameTo(backupDir)) error("could not stage existing plugin")
+                if (!stagingDir.renameTo(pluginDir)) {
+                    backupDir.renameTo(pluginDir)
+                    error("could not activate plugin")
+                }
+                backupDir.deleteRecursively()
+
+                registerPluginCommands(manifest)
+                refreshInventory()
+            } finally {
+                tempDir.deleteRecursively()
             }
-
-            val manifestFile = tempDir.walkTopDown().find { it.name == "plugin.json" }
-                ?: error("plugin.json not found in plugin archive")
-
-            val manifest = PluginManifest.parse(manifestFile.readText()).getOrThrow()
-
-            val pluginDir = File(pluginsDir, manifest.name)
-            pluginDir.deleteRecursively()
-            pluginDir.mkdirs()
-            tempDir.walkTopDown().forEach { src ->
-                val dest = File(pluginDir, src.relativeTo(tempDir).path)
-                if (src.isDirectory) dest.mkdirs()
-                else src.copyTo(dest, overwrite = true)
-            }
-            tempDir.deleteRecursively()
-
-            registerPluginCommands(manifest)
         }
     }
 
@@ -119,6 +166,7 @@ class PluginManager(
         }
         registeredCommands[name]?.forEach { registry.unregister(it) }
         registeredCommands.remove(name)
+        refreshInventory()
     }
 
     fun isInstalled(name: String): Boolean = File(pluginsDir, name).exists()
@@ -169,6 +217,12 @@ class PluginManager(
     }
 
     companion object {
+        private const val MAX_ARCHIVE_BYTES = 50L * 1024 * 1024
+        private const val MAX_UNCOMPRESSED_BYTES = 100L * 1024 * 1024
+        private const val MAX_ARCHIVE_ENTRIES = 500
+        private const val COPY_BUFFER = 8 * 1024
+        private val PLUGIN_ID = Regex("^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
         fun parsePluginRef(input: String): Pair<String, String> {
             val ref = input.trim().removePrefix("claude plugin install ").trim()
             val githubUrl = Regex("https?://github\\.com/([^/]+)/([^/]+?)(?:\\.git)?$")
@@ -203,4 +257,24 @@ class PluginManager(
         }
         registeredCommands[manifest.name] = cmdNames
     }
+
+    private fun safeZipTarget(root: File, entryName: String): File {
+        require(entryName.isNotBlank()) { "empty archive entry" }
+        require(!entryName.startsWith('/') && !entryName.startsWith('\\')) {
+            "unsafe archive path"
+        }
+        val target = File(root, entryName)
+        val rootPath = root.canonicalPath + File.separator
+        require(target.canonicalPath.startsWith(rootPath)) { "unsafe archive path: $entryName" }
+        return target
+    }
+
+    private fun safePluginDir(name: String): File {
+        require(PLUGIN_ID.matches(name)) { "invalid plugin id" }
+        val dir = File(pluginsDir, name)
+        val rootPath = pluginsDir.canonicalPath + File.separator
+        require(dir.canonicalPath.startsWith(rootPath)) { "unsafe plugin path" }
+        return dir
+    }
+
 }

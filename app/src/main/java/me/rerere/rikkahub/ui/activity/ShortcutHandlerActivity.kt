@@ -37,6 +37,10 @@ class ShortcutHandlerActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent?.data?.scheme != "rikkahub" || intent?.data?.host != "shortcut") {
+            finish()
+            return
+        }
         requestPermissionLauncher.launch(Manifest.permission.CAMERA)
     }
 

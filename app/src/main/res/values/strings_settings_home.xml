@@ -8,7 +8,8 @@
     <string name="setting_home_group_ai_models">AI &amp; Models</string>
     <string name="setting_home_group_chat_voice">Chat &amp; Voice</string>
     <string name="setting_home_group_appearance">Appearance</string>
-    <string name="setting_home_group_tools_knowledge">Tools &amp; Knowledge</string>
+    <string name="setting_home_group_tools_knowledge">Search &amp; Knowledge</string>
+    <string name="setting_home_group_tools">Tools</string>
     <string name="setting_home_group_automation_connections">Automation &amp; Connections</string>
     <string name="setting_home_group_workspace_extensions">Workspace &amp; Extensions</string>
     <string name="setting_home_group_device_notifications">Device &amp; Notifications</string>
@@ -24,6 +25,14 @@
     <string name="setting_home_local_dream_desc">Manage Local Dream models and generation settings</string>
     <string name="setting_home_plugins">Plugins</string>
     <string name="setting_home_plugins_desc">Manage locally installed plugins</string>
+    <string name="setting_home_skills_page">Skills</string>
+    <string name="setting_home_skills_page_desc">Manage reusable agent expertise and workflows</string>
+    <string name="setting_home_prompt_library">Prompt library</string>
+    <string name="setting_home_prompt_library_desc">Manage prompts and quick messages</string>
+    <string name="setting_home_browse_catalogs">Browse catalogs</string>
+    <string name="setting_home_import_review_title">Review %s import</string>
+    <string name="setting_home_import_review_body">Source: %1$s\n\n%2$s\n\nInstallation starts only after you confirm.</string>
+    <string name="setting_home_import_review_install">Install</string>
     <string name="setting_home_workspaces">Workspaces</string>
     <string name="setting_home_workspaces_desc">Manage projects, folders, and file access</string>
     <string name="setting_home_developer_tools">Developer tools</string>
