@@ -771,6 +771,12 @@
   <string name="setting_model_page_suggestion_model_desc">النموذج المُستخدم لتوليد اقتراحات المحادثة، يُنصح باستخدام نماذج سريعة وغير مكلفة</string>
   <string name="setting_model_page_suggestion_prompt_vars">المتغيرات: محتوى المحادثة: {content}، اللغة: {locale}</string>
   <string name="setting_model_page_title">إعدادات النموذج</string>
+  <string name="unified_models_search">البحث عن النماذج</string>
+  <string name="unified_models_local">النماذج المحلية</string>
+  <string name="unified_models_cloud">النماذج السحابية</string>
+  <string name="unified_models_provider">نماذج المزوّد</string>
+  <string name="unified_models_refresh">تحديث</string>
+  <string name="unified_models_empty">لا توجد نماذج متوافقة</string>
   <string name="setting_model_page_title_model">نموذج تلخيص العنوان</string>
   <string name="setting_model_page_title_model_desc">النموذج المُستخدم لتلخيص عناوين المحادثات، يُنصح باستخدام نماذج سريعة وغير مكلفة</string>
   <string name="setting_model_page_translate_model">نموذج الترجمة</string>
@@ -1501,4 +1507,3 @@
   <string name="setting_page_chat_preferences">تفضيلات الدردشة</string>
   <string name="setting_asr_configure_whisper_sample_rate_desc">معدل أخذ عينات تسجيل PCM بالهرتز، يُنصح بـ 16000 لـ Whisper</string>
 </resources>
-

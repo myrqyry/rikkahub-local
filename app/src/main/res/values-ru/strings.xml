@@ -753,6 +753,12 @@
   <string name="setting_model_page_suggestion_model_desc">Модель для генерации предложений в чате. Если не задана, используется быстрая модель</string>
   <string name="setting_model_page_suggestion_prompt_vars">Переменные: Содержание разговора: {content}, Язык: {locale}</string>
   <string name="setting_model_page_title">Настройки модели</string>
+  <string name="unified_models_search">Поиск моделей</string>
+  <string name="unified_models_local">Локальные модели</string>
+  <string name="unified_models_cloud">Облачные модели</string>
+  <string name="unified_models_provider">Модели провайдера</string>
+  <string name="unified_models_refresh">Обновить</string>
+  <string name="unified_models_empty">Нет совместимых моделей</string>
   <string name="setting_model_page_title_model">Модель сводки заголовков</string>
   <string name="setting_model_page_title_model_desc">Модель для генерации заголовков бесед. Если не задана, используется быстрая модель</string>
   <string name="setting_model_page_translate_model">Модель перевода</string>

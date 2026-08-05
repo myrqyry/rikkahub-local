@@ -5,9 +5,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
 import me.rerere.ai.provider.Model
+import me.rerere.ai.provider.ProviderManager
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
@@ -18,6 +20,7 @@ class SettingsModelRegistry(
     private val settingsStore: SettingsStore,
     private val localPreferences: LocalRuntimePreferences,
     scope: CoroutineScope,
+    private val providerManager: ProviderManager,
 ) : ModelRegistry {
     private val capabilityOverrides = MutableStateFlow<Map<String, Set<ModelCapability>>>(emptyMap())
     private val _models = MutableStateFlow<List<ModelDescriptor>>(emptyList())
@@ -87,7 +90,17 @@ class SettingsModelRegistry(
     }
 
     override suspend fun refreshProvider(providerId: String) {
-        // Settings and LocalRuntimePreferences are already hot sources; collecting them is refresh.
+        val provider = settingsStore.settingsFlow.first().providers.firstOrNull {
+            it.id.toString() == providerId
+        } ?: error("Unknown provider: $providerId")
+        val models = providerManager.getProviderByType(provider).listModels(provider)
+        settingsStore.update { settings ->
+            settings.copy(
+                providers = settings.providers.map {
+                    if (it.id == provider.id) it.copyProvider(models = models) else it
+                },
+            )
+        }
     }
 
     override suspend fun setCapabilityEnabled(

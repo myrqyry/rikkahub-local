@@ -287,7 +287,7 @@ val appModule = module {
     single { me.rerere.locallm.LocalRuntimePreferences(get()) }
     single { me.rerere.locallm.litert.LiteRtRuntime(get()) }
     single<me.rerere.rikkahub.data.modelregistry.ModelRegistry> {
-        me.rerere.rikkahub.data.modelregistry.SettingsModelRegistry(get(), get(), get<me.rerere.rikkahub.AppScope>())
+        me.rerere.rikkahub.data.modelregistry.SettingsModelRegistry(get(), get(), get<me.rerere.rikkahub.AppScope>(), get())
     }
     single<me.rerere.rikkahub.data.modelregistry.LegacyModelAssignmentAdapter> {
         me.rerere.rikkahub.data.modelregistry.SettingsLegacyModelAssignmentAdapter(get(), get<me.rerere.rikkahub.AppScope>())

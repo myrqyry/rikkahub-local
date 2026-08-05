@@ -16,6 +16,7 @@ import me.rerere.rikkahub.data.modelregistry.ModelAssignments
 import me.rerere.rikkahub.data.modelregistry.ModelCapability
 import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
 import me.rerere.rikkahub.data.modelregistry.ModelLifecycle
+import me.rerere.rikkahub.data.modelregistry.ModelProviderDescriptor
 import me.rerere.rikkahub.data.modelregistry.ModelRegistry
 import me.rerere.rikkahub.data.modelregistry.ModelRole
 import me.rerere.rikkahub.data.modelregistry.ModelSource
@@ -50,6 +51,7 @@ class UnifiedModelsViewModel(
     val sourceFilter: StateFlow<ModelSourceFilter> = source.asStateFlow()
     val providerFilter: StateFlow<String?> = providerId.asStateFlow()
     val allModels: StateFlow<List<ModelDescriptor>> = registry.models
+    val registryProviders: StateFlow<List<ModelProviderDescriptor>> = registry.providers
 
     val visibleModels: StateFlow<List<ModelDescriptor>> = combine(
         registry.models,
@@ -123,6 +125,17 @@ class UnifiedModelsViewModel(
     fun setProviderFilter(value: String?) { providerId.value = value }
     fun clearProviderFilter() { providerId.value = null }
     fun clearOperationError() { _operationError.value = null }
+
+    fun refreshProvider(providerId: String) = ownerScope.launch {
+        _operationError.value = null
+        try {
+            registry.refreshProvider(providerId)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            _operationError.value = error.message ?: error::class.simpleName
+        }
+    }
 
     fun assign(role: ModelRole, modelId: String?) = ownerScope.launch {
         _operationError.value = null
