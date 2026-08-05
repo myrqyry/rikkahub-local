@@ -157,7 +157,7 @@ Run:
 ./gradlew :app:testDebugUnitTest --tests '*LegacyModelAssignmentAdapterTest' --no-daemon
 ```
 
-Expected: FAIL because the adapter and fake-store test helper do not exist.
+Expected: FAIL because the adapter and test-store helper do not exist.
 
 - [ ] **Step 3: Implement the adapter**
 
