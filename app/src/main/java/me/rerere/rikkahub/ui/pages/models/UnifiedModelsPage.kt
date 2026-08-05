@@ -23,8 +23,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
@@ -170,6 +172,8 @@ private fun ModelInventorySection(models: List<ModelDescriptor>) {
     val navController = LocalNavController.current
     val local = models.filter { it.source is ModelSource.Local }
     val cloud = models.filter { it.source is ModelSource.Cloud }
+    val cloudGroups = cloud.groupBy { (it.source as ModelSource.Cloud).providerId }
+    var expandedProviders by remember(cloudGroups.keys) { mutableStateOf(cloudGroups.keys.toSet()) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (local.isNotEmpty()) {
             CardGroup(title = { Text("Local models") }) {
@@ -184,25 +188,32 @@ private fun ModelInventorySection(models: List<ModelDescriptor>) {
         }
         if (cloud.isNotEmpty()) {
             CardGroup(title = { Text("Cloud models") }) {
-                cloud.groupBy { (it.source as ModelSource.Cloud).providerId }
-                    .forEach { (providerId, providerModels) ->
+                cloudGroups.forEach { (providerId, providerModels) ->
                         item(
                             onClick = {
-                                navController.navigate(Screen.SettingProviderDetail(providerId))
+                                expandedProviders = if (providerId in expandedProviders) {
+                                    expandedProviders - providerId
+                                } else {
+                                    expandedProviders + providerId
+                                }
                             },
                             overlineContent = { Text(providerId) },
-                            headlineContent = { Text("Provider models") },
+                            headlineContent = {
+                                Text(if (providerId in expandedProviders) "Hide provider models" else "Show provider models")
+                            },
                         )
-                        providerModels.forEach { model ->
-                            item(
-                                onClick = {
-                                    navController.navigate(Screen.SettingProviderDetail(providerId))
-                                },
-                                headlineContent = { Text(model.displayName) },
-                                supportingContent = { Text(model.capabilities.joinToString { it.name.lowercase() }) },
-                            )
+                        if (providerId in expandedProviders) {
+                            providerModels.forEach { model ->
+                                item(
+                                    onClick = {
+                                        navController.navigate(Screen.SettingProviderDetail(providerId))
+                                    },
+                                    headlineContent = { Text(model.displayName) },
+                                    supportingContent = { Text(model.capabilities.joinToString { it.name.lowercase() }) },
+                                )
+                            }
                         }
-                    }
+            }
             }
         }
         if (local.isEmpty() && cloud.isEmpty()) {
