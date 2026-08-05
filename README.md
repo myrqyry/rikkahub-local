@@ -1,192 +1,388 @@
 <div align="center">
 
-<img src="docs/icon.png" width="96" height="96" alt="RikkaHub Agent" style="border-radius: 24px" />
+<img src="docs/icon.png" width="104" height="104" alt="RikkaHub Local" />
 
 # RikkaHub Local
 
-**Your phone, automated.**
+**A local-first Android AI workspace for models, assistants, skills, tools, automation, and multimodal creation.**
 
-A fork of [RikkaHub](https://github.com/rikkahub/rikkahub) that turns the native Android LLM chat client into a real on-device agent: 80+ device tools, AI-authored workflows, scheduled jobs, an in-app browser the AI drives, SSH, screen automation, file manager, music player, voice transcription, downloadable on-device LLMs, and a remote Telegram bot. All opt-in.
+RikkaHub Local is an experimental fork of [RikkaHub](https://github.com/rikkahub/rikkahub) that expands the original multi-provider chat client into a capability-aware agent runtime. It can use cloud or on-device models, operate Android and connected tools with explicit permission, import reusable skills and plugins, process documents and media, and automate work without hiding what it is doing.
 
 <p>
-  <a href="https://github.com/myrqyry/rikkahub-local/releases"><img src="https://img.shields.io/github/v/release/myrqyry/rikkahub-local?include_prereleases&style=flat-square&label=release&color=blue" alt="Release" /></a>
-  <a href="https://github.com/myrqyry/rikkahub-local/releases"><img src="https://img.shields.io/github/downloads/myrqyry/rikkahub-local/total?style=flat-square&color=brightgreen" alt="Downloads" /></a>
-  <a href="https://github.com/myrqyry/rikkahub-local/stargazers"><img src="https://img.shields.io/github/stars/myrqyry/rikkahub-local?style=flat-square&color=yellow" alt="Stars" /></a>
+  <img src="https://img.shields.io/badge/status-active%20development-orange?style=flat-square" alt="Active development" />
   <img src="https://img.shields.io/badge/platform-Android%208%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 8+" />
+  <img src="https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin and Jetpack Compose" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-see%20LICENSE-blue?style=flat-square" alt="License" /></a>
 </p>
 
-<a href="https://myrqyry.github.io/rikkahub-local/">Website</a> ·
-<a href="https://github.com/myrqyry/rikkahub-local/releases/latest">Download</a> ·
+<a href="https://myrqyry.github.io/rikkahub-local/">Project site</a> ·
+<a href="#what-rikkahub-local-is">Overview</a> ·
 <a href="#features">Features</a> ·
-<a href="#quick-start">Quick Start</a> ·
+<a href="#project-status">Status</a> ·
 <a href="#building-from-source">Build</a>
 
 </div>
 
+> [!IMPORTANT]
+> RikkaHub Local is under rapid development and does not currently publish GitHub Releases. There is no supported release APK yet. Build from source, expect interfaces and storage formats to evolve, and do not treat the current repository as a finished consumer product.
+
 ---
 
-## What can it do?
+## What RikkaHub Local is
 
-Tell it what to do in plain language. The phone runs it in the background while you live your life.
+RikkaHub Local is not simply “RikkaHub with more tools.” The project is being reorganized around a small set of concepts that can compose without every feature inventing its own miniature universe:
 
-> *"Every weekday at 9am, summarize my unread WhatsApp into one Telegram message."*
-> *"If my home server's disk fills up, ping me."*
-> *"Watch my notifications. If anything from my boss comes in, forward it to Telegram."*
-> *"Find the PDF on my phone that mentions 'invoice' and read me the first paragraph."*
-> *"Take a screenshot every 30 minutes for the next 4 hours so I can see what I actually did all afternoon."*
-> *"Use Termux to build me a webpage listing everything you can do, then open it in my browser."*
-> *"When I plug in headphones at home WiFi after 7pm, start my evening playlist."*
-> *"Open my router's admin page, sign in with the saved password, and tell me which devices are eating the most bandwidth right now."*
-> *"Spin up two researches in parallel: one finds the cheapest one-way flight to Tokyo this month, the other lists hotels in Shibuya under $100."*
+```text
+Models think.
+Prompts guide.
+Skills instruct.
+Tools act.
+Assistants combine them.
+```
 
-Each of those is a one-line setup.
+An assistant can select a model, apply reusable instructions and knowledge, invoke only the tools it has been allowed to use, delegate work to sub-agents, and run locally or through connected providers. The goal is to let useful ecosystems feed one Android workspace instead of forcing users to learn a different installation ritual for every model, skill, plugin, or agent format.
+
+### Design priorities
+
+- **Local-first, not local-only.** Prefer on-device execution where it is practical, while keeping cloud providers available when they are more capable.
+- **Capability-aware models.** Chat, vision, OCR, image generation, speech, embeddings, and tools are distinct capabilities rather than vague model labels.
+- **Explicit authority.** Sensitive tools remain opt-in, approval-gated, and bounded by hard safety rules.
+- **Interoperable artifacts.** Skills and plugins are inspected, normalized, reviewed, and installed with provenance instead of blindly copied into place.
+- **Graceful degradation.** A feature should explain what is missing or incompatible instead of silently choosing an unrelated fallback.
+- **One coherent workspace.** Models, prompts, skills, MCP servers, plugins, automation, files, and assistants should feel like parts of the same system.
+
+---
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/img/chat.png" width="31%" alt="RikkaHub Local chat" />
+  <img src="docs/img/assistants.png" width="31%" alt="Assistant configuration" />
+  <img src="docs/img/models.png" width="31%" alt="Model configuration" />
+</p>
+
+> The UI is actively being reorganized. Screenshots may lag behind the current branch because software apparently changes faster than humans remember to retake promotional images.
 
 ---
 
 ## Features
 
-### Device Control
+### Cloud and on-device models
 
-Tap, swipe, scroll, type, take screenshots, open apps, adjust brightness/volume, post notifications, check battery/WiFi/signal/location/sensors, read contacts & SMS, send SMS, set wallpaper, read/write NFC tags, sign and encrypt data with the Android Keystore, access external storage and SD cards, and manage ZIP archives. **80+ tools**, all built into Android. Each one stays off until you flip it on.
+Use the original RikkaHub provider ecosystem alongside local Android runtimes.
 
-### Workflows & Schedules
+- Cloud providers including OpenAI-compatible endpoints, OpenRouter, Google, Anthropic, Codex, Grok, and others supported by the upstream provider layer
+- On-device LiteRT language and vision models
+- Pixel AICore / Gemini Nano integration where supported
+- Experimental local Stable Diffusion GGUF management through `stable-diffusion.cpp`
+- Curated local model catalogs that link to source and licensing information
+- Manual model import from local files or supported URLs
+- Separate model capabilities for chat, reasoning, tools, vision, OCR, document analysis, image generation, image editing, speech, embeddings, and reranking
+- A registry and resolver that preserve local/cloud boundaries and avoid silent cloud fallback
 
-**Workflows** — Describe a trigger and action in plain language: *"when I get home, turn the ringer off."* 19 triggers (WiFi, Bluetooth, headphones, geofence, app launch, notifications, time, charging, screen state, and more) and 14 conditions (battery thresholds, sunrise/sunset, day-of-week, foreground app, screen state) decide when each fires. Receivers register only when needed — battery drain stays minimal.
+The current `ModelRegistry` is the foundation for a unified Models surface. Existing provider and runtime pages still own several lifecycle and configuration actions while that UI migration is completed.
 
-**Schedules** — Run tasks on any cadence: *"every Monday at 8am"*, *"every two hours"*, *"next Friday at 3pm."* Survives reboots and battery saver. Let the AI think at runtime, or pre-bake fixed actions that don't burn tokens.
+### Assistants and prompt library
 
-### Telegram Bot
+Assistants combine model choices, instructions, knowledge, tools, permissions, and behavior.
 
-Talk to your assistant from anywhere. Send a question, photo, PDF, or voice note. Approval prompts use simple Yes/No buttons. When the AI needs input, it pops a tappable multiple-choice question right in the chat. Long messages arrive as downloadable files. Message bursts are paced to avoid Telegram rate limits.
+- Per-assistant model and tool configuration
+- Reusable mode injections and lorebooks
+- Quick messages for frequently used requests
+- A unified Prompt Library surface for instructions and quick messages
+- Focused sub-agents with isolated context and cancellable parallel work
+- Assistant-specific safety and capability boundaries
 
-### In-App Browser
+### Skills, plugins, and shared artifact imports
 
-A real browser built into the app. The AI clicks through cookie banners, fills search boxes, scrolls, and reads pages back to you. Streams fresh screenshots to your chat after every step. Floating chat pill lets you keep talking to the AI without leaving the page. Built-in article extraction and diff-after-action keep token costs low.
+RikkaHub Local can absorb reusable agent artifacts instead of treating every external ecosystem as a documentation link.
 
-### File Manager
+- First-class Skills and Plugins pages
+- Skill import from raw URLs, Markdown, local files, ZIP files, Android sharing, and GitHub directories containing `SKILL.md`
+- Plugin import from supported GitHub repositories and prepared archives
+- Shared candidate inspection and confirmation before installation
+- Source provenance and content hashes stored after successful installation
+- Bounded downloads, redirect validation, UTF-8 validation, archive traversal protection, size and entry limits, safe staging, and atomic activation
+- Plugin commands and tools exposed through the existing assistant/tool system
+- Compatibility handling for native RikkaHub skills and selected external skill formats
 
-Find files, read them, save new ones, copy, move, rename, delete. *"Find every PDF mentioning 'invoice' on my phone"* works in one sentence. System folders outside your app's sandbox are off-limits, even if you ask.
+Direct catalog adapters for more ecosystems are planned. The current import foundation is deliberately source-adapter based so ClawHub, LobeHub, Hugging Face, and other catalogs can be added without creating another unrelated installer for each one.
 
-### SSH
+### Android tools and device control
 
-Save your servers once. Run commands, upload files, pull backups, check disk space, tail logs — all from chat. Pipe input into commands, write remote files, or launch long-running servers that return a PID instead of hanging. Works on WiFi or cell.
+Assistants can use a broad collection of native Android tools when the user enables them.
 
-### Music & Media
+Capabilities include screen interaction, screenshots, app launching, notifications, battery and network state, brightness and volume, contacts and messages, location and sensors, clipboard operations, NFC, Android Keystore operations, archive management, storage access, and other device functions.
 
-Play music through Android's normal media controls: lock-screen art, headphone keys, the works. Pause, resume, adjust volume — all from chat or Telegram. Your queue survives force-stops via snapshot fallback.
+Tool availability is permission-aware and assistant-specific. Without enabled local tools, the app can still behave like a conventional RikkaHub chat client.
 
-### Skills
+### Workflows and scheduled jobs
 
-Drop a Markdown skill file and the AI gains a new playbook. A bundled catalog ships with a QR generator, Wikipedia query box, piano, interactive map, and more. Two skills enabled out of the box: an always-on agent playbook and an OpenClaw converter. Add skills from a URL or by sharing a Markdown file into the app.
+Create persistent automation from plain-language intent.
 
-### Sub-Agents
+- Event-driven workflows for Wi-Fi, Bluetooth, charging, notifications, screen state, app activity, time, location, and other Android signals
+- Conditional execution based on device state and context
+- Scheduled jobs for one-time or recurring tasks
+- Runtime AI decisions or preconfigured fixed actions
+- Reboot-aware scheduling and background execution support
+- External automation intents for Tasker, ADB, and other Android automation systems
 
-For long tasks, the main assistant dispatches focused sub-agents into clean side-contexts, optionally on smaller, cheaper models. Run multiple in parallel. Each result comes back as a single summary. `/stop` cascades cancellation through every active child in one tick.
+### Browser, workspace, Termux, and SSH
 
-### Doctor
+Give assistants controlled access to environments beyond the chat window.
 
-A built-in health checkup. Runs a full audit of permissions, background services, database integrity, network, Termux, and diagnostics. Tap auto-fix to grant permissions, restart services, or rebuild search indexes. Also available remotely via `/doctor` on Telegram.
+- In-app browser with agent-driven navigation and page extraction
+- Screenshot feedback and page-difference context after actions
+- Workspaces for project and file context
+- Termux command execution and package access
+- Native SSH connections for commands, files, logs, and remote maintenance
+- MCP servers for externally supplied tools and resources
+- Web-server and remote-control integrations
 
-### MCP Servers
+### Files, documents, search, and knowledge
 
-Connect [Model Context Protocol](https://modelcontextprotocol.io) servers and the AI gains whatever tools they expose. The AI can add, update, and manage MCP connections itself — every change is approval-gated.
+RikkaHub Local can turn local and attached content into model context.
 
-### Notifications & External Triggers
+- File browsing, reading, creation, copying, moving, renaming, deletion, and archive operations
+- Search and RAG configuration
+- Document-to-prompt parsing for PDF, DOCX, PPTX, EPUB, XLSX, and CSV content
+- Markdown table conversion for spreadsheets
+- On-device vision models for image understanding and OCR-oriented tasks
+- Embedding model support for retrieval workflows
+- Storage inspection, backup, restore, and chat-attachment cleanup
 
-The AI can read, summarize, and forward incoming notifications from apps you choose. The whitelist starts empty. Other apps (Tasker, automation tools, ADB) can hand the agent tasks through the External Automation Intent API.
+### Speech and audio
 
-### Safety & Privacy
+Use cloud or local speech components independently from the active chat model.
 
-Three layers of protection:
+- Whisper-based speech recognition with configurable local sampling options
+- Local Pocket TTS, Kitten TTS, and Qwen3 TTS integrations
+- Cloud TTS providers and expanded provider-specific voice selections
+- Voice-note and audio handling through chat and remote integrations
+- Separate speech-to-text and text-to-speech configuration
 
-1. **Per-assistant toggles** — Every tool starts off. Flip on only what you want.
-2. **Per-call approval** — Tools that change something ask before running.
-3. **HARDLINE floor** — Genuinely dangerous commands (wipe, reboot, fork bombs, system file destruction) are blocked unconditionally.
+### Telegram and remote interaction
 
-Passwords and API keys never hit log files. Cloud backups skip saved credentials. The Telegram bot ignores everyone except your allowlist.
+A configured Telegram bot can act as a remote front end for an assistant.
+
+- Text, image, document, and voice-note input
+- Approval buttons for sensitive actions
+- Interactive questions when the assistant needs user input
+- Long-output delivery as files
+- User allowlisting and default-chat controls
+- Remote diagnostics through supported commands
+
+### Doctor and diagnostics
+
+The built-in Doctor audits important parts of the installation and can surface repair actions.
+
+Checks cover permissions, background services, storage, databases, network configuration, Termux integration, and other runtime dependencies. Request logs and developer tools remain available for deeper troubleshooting.
+
+### Safety and privacy
+
+The agent layer is powerful enough that “the model probably meant well” is not an acceptable security policy.
+
+1. **Per-assistant access:** tools and capabilities are enabled explicitly.
+2. **Per-call approval:** sensitive actions can require confirmation before execution.
+3. **Hard safety floor:** destructive command patterns remain blocked regardless of model intent.
+4. **Import inspection:** external artifacts are staged, validated, reviewed, and recorded before activation.
+5. **Credential handling:** secrets are kept out of ordinary logs and excluded from normal backup paths.
+6. **Local/cloud separation:** model resolution does not silently upload work to a cloud provider when local-only behavior is expected.
 
 ---
 
-## Quick Start
+## Example requests
 
-### 1. Install
+What works depends on the models, permissions, integrations, and tools you enable, but the intended interaction is plain language rather than manual wiring:
 
-Download the latest `*-release.apk` from [Releases](https://github.com/myrqyry/rikkahub-local/releases/latest). Allow install from unknown sources, then open.
-
-> **Note:** If you have an old debug build installed, uninstall it first — the release build is signed differently.
-
-> **Upgrading from before `2.3.1-agent.0`?** The app ID changed to `excp.rikkahub.local` so the fork installs alongside upstream RikkaHub. To migrate your data: open the old app → Settings → Backup → install this release → restore the backup.
-
-### 2. Add an LLM Provider
-
-**Settings → Providers → pick one → paste your API key.**
-
-- **OpenRouter** — first-class support with auto-detected model capabilities, pricing, and routing
-- **Codex** — sign in with your ChatGPT account (OpenAI plan over OAuth)
-- **Grok** — sign in with your xAI account (SuperGrok or X Premium+ over OAuth)
-- **Local · LiteRT** — download a local model (Gemma, Qwen). No key, no network. Runs on-device with GPU acceleration where supported
-- **AICore** — Pixel 8/9/10 users can enable Gemini Nano for on-device inference (currently requires the AICore Beta)
-
-### 3. Turn On What You Want
-
-**Settings → Assistants → tap your assistant → Local Tools** — flip the categories you want enabled.
-
-If you don't turn anything on, the app behaves exactly like vanilla RikkaHub.
-
-### 4. (Optional) Telegram Bot
-
-1. Message [@BotFather](https://t.me/BotFather) with `/newbot` to get a token
-2. Message [@userinfobot](https://t.me/userinfobot) with `/start` to get your numeric user ID
-3. Tell the assistant: *"Set up the Telegram bot. Token is `<token>`. My user id is `<id>`. Set me as the default chat. Enable it."*
+> “Every weekday morning, summarize selected notifications and send the result to Telegram.”
+>
+> “Find the spreadsheet with last month’s expenses and turn the first sheet into a readable table.”
+>
+> “Use the local OCR model to extract this screenshot, then ask my chat model to explain it.”
+>
+> “Check my home server over SSH and notify me if disk usage is above 90 percent.”
+>
+> “Import this GitHub skill, show me what files and permissions it contains, then add it to my coding assistant.”
+>
+> “Open the router admin page, inspect connected devices, and ask before changing anything.”
 
 ---
 
-## Requirements
+## How the pieces fit
 
-| | |
+```text
+User / Telegram / Android intent
+              │
+              ▼
+          Assistant
+     ┌────────┼─────────┐
+     │        │         │
+   Model    Prompt    Memory
+     │      Library   / RAG
+     │
+     ├── Skills ───────────── reusable expertise and workflows
+     ├── Tools ────────────── Android, browser, files, SSH, Termux
+     ├── MCP servers ──────── external tools and resources
+     ├── Plugins ──────────── commands, tools, and hooks
+     └── Sub-agents ───────── isolated delegated work
+```
+
+Model selection is moving toward capability-based resolution:
+
+```text
+assistant override
+    ↓
+conversation override
+    ↓
+global assignment
+    ↓
+first enabled compatible model
+    ↓
+clear “no compatible model” state
+```
+
+Local models remain local unless the user has allowed an appropriate cloud fallback.
+
+---
+
+## Project status
+
+The repository is functional but experimental. Large parts of the agent system are implemented, while the newer product architecture is still being consolidated.
+
+### Completed foundations
+
+- Settings reorganized around user intent
+- First-class Skills, Plugins, MCP, Termux, Prompt Library, and other focused destinations
+- Hardened skill and plugin imports
+- Shared artifact candidate, review, provenance, and installation flow
+- GitHub multi-file skill imports
+- Unified Prompt Library entry point
+- Local LiteRT chat and vision model catalog support
+- Experimental Stable Diffusion model management and native bridge
+- Local and cloud speech integrations
+- Expanded document parsing, including XLSX and CSV
+- Initial model capability registry and resolver
+
+### In progress / next
+
+- Unified Models page backed by `ModelRegistry`
+- Registry-backed assignments for chat, vision, OCR, image generation, and embeddings
+- Provider accordions and capability-filtered local/cloud model browsing
+- More catalog source adapters, including ClawHub, LobeHub, and Hugging Face flows
+- Chat-native image generation, editing, analysis, and OCR tools
+- Continued runtime validation and acceleration work for local image generation
+- Documentation and screenshots that catch up with the implementation before it mutates again
+
+---
+
+## Building from source
+
+### Requirements
+
+- Android Studio or a compatible Android SDK installation
+- JDK 17
+- Android SDK 37
+- Android NDK with CMake 3.22.1 support
+- Git with submodule support
+- An Android 8.0+ device or emulator
+
+The project currently builds `arm64-v8a`, `x86_64`, and universal debug APKs. The application ID is `excp.rikkahub.local`, so it can coexist with upstream RikkaHub.
+
+### Clone and build
+
+```bash
+git clone --recurse-submodules https://github.com/myrqyry/rikkahub-local.git
+cd rikkahub-local
+./gradlew :app:assembleDebug
+```
+
+To install directly on a connected device:
+
+```bash
+./gradlew :app:installDebug
+```
+
+Debug APKs are written under:
+
+```text
+app/build/outputs/apk/debug/
+```
+
+If the repository was cloned without submodules:
+
+```bash
+git submodule update --init --recursive
+```
+
+The native build includes the pinned `stable-diffusion.cpp` submodule and Material Color Utilities source. Local model weights are not bundled with the application.
+
+### Run tests
+
+```bash
+./gradlew test
+```
+
+A fuller development verification pass used by recent changes is:
+
+```bash
+./gradlew test assembleDebug --no-daemon
+```
+
+---
+
+## Device and runtime requirements
+
+| Requirement | Current value |
 |---|---|
-| **Architecture** | arm64 or x86_64 |
-| **Android** | 8.0+ (API 26), targets API 37 |
-| **Storage** | ~80 MB |
-| **LLM Provider** | OpenAI, Google, Anthropic, OpenRouter, Codex, Grok, Ollama, or any OpenAI-compatible endpoint. OR Gemini Nano via AICore on Pixel 8/9/10+ |
+| Android | 8.0+ / API 26 minimum |
+| Target SDK | API 37 |
+| Architectures | `arm64-v8a`, `x86_64`, universal APK |
+| Java/Kotlin target | JVM 17 |
+| UI | Jetpack Compose / Material 3 |
+| Native components | LiteRT, local speech libraries, `stable-diffusion.cpp` |
+| Model storage | Downloaded or user-imported; weights are not bundled |
+| Release channel | None yet; build from source |
+
+Local AI performance varies substantially by model, device memory, thermal state, and accelerator support. A model appearing in a catalog is not proof that a particular phone can run it comfortably.
 
 ---
 
 ## Languages
 
-The interface ships in **English, 简体中文, 繁體中文, 日本語, 한국어, Русский, and العربية**. The app follows your system language and falls back to English. RTL languages (Arabic, Persian, Urdu) render correctly in chat — code blocks stay LTR.
+The interface includes English, 简体中文, 繁體中文, 日本語, 한국어, Русский, and العربية resources. The app follows the system language and falls back to English. RTL chat rendering is supported while code blocks remain left-to-right.
 
 ---
 
-## Building from Source
+## Contributing and issue reports
 
-Requires [bun](https://bun.sh) and [pnpm](https://pnpm.io) on your PATH — bun installs the web-ui dependencies, pnpm builds the bundle.
+Bug reports and focused pull requests are welcome. Include the device, Android version, build/commit, model or provider involved, relevant permissions, and reproducible steps.
 
-```bash
-git clone https://github.com/myrqyry/rikkahub-local.git
-cd rikkahub-local
-./gradlew :app:installDebug
-```
+This is a fork with substantial agent, local-runtime, import, automation, and UI changes. Confirm that a bug also exists upstream before reporting it to the original RikkaHub project.
+
+Because the architecture is changing quickly, additions should reuse existing registries, import coordinators, model abstractions, and safety boundaries rather than creating another isolated manager that stores the same concept differently. The codebase already has enough opportunities for duplicate state without deliberate encouragement.
 
 ---
 
 ## Credits
 
-Stands on the shoulders of giants:
+RikkaHub Local builds on many projects, including:
 
 | Project | Role |
 |---|---|
-| [RikkaHub](https://github.com/rikkahub/rikkahub) | The upstream chat client this forks |
-| [cron-utils](https://github.com/jmrozanec/cron-utils) | Cron parser for the scheduler |
-| [whisper.cpp](https://github.com/ggerganov/whisper.cpp) | On-device speech-to-text via Termux |
-| [Termux](https://github.com/termux/termux-app) | Shell + package manager |
-| [JSch (mwiede fork)](https://github.com/mwiede/jsch) | Native SSH client |
-| [FlorisBoard](https://github.com/florisboard/florisboard) | Base for the companion [agent-keyboard](https://github.com/myrqyry/agent-keyboard) |
+| [RikkaHub](https://github.com/rikkahub/rikkahub) | Upstream Android chat client, provider abstraction, and interface foundation |
+| [LiteRT](https://ai.google.dev/edge/litert) | On-device model execution |
+| [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp) | Experimental local image-generation runtime |
+| [cron-utils](https://github.com/jmrozanec/cron-utils) | Cron expression parsing |
+| [whisper.cpp](https://github.com/ggerganov/whisper.cpp) | Local speech-recognition foundation |
+| [Termux](https://github.com/termux/termux-app) | Android shell and package environment |
+| [JSch](https://github.com/mwiede/jsch) | SSH client support |
+| [FlorisBoard](https://github.com/florisboard/florisboard) | Foundation for the companion agent keyboard work |
 
-This fork is unaffiliated with upstream RikkaHub maintainers. All credit for the underlying chat client, provider abstraction, and UI design goes to the upstream team.
+This fork is not affiliated with the upstream RikkaHub maintainers. Credit for the original application and its provider ecosystem belongs to the upstream project and its contributors.
 
 ---
 
 ## License
 
-Inherited from [upstream](https://github.com/rikkahub/rikkahub), see [LICENSE](LICENSE).
+See [LICENSE](LICENSE). The repository currently uses segmented dual-licensing terms: qualifying non-commercial, personal, educational, research, or small-user use is offered under AGPL v3 terms, while other commercial use requires a separate commercial license. Review the license file itself before distributing or deploying the software.
