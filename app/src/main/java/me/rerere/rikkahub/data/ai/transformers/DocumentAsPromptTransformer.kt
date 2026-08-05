@@ -6,10 +6,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.rerere.ai.ui.UIMessage
 import me.rerere.ai.ui.UIMessagePart
+import me.rerere.document.CsvParser
 import me.rerere.document.DocxParser
 import me.rerere.document.EpubParser
 import me.rerere.document.PdfParser
 import me.rerere.document.PptxParser
+import me.rerere.document.XlsxParser
 import java.io.File
 
 object DocumentAsPromptTransformer : InputMessageTransformer {
@@ -59,6 +61,14 @@ object DocumentAsPromptTransformer : InputMessageTransformer {
         return EpubParser.parse(file)
     }
 
+    private fun parseXlsxAsText(file: File): String {
+        return XlsxParser.parse(file)
+    }
+
+    private fun parseCsvAsText(file: File): String {
+        return CsvParser.parse(file)
+    }
+
     // 上传文件保存在 filesDir/upload 下, 该目录通过 proot 挂载到 workspace 的 /upload
     // 返回文件在 workspace 内的绝对路径, 便于 AI 用 workspace 工具直接读取原始文件
     private fun resolveWorkspacePath(document: UIMessagePart.Document): String? {
@@ -79,6 +89,8 @@ object DocumentAsPromptTransformer : InputMessageTransformer {
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> parseDocxAsText(file)
                 "application/vnd.openxmlformats-officedocument.presentationml.presentation" -> parsePptxAsText(file)
                 "application/epub+zip" -> parseEpubAsText(file)
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" -> parseXlsxAsText(file)
+                "text/csv", "application/csv" -> parseCsvAsText(file)
                 else -> file.readText()
             }
         }.getOrElse {
