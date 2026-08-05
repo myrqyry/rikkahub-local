@@ -35,6 +35,7 @@ import me.rerere.rikkahub.data.modelregistry.ModelResolution
 import me.rerere.rikkahub.data.modelregistry.ModelRole
 import me.rerere.rikkahub.data.modelregistry.ModelRoleResolver
 import me.rerere.rikkahub.data.modelregistry.ModelSourcePolicy
+import me.rerere.rikkahub.data.modelregistry.canProcessImageWith
 import me.rerere.rikkahub.data.repository.GenMediaRepository
 import java.io.File
 import kotlin.coroutines.cancellation.CancellationException
@@ -160,6 +161,9 @@ class ImgGenVM(
 
                 val providerSetting = settings.providers.find { it.id == provider.id }
                     ?: throw IllegalStateException("Provider setting not found")
+                if (!settings.getCurrentAssistant().canProcessImageWith(providerSetting)) {
+                    throw IllegalStateException("Cloud image processing is disabled for this assistant")
+                }
 
                 val requestPrompt = _prompt.value
                 val params = ImageGenerationParams(
@@ -207,6 +211,9 @@ class ImgGenVM(
 
                 val providerSetting = settings.providers.find { it.id == provider.id }
                     ?: throw IllegalStateException("Provider setting not found")
+                if (!settings.getCurrentAssistant().canProcessImageWith(providerSetting)) {
+                    throw IllegalStateException("Cloud image processing is disabled for this assistant")
+                }
 
                 val requestPrompt = _prompt.value
                 val sourceImages = _referenceImages.value

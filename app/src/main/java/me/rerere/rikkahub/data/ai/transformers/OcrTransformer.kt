@@ -20,6 +20,8 @@ import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.datastore.findModelById
 import me.rerere.rikkahub.data.datastore.findProvider
+import me.rerere.rikkahub.data.modelregistry.canProcessAttachmentWith
+import me.rerere.rikkahub.data.modelregistry.isOnDevice
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import java.io.File
@@ -56,7 +58,10 @@ object OcrTransformer : InputMessageTransformer, KoinComponent {
         ctx: TransformerContext,
         messages: List<UIMessage>,
     ): List<UIMessage> {
-        if (ctx.model.inputModalities.contains(Modality.IMAGE)) {
+        val chatProvider = ctx.model.findProvider(ctx.settings.providers)
+        if (ctx.model.inputModalities.contains(Modality.IMAGE) &&
+            chatProvider != null && ctx.assistant.canProcessAttachmentWith(chatProvider)
+        ) {
             return messages
         }
 
@@ -64,6 +69,18 @@ object OcrTransformer : InputMessageTransformer, KoinComponent {
             message.parts.any { it is UIMessagePart.Image && it.url.startsWith("file:") }
         }
         if (!hasImages) return messages
+
+        val requireLocalProcessor = !ctx.assistant.allowCloudAttachmentProcessing &&
+            (chatProvider == null || !chatProvider.isOnDevice())
+        if (requireLocalProcessor && !hasLocalOcr(ctx.settings)) {
+            return messages.map { message ->
+                message.copy(parts = message.parts.map { part ->
+                    if (part is UIMessagePart.Image && part.url.startsWith("file:")) {
+                        UIMessagePart.Text("[Image blocked: this assistant disallows cloud attachment processing and no local OCR model is ready]")
+                    } else part
+                })
+            }
+        }
 
         return withContext(Dispatchers.IO) {
             try {
@@ -73,7 +90,7 @@ object OcrTransformer : InputMessageTransformer, KoinComponent {
                         parts = message.parts.map { part ->
                             when {
                                 part is UIMessagePart.Image && part.url.startsWith("file:") -> {
-                                    UIMessagePart.Text(performOcr(part))
+                                     UIMessagePart.Text(performOcr(part, ctx.settings, requireLocalProcessor))
                                 }
 
                                 else -> part
@@ -87,16 +104,28 @@ object OcrTransformer : InputMessageTransformer, KoinComponent {
         }
     }
 
-    suspend fun performOcr(part: UIMessagePart.Image): String = runCatching {
+    private fun hasLocalOcr(settings: me.rerere.rikkahub.data.datastore.Settings): Boolean {
+        val model = settings.findModelById(settings.ocrModelId) ?: return false
+        val provider = model.findProvider(settings.providers) ?: return false
+        return provider.isOnDevice()
+    }
+
+    suspend fun performOcr(
+        part: UIMessagePart.Image,
+        settings: me.rerere.rikkahub.data.datastore.Settings = get<SettingsStore>().settingsFlow.value,
+        requireLocal: Boolean = false,
+    ): String = runCatching {
         // Check cache first
         cache.get(part.url)?.let { cachedResult ->
             Log.i(TAG, "performOcr: Using cached result for ${part.url}")
             return cachedResult
         }
 
-        val settings = get<SettingsStore>().settingsFlow.value
         val model = settings.findModelById(settings.ocrModelId) ?: return "[Image]"
         val providerSetting = model.findProvider(settings.providers) ?: return "[Image]"
+        if (requireLocal && !providerSetting.isOnDevice()) {
+            return "[Image blocked: no local OCR provider is configured]"
+        }
         val provider = get<ProviderManager>().getProviderByType(providerSetting)
         val result = withTimeoutOrNull(OCR_TIMEOUT_MS) {
             provider.generateText(
