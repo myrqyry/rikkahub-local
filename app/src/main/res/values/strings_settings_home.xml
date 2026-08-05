@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="setting_home_search_placeholder">Search settings</string>
+    <string name="setting_home_clear_search">Clear</string>
+    <string name="setting_home_no_results">No settings found</string>
+    <string name="setting_home_no_results_desc">Try searching for a provider, model, workspace, notification, or permission.</string>
+
+    <string name="setting_home_group_ai_models">AI &amp; Models</string>
+    <string name="setting_home_group_chat_voice">Chat &amp; Voice</string>
+    <string name="setting_home_group_appearance">Appearance</string>
+    <string name="setting_home_group_tools_knowledge">Tools &amp; Knowledge</string>
+    <string name="setting_home_group_automation_connections">Automation &amp; Connections</string>
+    <string name="setting_home_group_workspace_extensions">Workspace &amp; Extensions</string>
+    <string name="setting_home_group_device_notifications">Device &amp; Notifications</string>
+    <string name="setting_home_group_data_storage">Data &amp; Storage</string>
+    <string name="setting_home_group_safety_diagnostics">Safety &amp; Diagnostics</string>
+    <string name="setting_home_group_help_resources">Help &amp; Resources</string>
+
+    <string name="setting_home_model_manager">On-device models</string>
+    <string name="setting_home_model_manager_desc">Install and manage models that run locally</string>
+    <string name="setting_home_rag">Knowledge &amp; RAG</string>
+    <string name="setting_home_rag_desc">Configure retrieval, embeddings, and the vector store</string>
+    <string name="setting_home_local_dream">Local image generation</string>
+    <string name="setting_home_local_dream_desc">Manage Local Dream models and generation settings</string>
+    <string name="setting_home_plugins">Plugins</string>
+    <string name="setting_home_plugins_desc">Manage locally installed plugins</string>
+    <string name="setting_home_workspaces">Workspaces</string>
+    <string name="setting_home_workspaces_desc">Manage projects, folders, and file access</string>
+    <string name="setting_home_developer_tools">Developer tools</string>
+    <string name="setting_home_developer_tools_desc">Inspect and tune advanced app behavior</string>
+
+    <string name="setting_home_discord">Discord community</string>
+    <string name="setting_home_discord_desc">Open the RikkaHub Discord server</string>
+    <string name="setting_home_qq">QQ community groups</string>
+    <string name="setting_home_qq_desc">Choose a RikkaHub QQ group</string>
+    <string name="setting_home_plugin_docs">Plugin documentation</string>
+    <string name="setting_home_plugin_docs_desc">Claude Code and OpenCode plugin references</string>
+    <string name="setting_home_skills">Skills directory</string>
+    <string name="setting_home_skills_desc">Browse reusable agent skills on skills.sh</string>
+    <string name="setting_home_model_hub">Model hub</string>
+    <string name="setting_home_model_hub_desc">Browse downloadable models on Hugging Face</string>
+    <string name="setting_home_opencode_docs">OpenCode documentation</string>
+    <string name="setting_home_opencode_docs_desc">Learn about OpenCode agents and workflows</string>
+
+    <string name="setting_general_group_conversation_input">Conversation &amp; Input</string>
+    <string name="setting_general_group_navigation">Navigation &amp; Scrolling</string>
+    <string name="setting_general_group_feedback">Feedback &amp; Effects</string>
+    <string name="setting_ui_group_message_content">Message Content</string>
+    <string name="setting_ui_group_typography">Typography</string>
+</resources>
