@@ -19,6 +19,7 @@ import me.rerere.rikkahub.ui.pages.extensions.skills.SkillsVM
 import me.rerere.rikkahub.ui.pages.extensions.workspace.WorkspaceDetailVM
 import me.rerere.rikkahub.ui.pages.extensions.workspace.WorkspaceVM
 import me.rerere.rikkahub.ui.pages.setting.SettingVM
+import me.rerere.rikkahub.ui.pages.models.UnifiedModelsViewModel
 import me.rerere.rikkahub.ui.pages.setting.browser.SettingBrowserViewModel
 import me.rerere.rikkahub.ui.pages.setting.termux.SettingTermuxViewModel
 import me.rerere.rikkahub.ui.pages.setting.locallm.SettingLocalLlmViewModel
@@ -47,6 +48,7 @@ val viewModelModule = module {
     }
     viewModelOf(::ChatDrawerVM)
     viewModelOf(::SettingVM)
+    viewModel { UnifiedModelsViewModel(get(), get()) }
     viewModelOf(::DebugVM)
     viewModelOf(::DeveloperVM)
     viewModelOf(::HistoryVM)

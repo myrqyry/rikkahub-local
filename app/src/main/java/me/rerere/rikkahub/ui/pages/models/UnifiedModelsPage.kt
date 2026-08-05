@@ -1,9 +1,10 @@
-package me.rerere.rikkahub.ui.pages.setting
+package me.rerere.rikkahub.ui.pages.models
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
@@ -14,7 +15,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -31,25 +35,22 @@ import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.AiBrain01
 import me.rerere.hugeicons.stroke.AiEditing
 import me.rerere.rikkahub.R
-import me.rerere.rikkahub.data.modelregistry.LegacyModelAssignmentAdapter
-import me.rerere.rikkahub.data.modelregistry.ModelRegistry
+import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
+import me.rerere.rikkahub.data.modelregistry.ModelSource
 import me.rerere.rikkahub.ui.components.nav.BackButton
-import me.rerere.rikkahub.ui.pages.models.UnifiedModelsViewModel
+import me.rerere.rikkahub.ui.components.ui.CardGroup
 import me.rerere.rikkahub.ui.pages.models.components.ModelAssignmentsSection
+import me.rerere.rikkahub.ui.pages.setting.PromptSettingsPage
+import me.rerere.rikkahub.ui.pages.setting.SettingVM
 import me.rerere.rikkahub.ui.theme.CustomColors
 import me.rerere.rikkahub.utils.plus
 import org.koin.androidx.compose.koinViewModel
-import org.koin.compose.koinInject
 import kotlin.uuid.Uuid
 
 @Composable
-fun SettingModelPage(vm: SettingVM = koinViewModel()) {
+fun UnifiedModelsPage(vm: SettingVM = koinViewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
-    val registry: ModelRegistry = koinInject()
-    val legacyAdapter: LegacyModelAssignmentAdapter = koinInject()
-    val assignmentsVm = remember(registry, legacyAdapter) {
-        UnifiedModelsViewModel(registry, legacyAdapter)
-    }
+    val assignmentsVm: UnifiedModelsViewModel = koinViewModel()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val pagerState = rememberPagerState { 2 }
     val scope = rememberCoroutineScope()
@@ -112,6 +113,9 @@ private fun ModelSettingsPage(
     val legacyAssignments by assignmentsVm.legacyAssignments.collectAsStateWithLifecycle()
     val models by assignmentsVm.allModels.collectAsStateWithLifecycle()
     val repairState by assignmentsVm.repairState.collectAsStateWithLifecycle()
+    val visibleModels by assignmentsVm.visibleModels.collectAsStateWithLifecycle()
+    val selectedTab by assignmentsVm.selectedTab.collectAsStateWithLifecycle()
+    val search by assignmentsVm.searchText.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -136,6 +140,63 @@ private fun ModelSettingsPage(
                 onSuggestionModelSelected = { id -> vm.updateSettings(settings.copy(suggestionModelId = id?.let(Uuid::parse))) },
                 onCompressModelSelected = { id -> vm.updateSettings(settings.copy(compressModelId = Uuid.parse(id))) },
             )
+        }
+        item {
+            PrimaryTabRow(selectedTabIndex = selectedTab.ordinal) {
+                ModelTab.entries.forEach { tab ->
+                    Tab(
+                        selected = selectedTab == tab,
+                        onClick = { assignmentsVm.setTab(tab) },
+                        text = { Text(tab.name.lowercase().replaceFirstChar(Char::uppercase)) },
+                    )
+                }
+            }
+            OutlinedTextField(
+                value = search,
+                onValueChange = assignmentsVm::setSearch,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("Search models") },
+            )
+        }
+        item { ModelInventorySection(visibleModels) }
+    }
+}
+
+@Composable
+private fun ModelInventorySection(models: List<ModelDescriptor>) {
+    val local = models.filter { it.source is ModelSource.Local }
+    val cloud = models.filter { it.source is ModelSource.Cloud }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (local.isNotEmpty()) {
+            CardGroup(title = { Text("Local models") }) {
+                local.forEach { model ->
+                    item(
+                        headlineContent = { Text(model.displayName) },
+                        supportingContent = { Text(model.capabilities.joinToString { it.name.lowercase() }) },
+                    )
+                }
+            }
+        }
+        if (cloud.isNotEmpty()) {
+            CardGroup(title = { Text("Cloud models") }) {
+                cloud.groupBy { (it.source as ModelSource.Cloud).providerId }
+                    .forEach { (providerId, providerModels) ->
+                        item(
+                            overlineContent = { Text(providerId) },
+                            headlineContent = { Text("Provider models") },
+                        )
+                        providerModels.forEach { model ->
+                            item(
+                                headlineContent = { Text(model.displayName) },
+                                supportingContent = { Text(model.capabilities.joinToString { it.name.lowercase() }) },
+                            )
+                        }
+                    }
+            }
+        }
+        if (local.isEmpty() && cloud.isEmpty()) {
+            Text("No compatible models", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

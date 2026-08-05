@@ -54,7 +54,7 @@ internal fun compatibleAssignments(
     models: List<ModelDescriptor>,
 ): List<ModelDescriptor> = models.filter {
     it.providerEnabled && it.supports(role.capability()) &&
-        (it.source !is ModelSource.Local || it.lifecycle == ModelLifecycle.READY || it.installed)
+        (it.source !is ModelSource.Local || it.lifecycle == ModelLifecycle.READY)
 }
 
 @Composable

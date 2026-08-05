@@ -41,7 +41,7 @@ class ModelAssignmentsSectionTest {
             source = ModelSource.Local(me.rerere.locallm.LocalRuntime.LiteRT),
             lifecycle = ModelLifecycle.DOWNLOADING,
         )
-        val installed = local.copy(id = "installed", installed = true)
+        val installed = local.copy(id = "installed", lifecycle = ModelLifecycle.READY, installed = true)
 
         assertEquals(listOf("installed"), compatibleAssignments(ModelRole.CHAT, listOf(disabled, local, installed)).map { it.id })
     }

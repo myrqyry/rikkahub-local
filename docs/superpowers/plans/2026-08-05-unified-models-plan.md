@@ -14,7 +14,7 @@
 - Do not add a second model database or rewrite provider/local-runtime storage.
 - `Screen.SettingModels` remains the single user-facing Models destination.
 - Vision and OCR are distinct assignments even when a model supports both.
-- Title and Translation remain editable through a compatibility adapter.
+- Title, Translation, Fast, Suggestion, and Compression remain editable through a compatibility adapter; clear is allowed only where the existing persisted setting is nullable.
 - Lifecycle operations remain owned by existing provider/local-management pages.
 - Do not silently replace a disabled, missing, or incompatible selected model.
 - Cloud fallback remains opt-in through the existing resolver policy.
@@ -25,7 +25,7 @@
 
 ## File Map
 
-- Create: `app/src/main/java/me/rerere/rikkahub/data/modelregistry/LegacyModelAssignmentAdapter.kt` — StateFlow adapter for existing Title and Translation settings.
+- Create: `app/src/main/java/me/rerere/rikkahub/data/modelregistry/LegacyModelAssignmentAdapter.kt` — StateFlow adapter for existing utility assignments.
 - Create: `app/src/main/java/me/rerere/rikkahub/ui/pages/models/ModelsPageRequest.kt` — tab/focus/provider/model request state.
 - Create: `app/src/main/java/me/rerere/rikkahub/ui/pages/models/UnifiedModelsViewModel.kt` — registry collection, filters, assignment actions, repair state, and navigation intents.
 - Create: `app/src/main/java/me/rerere/rikkahub/ui/pages/models/UnifiedModelsPage.kt` — scaffold, header, assignment section, tabs, and inventory sections.
@@ -61,8 +61,14 @@ The adapter must expose:
 interface LegacyModelAssignmentAdapter {
     val titleModelId: StateFlow<String?>
     val translationModelId: StateFlow<String?>
+    val fastModelId: StateFlow<String?>
+    val suggestionModelId: StateFlow<String?>
+    val compressModelId: StateFlow<String?>
     suspend fun setTitleModel(modelId: String?)
     suspend fun setTranslationModel(modelId: String?)
+    suspend fun setFastModel(modelId: String?)
+    suspend fun setSuggestionModel(modelId: String?)
+    suspend fun setCompressModel(modelId: String?)
 }
 ```
 
@@ -93,8 +99,9 @@ fun ModelAssignmentsSection(
 )
 ```
 
-`LegacyAssignmentsUiState` contains `titleModelId` and `translationModelId`;
-`LegacyAssignmentKey` contains exactly `TITLE` and `TRANSLATION`.
+`LegacyAssignmentsUiState` contains the five adapter IDs and the existing
+suggestion-enabled flag. `LegacyAssignmentKey` contains exactly `TITLE`,
+`TRANSLATION`, `FAST`, `SUGGESTION`, and `COMPRESSION`.
 
 ---
 
@@ -132,9 +139,10 @@ fun writesAndClearsBothUtilityAssignments() = runTest {
     assertEquals(uuidA, store.settingsFlow.first().titleModelId)
     assertEquals(uuidB, store.settingsFlow.first().translateModeId)
     adapter.setTitleModel(null)
-    adapter.setTranslationModel(null)
     assertNull(store.settingsFlow.first().titleModelId)
-    assertNull(store.settingsFlow.first().translateModeId)
+    assertFailsWith<UnsupportedOperationException> {
+        adapter.setTranslationModel(null)
+    }
 }
 ```
 
@@ -177,7 +185,10 @@ class SettingsLegacyModelAssignmentAdapter(
 ```
 
 Reject malformed non-null UUID strings with the same explicit validation style
-used by the registry; do not convert malformed IDs to null.
+used by the registry; do not convert malformed IDs to null. The adapter maps
+the non-null persisted `translateModeId` to a nullable UI string for the shared
+row, but `setTranslationModel(null)` must throw an explicit unsupported
+operation rather than changing the existing non-null setting contract.
 
 - [ ] **Step 4: Run the adapter tests**
 
@@ -327,6 +338,7 @@ Conversation: Chat, Vision, OCR
 Media: Image generation
 Knowledge: Embeddings
 Utility models: Title generation, Translation
+Fast model, Suggestion model, Compression model
 ```
 
 Each row opens a registry-descriptor selector scoped to its role, shows the
@@ -404,9 +416,11 @@ the existing local model/runtime management page. The card must not invent an
 install success state.
 
 `CloudProviderCard` must collapse/expand, show provider enabled/connection
-state, list its filtered model cards, and expose Provider Settings plus catalog
-refresh actions. Refresh invokes `viewModel.refreshProvider(providerId)` and
-surfaces an error without clearing existing models.
+state, list its filtered model cards, and expose Provider Settings plus a
+catalog refresh action only when an existing provider refresh implementation is
+available. A refresh delegates through that existing implementation and
+surfaces an error without clearing existing models; it must not present the
+current no-op registry `refreshProvider` as successful work.
 
 - [ ] **Step 3: Compose the unified page**
 
@@ -420,6 +434,7 @@ ModelCapabilityTabs
 Search/source/provider filters
 Local Models
 Cloud Models
+Prompt settings
 ```
 
 Honor `ModelsPageRequest.focus` by scrolling/focusing Assignments or Models on
@@ -474,10 +489,12 @@ Search every existing `Settings` assignment used by `SettingModelPage`:
 git grep -n -E 'chatModelId|fastModelId|titleModelId|suggestionModelId|translateModeId|ocrModelId|compressModelId'
 ```
 
-Confirm Chat, Title, Translation, and OCR remain editable. Keep Fast,
-Suggestion, and Compression behavior either represented explicitly in the
-single section or preserved through an additional named compatibility row; do
-not silently remove them during extraction.
+Confirm Chat, Title, Translation, OCR, Fast, Suggestion, and Compression remain
+editable, and prompt settings remain reachable inside this same destination.
+Confirm only nullable legacy assignments offer a clear action; non-null
+Translation retains its existing default/selection contract.
+Keep every legacy assignment represented explicitly in the single section; do
+not silently remove any row during extraction.
 
 - [ ] **Step 2: Run focused registry and UI tests**
 
@@ -513,9 +530,8 @@ files.
 - [ ] **Step 5: Commit any verification-only fixes**
 
 ```bash
-git add <only-fixed-pr6-files>
+git add app/src/main/java/me/rerere/rikkahub/data/modelregistry/LegacyModelAssignmentAdapter.kt app/src/main/java/me/rerere/rikkahub/ui/pages/models app/src/main/java/me/rerere/rikkahub/RouteActivity.kt app/src/main/java/me/rerere/rikkahub/ui/pages/setting/SettingModelPage.kt app/src/main/java/me/rerere/rikkahub/ui/pages/setting/SettingModelPromptPage.kt app/src/main/res app/src/test/java/me/rerere/rikkahub/data/modelregistry/LegacyModelAssignmentAdapterTest.kt app/src/test/java/me/rerere/rikkahub/ui/pages/models
 git commit -m "fix: preserve unified model assignment parity"
 ```
 
-Use the exact affected paths in place of `<only-fixed-pr6-files>`; never use
-`git add .`.
+Stage only the paths that actually changed; never use `git add .`.

@@ -119,7 +119,7 @@ import me.rerere.rikkahub.ui.pages.setting.SettingThemePage
 import me.rerere.rikkahub.ui.pages.setting.SettingDonatePage
 import me.rerere.rikkahub.ui.pages.setting.SettingFilesPage
 import me.rerere.rikkahub.ui.pages.setting.SettingMcpPage
-import me.rerere.rikkahub.ui.pages.setting.SettingModelPage
+import me.rerere.rikkahub.ui.pages.models.UnifiedModelsPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPage
 import me.rerere.rikkahub.ui.pages.setting.SettingProviderDetailPage
 import me.rerere.rikkahub.ui.pages.setting.SettingProviderPage
@@ -501,7 +501,7 @@ class RouteActivity : ComponentActivity() {
                             }
 
                             entry<Screen.SettingModels> {
-                                SettingModelPage()
+                                UnifiedModelsPage()
                             }
 
                             entry<Screen.SettingAbout> {

@@ -115,7 +115,10 @@ class SettingsModelRegistry(
                 "Local model $modelId is not ready"
             }
         }
-        val modelUuid = modelId?.let { Uuid.parse(it) }
+        val modelUuid = modelId?.let {
+            runCatching { Uuid.parse(it) }
+                .getOrElse { error("Model $it has no persisted settings identity") }
+        }
         settingsStore.update { settings ->
             when (role) {
                 ModelRole.CHAT -> modelUuid?.let { settings.copy(chatModelId = it) }
