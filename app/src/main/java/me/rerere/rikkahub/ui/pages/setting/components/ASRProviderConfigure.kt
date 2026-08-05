@@ -595,6 +595,22 @@ private fun WhisperASRConfiguration(
             placeholder = { Text("auto") }
         )
     }
+
+    FormItem(
+        label = { Text(stringResource(R.string.setting_asr_configure_sample_rate)) },
+        description = { Text(stringResource(R.string.setting_asr_configure_whisper_sample_rate_desc)) }
+    ) {
+        OutlinedNumberInput(
+            value = setting.sampleRate,
+            onValueChange = { value ->
+                if (value in 8000..48000) {
+                    onValueChange(setting.copy(sampleRate = value))
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = "Sample Rate"
+        )
+    }
 }
 
 private suspend fun copyModelToAppDir(context: Context, uri: Uri, subDir: String): File? = withContext(Dispatchers.IO) {

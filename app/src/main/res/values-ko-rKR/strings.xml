@@ -1703,6 +1703,7 @@ mDNS 주소: .local 호스트네임을 사용하며, IP를 몰라도 같은 네�
   <string name="setting_asr_configure_mimo_model_desc">MiMo ASR 모델 이름입니다. 예: mimo-v2.5-asr</string>
   <string name="setting_asr_configure_mimo_language_desc">선택 사항 언어 힌트: auto, zh 또는 en. 비워 두면 서버 기본값(auto)을 사용합니다</string>
   <string name="setting_asr_configure_mimo_sample_rate_desc">PCM 녹음 샘플 레이트(Hz)입니다. ASR에는 16000을 권장합니다</string>
+  <string name="setting_asr_configure_whisper_sample_rate_desc">PCM 녹음 샘플 레이트(Hz)입니다. Whisper에는 16000을 권장합니다</string>
   <string name="setting_asr_configure_mimo_segment_desc">녹음 중 N초마다 버퍼된 오디오를 자동 업로드해 인식합니다. 0은 자동 분할을 비활성화합니다(stop 시 한 번에 전송, 16kHz 기준 최대 약 3.9분)</string>
   <string name="setting_asr_configure_step_api_key_desc">StepFun(阶跃星辰) API 키입니다. https://platform.stepfun.com/interface-key 에서 발급받을 수 있습니다</string>
   <string name="setting_asr_configure_step_base_url_desc">Step ASR Base URL입니다. 중국에서는 https://api.stepfun.com, 해외에서는 https://api.stepfun.ai 를 사용하세요</string>

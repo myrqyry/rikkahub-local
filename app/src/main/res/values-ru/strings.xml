@@ -1703,6 +1703,7 @@
   <string name="setting_asr_configure_mimo_model_desc">Имя модели MiMo ASR, например mimo-v2.5-asr</string>
   <string name="setting_asr_configure_mimo_language_desc">Необязательная подсказка языка: auto, zh или en. Оставьте пустым, чтобы использовать значение сервера по умолчанию (auto)</string>
   <string name="setting_asr_configure_mimo_sample_rate_desc">Частота дискретизации записи PCM в Гц; для ASR рекомендуется 16000</string>
+  <string name="setting_asr_configure_whisper_sample_rate_desc">Частота дискретизации записи PCM в Гц; для Whisper рекомендуется 16000</string>
   <string name="setting_asr_configure_mimo_segment_desc">Автоматически отправлять буферизованный звук каждые N секунд во время записи. 0 отключает авторазбиение (один запрос при stop, максимум около 3,9 мин при 16 кГц)</string>
   <string name="setting_asr_configure_step_api_key_desc">API-ключ StepFun (阶跃星辰), полученный на https://platform.stepfun.com/interface-key</string>
   <string name="setting_asr_configure_step_base_url_desc">Base URL для Step ASR. Для Китая используйте https://api.stepfun.com, для других регионов — https://api.stepfun.ai</string>

@@ -1499,4 +1499,6 @@
   <string name="setting_page_group_privacy_safety">الخصوصية والأمان</string>
   <string name="setting_page_group_data_diagnostics">البيانات والتشخيص</string>
   <string name="setting_page_chat_preferences">تفضيلات الدردشة</string>
+  <string name="setting_asr_configure_whisper_sample_rate_desc">معدل أخذ عينات تسجيل PCM بالهرتز، يُنصح بـ 16000 لـ Whisper</string>
 </resources>
+

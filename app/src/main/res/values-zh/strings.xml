@@ -636,6 +636,7 @@
   <string name="setting_asr_configure_mimo_model_desc">MiMo ASR 模型名，例如 mimo-v2.5-asr</string>
   <string name="setting_asr_configure_mimo_language_desc">可选语言提示：auto / zh / en。留空则使用服务端默认（auto）</string>
   <string name="setting_asr_configure_mimo_sample_rate_desc">PCM 录音采样率（Hz），ASR 推荐 16000</string>
+  <string name="setting_asr_configure_whisper_sample_rate_desc">PCM 录音采样率（Hz），Whisper 推荐 16000</string>
   <string name="setting_asr_configure_mimo_segment_desc">录音期间每 N 秒自动上传一段音频识别一次，0 表示禁用自动分段（仅 stop 时整体上传，16kHz 下最长约 3.9 分钟）</string>
   <string name="setting_asr_configure_step_api_key_desc">阶跃星辰 API Key，从 https://platform.stepfun.com/interface-key 创建</string>
   <string name="setting_asr_configure_step_base_url_desc">Step ASR Base URL。国内使用 https://api.stepfun.com，海外使用 https://api.stepfun.ai</string>
