@@ -41,4 +41,10 @@
     <string name="setting_home_model_hub_desc">Browse downloadable models on Hugging Face</string>
     <string name="setting_home_opencode_docs">OpenCode documentation</string>
     <string name="setting_home_opencode_docs_desc">Learn about OpenCode agents and workflows</string>
+
+    <string name="setting_general_group_conversation_input">Conversation &amp; Input</string>
+    <string name="setting_general_group_navigation">Navigation &amp; Scrolling</string>
+    <string name="setting_general_group_feedback">Feedback &amp; Effects</string>
+    <string name="setting_ui_group_message_content">Message Content</string>
+    <string name="setting_ui_group_typography">Typography</string>
 </resources>
