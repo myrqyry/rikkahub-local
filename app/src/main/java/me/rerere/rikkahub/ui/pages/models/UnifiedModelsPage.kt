@@ -35,10 +35,12 @@ import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.AiBrain01
 import me.rerere.hugeicons.stroke.AiEditing
 import me.rerere.rikkahub.R
+import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
 import me.rerere.rikkahub.data.modelregistry.ModelSource
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.CardGroup
+import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.pages.models.components.ModelAssignmentsSection
 import me.rerere.rikkahub.ui.pages.setting.PromptSettingsPage
 import me.rerere.rikkahub.ui.pages.setting.SettingVM
@@ -165,6 +167,7 @@ private fun ModelSettingsPage(
 
 @Composable
 private fun ModelInventorySection(models: List<ModelDescriptor>) {
+    val navController = LocalNavController.current
     val local = models.filter { it.source is ModelSource.Local }
     val cloud = models.filter { it.source is ModelSource.Cloud }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -172,6 +175,7 @@ private fun ModelInventorySection(models: List<ModelDescriptor>) {
             CardGroup(title = { Text("Local models") }) {
                 local.forEach { model ->
                     item(
+                        onClick = { navController.navigate(Screen.SettingModelManager) },
                         headlineContent = { Text(model.displayName) },
                         supportingContent = { Text(model.capabilities.joinToString { it.name.lowercase() }) },
                     )
@@ -183,11 +187,17 @@ private fun ModelInventorySection(models: List<ModelDescriptor>) {
                 cloud.groupBy { (it.source as ModelSource.Cloud).providerId }
                     .forEach { (providerId, providerModels) ->
                         item(
+                            onClick = {
+                                navController.navigate(Screen.SettingProviderDetail(providerId))
+                            },
                             overlineContent = { Text(providerId) },
                             headlineContent = { Text("Provider models") },
                         )
                         providerModels.forEach { model ->
                             item(
+                                onClick = {
+                                    navController.navigate(Screen.SettingProviderDetail(providerId))
+                                },
                                 headlineContent = { Text(model.displayName) },
                                 supportingContent = { Text(model.capabilities.joinToString { it.name.lowercase() }) },
                             )
