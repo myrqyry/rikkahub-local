@@ -95,8 +95,8 @@ import me.rerere.rikkahub.ui.pages.chat.ChatPage
 import me.rerere.rikkahub.ui.pages.debug.DebugPage
 import me.rerere.rikkahub.ui.pages.developer.DeveloperPage
 import me.rerere.rikkahub.ui.pages.extensions.ExtensionsPage
-import me.rerere.rikkahub.ui.pages.extensions.PromptPage
-import me.rerere.rikkahub.ui.pages.extensions.QuickMessagesPage
+import me.rerere.rikkahub.ui.pages.extensions.PromptLibraryPage
+import me.rerere.rikkahub.ui.pages.extensions.PromptLibraryTab
 import me.rerere.rikkahub.ui.pages.extensions.skills.SkillDetailPage
 import me.rerere.rikkahub.ui.pages.extensions.skills.SkillsPage
 import me.rerere.rikkahub.ui.pages.extensions.workspace.WorkspaceDetailPage
@@ -616,11 +616,11 @@ class RouteActivity : ComponentActivity() {
                             }
 
                             entry<Screen.QuickMessages> {
-                                QuickMessagesPage()
+                                PromptLibraryPage(initialTab = PromptLibraryTab.QUICK_MESSAGES)
                             }
 
                             entry<Screen.Prompts> {
-                                PromptPage()
+                                PromptLibraryPage(initialTab = PromptLibraryTab.INSTRUCTIONS)
                             }
 
                             entry<Screen.Skills> {

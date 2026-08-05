@@ -509,3 +509,13 @@ NEXT: none pending — task delivered. Optional future: SD subtitle translations
 - **Safety:** GitHub skill/plugin downloads have hard size/file/depth caps, preserve explicit `?ref=` values, and reject non-UTF-8 assets because current skill storage is text-only.
 - **Verification:** `./gradlew test assembleDebug --no-daemon` passed (428 actionable tasks); `git diff --check` passed. No live GitHub integration test is available; network behavior is covered by bounded readers, URL/ref parsing, and pure JVM tests.
 - **Delivery state:** PR3 changes are uncommitted in the worktree and ready for intended-file staging, commit, and push after final status inspection.
+
+---
+
+## Session: 2026-08-05 — PR4 Prompt Library
+
+- **User request:** "let's proceed" after PR3 delivery; continue with the next roadmap milestone.
+- **Implementation:** Added `PromptLibraryPage` with one scaffold and Instructions/Quick Messages tabs. `Screen.Prompts` and `Screen.QuickMessages` remain compatible routes focused on the matching tab. Existing prompt injection/lorebook and quick-message bodies were extracted without changing storage or migrations.
+- **Persistence safety:** Deleting a mode injection or lorebook now removes its ID from all assistants atomically through `SettingsStore.update`, matching quick-message cleanup semantics.
+- **Verification:** `./gradlew test assembleDebug --no-daemon` passed (428 actionable tasks); `git diff --check` passed. UI behavior is compile/build verified; no dedicated instrumented UI tests exist.
+- **Delivery state:** PR4 changes are uncommitted in the worktree and ready for intended-file staging, commit, and push.

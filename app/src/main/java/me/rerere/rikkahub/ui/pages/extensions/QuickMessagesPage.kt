@@ -54,11 +54,7 @@ import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun QuickMessagesPage(vm: QuickMessagesVM = koinViewModel()) {
-    val settings = vm.settings.collectAsStateWithLifecycle().value
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    var showAddDialog by rememberSaveable { mutableStateOf(false) }
-    var editTarget by remember { mutableStateOf<QuickMessage?>(null) }
-    var deleteTarget by remember { mutableStateOf<QuickMessage?>(null) }
 
     Scaffold(
         topBar = {
@@ -69,17 +65,27 @@ fun QuickMessagesPage(vm: QuickMessagesVM = koinViewModel()) {
                 colors = CustomColors.topBarColors,
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(HugeIcons.Add01, contentDescription = null)
-            }
-        },
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = CustomColors.topBarColors.containerColor,
     ) { innerPadding ->
+        QuickMessagesContent(vm = vm, contentPadding = innerPadding)
+    }
+}
+
+@Composable
+internal fun QuickMessagesContent(
+    vm: QuickMessagesVM,
+    contentPadding: PaddingValues = PaddingValues(),
+) {
+    val settings = vm.settings.collectAsStateWithLifecycle().value
+    var showAddDialog by rememberSaveable { mutableStateOf(false) }
+    var editTarget by remember { mutableStateOf<QuickMessage?>(null) }
+    var deleteTarget by remember { mutableStateOf<QuickMessage?>(null) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = innerPadding + PaddingValues(16.dp),
+            contentPadding = contentPadding + PaddingValues(16.dp) + PaddingValues(bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (settings.quickMessages.isEmpty()) {
@@ -118,6 +124,15 @@ fun QuickMessagesPage(vm: QuickMessagesVM = koinViewModel()) {
                     onDelete = { deleteTarget = quickMessage },
                 )
             }
+        }
+
+        FloatingActionButton(
+            onClick = { showAddDialog = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+        ) {
+            Icon(HugeIcons.Add01, contentDescription = null)
         }
     }
 

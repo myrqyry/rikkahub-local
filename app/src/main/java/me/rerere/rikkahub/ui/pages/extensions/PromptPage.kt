@@ -103,12 +103,11 @@ import me.rerere.rikkahub.utils.plus
 import org.koin.androidx.compose.koinViewModel
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import kotlin.uuid.Uuid
 
 @Composable
 fun PromptPage(vm: PromptVM = koinViewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
-    val pagerState = rememberPagerState { 2 }
-    val scope = rememberCoroutineScope()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
@@ -120,46 +119,61 @@ fun PromptPage(vm: PromptVM = koinViewModel()) {
                 colors = CustomColors.topBarColors,
             )
         },
-        bottomBar = {
-            NavigationBar {
-                NavigationBarItem(
-                    selected = pagerState.currentPage == 0,
-                    label = { Text(stringResource(R.string.prompt_page_mode_injection_tab)) },
-                    icon = { Icon(HugeIcons.MagicWand01, null) },
-                    onClick = {
-                        scope.launch { pagerState.animateScrollToPage(0) }
-                    }
-                )
-                NavigationBarItem(
-                    selected = pagerState.currentPage == 1,
-                    label = { Text(stringResource(R.string.prompt_page_lorebook_tab)) },
-                    icon = { Icon(HugeIcons.Book01, null) },
-                    onClick = {
-                        scope.launch { pagerState.animateScrollToPage(1) }
-                    }
-                )
-            }
-        },
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = CustomColors.topBarColors.containerColor,
     ) { innerPadding ->
+        PromptPageContent(
+            settings = settings,
+            onUpdateSettings = vm::updateSettings,
+            onDeleteModeInjection = vm::deleteModeInjection,
+            onDeleteLorebook = vm::deleteLorebook,
+            modifier = Modifier.padding(innerPadding),
+        )
+    }
+}
+
+@Composable
+internal fun PromptPageContent(
+    settings: me.rerere.rikkahub.data.datastore.Settings,
+    onUpdateSettings: (me.rerere.rikkahub.data.datastore.Settings) -> Unit,
+    onDeleteModeInjection: (Uuid) -> Unit,
+    onDeleteLorebook: (Uuid) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val pagerState = rememberPagerState { 2 }
+    val scope = rememberCoroutineScope()
+    Column(modifier = modifier.fillMaxSize()) {
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
+            modifier = Modifier.weight(1f),
         ) { page ->
             when (page) {
                 0 -> ModeInjectionTab(
                     modeInjections = settings.modeInjections,
-                    onUpdate = { vm.updateSettings(settings.copy(modeInjections = it)) }
+                    onUpdate = { onUpdateSettings(settings.copy(modeInjections = it)) },
+                    onDelete = onDeleteModeInjection,
                 )
 
                 1 -> LorebookTab(
                     lorebooks = settings.lorebooks,
-                    onUpdate = { vm.updateSettings(settings.copy(lorebooks = it)) }
+                    onUpdate = { onUpdateSettings(settings.copy(lorebooks = it)) },
+                    onDelete = onDeleteLorebook,
                 )
             }
+        }
+        NavigationBar {
+            NavigationBarItem(
+                selected = pagerState.currentPage == 0,
+                label = { Text(stringResource(R.string.prompt_page_mode_injection_tab)) },
+                icon = { Icon(HugeIcons.MagicWand01, null) },
+                onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
+            )
+            NavigationBarItem(
+                selected = pagerState.currentPage == 1,
+                label = { Text(stringResource(R.string.prompt_page_lorebook_tab)) },
+                icon = { Icon(HugeIcons.Book01, null) },
+                onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
+            )
         }
     }
 }
@@ -167,7 +181,8 @@ fun PromptPage(vm: PromptVM = koinViewModel()) {
 @Composable
 private fun ModeInjectionTab(
     modeInjections: List<PromptInjection.ModeInjection>,
-    onUpdate: (List<PromptInjection.ModeInjection>) -> Unit
+    onUpdate: (List<PromptInjection.ModeInjection>) -> Unit,
+    onDelete: (Uuid) -> Unit,
 ) {
     var expanded by rememberSaveable { mutableStateOf(true) }
     val lazyListState = rememberLazyListState()
@@ -249,7 +264,7 @@ private fun ModeInjectionTab(
                                     }
                                 },
                             onEdit = { editState.open(injection) },
-                            onDelete = { onUpdate(modeInjections - injection) }
+                            onDelete = { onDelete(injection.id) }
                         )
                     }
                 }
@@ -579,7 +594,8 @@ private fun getRoleLabel(role: MessageRole): String = when (role) {
 @Composable
 private fun LorebookTab(
     lorebooks: List<Lorebook>,
-    onUpdate: (List<Lorebook>) -> Unit
+    onUpdate: (List<Lorebook>) -> Unit,
+    onDelete: (Uuid) -> Unit,
 ) {
     var expanded by rememberSaveable { mutableStateOf(true) }
     val lazyListState = rememberLazyListState()
@@ -661,7 +677,7 @@ private fun LorebookTab(
                                     }
                                 },
                             onEdit = { editState.open(book) },
-                            onDelete = { onUpdate(lorebooks - book) }
+                            onDelete = { onDelete(book.id) }
                         )
                     }
                 }
