@@ -9,6 +9,8 @@ import me.rerere.ai.ui.UIMessage
 import me.rerere.ai.core.ReasoningLevel
 import me.rerere.rikkahub.data.ai.tools.LenientLocalToolListSerializer
 import me.rerere.rikkahub.data.ai.tools.LocalToolOption
+import me.rerere.rikkahub.data.modelregistry.ModelRole
+import me.rerere.rikkahub.data.modelregistry.RegistryModelId
 import me.rerere.rikkahub.utils.SimpleCache
 import java.util.concurrent.TimeUnit
 import kotlin.uuid.Uuid
@@ -17,6 +19,11 @@ import kotlin.uuid.Uuid
 data class Assistant(
     val id: Uuid = Uuid.random(),
     val chatModelId: Uuid? = null, // 如果为null, 使用全局默认模型
+    val modelOverrides: Map<ModelRole, RegistryModelId> = emptyMap(),
+    val ttsProviderOverrideId: Uuid? = null,
+    val asrProviderOverrideId: Uuid? = null,
+    val allowCloudAttachmentProcessing: Boolean = true,
+    val allowCloudImageProcessing: Boolean = true,
     val name: String = "",
     val avatar: Avatar = Avatar.Dummy,
     val useAssistantAvatar: Boolean = false, // 使用助手头像替代模型头像
