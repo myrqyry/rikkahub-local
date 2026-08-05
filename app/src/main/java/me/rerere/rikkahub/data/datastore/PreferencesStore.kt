@@ -120,6 +120,7 @@ class SettingsStore(
         val ENABLE_WEB_SEARCH = booleanPreferencesKey("enable_web_search")
         val FAVORITE_MODELS = stringPreferencesKey("favorite_models")
         val SELECT_MODEL = stringPreferencesKey("chat_model")
+        val VISION_MODEL = stringPreferencesKey("vision_model")
         val FAST_MODEL = stringPreferencesKey("fast_model")
         val TITLE_MODEL = stringPreferencesKey("title_model")
         val TRANSLATE_MODEL = stringPreferencesKey("translate_model")
@@ -214,6 +215,7 @@ class SettingsStore(
                 } ?: emptyList(),
                 chatModelId = preferences[SELECT_MODEL]?.let { Uuid.parse(it) }
                     ?: DEFAULT_AUTO_MODEL_ID,
+                visionModelId = preferences[VISION_MODEL]?.let { Uuid.parse(it) },
                 fastModelId = preferences[FAST_MODEL]?.let { Uuid.parse(it) }
                     ?: DEFAULT_AUTO_MODEL_ID,
                 titleModelId = preferences[TITLE_MODEL]?.let { Uuid.parse(it) },
@@ -482,6 +484,9 @@ class SettingsStore(
             preferences[ENABLE_WEB_SEARCH] = settings.enableWebSearch
             preferences[FAVORITE_MODELS] = JsonInstant.encodeToString(settings.favoriteModels)
             preferences[SELECT_MODEL] = settings.chatModelId.toString()
+            settings.visionModelId?.let {
+                preferences[VISION_MODEL] = it.toString()
+            } ?: preferences.remove(VISION_MODEL)
             preferences[FAST_MODEL] = settings.fastModelId.toString()
             settings.titleModelId?.let {
                 preferences[TITLE_MODEL] = it.toString()
@@ -641,6 +646,7 @@ data class Settings(
     val enableWebSearch: Boolean = false,
     val favoriteModels: List<Uuid> = emptyList(),
     val chatModelId: Uuid = Uuid.random(),
+    val visionModelId: Uuid? = null,
     val fastModelId: Uuid = Uuid.random(),
     val titleModelId: Uuid? = null,
     val imageGenerationModelId: Uuid = Uuid.random(),

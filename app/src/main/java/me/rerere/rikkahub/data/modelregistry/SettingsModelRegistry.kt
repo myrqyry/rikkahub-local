@@ -120,7 +120,7 @@ class SettingsModelRegistry(
             when (role) {
                 ModelRole.CHAT -> modelUuid?.let { settings.copy(chatModelId = it) }
                     ?: error("CHAT assignment cannot be cleared")
-                ModelRole.VISION -> error("VISION assignment is not persisted by existing settings")
+                ModelRole.VISION -> settings.copy(visionModelId = modelUuid)
                 ModelRole.OCR -> modelUuid?.let { settings.copy(ocrModelId = it) }
                     ?: error("OCR assignment cannot be cleared")
                 ModelRole.IMAGE_GENERATION -> modelUuid?.let { settings.copy(imageGenerationModelId = it) }
@@ -191,6 +191,7 @@ class SettingsModelRegistry(
     private fun assignmentsFrom(settings: me.rerere.rikkahub.data.datastore.Settings) = ModelAssignments(
         defaults = mapOf(
             ModelRole.CHAT to settings.chatModelId.toString(),
+            ModelRole.VISION to settings.visionModelId?.toString(),
             ModelRole.OCR to settings.ocrModelId.toString(),
             ModelRole.IMAGE_GENERATION to settings.imageGenerationModelId.toString(),
             ModelRole.EMBEDDINGS to settings.ragEmbeddingModel,

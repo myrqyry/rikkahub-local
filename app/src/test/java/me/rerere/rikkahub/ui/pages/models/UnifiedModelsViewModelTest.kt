@@ -149,6 +149,19 @@ class UnifiedModelsViewModelTest {
     }
 
     @Test
+    fun assignmentUsesRegistryIdsWithoutInstallingOrRefreshing() = runBlocking {
+        val chat = model("registry-id", "Registry ID", ModelCapability.CHAT)
+        val registry = FakeRegistry(listOf(chat), ModelAssignments())
+        val vm = UnifiedModelsViewModel(registry, FakeLegacy(), scope = scope)
+
+        vm.assign(ModelRole.CHAT, chat.id).join()
+
+        assertEquals(0, registry.installCalls)
+        assertEquals(0, registry.refreshCalls)
+        assertEquals(1, registry.assignCalls)
+    }
+
+    @Test
     fun legacyRepairStateIncludesTitleAndTranslationAndClearKeepsTranslationNonNull() = runBlocking {
         val legacy = FakeLegacy(title = "missing-title", translation = "missing-translation")
         val vm = viewModelWith(models = emptyList(), legacy = legacy)
@@ -191,13 +204,15 @@ class UnifiedModelsViewModelTest {
         providers: List<ModelProviderDescriptor> = emptyList(),
     ) : ModelRegistry {
         var assignCalls = 0
+        var installCalls = 0
+        var refreshCalls = 0
         override val models = MutableStateFlow(models)
         override val providers = MutableStateFlow(providers)
         override val assignments = MutableStateFlow(assignment)
-        override suspend fun refreshProvider(providerId: String) = Unit
+        override suspend fun refreshProvider(providerId: String) { refreshCalls++ }
         override suspend fun setCapabilityEnabled(modelId: String, capability: ModelCapability, enabled: Boolean) = Unit
         override suspend fun assign(role: ModelRole, modelId: String?) { assignCalls++ }
-        override suspend fun install(modelId: String) = Unit
+        override suspend fun install(modelId: String) { installCalls++ }
         override suspend fun remove(modelId: String) = Unit
     }
 

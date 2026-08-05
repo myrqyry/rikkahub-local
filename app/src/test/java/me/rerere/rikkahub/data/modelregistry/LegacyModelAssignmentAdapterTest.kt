@@ -105,6 +105,27 @@ class LegacyModelAssignmentAdapterTest {
     }
 
     @Test
+    fun visionModelRoundTripsWithoutChangingExistingSettings() = runBlocking {
+        val visionId = Uuid.parse("00000000-0000-0000-0000-000000000006")
+        val settings = Settings(
+            chatModelId = chatModelId,
+            visionModelId = visionId,
+            fastModelId = fastModelId,
+            enableSuggestion = false,
+            suggestionModelId = suggestionModelId,
+            providers = emptyList(),
+        )
+        val store = fakeSettingsStore(settings)
+
+        val persisted = store.settingsFlow.first()
+        assertEquals(visionId, persisted.visionModelId)
+        assertEquals(chatModelId, persisted.chatModelId)
+        assertEquals(fastModelId, persisted.fastModelId)
+        assertEquals(false, persisted.enableSuggestion)
+        assertEquals(suggestionModelId, persisted.suggestionModelId)
+    }
+
+    @Test
     fun malformedIdsAreRejected() = runBlocking {
         val adapter = SettingsLegacyModelAssignmentAdapter(fakeSettingsStore(Settings()), testScope)
 

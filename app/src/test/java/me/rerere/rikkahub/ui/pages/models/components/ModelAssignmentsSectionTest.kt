@@ -46,6 +46,27 @@ class ModelAssignmentsSectionTest {
         assertEquals(listOf("installed"), compatibleAssignments(ModelRole.CHAT, listOf(disabled, local, installed)).map { it.id })
     }
 
+    @Test
+    fun groupsCloudModelsByProviderAndKeepsLocalModelsSeparate() {
+        val openAi = model("openai-model", ModelCapability.CHAT).copy(
+            metadata = mapOf("provider" to "OpenAI"),
+        )
+        val other = model("other-model", ModelCapability.CHAT).copy(
+            metadata = mapOf("provider" to "Other"),
+        )
+        val local = model("local-model", ModelCapability.CHAT).copy(
+            source = ModelSource.Local(me.rerere.locallm.LocalRuntime.LiteRT),
+            lifecycle = ModelLifecycle.READY,
+            installed = true,
+        )
+
+        assertEquals(
+            listOf("OpenAI", "Other", "Local"),
+            descriptorGroups(listOf(local, other, openAi)).map { it.label },
+        )
+        assertEquals(listOf("local-model"), descriptorGroups(listOf(local)).single().models.map { it.id })
+    }
+
     private fun model(id: String, vararg capabilities: ModelCapability) = ModelDescriptor(
         id = id,
         displayName = id,

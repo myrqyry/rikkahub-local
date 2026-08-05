@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Switch
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -68,6 +69,8 @@ fun ModelAssignmentsSection(
     fastModelId: String?,
     suggestionModelId: String?,
     compressModelId: String?,
+    enableSuggestion: Boolean,
+    onSuggestionEnabledChange: (Boolean) -> Unit,
     onFastModelSelected: (String) -> Unit,
     onSuggestionModelSelected: (String?) -> Unit,
     onCompressModelSelected: (String) -> Unit,
@@ -83,7 +86,6 @@ fun ModelAssignmentsSection(
         AssignmentRow("Title generation", null, legacyAssignments.titleModelId, true, onAssignTitle, "Utility models"),
         AssignmentRow("Translation", null, legacyAssignments.translationModelId, false, onAssignTranslation),
         AssignmentRow("Fast model", null, fastModelId, false, { id -> id?.let(onFastModelSelected) }),
-        AssignmentRow("Suggestion model", null, suggestionModelId, true, onSuggestionModelSelected),
         AssignmentRow("Compression model", null, compressModelId, false, { id -> id?.let(onCompressModelSelected) }),
     )
 
@@ -91,6 +93,15 @@ fun ModelAssignmentsSection(
         modifier = modifier,
         title = { Text("Model assignments") },
     ) {
+        item(
+            headlineContent = { Text("Enable suggestions") },
+            trailingContent = {
+                Switch(
+                    checked = enableSuggestion,
+                    onCheckedChange = onSuggestionEnabledChange,
+                )
+            },
+        )
         rows.forEach { row ->
             val candidates = compatibleAssignments(row.role ?: ModelRole.CHAT, models)
             val selected = candidates.firstOrNull { it.id == row.modelId }
@@ -108,6 +119,26 @@ fun ModelAssignmentsSection(
                     AssignmentValue(
                         model = selected,
                         allowClear = row.allowClear,
+                        onClear = { row.onSelected(null) },
+                        onOpen = { rowStateHolder.open(row, candidates) },
+                    )
+                },
+            )
+        }
+        if (enableSuggestion) {
+            val row = AssignmentRow("Suggestion model", null, suggestionModelId, true, onSuggestionModelSelected)
+            val candidates = compatibleAssignments(ModelRole.CHAT, models)
+            val selected = candidates.firstOrNull { it.id == row.modelId }
+            item(
+                onClick = { rowStateHolder.open(row, candidates) },
+                headlineContent = { Text(row.label) },
+                supportingContent = if (row.modelId != null && selected == null) {
+                    { Text("Unavailable: ${row.modelId}", color = MaterialTheme.colorScheme.error) }
+                } else null,
+                trailingContent = {
+                    AssignmentValue(
+                        model = selected,
+                        allowClear = true,
                         onClear = { row.onSelected(null) },
                         onOpen = { rowStateHolder.open(row, candidates) },
                     )
@@ -225,30 +256,49 @@ private fun DescriptorSelectorSheet(
                 )
             }
             LazyColumn {
-                items(filtered, key = { it.id }) { model ->
-                    ListItem(
-                        headlineContent = { Text(model.displayName) },
-                        supportingContent = { Text(providerName(model)) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                onSelect(model.id)
-                                scope.launch {
-                                    sheetState.hide()
-                                    onDismiss()
-                                }
-                            },
-                        trailingContent = { if (model.id == selectedId) Text("Selected") },
-                    )
+                descriptorGroups(filtered).forEach { group ->
+                    item(key = "header:${group.label}") {
+                        Text(
+                            text = group.label,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                        )
+                    }
+                    items(group.models, key = { it.id }) { model ->
+                        ListItem(
+                            headlineContent = { Text(model.displayName) },
+                            supportingContent = { Text(group.label) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onSelect(model.id)
+                                    scope.launch {
+                                        sheetState.hide()
+                                        onDismiss()
+                                    }
+                                },
+                            trailingContent = { if (model.id == selectedId) Text("Selected") },
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-private fun providerName(model: ModelDescriptor): String = when (val source = model.source) {
-    is ModelSource.Cloud -> model.metadata["provider"] ?: source.providerId
-    is ModelSource.Local -> "Local"
+internal data class DescriptorGroup(val label: String, val models: List<ModelDescriptor>)
+
+internal fun descriptorGroups(models: List<ModelDescriptor>): List<DescriptorGroup> {
+    val cloud = models.filter { it.source is ModelSource.Cloud }
+        .groupBy { model ->
+            val source = model.source as ModelSource.Cloud
+            model.metadata["provider"] ?: source.providerId
+        }
+        .toSortedMap()
+        .map { (label, grouped) -> DescriptorGroup(label, grouped) }
+    val local = models.filter { it.source is ModelSource.Local }
+    return cloud + if (local.isEmpty()) emptyList() else listOf(DescriptorGroup("Local", local))
 }
 
 private fun repairStateMatches(state: RepairState?, row: AssignmentRow): Boolean = when (state) {

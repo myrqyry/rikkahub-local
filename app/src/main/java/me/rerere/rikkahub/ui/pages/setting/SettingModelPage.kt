@@ -130,6 +130,8 @@ private fun ModelSettingsPage(
                 fastModelId = settings.fastModelId.toString(),
                 suggestionModelId = settings.suggestionModelId?.toString(),
                 compressModelId = settings.compressModelId.toString(),
+                enableSuggestion = settings.enableSuggestion,
+                onSuggestionEnabledChange = { enabled -> vm.updateSettings(settings.copy(enableSuggestion = enabled)) },
                 onFastModelSelected = { id -> vm.updateSettings(settings.copy(fastModelId = Uuid.parse(id))) },
                 onSuggestionModelSelected = { id -> vm.updateSettings(settings.copy(suggestionModelId = id?.let(Uuid::parse))) },
                 onCompressModelSelected = { id -> vm.updateSettings(settings.copy(compressModelId = Uuid.parse(id))) },
