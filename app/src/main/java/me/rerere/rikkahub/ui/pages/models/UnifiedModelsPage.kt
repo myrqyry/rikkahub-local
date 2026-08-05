@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.BottomAppBar
@@ -112,6 +113,7 @@ fun UnifiedModelsPage(
                     settings = settings,
                     vm = vm,
                     assignmentsVm = assignmentsVm,
+                    request = request,
                     contentPadding = contentPadding,
                 )
                 1 -> PromptSettingsPage(settings = settings, vm = vm, contentPadding = contentPadding)
@@ -125,6 +127,7 @@ private fun ModelSettingsPage(
     settings: me.rerere.rikkahub.data.datastore.Settings,
     vm: SettingVM,
     assignmentsVm: UnifiedModelsViewModel,
+    request: ModelsPageRequest,
     contentPadding: PaddingValues,
 ) {
     val assignments by assignmentsVm.assignments.collectAsStateWithLifecycle()
@@ -135,8 +138,17 @@ private fun ModelSettingsPage(
     val selectedTab by assignmentsVm.selectedTab.collectAsStateWithLifecycle()
     val search by assignmentsVm.searchText.collectAsStateWithLifecycle()
     val providers by assignmentsVm.registryProviders.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    LaunchedEffect(request.focus, request.modelId) {
+        if (request.focus == ModelsFocus.MODELS || request.modelId != null) {
+            listState.animateScrollToItem(1)
+        } else if (request.focus == ModelsFocus.ASSIGNMENTS) {
+            listState.animateScrollToItem(0)
+        }
+    }
 
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = contentPadding + PaddingValues(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
