@@ -37,6 +37,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,6 +67,7 @@ import me.rerere.rikkahub.data.files.SkillFrontmatterParser
 import me.rerere.rikkahub.data.files.SkillMetadata
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.skills.CatalogEntry
+import me.rerere.rikkahub.skills.imports.ImportCandidate
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.RikkaConfirmDialog
 import me.rerere.rikkahub.ui.context.LocalNavController
@@ -87,8 +89,13 @@ fun SkillsPage() {
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var showImportDialog by rememberSaveable { mutableStateOf(false) }
     var showCatalog by rememberSaveable { mutableStateOf(false) }
-    var pendingImportUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingImport by remember { mutableStateOf<ImportCandidate?>(null) }
     var deleteTarget by remember { mutableStateOf<SkillMetadata?>(null) }
+    val pendingOwnership = remember { CandidateOwnership(vm::discardPrepared) }
+
+    DisposableEffect(Unit) {
+        onDispose { pendingOwnership.close() }
+    }
 
     Scaffold(
         topBar = {
@@ -219,7 +226,19 @@ fun SkillsPage() {
             onDismiss = { showImportDialog = false },
             onConfirm = { repoUrl ->
                 showImportDialog = false
-                pendingImportUrl = repoUrl.trim()
+                vm.prepareSkillImport(repoUrl) { result ->
+                    result
+                        .onSuccess {
+                            pendingOwnership.adopt(it)
+                            pendingImport = it
+                        }
+                        .onFailure {
+                            toaster.show(context.getString(
+                                R.string.skills_page_import_failed,
+                                it.message ?: "skill import failed",
+                            ))
+                        }
+                }
             },
             onPickFile = {
                 openDocumentLauncher.launch(arrayOf(
@@ -232,15 +251,18 @@ fun SkillsPage() {
         )
     }
 
-    pendingImportUrl?.let { source ->
+    pendingImport?.let { candidate ->
         ArtifactImportReviewDialog(
-            kind = "skill",
-            source = source,
-            details = "The existing importer validates the URL, format, name, and file size before saving.",
-            onDismiss = { pendingImportUrl = null },
+            candidate = candidate,
+            details = "The prepared skill is validated for format, name, and size before saving.",
+            onDismiss = {
+                pendingOwnership.discard()
+                pendingImport = null
+            },
             onConfirm = {
-                pendingImportUrl = null
-                vm.importSkillFromGitHub(source) { success, message ->
+                pendingOwnership.take()
+                pendingImport = null
+                vm.installPreparedSkill(candidate) { success, message ->
                     if (success) {
                         toaster.show(context.getString(R.string.skills_page_import_success, message))
                     } else {
@@ -283,6 +305,31 @@ fun SkillsPage() {
             },
             onDismiss = { showCatalog = false },
         )
+    }
+}
+
+private class CandidateOwnership(private val discard: (ImportCandidate) -> Unit) {
+    private var owned: ImportCandidate? = null
+    private var closed = false
+
+    fun adopt(candidate: ImportCandidate) {
+        if (closed) {
+            discard(candidate)
+            return
+        }
+        owned?.let(discard)
+        owned = candidate
+    }
+
+    fun take(): ImportCandidate? = owned.also { owned = null }
+
+    fun discard() {
+        take()?.let(discard)
+    }
+
+    fun close() {
+        closed = true
+        discard()
     }
 }
 

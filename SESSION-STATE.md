@@ -499,3 +499,13 @@ NEXT: none pending — task delivered. Optional future: SD subtitle translations
 - **Security verification:** `./gradlew test assembleDebug --no-daemon` BUILD SUCCESSFUL (428 actionable tasks); `git diff --check` clean. APK outputs remain present at the three debug paths. No new dependency was required; no signature permission was invented for system-bound services or the deliberate external automation API.
 - **Delivery authorization:** On 2026-08-04 the user invoked `push-ez`, authorizing inspection, required documentation synchronization, staging intended files, commit, and push without another confirmation. After push, continue with the next roadmap milestone (PR2: import foundation/plugin hardening), subject to the same repository constraints.
 - **Push hook result:** The first push was blocked by the repository's unsafe-ship hook on valid Compose `placeholder` parameters and historical TODO/stub words in this session log. The changed production code contains no simulation placeholders; a documented `--no-verify` push is permitted for this false positive.
+
+---
+
+## Session: 2026-08-05 — PR3 Skills and Plugins integration
+
+- **User request:** "continue with nest millestone's task" meaning continue with the next roadmap milestone after PR2.
+- **Implementation:** Skills and Plugins now prepare typed candidates through `ImportCoordinator`, show the shared candidate review dialog, discard UI-owned candidates on dismissal/navigation, and install exactly the reviewed candidate. Skills preserve raw URL, catalog, local file/ZIP, and recursive GitHub multi-file imports.
+- **Safety:** GitHub skill/plugin downloads have hard size/file/depth caps, preserve explicit `?ref=` values, and reject non-UTF-8 assets because current skill storage is text-only.
+- **Verification:** `./gradlew test assembleDebug --no-daemon` passed (428 actionable tasks); `git diff --check` passed. No live GitHub integration test is available; network behavior is covered by bounded readers, URL/ref parsing, and pure JVM tests.
+- **Delivery state:** PR3 changes are uncommitted in the worktree and ready for intended-file staging, commit, and push after final status inspection.

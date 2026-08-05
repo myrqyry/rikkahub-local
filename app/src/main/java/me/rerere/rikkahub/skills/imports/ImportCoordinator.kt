@@ -10,10 +10,33 @@ class ImportCoordinator(
     private val installSkill: suspend (ImportCandidate) -> Result<InstalledArtifact>,
     private val installPlugin: suspend (ImportCandidate) -> Result<InstalledArtifact>,
 ) {
-    suspend fun prepare(source: String): Result<ImportCandidate> {
-        val adapter = adapters.firstOrNull { it.supports(source) }
-            ?: return Result.failure(IllegalArgumentException("unsupported artifact source"))
-        return adapter.prepare(source)
+    suspend fun prepare(source: String, expectedKind: ArtifactKind? = null): Result<ImportCandidate> {
+        val matching = adapters
+            .filter { it.supports(source) }
+            .sortedBy { adapter ->
+                when {
+                    expectedKind == ArtifactKind.SKILL &&
+                        (adapter is GitHubSkillAdapter || adapter is SkillUrlAdapter) -> 0
+                    expectedKind == ArtifactKind.PLUGIN && adapter is GitHubPluginAdapter -> 0
+                    else -> 1
+                }
+            }
+        if (matching.isEmpty()) {
+            return Result.failure(IllegalArgumentException("unsupported artifact source"))
+        }
+        var lastFailure: Throwable? = null
+        for (adapter in matching) {
+            val result = adapter.prepare(source)
+            if (result.isSuccess) {
+                val candidate = result.getOrThrow()
+                if (expectedKind == null || candidate.kind == expectedKind) return Result.success(candidate)
+                cleanup(candidate)
+                lastFailure = IllegalArgumentException("source did not produce a ${expectedKind.name.lowercase()}")
+            } else {
+                lastFailure = result.exceptionOrNull()
+            }
+        }
+        return Result.failure(lastFailure ?: IllegalArgumentException("unsupported artifact source"))
     }
 
     suspend fun install(candidate: ImportCandidate): Result<ImportResult> {
@@ -65,6 +88,7 @@ class ImportCoordinator(
     }
 
     private fun cleanup(candidate: ImportCandidate) {
+        (candidate.payload as? ImportPayload.SkillFiles)?.files?.clear()
         (candidate.payload as? ImportPayload.PluginArchive)?.file?.delete()
     }
 

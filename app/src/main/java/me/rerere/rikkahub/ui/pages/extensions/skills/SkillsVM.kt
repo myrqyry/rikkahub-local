@@ -10,24 +10,23 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import me.rerere.rikkahub.data.files.SkillFrontmatterParser
 import me.rerere.rikkahub.data.files.SkillManager
+import me.rerere.rikkahub.data.files.SkillFrontmatterParser
 import me.rerere.rikkahub.data.files.SkillMetadata
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.withTimeoutOrNull
 import me.rerere.rikkahub.skills.CatalogEntry
 import me.rerere.rikkahub.skills.SkillCatalog
 import me.rerere.rikkahub.skills.SkillUrlImporter
 import me.rerere.rikkahub.skills.SkillZipError
 import me.rerere.rikkahub.skills.SkillZipImporter
 import me.rerere.rikkahub.skills.loadCatalogFromAssets
-import java.util.LinkedHashMap
-import org.json.JSONArray
+import me.rerere.rikkahub.skills.imports.ImportCandidate
+import me.rerere.rikkahub.skills.imports.ImportCoordinator
+import me.rerere.rikkahub.skills.imports.ImportResult
+import me.rerere.rikkahub.skills.imports.ArtifactKind
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
 import java.nio.file.Files
 import kotlin.collections.iterator
 
@@ -35,6 +34,7 @@ class SkillsVM(
     private val context: Context,
     private val skillManager: SkillManager,
     private val urlImporter: SkillUrlImporter,
+    private val importCoordinator: ImportCoordinator,
 ) : ViewModel() {
 
     companion object {
@@ -85,60 +85,53 @@ class SkillsVM(
 
     fun getSkillsDir() = skillManager.getSkillsDir()
 
+    /** Prepare a URL candidate without installing it; the page owns the review dialog. */
+    fun prepareSkillImport(source: String, onResult: (Result<ImportCandidate>) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = importCoordinator.prepare(source.trim(), ArtifactKind.SKILL)
+            withContext(Dispatchers.Main) { onResult(result) }
+        }
+    }
+
+    fun discardPrepared(candidate: ImportCandidate) {
+        importCoordinator.discard(candidate)
+    }
+
+    /** Install exactly the candidate already reviewed, so preparation is never repeated. */
+    fun installPreparedSkill(
+        candidate: ImportCandidate,
+        onResult: (Boolean, String) -> Unit,
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = importCoordinator.install(candidate)
+            _skills.value = skillManager.listSkills()
+            val outcome = result.fold(
+                onSuccess = { installed ->
+                    val value = installed as ImportResult.Installed
+                    true to buildString {
+                        append(value.name)
+                        value.warning?.let { append(" — $it") }
+                    }
+                },
+                onFailure = { false to (it.message ?: "skill import failed") },
+            )
+            withContext(Dispatchers.Main) { onResult(outcome.first, outcome.second) }
+        }
+    }
+
     fun importSkillFromGitHub(repoUrl: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val info = parseGitHubUrl(repoUrl) ?: run {
-                    withContext(Dispatchers.Main) { onResult(false, "Invalid GitHub repository URL") }
-                    return@launch
-                }
-
-                // Collect all files recursively via GitHub Contents API
-                val files = mutableListOf<Pair<String, String>>() // relativePath -> downloadUrl
-                val listed = listFilesRecursively(info.owner, info.repo, info.branch, info.path, info.path, files)
-                if (!listed) {
-                    withContext(Dispatchers.Main) { onResult(false, "Failed to list GitHub directory contents") }
-                    return@launch
-                }
-
-                val skillMdEntry = files.find { it.first == "SKILL.md" } ?: run {
-                    withContext(Dispatchers.Main) { onResult(false, "No SKILL.md found in the directory") }
-                    return@launch
-                }
-
-                val skillMdContent = downloadText(skillMdEntry.second) ?: run {
-                    withContext(Dispatchers.Main) { onResult(false, "Failed to download SKILL.md — check the URL and your network") }
-                    return@launch
-                }
-
-                val frontmatter = SkillFrontmatterParser.parse(skillMdContent)
-                val name = frontmatter["name"]
-                if (name.isNullOrBlank()) {
-                    withContext(Dispatchers.Main) { onResult(false, "SKILL.md is missing the required 'name' field") }
-                    return@launch
-                }
-
-                val fileContents = LinkedHashMap<String, String>()
-                for ((relativePath, downloadUrl) in files) {
-                    val content = downloadText(downloadUrl)
-                    if (content == null) {
-                        withContext(Dispatchers.Main) { onResult(false, "Failed to download file: $relativePath") }
-                        return@launch
-                    }
-                    fileContents[relativePath] = content
-                }
-
-                val saved = skillManager.saveSkillFilesAtomically(name, fileContents)
-                if (!saved) {
-                    withContext(Dispatchers.Main) { onResult(false, "Failed to save skill files") }
-                    return@launch
-                }
-
-                _skills.value = skillManager.listSkills()
-                withContext(Dispatchers.Main) { onResult(true, name) }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) { onResult(false, e.message ?: "Unknown error") }
-            }
+            val prepared = importCoordinator.prepare(repoUrl, ArtifactKind.SKILL)
+            val result = prepared.fold(
+                onSuccess = { importCoordinator.install(it) },
+                onFailure = { Result.failure(it) },
+            )
+            _skills.value = skillManager.listSkills()
+            val outcome = result.fold(
+                onSuccess = { true to (it as ImportResult.Installed).name },
+                onFailure = { false to (it.message ?: "Unknown error") },
+            )
+            withContext(Dispatchers.Main) { onResult(outcome.first, outcome.second) }
         }
     }
 
@@ -183,8 +176,7 @@ class SkillsVM(
      * If the entry is `is_bundled = true`, this is a no-op (the skill is already on disk
      * via [SkillManager.seedDefaultSkillsIfNeeded]) and we return success immediately so
      * the UI flips its row to "Installed". Otherwise [CatalogEntry.sourceUrl] is fetched
-     * via [SkillUrlImporter.importFromUrl] under a 30-second hard timeout — same surface
-     * as the existing GitHub-URL import path, including HTML guard + format detector.
+     * via [ImportCoordinator], so preparation and installation share the same provenance path.
      */
     fun installFromCatalog(entry: CatalogEntry, onResult: (success: Boolean, message: String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -198,16 +190,20 @@ class SkillsVM(
                 withContext(Dispatchers.Main) { onResult(false, "skill_catalog_install_failed") }
                 return@launch
             }
-            val result = withTimeoutOrNull(30_000) {
-                urlImporter.importFromUrl(url)
-            }
-            val (ok, msg) = when (result) {
-                null -> false to "skill_catalog_install_failed"
-                is SkillUrlImporter.Result.Ok -> true to result.metadata.name
-                is SkillUrlImporter.Result.Err -> false to result.detail
-            }
+            val prepared = importCoordinator.prepare(url, ArtifactKind.SKILL)
+            val result = prepared.fold(
+                onSuccess = { importCoordinator.install(it) },
+                onFailure = { Result.failure(it) },
+            )
             _skills.value = skillManager.listSkills()
-            withContext(Dispatchers.Main) { onResult(ok, msg) }
+            val outcome = result.fold(
+                onSuccess = { installed ->
+                    val value = installed as ImportResult.Installed
+                    true to value.name
+                },
+                onFailure = { false to (it.message ?: "skill_catalog_install_failed") },
+            )
+            withContext(Dispatchers.Main) { onResult(outcome.first, outcome.second) }
         }
     }
 
@@ -312,69 +308,4 @@ class SkillsVM(
         }
     }
 
-    private fun listFilesRecursively(
-        owner: String,
-        repo: String,
-        branch: String,
-        dirPath: String,
-        basePath: String,
-        result: MutableList<Pair<String, String>>,
-    ): Boolean {
-        val apiUrl = "https://api.github.com/repos/$owner/$repo/contents/$dirPath?ref=$branch"
-        val json = downloadText(apiUrl) ?: return false
-        val array = JSONArray(json)
-        for (i in 0 until array.length()) {
-            val item = array.getJSONObject(i)
-            val type = item.getString("type")
-            val itemPath = item.getString("path")
-            val relativePath = itemPath.removePrefix("$basePath/").removePrefix(basePath)
-            when (type) {
-                "file" -> {
-                    val downloadUrl = item.optString("download_url").takeIf { it.isNotBlank() }
-                        ?: return false
-                    result.add(relativePath to downloadUrl)
-                }
-
-                "dir" -> {
-                    val ok = listFilesRecursively(owner, repo, branch, itemPath, basePath, result)
-                    if (!ok) return false
-                }
-            }
-        }
-        return true
-    }
-
-    private data class GitHubRepoInfo(
-        val owner: String,
-        val repo: String,
-        val branch: String,
-        val path: String,
-    )
-
-    private fun parseGitHubUrl(url: String): GitHubRepoInfo? {
-        val trimmed = url.trim().trimEnd('/')
-        // https://github.com/owner/repo
-        // https://github.com/owner/repo/tree/branch
-        // https://github.com/owner/repo/tree/branch/sub/path
-        val regex = Regex("""https://github\.com/([^/]+)/([^/]+)(?:/tree/([^/]+)(/.*)?)?""")
-        val match = regex.matchEntire(trimmed) ?: return null
-        val owner = match.groupValues[1]
-        val repo = match.groupValues[2]
-        val branch = match.groupValues[3].ifBlank { "HEAD" }
-        val subPath = match.groupValues[4].trimStart('/')
-        return GitHubRepoInfo(owner, repo, branch, subPath)
-    }
-
-    private fun downloadText(url: String): String? {
-        val connection = URL(url).openConnection() as HttpURLConnection
-        connection.connectTimeout = 10_000
-        connection.readTimeout = 30_000
-        connection.setRequestProperty("Accept", "application/vnd.github+json")
-        return try {
-            if (connection.responseCode == 200) connection.inputStream.bufferedReader().readText()
-            else null
-        } finally {
-            connection.disconnect()
-        }
-    }
 }

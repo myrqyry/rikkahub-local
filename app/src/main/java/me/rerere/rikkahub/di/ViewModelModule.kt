@@ -77,6 +77,7 @@ val viewModelModule = module {
             context = get(),
             skillManager = get(),
             urlImporter = get(),
+            importCoordinator = get(),
         )
     }
     viewModelOf(::SkillDetailVM)

@@ -130,23 +130,37 @@ val appModule = module {
     single<me.rerere.rikkahub.skills.imports.ArtifactSourceAdapter>(named("skillImportAdapter")) {
         me.rerere.rikkahub.skills.imports.SkillUrlAdapter(get())
     }
+    single<me.rerere.rikkahub.skills.imports.ArtifactSourceAdapter>(named("githubSkillImportAdapter")) {
+        me.rerere.rikkahub.skills.imports.GitHubSkillAdapter(get(), get())
+    }
     single<me.rerere.rikkahub.skills.imports.ArtifactSourceAdapter>(named("githubPluginImportAdapter")) {
         me.rerere.rikkahub.skills.imports.GitHubPluginAdapter(get(), get())
     }
     single {
         me.rerere.rikkahub.skills.imports.ImportCoordinator(
-            adapters = listOf(get(named("githubPluginImportAdapter")), get(named("skillImportAdapter"))),
+            adapters = listOf(
+                get(named("githubPluginImportAdapter")),
+                get(named("githubSkillImportAdapter")),
+                get(named("skillImportAdapter")),
+            ),
             provenanceStore = get(),
             installSkill = { candidate ->
-                val payload = candidate.payload as me.rerere.rikkahub.skills.imports.ImportPayload.SkillText
-                get<me.rerere.rikkahub.skills.SkillUrlImporter>().importFromText(payload.body, candidate.provenance.source)
-                    .let { result ->
-                        if (result is me.rerere.rikkahub.skills.SkillUrlImporter.Result.Ok) {
-                            Result.success(me.rerere.rikkahub.skills.imports.InstalledArtifact(candidate.name))
-                        } else {
-                            Result.failure(IllegalStateException(result.toString()))
-                        }
-                    }
+                when (val payload = candidate.payload) {
+                    is me.rerere.rikkahub.skills.imports.ImportPayload.SkillFiles ->
+                        if (get<me.rerere.rikkahub.data.files.SkillManager>()
+                                .saveSkillFilesAtomically(candidate.name, payload.files)
+                        ) Result.success(me.rerere.rikkahub.skills.imports.InstalledArtifact(candidate.name))
+                        else Result.failure(IllegalStateException("could not write skill files"))
+                    is me.rerere.rikkahub.skills.imports.ImportPayload.SkillText ->
+                        get<me.rerere.rikkahub.skills.SkillUrlImporter>()
+                            .importFromText(payload.body, candidate.provenance.source)
+                            .let { result ->
+                                if (result is me.rerere.rikkahub.skills.SkillUrlImporter.Result.Ok) {
+                                    Result.success(me.rerere.rikkahub.skills.imports.InstalledArtifact(candidate.name))
+                                } else Result.failure(IllegalStateException(result.toString()))
+                            }
+                    else -> Result.failure(IllegalArgumentException("skill candidate has invalid payload"))
+                }
             },
             installPlugin = { candidate ->
                 val payload = candidate.payload as me.rerere.rikkahub.skills.imports.ImportPayload.PluginArchive

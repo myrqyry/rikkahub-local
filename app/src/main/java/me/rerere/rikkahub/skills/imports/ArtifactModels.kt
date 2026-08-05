@@ -9,6 +9,7 @@ enum class ArtifactSourceKind { URL, LOCAL_FILE, GITHUB, TEXT }
 
 sealed class ImportPayload {
     data class SkillText(val body: String) : ImportPayload()
+    class SkillFiles(val files: MutableMap<String, String>) : ImportPayload()
     data class PluginArchive(val file: File) : ImportPayload()
 }
 

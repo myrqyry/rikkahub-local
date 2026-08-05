@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import me.rerere.workspace.WorkspaceManager
+import me.rerere.rikkahub.skills.imports.copyToBounded
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -81,24 +83,31 @@ class PluginManager(
     data class InstalledPlugin(val name: String)
 
     suspend fun installFromUrl(input: String): Result<Unit> = try {
-        val (owner, repo) = parsePluginRef(input.trim())
+        val parsed = parsePluginSource(input.trim())
 
         val archive = withContext(Dispatchers.IO) {
             val request = Request.Builder()
-                .url("https://api.github.com/repos/$owner/$repo/zipball")
+                .url(pluginArchiveUrl(parsed))
                 .header("Accept", "application/vnd.github+json")
                 .build()
 
-            val response = httpClient.newCall(request).execute()
-            val body = response.use {
-                if (!it.isSuccessful) error("GitHub API ${it.code}: ${it.message}")
-                it.body.bytes()
+            val archive = File(context.cacheDir, "plugin-${parsed.repo}-${System.nanoTime()}.zip")
+            try {
+                httpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) error("GitHub API ${response.code}: ${response.message}")
+                    val body = response.body ?: error("GitHub response body was empty")
+                    require(body.contentLength() <= MAX_ARCHIVE_BYTES) {
+                        "plugin archive exceeds ${MAX_ARCHIVE_BYTES / 1024 / 1024} MB"
+                    }
+                    body.byteStream().use { input ->
+                        archive.outputStream().use { output -> input.copyToBounded(output, MAX_ARCHIVE_BYTES) }
+                    }
+                }
+                archive
+            } catch (throwable: Throwable) {
+                archive.delete()
+                throw throwable
             }
-            if (body.size > MAX_ARCHIVE_BYTES) {
-                error("plugin archive exceeds ${MAX_ARCHIVE_BYTES / 1024 / 1024} MB")
-            }
-
-            File(context.cacheDir, "plugin-$repo-${System.nanoTime()}.zip").also { it.writeBytes(body) }
         }
         try {
             installFromPreparedArchive(archive).getOrThrow().let { Unit }
@@ -261,22 +270,46 @@ class PluginManager(
         private const val COPY_BUFFER = 8 * 1024
         private val PLUGIN_ID = Regex("^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
-        fun parsePluginRef(input: String): Pair<String, String> {
+        data class ParsedPluginSource(
+            val owner: String,
+            val repo: String,
+            val ref: String? = null,
+        )
+
+        fun parsePluginSource(input: String): ParsedPluginSource {
             val ref = input.trim().removePrefix("claude plugin install ").trim()
-            val githubUrl = Regex("https?://github\\.com/([^/]+)/([^/]+?)(?:\\.git)?$")
-            githubUrl.find(ref)?.let {
-                return it.groupValues[1] to it.groupValues[2]
+            runCatching { ref.toHttpUrl() }.getOrNull()?.let { url ->
+                if (url.scheme == "https" && url.host == "github.com" && url.pathSegments.size == 2) {
+                    return ParsedPluginSource(
+                        owner = url.pathSegments[0],
+                        repo = url.pathSegments[1].removeSuffix(".git"),
+                        ref = url.queryParameter("ref")?.takeIf { it.isNotBlank() },
+                    )
+                }
             }
             val market = Regex("^([^@]+)@([^@]+)$")
             market.find(ref)?.let {
-                return it.groupValues[2] to it.groupValues[1]
+                return ParsedPluginSource(it.groupValues[2], it.groupValues[1])
             }
             val simple = Regex("^([^/]+)/([^/]+)$")
             simple.find(ref)?.let {
-                return it.groupValues[1] to it.groupValues[2]
+                return ParsedPluginSource(it.groupValues[1], it.groupValues[2])
             }
             error("Usage: name@org (e.g. telegram@claude-plugins-official) or org/repo or GitHub URL")
         }
+
+        /** Compatibility API retained for existing callers and tests. */
+        fun parsePluginRef(input: String): Pair<String, String> =
+            parsePluginSource(input).let { it.owner to it.repo }
+
+        internal fun pluginArchiveUrl(source: ParsedPluginSource): String =
+            okhttp3.HttpUrl.Builder()
+                .scheme("https")
+                .host("api.github.com")
+                .addPathSegments("repos/${source.owner}/${source.repo}/zipball")
+                .apply { source.ref?.let(::addPathSegments) }
+                .build()
+                .toString()
     }
 
     private data class CommandRollback(

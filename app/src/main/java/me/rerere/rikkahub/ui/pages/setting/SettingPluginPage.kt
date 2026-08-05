@@ -21,11 +21,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,12 +34,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.Add01
 import me.rerere.hugeicons.stroke.Delete02
 import me.rerere.hugeicons.stroke.Earth
 import me.rerere.hugeicons.stroke.Package
 import me.rerere.rikkahub.R
+import me.rerere.rikkahub.skills.imports.ImportCandidate
+import me.rerere.rikkahub.skills.imports.ArtifactKind
+import me.rerere.rikkahub.skills.imports.ImportCoordinator
+import me.rerere.rikkahub.skills.imports.ImportResult
 import me.rerere.rikkahub.skills.plugins.PluginManager
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.theme.CustomColors
@@ -51,13 +57,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun SettingPluginPage() {
     val manager: PluginManager = koinInject()
+    val coordinator: ImportCoordinator = koinInject()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var installUrl by remember { mutableStateOf("") }
     var installError by remember { mutableStateOf<String?>(null) }
-    var pendingInstall by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingInstall by remember { mutableStateOf<ImportCandidate?>(null) }
+    var preparing by remember { mutableStateOf(false) }
+    var installing by remember { mutableStateOf(false) }
     val plugins by manager.installedPlugins.collectAsStateWithLifecycle()
+    val pendingOwnership = remember { CandidateOwnership(coordinator::discard) }
+
+    DisposableEffect(Unit) {
+        onDispose { pendingOwnership.close() }
+    }
 
     Scaffold(
         topBar = {
@@ -111,8 +125,18 @@ fun SettingPluginPage() {
                             )
                             IconButton(onClick = {
                                 val url = installUrl.trim()
-                                if (url.isBlank()) return@IconButton
-                                pendingInstall = url
+                                 if (url.isBlank() || preparing || installing) return@IconButton
+                                 preparing = true
+                                 installError = null
+                                 scope.launch {
+                                     coordinator.prepare(url, ArtifactKind.PLUGIN)
+                                          .onSuccess {
+                                              pendingOwnership.adopt(it)
+                                              pendingInstall = it
+                                          }
+                                         .onFailure { installError = it.message }
+                                     preparing = false
+                                 }
                             }) {
                                 Icon(HugeIcons.Add01, "Install")
                             }
@@ -182,23 +206,58 @@ fun SettingPluginPage() {
         }
     }
 
-    pendingInstall?.let { source ->
+    pendingInstall?.let { candidate ->
         ArtifactImportReviewDialog(
-            kind = "plugin",
-            source = source,
-            details = "The archive will be downloaded, checked for one plugin.json, and extracted only after validation.",
-            onDismiss = { pendingInstall = null },
-            onConfirm = {
+            candidate = candidate,
+            details = "The prepared archive is checked for one plugin.json and extracted only after confirmation.",
+            onDismiss = {
+                pendingOwnership.discard()
                 pendingInstall = null
+            },
+            onConfirm = {
+                pendingOwnership.take()
+                pendingInstall = null
+                installing = true
                 scope.launch {
-                    manager.installFromUrl(source)
-                        .onSuccess {
+                    coordinator.install(candidate)
+                        .onSuccess { result ->
+                            withContext(Dispatchers.IO) { manager.refreshInventory() }
                             installUrl = ""
-                            installError = null
+                            val installed = result as ImportResult.Installed
+                            installError = buildString {
+                                append("Installed ${installed.name}")
+                                installed.warning?.let { append(" — $it") }
+                            }
                         }
                         .onFailure { installError = it.message }
+                    installing = false
                 }
             },
         )
+    }
+}
+
+private class CandidateOwnership(private val discard: (ImportCandidate) -> Unit) {
+    private var owned: ImportCandidate? = null
+    private var closed = false
+
+    fun adopt(candidate: ImportCandidate) {
+        if (closed) {
+            discard(candidate)
+            return
+        }
+        owned?.let(discard)
+        owned = candidate
+    }
+
+    fun take(): ImportCandidate? = owned.also { owned = null }
+
+    fun discard() {
+        take()?.let(discard)
+    }
+
+    fun close() {
+        closed = true
+        discard()
     }
 }
