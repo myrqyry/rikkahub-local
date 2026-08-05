@@ -1,0 +1,212 @@
+package me.rerere.rikkahub.data.modelregistry
+
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
+import java.io.File
+import me.rerere.ai.provider.Model
+import me.rerere.ai.provider.ProviderSetting
+import me.rerere.locallm.LocalRuntime
+import me.rerere.locallm.LocalRuntimePreferences
+import me.rerere.rikkahub.data.datastore.SettingsStore
+import kotlin.uuid.Uuid
+
+class SettingsModelRegistry(
+    private val settingsStore: SettingsStore,
+    private val localPreferences: LocalRuntimePreferences,
+    scope: CoroutineScope,
+) : ModelRegistry {
+    private val capabilityOverrides = MutableStateFlow<Map<String, Set<ModelCapability>>>(emptyMap())
+    private val _models = MutableStateFlow<List<ModelDescriptor>>(emptyList())
+    private val _providers = MutableStateFlow<List<ModelProviderDescriptor>>(emptyList())
+    private val _assignments = MutableStateFlow(ModelAssignments())
+
+    override val models: StateFlow<List<ModelDescriptor>> = _models.asStateFlow()
+    override val providers: StateFlow<List<ModelProviderDescriptor>> = _providers.asStateFlow()
+    override val assignments: StateFlow<ModelAssignments> = _assignments.asStateFlow()
+
+    init {
+        scope.launch {
+            combine(
+                settingsStore.settingsFlow,
+                localPreferences.installedModelsFlow(LocalRuntime.LiteRT),
+                localPreferences.installedModelsFlow(LocalRuntime.StableDiffusion),
+                capabilityOverrides,
+            ) { settings, liteRt, stableDiffusion, overrides ->
+                val localFiles = mapOf(
+                    LocalRuntime.LiteRT to liteRt,
+                    LocalRuntime.StableDiffusion to stableDiffusion,
+                )
+                val providers = settings.providers.map { provider ->
+                    ModelProviderDescriptor(
+                        id = provider.id.toString(),
+                        displayName = provider.name,
+                        enabled = provider.enabled,
+                        modelIds = provider.models.map { modelId(it) },
+                    )
+                }
+                val providerDescriptors = settings.providers.flatMap { provider ->
+                    provider.models.map { model ->
+                        descriptor(provider, model, localFiles, overrides[modelId(model)])
+                    }
+                }
+                val knownLocalFiles = providerDescriptors
+                    .mapNotNull { descriptor ->
+                        (descriptor.source as? ModelSource.Local)?.files?.firstOrNull()
+                    }
+                    .toSet()
+                val inventoryDescriptors = localFiles.flatMap { (runtime, files) ->
+                    files.mapNotNull { (fileName, path) ->
+                        if (fileName in knownLocalFiles) return@mapNotNull null
+                        ModelDescriptor(
+                            id = "local:$runtime:$fileName",
+                            displayName = fileName,
+                            source = ModelSource.Local(runtime, listOf(fileName)),
+                            capabilities = emptySet(),
+                            lifecycle = if (File(path).exists()) {
+                                ModelLifecycle.READY
+                            } else {
+                                ModelLifecycle.ERROR
+                            },
+                            installed = true,
+                            metadata = mapOf("path" to path),
+                        )
+                    }
+                }
+                val descriptors = providerDescriptors + inventoryDescriptors
+                RegistrySnapshot(descriptors, providers, assignmentsFrom(settings))
+            }.collect { snapshot ->
+                _models.value = snapshot.models
+                _providers.value = snapshot.providers
+                _assignments.value = snapshot.assignments
+            }
+        }
+    }
+
+    override suspend fun refreshProvider(providerId: String) {
+        // Settings and LocalRuntimePreferences are already hot sources; collecting them is refresh.
+    }
+
+    override suspend fun setCapabilityEnabled(
+        modelId: String,
+        capability: ModelCapability,
+        enabled: Boolean,
+    ) {
+        val model = _models.value.firstOrNull { it.id == modelId } ?: return
+        require(capability in model.capabilities) { "Model $modelId does not advertise $capability" }
+        val current = capabilityOverrides.value.toMutableMap()
+        val enabledSet = (current[modelId] ?: model.enabledCapabilities).toMutableSet()
+        if (enabled) enabledSet.add(capability) else enabledSet.remove(capability)
+        current[modelId] = enabledSet
+        capabilityOverrides.value = current
+    }
+
+    override suspend fun assign(role: ModelRole, modelId: String?) {
+        val model = modelId?.let { id -> _models.value.firstOrNull { it.id == id } }
+        if (modelId != null) {
+            require(model != null) { "Unknown model: $modelId" }
+            require(model.providerEnabled && model.supports(role.capability())) {
+                "Model $modelId is not compatible with $role"
+            }
+            require(model.source !is ModelSource.Local || model.lifecycle == ModelLifecycle.READY) {
+                "Local model $modelId is not ready"
+            }
+        }
+        val modelUuid = modelId?.let { Uuid.parse(it) }
+        settingsStore.update { settings ->
+            when (role) {
+                ModelRole.CHAT -> modelUuid?.let { settings.copy(chatModelId = it) }
+                    ?: error("CHAT assignment cannot be cleared")
+                ModelRole.VISION -> error("VISION assignment is not persisted by existing settings")
+                ModelRole.OCR -> modelUuid?.let { settings.copy(ocrModelId = it) }
+                    ?: error("OCR assignment cannot be cleared")
+                ModelRole.IMAGE_GENERATION -> modelUuid?.let { settings.copy(imageGenerationModelId = it) }
+                    ?: error("IMAGE_GENERATION assignment cannot be cleared")
+                ModelRole.IMAGE_EDITING -> error("IMAGE_EDITING assignment is not persisted by existing settings")
+                ModelRole.EMBEDDINGS -> settings.copy(
+                    ragEmbeddingModel = (model?.source as? ModelSource.Cloud)?.remoteModelId
+                        ?: error("EMBEDDINGS requires a cloud model")
+                )
+                ModelRole.TEXT_TO_SPEECH, ModelRole.SPEECH_TO_TEXT ->
+                    error("$role assignment is not persisted by existing settings")
+            }
+        }
+    }
+
+    override suspend fun install(modelId: String) {
+        error("Model installation remains owned by ModelManager")
+    }
+
+    override suspend fun remove(modelId: String) {
+        val model = _models.value.firstOrNull { it.id == modelId }
+            ?: error("Unknown model: $modelId")
+        val source = model.source as? ModelSource.Local
+            ?: error("Cloud models cannot be removed from the local registry")
+        source.files.forEach { localPreferences.removeInstalledModel(source.runtime, it) }
+    }
+
+    private fun descriptor(
+        provider: ProviderSetting,
+        model: Model,
+        localFiles: Map<LocalRuntime, Map<String, String>>,
+        overrideCapabilities: Set<ModelCapability>?,
+    ): ModelDescriptor {
+        val runtime = when (provider) {
+            is ProviderSetting.LiteRtLocal -> LocalRuntime.LiteRT
+            is ProviderSetting.StableDiffusion -> LocalRuntime.StableDiffusion
+            else -> null
+        }
+        val inferred = ModelCapabilityInference.infer(model)
+        val files = runtime?.let { localFiles[it].orEmpty().keys.filter { file -> file == model.modelId } }.orEmpty()
+        val installed = files.isNotEmpty()
+        val capabilities = inferred.verified
+        return ModelDescriptor(
+            id = modelId(model),
+            displayName = model.displayName.ifBlank { model.modelId },
+            source = runtime?.let { ModelSource.Local(it, files) }
+                ?: ModelSource.Cloud(provider.id.toString(), model.modelId),
+            capabilities = capabilities,
+            enabledCapabilities = overrideCapabilities ?: capabilities,
+            lifecycle = if (runtime != null) {
+                if (installed && files.all { file -> localFiles[runtime]?.get(file)?.let(::File)?.exists() == true }) {
+                    ModelLifecycle.READY
+                } else if (installed) {
+                    ModelLifecycle.ERROR
+                } else {
+                    ModelLifecycle.AVAILABLE
+                }
+            } else ModelLifecycle.AVAILABLE,
+            providerEnabled = provider.enabled,
+            installed = installed,
+            unverifiedCapabilities = inferred.unverified,
+            metadata = mapOf("provider" to provider.name),
+        )
+    }
+
+    private fun modelId(model: Model): String = model.id.toString()
+
+    private fun assignmentsFrom(settings: me.rerere.rikkahub.data.datastore.Settings) = ModelAssignments(
+        defaults = mapOf(
+            ModelRole.CHAT to settings.chatModelId.toString(),
+            ModelRole.OCR to settings.ocrModelId.toString(),
+            ModelRole.IMAGE_GENERATION to settings.imageGenerationModelId.toString(),
+            ModelRole.EMBEDDINGS to settings.ragEmbeddingModel,
+        ),
+        legacyDefaults = mapOf(
+            "chat" to settings.chatModelId.toString(),
+            "title" to settings.titleModelId?.toString(),
+            "translation" to settings.translateModeId.toString(),
+            "image_generation" to settings.imageGenerationModelId.toString(),
+            "ocr" to settings.ocrModelId.toString(),
+        ),
+    )
+
+    private data class RegistrySnapshot(
+        val models: List<ModelDescriptor>,
+        val providers: List<ModelProviderDescriptor>,
+        val assignments: ModelAssignments,
+    )
+}
