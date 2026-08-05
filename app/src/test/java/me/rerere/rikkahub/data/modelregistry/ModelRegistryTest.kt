@@ -42,11 +42,11 @@ class ModelRegistryTest {
         val cloud = descriptor("cloud", ModelCapability.CHAT)
         assertEquals(
             ResolutionSource.ASSISTANT_OVERRIDE,
-            (ModelResolver.resolve(ModelResolutionRequest(ModelCapability.CHAT, "local", "cloud", "cloud", listOf(local, cloud), true)) as ModelResolution.Resolved).source,
+            (ModelResolver.resolve(ModelResolutionRequest(ModelCapability.CHAT, "local", "cloud", "cloud", listOf(local, cloud), ModelSourcePolicy.ANY)) as ModelResolution.Resolved).source,
         )
         assertEquals(
             ResolutionSource.GLOBAL_ASSIGNMENT,
-            (ModelResolver.resolve(ModelResolutionRequest(ModelCapability.CHAT, globalAssignment = "cloud", models = listOf(local, cloud), allowCloudFallback = true)) as ModelResolution.Resolved).source,
+            (ModelResolver.resolve(ModelResolutionRequest(ModelCapability.CHAT, globalAssignment = "cloud", models = listOf(local, cloud), sourcePolicy = ModelSourcePolicy.ANY)) as ModelResolution.Resolved).source,
         )
     }
 
@@ -55,7 +55,51 @@ class ModelRegistryTest {
         val localDisabled = descriptor("local", ModelCapability.CHAT, local = true).copy(enabledCapabilities = emptySet())
         val cloud = descriptor("cloud", ModelCapability.CHAT)
         assertEquals(ModelResolution.NoCompatibleModel, ModelResolver.resolve(ModelResolutionRequest(ModelCapability.CHAT, models = listOf(localDisabled, cloud))))
-        assertEquals("cloud", (ModelResolver.resolve(ModelResolutionRequest(ModelCapability.CHAT, models = listOf(localDisabled, cloud), allowCloudFallback = true)) as ModelResolution.Resolved).model.id)
+        assertEquals("cloud", (ModelResolver.resolve(ModelResolutionRequest(ModelCapability.CHAT, models = listOf(localDisabled, cloud), sourcePolicy = ModelSourcePolicy.ANY)) as ModelResolution.Resolved).model.id)
+    }
+
+    @Test
+    fun resolverAppliesLocalOnlyPolicyToExplicitCloudAssignments() {
+        val cloud = descriptor("cloud", ModelCapability.VISION)
+
+        assertEquals(
+            ModelResolution.BlockedByPolicy("cloud", ModelSourcePolicy.LOCAL_ONLY),
+            ModelResolver.resolve(
+                ModelResolutionRequest(
+                    capability = ModelCapability.VISION,
+                    assistantOverride = "cloud",
+                    models = listOf(cloud),
+                    sourcePolicy = ModelSourcePolicy.LOCAL_ONLY,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun resolverDoesNotFallThroughAnInvalidAssistantOverride() {
+        val cloud = descriptor("cloud", ModelCapability.VISION)
+
+        assertEquals(
+            ModelResolution.InvalidOverride("missing", ModelFailureReason.NOT_FOUND),
+            ModelResolver.resolve(
+                ModelResolutionRequest(
+                    capability = ModelCapability.VISION,
+                    assistantOverride = "missing",
+                    globalAssignment = "cloud",
+                    models = listOf(cloud),
+                    sourcePolicy = ModelSourcePolicy.ANY,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun unverifiedCapabilitiesCanBeSelectedButNeverAutoResolved() {
+        val model = descriptor("vision", ModelCapability.VISION)
+            .copy(unverifiedCapabilities = setOf(ModelCapability.VISION))
+
+        assertTrue(model.canExplicitlySelect(ModelCapability.VISION))
+        assertTrue(!model.canAutoResolve(ModelCapability.VISION))
     }
 
     @Test

@@ -1,7 +1,10 @@
 package me.rerere.rikkahub.data.modelregistry
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import me.rerere.locallm.LocalRuntime
 
+@Serializable
 enum class ModelCapability {
     CHAT,
     REASONING,
@@ -40,6 +43,30 @@ sealed interface ModelSource {
     ) : ModelSource
 }
 
+@Serializable
+@JvmInline
+value class RegistryModelId(val value: String)
+
+@Serializable
+enum class ModelRole {
+    @SerialName("chat")
+    CHAT,
+    @SerialName("vision")
+    VISION,
+    @SerialName("ocr")
+    OCR,
+    @SerialName("image_generation")
+    IMAGE_GENERATION,
+    @SerialName("image_editing")
+    IMAGE_EDITING,
+    @SerialName("text_to_speech")
+    TEXT_TO_SPEECH,
+    @SerialName("speech_to_text")
+    SPEECH_TO_TEXT,
+    @SerialName("embeddings")
+    EMBEDDINGS,
+}
+
 data class ModelDescriptor(
     val id: String,
     val displayName: String,
@@ -57,17 +84,12 @@ data class ModelDescriptor(
 ) {
     fun supports(capability: ModelCapability): Boolean =
         capability in capabilities && capability in enabledCapabilities
-}
 
-enum class ModelRole {
-    CHAT,
-    VISION,
-    OCR,
-    IMAGE_GENERATION,
-    IMAGE_EDITING,
-    TEXT_TO_SPEECH,
-    SPEECH_TO_TEXT,
-    EMBEDDINGS,
+    fun canAutoResolve(capability: ModelCapability): Boolean =
+        supports(capability) && capability !in unverifiedCapabilities
+
+    fun canExplicitlySelect(capability: ModelCapability): Boolean =
+        supports(capability)
 }
 
 data class ModelAssignments(
