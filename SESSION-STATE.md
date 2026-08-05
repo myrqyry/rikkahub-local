@@ -407,3 +407,62 @@ NEXT: none pending — task delivered. Optional future: SD subtitle translations
 - Added 8 new i18n keys via locale-tui `add` (module app) to all 7 locale dirs (auto-translate 401 without OPENAI_API_KEY, so hand-translated): setting_page_group_ai_models='AI & Models', _ai_features='AI Features', _chat_input='Chat & Input', _appearance='Appearance', _device_extensions='Device & Extensions', _privacy_safety='Privacy & Safety', _data_diagnostics='Data & Diagnostics', setting_page_chat_preferences='Chat Preferences'.
 - VERIFIED: `./gradlew :app:compileDebugKotlin` BUILD SUCCESSFUL (only pre-existing ListItem deprecation warnings), `./gradlew test` BUILD SUCCESSFUL. No new routes needed — all Screen.* constants already existed in RouteActivity.kt.
 - Files changed: SettingPage.kt, 7 strings.xml files (values, values-zh, values-zh-rTW, values-ja, values-ko-rKR, values-ru, values-ar). Pre-existing unrelated worktree changes (app/build.gradle.kts, speech/build.gradle.kts, ai/Provider.kt, SESSION-STATE.md, .superpowers/) left untouched; .superpowers/ never staged.
+
+## Session: 2026-08-03 — TTS voice options expansion
+
+- User request: "can you expand the options for each voice model? expose whatever the api allows".
+- Goal: expand voice dropdowns in `app/src/main/java/me/rerere/rikkahub/ui/pages/setting/components/TTSProviderConfigure.kt` (2432 lines) to expose full API-supported voice sets.
+- Researched authoritative voice lists from official docs (context7-indexed): OpenAI docs, Groq/Orpheus docs, xAI docs (models + TTS reference), Gemini speech-generation docs, Qwen/CosyVoice docs, MiniMax API docs. 404s: platform.minimax.io/docs/guides/tts, platform.stepfun.com/docs/guide/tts, ai.google.dev/gemini-api/docs/text-to-speech.
+- FOUR edits applied:
+  1. OpenAI voice dropdown: 6 → 13 voices (alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse, marin, cedar). PrimaryEditable anchor keeps custom voice IDs typeable.
+  2. Groq voice dropdown: replaced outdated austin/natalie/kailin with 12 voices — English (canopylabs/orpheus-v1-english): austin, autumn, daniel, diana, hannah, troy; Arabic (canopylabs/orpheus-arabic-saudi): abdullah, fahad, sultan, lulwa, noura, aisha.
+  3. xAI voice dropdown: 5 → 26 alphabetized pairs (altair/Altair … zagan/Zagan) per docs voices table.
+  4. Gemini voiceName: free-text field → 30-voice dropdown (Zephyr … Sulafat per docs), PrimaryEditable so custom names still work.
+- Kept as-is (verified full or no selector): Qwen 25, Step 31, MiniMax 11 (docs unreachable, current IDs are the valid documented set — no guessing), ElevenLabs/FishAudio/MiMo/NekoSpeak free-text, PocketTTS fixed alba, KittenTTS dynamic AVAILABLE_VOICES, Qwen3 no voice selector.
+- VERIFIED: `./gradlew :app:compileDebugKotlin` BUILD SUCCESSFUL; `./gradlew test` BUILD SUCCESSFUL.
+- Files changed: `app/src/main/java/me/rerere/rikkahub/ui/pages/setting/components/TTSProviderConfigure.kt`. Nothing committed.
+
+---
+
+## Session: 2026-08-03 — Whisper STT options expansion
+
+- **User request:** "also the speach to text, the whisper needs options"
+- **Context:** continuation of TTS voice-options expansion (see previous entry). Whisper STT is the speech-to-text counterpart.
+- **Investigation:** native bridge `WhisperASRController.kt` (speech module) declares external JNI `nativeInit(modelPath, language, sampleRate)` / `nativeStart(ptr, callback)` / `nativeStop(ptr)` / `nativeRelease(ptr)`, loads `System.loadLibrary("whisper")` (prebuilt external lib, not in repo). Native consumes ONLY modelPath/language/sampleRate. `WhisperAsr` setting already has fields id/name/modelPath/language/sampleRate/vadThreshold; vadThreshold is a DEAD param (never passed to native). UI `WhisperASRConfiguration` (ASRProviderConfigure.kt L550-598) previously exposed only Model Path + Language.
+- **Decision:** expose Sample Rate in UI (the one plumbed-but-hidden param). Do NOT expose vadThreshold (native can't consume it). Do NOT add whisper.cpp params (nthreads/best-of/etc.) — nativeInit signature can't take them without native source.
+- **Edits (2):**
+  1. `app/.../ui/pages/setting/components/ASRProviderConfigure.kt` WhisperASRConfiguration: added Sample Rate FormItem (OutlinedNumberInput, 8000..48000 range, matches MiMo pattern) bound to `setting.copy(sampleRate=value)`.
+  2. New string `setting_asr_configure_whisper_sample_rate_desc` = 'PCM recording sample rate in Hz, 16000 is recommended for Whisper' + hand-translations added to all 6 locale dirs (zh/zh-rTW/ja/ko-rKR/ru/ar).
+- **Bug fixed during work:** python insert script placed the Arabic string AFTER `</resources>` (values-ar lacked the mimo anchor line) → first compile failed `values-ar/strings.xml:1503 markup after root element must be well-formed`. Fixed by re-inserting before `</resources>`.
+- **VERIFIED:** `./gradlew :app:compileDebugKotlin` BUILD SUCCESSFUL (105 tasks, 9 executed); `./gradlew test` BUILD SUCCESSFUL (244 tasks, 7 executed).
+- **Files changed:** `app/.../setting/components/ASRProviderConfigure.kt` + `app/src/main/res/values{,-zh,-zh-rTW,-ja,-ko-rKR,-ru,-ar}/strings.xml`. Nothing committed.
+
+---
+
+## Session: 2026-08-03 — LiteRT OCR / more models
+
+- **User request:** "can you find more litert models to implement? i know we need ocr model settings"
+- **Context:** user pasted the huggingface-local-models skill, wants more LiteRT (litertlm) models + on-device OCR.
+- **Research:** HF API searched for TFLite/OCR models — general OCR .tflite models are either Japanese-only (manga-ocr) or would need a new TFLite interpreter runtime. The two viable on-device OCR additions are multimodal .litertlm VLMs loadable by the EXISTING LiteRT-LM engine: `litert-community/SmolVLM2-500M` (SmolVLM2-500M.litertlm, 361,052,336 B) and `litert-community/FastVLM-0.5B` (FastVLM-0.5B.litertlm, 1,156,342,768 B). Both verified reachable (tree API, LICENSE present).
+- **OCR settings state (verified):** SettingModelPage already has an OCR model picker (ocrModelId, ModelType.CHAT). ModelList matchesPickerType(CHAT) = true for all models with `type==CHAT` (Model.type defaults CHAT) — so installed LiteRT models already appear in the OCR picker; no picker change needed. OcrTransformer falls back to the configured OCR model when the chat model lacks IMAGE modality; LiteRtProvider.generateText→streamText handles image forwarding via decideImageForwarding, so a local vision model selected as OCR model works end-to-end.
+- **Edits (3):**
+  1. `local-llm/.../litert/LiteRtCatalog.kt`: added SmolVLM2-500M + FastVLM-0.5B catalog entries (link-only policy, tags ["multimodal","ocr"]); updated curation doc comment.
+  2. `local-llm/.../litert/LiteRtModelConfig.kt`: added matching BUILT_IN configs (supportsImage=true, visionAccelerator="gpu", supportsThinking/Audio/SpecDecode=false, minDeviceMemoryGb 6/8, exact sizeBytes).
+  3. `local-llm/src/test/.../LiteRtModelMetadataTest.kt`: added 2 tests asserting both derive TEXT+IMAGE modalities + TOOL ability.
+- **VERIFIED:** `./gradlew :local-llm:compileDebugKotlin` + `:app:compileDebugKotlin` BUILD SUCCESSFUL; `./gradlew :local-llm:test` BUILD SUCCESSFUL (new tests pass).
+- **Files changed:** LiteRtCatalog.kt, LiteRtModelConfig.kt, LiteRtModelMetadataTest.kt (all in local-llm). Nothing committed.
+
+---
+
+## Session: 2026-08-03 — XLSX/CSV document parsers
+
+**User request:** (m0235) "what about utilizing markdownify for unsupported filetypes?" — answered: markdownify is a server-side MCP tool, can't run in the Android app. The real gap: `DocumentAsPromptTransformer.readDocumentContent` fell through to `file.readText()` (binary garbage) for XLSX/CSV. User confirmed implementation (m0245: "yes").
+
+**Implemented (zero-dependency, matching DocxParser/PptxParser ZipInputStream/ZipFile + XmlPullParser pattern):**
+1. NEW `document/src/main/java/me/rerere/document/XlsxParser.kt`: object with `parse(file: File): String`. Resolves sheet order via `xl/workbook.xml` (`<sheet name r:id>`) + `xl/_rels/workbook.xml.rels` (Id→Target map, strips leading `/`). Parses `xl/sharedStrings.xml` (collects `<si>` text). Per-sheet: reads cells `<c r="A1" t="...">` into (colIndex, value) pairs via `columnIndexOf(cellRef)` (Excel column letters→0-based index), pads rows to maxCol, then `formatTable` → markdown table (header row + `--- |` separator, matching DocxParser style). Cell types: `t="s"` → shared string index lookup; `t="b"` → TRUE/FALSE; `t="inlineStr"` → inline `<is><t>` text; else numeric `<v>` raw. Helper `XmlPullParser.attributeValue(name)` iterates attributes (needed because `r:id` is namespace-qualified; uses `getAttributeName(i)` — NOT `getName(i)`, which was a compile error fixed at m0255).
+2. NEW `document/src/main/java/me/rerere/document/CsvParser.kt`: object with `parse(file: File): String`. Hand-rolled RFC-4180 state machine (inQuotes, `""` escape, comma/CR/LF delimiters, skips blank rows, handles trailing newline), then same `formatTable` markdown output.
+3. `app/.../data/ai/transformers/DocumentAsPromptTransformer.kt`: added imports + `parseXlsxAsText`/`parseCsvAsText` helpers; new MIME cases: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` → XlsxParser, `text/csv` + `application/csv` → CsvParser. PDF/DOCX/PPTX/EPUB unchanged.
+
+**VERIFIED:** `./gradlew :document:compileDebugKotlin :app:compileDebugKotlin` BUILD SUCCESSFUL; `./gradlew test` BUILD SUCCESSFUL.
+
+**Files changed:** 2 new files in document module + DocumentAsPromptTransformer.kt. Nothing committed.
