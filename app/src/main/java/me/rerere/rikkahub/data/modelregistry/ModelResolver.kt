@@ -67,6 +67,9 @@ object ModelResolver {
             request.globalAssignment to ResolutionSource.GLOBAL_ASSIGNMENT,
         ).forEach { (id, source) ->
             val model = id?.let(byId::get)
+            if (model != null && !policyAllows(model)) {
+                return ModelResolution.BlockedByPolicy(id, request.sourcePolicy)
+            }
             if (model != null && policyAllows(model) && model.canAutoResolve(capability) &&
                 model.providerEnabled &&
                 (model.source !is ModelSource.Local || model.lifecycle == ModelLifecycle.READY || model.installed)
