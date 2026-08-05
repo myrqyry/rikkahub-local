@@ -289,6 +289,9 @@ val appModule = module {
     single<me.rerere.rikkahub.data.modelregistry.ModelRegistry> {
         me.rerere.rikkahub.data.modelregistry.SettingsModelRegistry(get(), get(), get<me.rerere.rikkahub.AppScope>())
     }
+    single<me.rerere.rikkahub.data.modelregistry.LegacyModelAssignmentAdapter> {
+        me.rerere.rikkahub.data.modelregistry.SettingsLegacyModelAssignmentAdapter(get(), get<me.rerere.rikkahub.AppScope>())
+    }
 
     single {
         ChatService(
