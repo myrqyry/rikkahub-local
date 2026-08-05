@@ -27,11 +27,18 @@ import me.rerere.common.android.appTempFolder
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.datastore.findModelById
 import me.rerere.rikkahub.data.datastore.findProvider
+import me.rerere.rikkahub.data.datastore.getCurrentAssistant
 import me.rerere.rikkahub.data.db.entity.GenMediaEntity
 import me.rerere.rikkahub.data.files.FilesManager
+import me.rerere.rikkahub.data.modelregistry.ModelRegistry
+import me.rerere.rikkahub.data.modelregistry.ModelResolution
+import me.rerere.rikkahub.data.modelregistry.ModelRole
+import me.rerere.rikkahub.data.modelregistry.ModelRoleResolver
+import me.rerere.rikkahub.data.modelregistry.ModelSourcePolicy
 import me.rerere.rikkahub.data.repository.GenMediaRepository
 import java.io.File
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.uuid.Uuid
 
 @Serializable
 data class GeneratedImage(
@@ -61,6 +68,8 @@ class ImgGenVM(
     val providerManager: ProviderManager,
     val genMediaRepository: GenMediaRepository,
     private val filesManager: FilesManager,
+    private val modelRoleResolver: ModelRoleResolver,
+    private val modelRegistry: ModelRegistry,
 ) : AndroidViewModel(context) {
     private val _prompt = MutableStateFlow("")
     val prompt: StateFlow<String> = _prompt
@@ -143,7 +152,7 @@ class ImgGenVM(
                 _currentGeneratedImages.value = emptyList()
 
                 val settings = settingsStore.settingsFlow.first()
-                val model = settings.findModelById(settings.imageGenerationModelId)
+                val model = resolveModel(settings, ModelRole.IMAGE_GENERATION)
                     ?: throw IllegalStateException("No model selected")
 
                 val provider = model.findProvider(settings.providers)
@@ -190,7 +199,7 @@ class ImgGenVM(
                 _currentGeneratedImages.value = emptyList()
 
                 val settings = settingsStore.settingsFlow.first()
-                val model = settings.findModelById(settings.imageGenerationModelId)
+                val model = resolveModel(settings, ModelRole.IMAGE_EDITING)
                     ?: throw IllegalStateException("No model selected")
 
                 val provider = model.findProvider(settings.providers)
@@ -233,6 +242,18 @@ class ImgGenVM(
 
     fun cancelGeneration() {
         cancelJob?.cancel()
+    }
+
+    fun registryModels() = modelRegistry.models
+
+    private fun resolveModel(settings: me.rerere.rikkahub.data.datastore.Settings, role: ModelRole): me.rerere.ai.provider.Model? {
+        val assistant = settings.getCurrentAssistant()
+        val resolved = modelRoleResolver.resolve(role, assistant, settings, ModelSourcePolicy.ANY)
+        val id = when (resolved) {
+            is ModelResolution.Resolved -> resolved.model.id
+            else -> settings.imageGenerationModelId.toString()
+        }
+        return runCatching { settings.findModelById(Uuid.parse(id)) }.getOrNull()
     }
 
     private suspend fun collectImageGeneration(

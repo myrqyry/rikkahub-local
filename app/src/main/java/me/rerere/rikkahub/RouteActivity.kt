@@ -500,8 +500,8 @@ class RouteActivity : ComponentActivity() {
                                 SettingProviderDetailPage(id = id)
                             }
 
-                            entry<Screen.SettingModels> {
-                                UnifiedModelsPage()
+                            entry<Screen.SettingModels> { key ->
+                                UnifiedModelsPage(request = key.request)
                             }
 
                             entry<Screen.SettingAbout> {
@@ -786,7 +786,9 @@ sealed interface Screen : NavKey {
     data class SettingProviderDetail(val providerId: String) : Screen
 
     @Serializable
-    data object SettingModels : Screen
+    data class SettingModels(
+        val request: me.rerere.rikkahub.ui.pages.models.ModelsPageRequest = me.rerere.rikkahub.ui.pages.models.ModelsPageRequest(),
+    ) : Screen
 
     @Serializable
     data object SettingAbout : Screen

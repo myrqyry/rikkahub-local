@@ -39,7 +39,13 @@ import me.rerere.ai.provider.ModelType
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.db.entity.WorkspaceEntity
 import me.rerere.rikkahub.data.model.Assistant
+import me.rerere.rikkahub.data.modelregistry.ModelCapability
+import me.rerere.rikkahub.data.modelregistry.ModelRegistry
+import me.rerere.rikkahub.data.modelregistry.ModelRole
+import me.rerere.rikkahub.data.modelregistry.RegistryModelId
+import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.ui.components.ai.ModelSelector
+import me.rerere.rikkahub.ui.components.ai.RegistryModelSelector
 import me.rerere.rikkahub.ui.components.ai.ReasoningButton
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.FormItem
@@ -50,6 +56,7 @@ import me.rerere.rikkahub.ui.hooks.heroAnimation
 import me.rerere.rikkahub.ui.theme.CustomColors
 import me.rerere.rikkahub.utils.toFixed
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 import org.koin.core.parameter.parametersOf
 import kotlin.math.roundToInt
 import kotlin.uuid.Uuid
@@ -106,6 +113,9 @@ internal fun AssistantBasicContent(
     onUpdate: (Assistant) -> Unit,
     vm: AssistantDetailVM
 ) {
+    val registry: ModelRegistry = koinInject()
+    val registryModels by registry.models.collectAsStateWithLifecycle()
+    val navController = me.rerere.rikkahub.ui.context.LocalNavController.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -135,6 +145,57 @@ internal fun AssistantBasicContent(
                 modifier = Modifier
                     .size(80.dp)
                     .heroAnimation("assistant_${assistant.id}")
+            )
+        }
+
+        Card(colors = CustomColors.cardColorsOnSurfaceContainer) {
+            Text(
+                "AI capabilities",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(16.dp),
+            )
+            listOf(
+                ModelRole.VISION to ModelCapability.VISION,
+                ModelRole.OCR to ModelCapability.OCR,
+                ModelRole.IMAGE_GENERATION to ModelCapability.IMAGE_GENERATION,
+                ModelRole.IMAGE_EDITING to ModelCapability.IMAGE_EDITING,
+            ).forEach { (role, capability) ->
+                RegistryModelSelector(
+                    value = assistant.modelOverrides[role]?.value,
+                    models = registryModels,
+                    capability = capability,
+                    label = role.name.lowercase().replace('_', ' '),
+                    onSelect = { model ->
+                        onUpdate(assistant.copy(
+                            modelOverrides = assistant.modelOverrides + (role to RegistryModelId(model.id)),
+                        ))
+                    },
+                    onManage = {
+                        navController.navigate(Screen.SettingModels())
+                    },
+                )
+            }
+            FormItem(
+                modifier = Modifier.padding(8.dp),
+                label = { Text("Allow cloud attachment processing") },
+                description = { Text("Permit raw and derived attachment content to reach cloud models") },
+                tail = {
+                    Switch(
+                        checked = assistant.allowCloudAttachmentProcessing,
+                        onCheckedChange = { onUpdate(assistant.copy(allowCloudAttachmentProcessing = it)) },
+                    )
+                },
+            )
+            FormItem(
+                modifier = Modifier.padding(8.dp),
+                label = { Text("Allow cloud image processing") },
+                description = { Text("Permit cloud image generation, editing, and reference uploads") },
+                tail = {
+                    Switch(
+                        checked = assistant.allowCloudImageProcessing,
+                        onCheckedChange = { onUpdate(assistant.copy(allowCloudImageProcessing = it)) },
+                    )
+                },
             )
         }
 

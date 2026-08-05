@@ -192,7 +192,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     description = stringResource(R.string.setting_page_default_model_desc),
                     icon = HugeIcons.AiMagic,
                     keywords = listOf("chat model", "title model", "translation model"),
-                    onClick = { navController.navigate(Screen.SettingModels) },
+                    onClick = { navController.navigate(Screen.SettingModels()) },
                 ),
                 SettingsHomeItem(
                     id = "onDeviceModels",

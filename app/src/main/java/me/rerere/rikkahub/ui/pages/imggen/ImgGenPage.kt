@@ -84,7 +84,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import me.rerere.ai.provider.ModelType
 import me.rerere.ai.ui.ImageAspectRatio
 import me.rerere.common.android.appTempFolder
 import me.rerere.hugeicons.HugeIcons
@@ -101,12 +100,18 @@ import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.Settings
 import me.rerere.rikkahub.data.files.FileUtils
 import me.rerere.rikkahub.data.files.FilesManager
-import me.rerere.rikkahub.ui.components.ai.ModelSelector
+import me.rerere.rikkahub.Screen
+import me.rerere.rikkahub.data.modelregistry.ModelCapability
+import me.rerere.rikkahub.ui.components.ai.RegistryModelSelector
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.FormItem
 import me.rerere.rikkahub.ui.components.ui.ImagePreviewDialog
 import me.rerere.rikkahub.ui.components.ui.OutlinedNumberInput
 import me.rerere.rikkahub.ui.context.LocalToaster
+import me.rerere.rikkahub.ui.context.LocalNavController
+import me.rerere.rikkahub.ui.pages.models.ModelTab
+import me.rerere.rikkahub.ui.pages.models.ModelsFocus
+import me.rerere.rikkahub.ui.pages.models.ModelsPageRequest
 import me.rerere.rikkahub.utils.ImageUtils
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -245,6 +250,7 @@ private fun ImageGenScreen(
     val referenceImages by vm.referenceImages.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     val settings by vm.settingsStore.settingsFlow.collectAsStateWithLifecycle()
+    val registryModels by vm.registryModels().collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val toaster = LocalToaster.current
     var showSettingsSheet by remember { mutableStateOf(false) }
@@ -307,6 +313,7 @@ private fun ImageGenScreen(
             isGenerating = isGenerating,
             referenceImages = referenceImages,
             settings = settings,
+            registryModels = registryModels,
             onShowSettings = { showSettingsSheet = true },
             modifier = Modifier
         )
@@ -318,6 +325,7 @@ private fun ImageGenScreen(
             settings = settings,
             numberOfImages = numberOfImages,
             aspectRatio = aspectRatio,
+            registryModels = registryModels,
             scope = scope,
             sheetState = sheetState,
             onDismiss = { showSettingsSheet = false }
@@ -332,11 +340,13 @@ private fun InputBar(
     isGenerating: Boolean,
     referenceImages: List<String>,
     settings: Settings,
+    registryModels: List<me.rerere.rikkahub.data.modelregistry.ModelDescriptor>,
     onShowSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val navController = LocalNavController.current
     val imagePickerLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { selectedUris ->
             if (selectedUris.isNotEmpty()) {
@@ -388,18 +398,26 @@ private fun InputBar(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ModelSelector(
-                modelId = settings.imageGenerationModelId,
-                providers = settings.providers,
-                type = ModelType.IMAGE,
-                onlyIcon = true,
-                onSelect = { model ->
+            RegistryModelSelector(
+                value = settings.imageGenerationModelId.toString(),
+                models = registryModels,
+                capability = ModelCapability.IMAGE_GENERATION,
+                label = stringResource(R.string.imggen_page_model_selection),
+                onSelect = { descriptor ->
                     scope.launch {
-                        vm.settingsStore.update { oldSettings ->
-                            oldSettings.copy(imageGenerationModelId = model.id)
+                        runCatching { Uuid.parse(descriptor.id) }.getOrNull()?.let { id ->
+                            vm.settingsStore.update { oldSettings ->
+                                oldSettings.copy(imageGenerationModelId = id)
+                            }
                         }
                     }
-                }
+                },
+                onManage = {
+                    navController.navigate(Screen.SettingModels(ModelsPageRequest(
+                        tab = ModelTab.IMAGE,
+                        focus = ModelsFocus.MODELS,
+                    )))
+                },
             )
 
             IconButton(
@@ -686,10 +704,12 @@ private fun SettingsBottomSheet(
     settings: Settings,
     numberOfImages: Int,
     aspectRatio: ImageAspectRatio,
+    registryModels: List<me.rerere.rikkahub.data.modelregistry.ModelDescriptor>,
     scope: CoroutineScope,
     sheetState: SheetState,
     onDismiss: () -> Unit
 ) {
+    val navController = LocalNavController.current
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -712,18 +732,26 @@ private fun SettingsBottomSheet(
                 label = { Text(stringResource(R.string.imggen_page_model_selection)) },
                 description = { Text(stringResource(R.string.imggen_page_model_selection_desc)) }
             ) {
-                ModelSelector(
-                    modelId = settings.imageGenerationModelId,
-                    providers = settings.providers,
-                    type = ModelType.IMAGE,
-                    onlyIcon = false,
-                    onSelect = { model ->
+                RegistryModelSelector(
+                    value = settings.imageGenerationModelId.toString(),
+                    models = registryModels,
+                    capability = ModelCapability.IMAGE_GENERATION,
+                    label = stringResource(R.string.imggen_page_model_selection),
+                    onSelect = { descriptor ->
                         scope.launch {
-                            vm.settingsStore.update { oldSettings ->
-                                oldSettings.copy(imageGenerationModelId = model.id)
+                            runCatching { Uuid.parse(descriptor.id) }.getOrNull()?.let { id ->
+                                vm.settingsStore.update { oldSettings ->
+                                    oldSettings.copy(imageGenerationModelId = id)
+                                }
                             }
                         }
-                    }
+                    },
+                    onManage = {
+                        navController.navigate(Screen.SettingModels(ModelsPageRequest(
+                            tab = ModelTab.IMAGE,
+                            focus = ModelsFocus.MODELS,
+                        )))
+                    },
                 )
             }
 

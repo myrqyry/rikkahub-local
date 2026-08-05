@@ -1,13 +1,18 @@
 package me.rerere.rikkahub.ui.pages.models
 
+import kotlinx.serialization.Serializable
 import me.rerere.rikkahub.data.modelregistry.ModelCapability
 
+@Serializable
 enum class ModelTab { ALL, CHAT, VISION, IMAGE, SPEECH, EMBEDDINGS }
 
+@Serializable
 enum class ModelSourceFilter { ALL, LOCAL, CLOUD }
 
+@Serializable
 enum class ModelsFocus { ASSIGNMENTS, MODELS }
 
+@Serializable
 data class ModelsPageRequest(
     val tab: ModelTab = ModelTab.ALL,
     val search: String = "",
