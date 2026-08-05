@@ -139,5 +139,40 @@ object LiteRtModelDefaults {
         // DeepSeek-R1-Distill-Qwen-1.5B intentionally removed: it is a reasoning
         // distillation, not instruction/tool tuned, so it does not support the
         // prompt-engineered tool calling the agent loop depends on. See LiteRtCatalog.
+
+        // SmolVLM2-500M — lightweight multimodal VLM (image understanding / OCR).
+        LiteRtModelConfig(
+            modelFile = "SmolVLM2-500M.litertlm",
+            topK = 64,
+            topP = 0.95,
+            temperature = 1.0,
+            maxTokens = 4096,
+            maxContextLength = null,
+            preferredAccelerators = listOf("gpu", "cpu"),
+            visionAccelerator = "gpu",
+            supportsImage = true,
+            supportsAudio = false,
+            supportsThinking = false,
+            supportsSpeculativeDecoding = false,
+            minDeviceMemoryGb = 6,
+            sizeBytes = 361052336L,
+        ),
+        // FastVLM-0.5B — efficient multimodal VLM (image understanding / OCR).
+        LiteRtModelConfig(
+            modelFile = "FastVLM-0.5B.litertlm",
+            topK = 64,
+            topP = 0.95,
+            temperature = 1.0,
+            maxTokens = 4096,
+            maxContextLength = null,
+            preferredAccelerators = listOf("gpu", "cpu"),
+            visionAccelerator = "gpu",
+            supportsImage = true,
+            supportsAudio = false,
+            supportsThinking = false,
+            supportsSpeculativeDecoding = false,
+            minDeviceMemoryGb = 8,
+            sizeBytes = 1156342768L,
+        ),
     )
 }

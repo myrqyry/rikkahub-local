@@ -36,7 +36,9 @@ object LiteRtCatalog {
      *     file. Verified present: litert-community/gemma-4-E2B-it-litert-lm,
      *     litert-community/gemma-4-E4B-it-litert-lm, litert-community/Qwen2.5-1.5B-Instruct,
      *     litert-community/functiongemma-270m-ft-mobile-actions (gated=auto, gemma license —
-     *     tool-calling capable; gating is irrelevant under the link-only policy).
+     *     tool-calling capable; gating is irrelevant under the link-only policy),
+     *     litert-community/SmolVLM2-500M, litert-community/FastVLM-0.5B (multimodal vision
+     *     models — OCR-capable, see tags).
      *  2. **Tool-calling capable.** RikkaHub drives these models through the prompt-engineered
      *     tool protocol in LiteRtToolPrefix, so the model must be instruction-tuned for tool /
      *     function calling. Dropped on this rule: DeepSeek-R1-Distill-Qwen-1.5B (a reasoning
@@ -82,6 +84,30 @@ object LiteRtCatalog {
             minDeviceMemoryGb = 4,
             recommended = false,
             tags = listOf("tool-calling"),
+        ),
+        // Multimodal vision models — these double as on-device OCR: pick one as the OCR
+        // model (Settings → Model → OCR) and images get transcribed locally instead of
+        // hitting a cloud vision API. Not tool-tuned like the LLM entries above, so use
+        // them for image understanding, not the agent tool loop.
+        LiteRtCatalogEntry(
+            displayName = "SmolVLM2-500M",
+            modelId = "litert-community/SmolVLM2-500M",
+            modelFile = "SmolVLM2-500M.litertlm",
+            description = "A variant of HuggingFace's SmolVLM2-500M-Instruct ready for deployment on Android using LiteRT-LM. Lightweight multimodal VLM — ideal for on-device OCR and image understanding.",
+            sizeBytes = 361052336L,
+            minDeviceMemoryGb = 6,
+            recommended = false,
+            tags = listOf("multimodal", "ocr"),
+        ),
+        LiteRtCatalogEntry(
+            displayName = "FastVLM-0.5B",
+            modelId = "litert-community/FastVLM-0.5B",
+            modelFile = "FastVLM-0.5B.litertlm",
+            description = "FastVLM-0.5B built for LiteRT-LM on Android. Fast, efficient multimodal vision model for on-device OCR and image understanding.",
+            sizeBytes = 1156342768L,
+            minDeviceMemoryGb = 8,
+            recommended = false,
+            tags = listOf("multimodal", "ocr"),
         ),
     )
 

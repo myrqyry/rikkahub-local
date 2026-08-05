@@ -67,6 +67,26 @@ class LiteRtModelMetadataTest {
     }
 
     @Test
+    fun `SmolVLM2-500M derives multimodal + tool (on-device OCR)`() {
+        val caps = LiteRtModelMetadata.deriveCapabilities("SmolVLM2-500M.litertlm")
+        assertEquals(
+            listOf(Modality.TEXT, Modality.IMAGE),
+            caps.inputModalities,
+        )
+        assertEquals(listOf(ModelAbility.TOOL), caps.abilities)
+    }
+
+    @Test
+    fun `FastVLM-0_5B derives multimodal + tool (on-device OCR)`() {
+        val caps = LiteRtModelMetadata.deriveCapabilities("FastVLM-0.5B.litertlm")
+        assertEquals(
+            listOf(Modality.TEXT, Modality.IMAGE),
+            caps.inputModalities,
+        )
+        assertEquals(listOf(ModelAbility.TOOL), caps.abilities)
+    }
+
+    @Test
     fun `merge preserves user-set abilities and modalities, only adds catalog ones`() {
         val current = LiteRtModelMetadata.Capabilities(
             inputModalities = listOf(Modality.TEXT),
