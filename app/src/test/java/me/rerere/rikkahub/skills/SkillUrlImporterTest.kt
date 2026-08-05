@@ -6,6 +6,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayInputStream
 
 /**
  * Pure-logic tests for SkillUrlImporter — URL guard + format detection + tool-name
@@ -128,6 +129,17 @@ class SkillUrlImporterTest {
         val r = importer.importFromText(huge, sourceLabel = null)
         assertTrue(r is SkillUrlImporter.Result.Err)
         assertEquals("body_too_large", (r as SkillUrlImporter.Result.Err).code)
+    }
+
+    @Test fun `bounded response reader rejects oversized body with actual and limit`() {
+        val oversized = ByteArray(SkillUrlImporter.MAX_BODY_BYTES + 1)
+        val error = runCatching {
+            importer.readBoundedBody(ByteArrayInputStream(oversized))
+        }.exceptionOrNull()
+        assertNotNull(error)
+        val message = error?.message.orEmpty()
+        assertTrue(message.contains("at least ${SkillUrlImporter.MAX_BODY_BYTES + 1} bytes"))
+        assertTrue(message.contains("limit ${SkillUrlImporter.MAX_BODY_BYTES} bytes"))
     }
 
     @Test fun `empty body rejected`() {

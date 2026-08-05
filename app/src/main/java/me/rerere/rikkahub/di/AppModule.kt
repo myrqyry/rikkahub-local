@@ -25,6 +25,7 @@ import me.rerere.rikkahub.utils.UpdateChecker
 import me.rerere.rikkahub.web.WebServerManager
 import me.rerere.tts.provider.TTSManager
 import org.koin.dsl.module
+import org.koin.core.qualifier.named
 
 val appModule = module {
     single<Json> { JsonInstant }
@@ -117,6 +118,42 @@ val appModule = module {
     single {
         me.rerere.rikkahub.skills.SkillUrlImporter(
             skillManager = get<me.rerere.rikkahub.data.files.SkillManager>(),
+        )
+    }
+
+    single {
+        me.rerere.rikkahub.skills.imports.ArtifactProvenanceStore(
+            directory = java.io.File(get<android.content.Context>().filesDir, "import-provenance"),
+            json = get(),
+        )
+    }
+    single<me.rerere.rikkahub.skills.imports.ArtifactSourceAdapter>(named("skillImportAdapter")) {
+        me.rerere.rikkahub.skills.imports.SkillUrlAdapter(get())
+    }
+    single<me.rerere.rikkahub.skills.imports.ArtifactSourceAdapter>(named("githubPluginImportAdapter")) {
+        me.rerere.rikkahub.skills.imports.GitHubPluginAdapter(get(), get())
+    }
+    single {
+        me.rerere.rikkahub.skills.imports.ImportCoordinator(
+            adapters = listOf(get(named("githubPluginImportAdapter")), get(named("skillImportAdapter"))),
+            provenanceStore = get(),
+            installSkill = { candidate ->
+                val payload = candidate.payload as me.rerere.rikkahub.skills.imports.ImportPayload.SkillText
+                get<me.rerere.rikkahub.skills.SkillUrlImporter>().importFromText(payload.body, candidate.provenance.source)
+                    .let { result ->
+                        if (result is me.rerere.rikkahub.skills.SkillUrlImporter.Result.Ok) {
+                            Result.success(me.rerere.rikkahub.skills.imports.InstalledArtifact(candidate.name))
+                        } else {
+                            Result.failure(IllegalStateException(result.toString()))
+                        }
+                    }
+            },
+            installPlugin = { candidate ->
+                val payload = candidate.payload as me.rerere.rikkahub.skills.imports.ImportPayload.PluginArchive
+                get<me.rerere.rikkahub.skills.plugins.PluginManager>()
+                    .installFromPreparedArchive(payload.file)
+                    .map { installed -> me.rerere.rikkahub.skills.imports.InstalledArtifact(installed.name) }
+            },
         )
     }
 

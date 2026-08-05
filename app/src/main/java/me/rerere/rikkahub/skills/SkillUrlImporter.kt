@@ -3,9 +3,13 @@ package me.rerere.rikkahub.skills
 import me.rerere.rikkahub.data.files.SkillFrontmatterParser
 import me.rerere.rikkahub.data.files.SkillManager
 import me.rerere.rikkahub.data.files.SkillMetadata
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.contentOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.InputStream
 import java.net.InetAddress
 import java.net.URI
 import java.util.concurrent.TimeUnit
@@ -44,6 +48,13 @@ class SkillUrlImporter(
     private val httpClient: OkHttpClient = defaultClient(),
 ) {
 
+    data class PreparedSkill(
+        val name: String,
+        val description: String,
+        val body: String,
+        val format: SkillFormat,
+    )
+
     /** Convenience constructor for production wiring — bridges the SkillManager. */
     constructor(skillManager: SkillManager) : this(skillManager.asSaver())
 
@@ -57,13 +68,34 @@ class SkillUrlImporter(
     suspend fun importFromUrl(url: String, overrideName: String? = null): Result {
         val urlCheck = checkUrl(url)
         if (urlCheck != null) return Result.Err(urlCheck.first, urlCheck.second)
+        val prepared = prepareFromUrl(url, overrideName)
+        return prepared.fold(
+            onSuccess = { skill ->
+                skillManager.saveSkill(skill.name, skill.body)
+                    ?.let { Result.Ok(it, skill.format) }
+                    ?: Result.Err("save_failed", "could not write skill files")
+            },
+            onFailure = {
+                if (it is UrlFetchException) {
+                    val detail = it.message ?: "network error"
+                    val code = if (detail.startsWith("skill body exceeds")) "body_too_large" else "fetch_failed"
+                    Result.Err(code, detail)
+                } else preparationError(it)
+            },
+        )
+    }
 
-        val raw = try {
-            fetch(url)
-        } catch (t: Throwable) {
-            return Result.Err("fetch_failed", t.message ?: "network error")
+    suspend fun prepareFromUrl(url: String, overrideName: String? = null): kotlin.Result<PreparedSkill> {
+        val urlCheck = checkUrl(url)
+        if (urlCheck != null) return kotlin.Result.failure(IllegalArgumentException(urlCheck.second))
+        return try {
+            withContext(Dispatchers.IO) {
+                kotlin.Result.success(prepareFromText(fetch(url), url, overrideName).getOrThrow())
+            }
+        } catch (throwable: Throwable) {
+            throwable.rethrowCancellation()
+            kotlin.Result.failure(throwable)
         }
-        return importFromText(raw, sourceLabel = url, overrideName = overrideName)
     }
 
     /**
@@ -85,8 +117,33 @@ class SkillUrlImporter(
      * skill's frontmatter for audit. Pass null and the importer uses "imported".
      */
     fun importFromText(rawBody: String, sourceLabel: String? = null, overrideName: String? = null): Result {
+        return prepareFromText(rawBody, sourceLabel, overrideName).fold(
+            onSuccess = { skill ->
+                skillManager.saveSkill(skill.name, skill.body)
+                    ?.let { Result.Ok(it, skill.format) }
+                    ?: Result.Err("save_failed", "could not write skill files")
+            },
+            onFailure = ::preparationError,
+        )
+    }
+
+    private fun preparationError(error: Throwable): Result.Err {
+        val message = error.message.orEmpty()
+        val code = when {
+            message == "skill body is empty" -> "empty_body"
+            message.startsWith("skill body exceeds") -> "body_too_large"
+            message.startsWith("URL returned HTML") -> "html_response"
+            message.startsWith("could not parse") -> "transcode_failed"
+            message == "imported skill has no 'name'" -> "missing_name"
+            message.startsWith("invalid skill name") -> "invalid_name"
+            else -> "import_failed"
+        }
+        return Result.Err(code, message.ifBlank { "could not prepare skill" })
+    }
+
+    fun prepareFromText(rawBody: String, sourceLabel: String? = null, overrideName: String? = null): kotlin.Result<PreparedSkill> {
         val raw = rawBody
-        if (raw.isBlank()) return Result.Err("empty_body", "skill body is empty")
+        if (raw.isBlank()) return kotlin.Result.failure(IllegalArgumentException("skill body is empty"))
         // Reject HTML pages early. clawhub.ai and similar landing pages return a full
         // HTML document instead of the raw SKILL.md, and our openclaw fallback parser
         // happily extracted the first non-blank line of <!doctype html>… as the skill
@@ -96,31 +153,35 @@ class SkillUrlImporter(
         if (sniff.startsWith("<!doctype") || sniff.startsWith("<html") ||
             sniff.startsWith("<head") || sniff.startsWith("<body") ||
             sniff.startsWith("<?xml")) {
-            return Result.Err(
-                "html_response",
-                "URL returned HTML, not a skill file. Use the raw SKILL.md URL (e.g. raw.githubusercontent.com path), not the web page URL."
-            )
+            return kotlin.Result.failure(IllegalArgumentException(
+                "URL returned HTML, not a skill file. Use the raw SKILL.md URL (for example, a raw.githubusercontent.com path), not the web page URL"
+            ))
         }
-        if (raw.length > MAX_BODY_BYTES) return Result.Err("body_too_large",
-            "skill body exceeds ${MAX_BODY_BYTES / 1024}KB cap (got ${raw.length / 1024}KB)")
+        val rawBytes = raw.toByteArray(Charsets.UTF_8)
+        if (rawBytes.size > MAX_BODY_BYTES) {
+            return kotlin.Result.failure(IllegalArgumentException(
+                "skill body exceeds ${MAX_BODY_BYTES / 1024}KB cap (got ${rawBytes.size} bytes, limit $MAX_BODY_BYTES bytes)"
+            ))
+        }
 
         val sourceForFrontmatter = sourceLabel?.takeIf { it.isNotBlank() } ?: "imported"
         val format = detectFormat(raw)
         val nativeMd: String = when (format) {
             SkillFormat.NATIVE -> raw
             SkillFormat.OPENCLAW -> transcodeFromOpenclaw(raw, sourceUrl = sourceForFrontmatter, override = overrideName)
-                ?: return Result.Err("transcode_failed", "could not parse openclaw skill body")
+                ?: return kotlin.Result.failure(IllegalArgumentException("could not parse openclaw skill body"))
             SkillFormat.HERMES -> transcodeFromHermes(raw, sourceUrl = sourceForFrontmatter, override = overrideName)
-                ?: return Result.Err("transcode_failed", "could not parse Hermes skill JSON")
+                ?: return kotlin.Result.failure(IllegalArgumentException("could not parse Hermes skill JSON"))
         }
 
         // Pull name / description out of the (now-canonical) frontmatter for the saved-skill record.
         val frontmatter = SkillFrontmatterParser.parse(nativeMd)
         val name = (overrideName?.takeIf { it.isNotBlank() } ?: frontmatter["name"])?.trim()
-            ?: return Result.Err("missing_name", "imported skill has no 'name'")
+            ?: return kotlin.Result.failure(IllegalArgumentException("imported skill has no 'name'"))
         if (!isValidSkillName(name)) {
-            return Result.Err("invalid_name",
-                "skill name must be 1..40 chars, [a-z0-9-_] (got '$name')")
+            return kotlin.Result.failure(IllegalArgumentException(
+                "invalid skill name: $name (use 1-40 lowercase letters, numbers, hyphens, or underscores)"
+            ))
         }
         val withSourceUrl = ensureSourceUrl(nativeMd, sourceForFrontmatter)
         // If the user overrode the name, rewrite the frontmatter's `name:` line too — otherwise
@@ -129,9 +190,8 @@ class SkillUrlImporter(
         val finalBody = if (overrideName != null && overrideName.isNotBlank())
             rewriteFrontmatterName(withSourceUrl, name) else withSourceUrl
 
-        val metadata = skillManager.saveSkill(name, finalBody)
-            ?: return Result.Err("save_failed", "could not write skill files")
-        return Result.Ok(metadata, format)
+        val description = frontmatter["description"].orEmpty()
+        return kotlin.Result.success(PreparedSkill(name, description, finalBody, format))
     }
 
     /** Replace the `name: <whatever>` line inside the YAML frontmatter, preserving the rest. */
@@ -151,18 +211,57 @@ class SkillUrlImporter(
     }
 
     private fun fetch(url: String): String {
-        val req = Request.Builder()
-            .url(url)
-            .header("User-Agent", "rikkahub-agent/skill-importer")
-            .header("Accept", "text/markdown, text/plain, application/json, */*")
-            .build()
-        httpClient.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) {
-                throw RuntimeException("HTTP ${resp.code}")
+        var current = url
+        repeat(MAX_REDIRECTS + 1) { hop ->
+            val req = Request.Builder()
+                .url(current)
+                .header("User-Agent", "rikkahub-agent/skill-importer")
+                .header("Accept", "text/markdown, text/plain, application/json, */*")
+                .build()
+            httpClient.newCall(req).execute().use { resp ->
+                if (resp.isRedirect) {
+                    if (hop == MAX_REDIRECTS) throw UrlFetchException("too many redirects")
+                    val location = resp.header("Location")
+                        ?: throw UrlFetchException("redirect missing Location")
+                    val target = runCatching { URI(current).resolve(location).toString() }
+                        .getOrElse { throw UrlFetchException("invalid redirect target") }
+                    val check = checkUrl(target)
+                    if (check != null) throw UrlFetchException(check.second)
+                    current = target
+                    return@use
+                }
+                if (!resp.isSuccessful) {
+                    throw UrlFetchException("HTTP ${resp.code}")
+                }
+                val body = resp.body ?: throw UrlFetchException("response body was empty")
+                val bytes = body.byteStream().use(::readBoundedBody)
+                return bytes.toString(Charsets.UTF_8)
             }
-            return resp.body.string()
         }
+        error("unreachable")
     }
+
+    /** Reads one extra byte so callers can reject oversized bodies before decoding them. */
+    internal fun readBoundedBody(input: InputStream): ByteArray {
+        val output = java.io.ByteArrayOutputStream(minOf(MAX_BODY_BYTES, 8192))
+        val buffer = ByteArray(8192)
+        var total = 0
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            if (count == 0) continue
+            total += count
+            if (total > MAX_BODY_BYTES) {
+                throw UrlFetchException(
+                    "skill body exceeds ${MAX_BODY_BYTES / 1024}KB cap (got at least $total bytes, limit $MAX_BODY_BYTES bytes)"
+                )
+            }
+            output.write(buffer, 0, count)
+        }
+        return output.toByteArray()
+    }
+
+    private class UrlFetchException(message: String) : RuntimeException(message)
 
     private fun detectFormat(raw: String): SkillFormat {
         val trimmed = raw.trimStart()
@@ -322,13 +421,18 @@ class SkillUrlImporter(
         return if (cleaned.isBlank()) "imported-skill" else cleaned.take(40)
     }
 
+    private fun Throwable.rethrowCancellation() {
+        if (this is CancellationException) throw this
+    }
+
     companion object {
         const val MAX_BODY_BYTES = 256 * 1024  // 256 KB
+        private const val MAX_REDIRECTS = 5
 
         fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
-            .followRedirects(true)
+            .followRedirects(false)
             .build()
             .also { me.rerere.rikkahub.utils.NetworkChangeMonitor.register(it) }
     }
@@ -405,4 +509,3 @@ object ToolNameTranscoder {
         return out
     }
 }
-

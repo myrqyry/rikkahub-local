@@ -2,6 +2,7 @@ package me.rerere.rikkahub.skills.plugins
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.buildJsonObject
@@ -19,7 +20,7 @@ import me.rerere.workspace.WorkspaceManager
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
-import java.io.ByteArrayInputStream
+import java.io.FileInputStream
 import java.util.zip.ZipInputStream
 
 class PluginManager(
@@ -77,10 +78,12 @@ class PluginManager(
         val hasTools: Boolean,
     )
 
-    suspend fun installFromUrl(input: String): Result<Unit> = runCatching {
+    data class InstalledPlugin(val name: String)
+
+    suspend fun installFromUrl(input: String): Result<Unit> = try {
         val (owner, repo) = parsePluginRef(input.trim())
 
-        withContext(Dispatchers.IO) {
+        val archive = withContext(Dispatchers.IO) {
             val request = Request.Builder()
                 .url("https://api.github.com/repos/$owner/$repo/zipball")
                 .header("Accept", "application/vnd.github+json")
@@ -95,14 +98,32 @@ class PluginManager(
                 error("plugin archive exceeds ${MAX_ARCHIVE_BYTES / 1024 / 1024} MB")
             }
 
-            val tempDir = File(context.cacheDir, "plugin_${repo}")
-            tempDir.deleteRecursively()
-            tempDir.mkdirs()
+            File(context.cacheDir, "plugin-$repo-${System.nanoTime()}.zip").also { it.writeBytes(body) }
+        }
+        try {
+            installFromPreparedArchive(archive).getOrThrow().let { Unit }
+        } finally {
+            archive.delete()
+        }
+        Result.success(Unit)
+    } catch (throwable: Throwable) {
+        throwable.rethrowCancellation()
+        Result.failure(throwable)
+    }
 
+    suspend fun installFromPreparedArchive(archive: File): Result<InstalledPlugin> = try {
+        val installed = withContext(Dispatchers.IO) {
+            require(archive.isFile) { "prepared plugin archive is missing" }
+            require(archive.length() <= MAX_ARCHIVE_BYTES) {
+                "plugin archive exceeds ${MAX_ARCHIVE_BYTES / 1024 / 1024} MB"
+            }
+
+            val tempDir = File(context.cacheDir, "plugin-install-${System.nanoTime()}")
+            tempDir.mkdirs()
             try {
                 var entryCount = 0
                 var uncompressedBytes = 0L
-                ZipInputStream(ByteArrayInputStream(body)).use { zis ->
+                FileInputStream(archive).use { input -> ZipInputStream(input).use { zis ->
                 var entry = zis.nextEntry
                 while (entry != null) {
                     if (++entryCount > MAX_ARCHIVE_ENTRIES) error("plugin archive has too many files")
@@ -123,7 +144,7 @@ class PluginManager(
                     zis.closeEntry()
                     entry = zis.nextEntry
                 }
-                }
+                } }
 
                 val manifests = tempDir.walkTopDown()
                 .filter { it.isFile && it.name == "plugin.json" }
@@ -150,14 +171,31 @@ class PluginManager(
                     backupDir.renameTo(pluginDir)
                     error("could not activate plugin")
                 }
-                backupDir.deleteRecursively()
-
-                registerPluginCommands(manifest)
-                refreshInventory()
+                val commandRollbackState = commandRollbackFor(manifest)
+                val commandRollback = try {
+                    registerPluginCommands(manifest, commandRollbackState)
+                } catch (throwable: Throwable) {
+                    rollbackPluginActivation(pluginDir, backupDir, stagingDir, manifest.name, commandRollbackState)
+                    throw throwable
+                }
+                try {
+                    refreshInventory()
+                    if (backupDir.exists() && !backupDir.deleteRecursively()) {
+                        error("could not remove plugin backup: ${backupDir.path}")
+                    }
+                } catch (throwable: Throwable) {
+                    rollbackPluginActivation(pluginDir, backupDir, stagingDir, manifest.name, commandRollback)
+                    throw throwable
+                }
+                InstalledPlugin(manifest.name)
             } finally {
                 tempDir.deleteRecursively()
             }
         }
+        Result.success(installed)
+    } catch (throwable: Throwable) {
+        throwable.rethrowCancellation()
+        Result.failure(throwable)
     }
 
     suspend fun uninstall(name: String) {
@@ -241,21 +279,80 @@ class PluginManager(
         }
     }
 
-    private fun registerPluginCommands(manifest: PluginManifest) {
+    private data class CommandRollback(
+        val previousTracked: List<String>,
+        val previousCommands: Map<String, SlashCommand?>,
+        val newCommands: List<String>,
+    )
+
+    private fun commandRollbackFor(manifest: PluginManifest): CommandRollback {
+        val previousTracked = registeredCommands[manifest.name].orEmpty().toList()
+        val previousCommands = mutableMapOf<String, SlashCommand?>()
+        (previousTracked + manifest.commands.map { "${manifest.name}:${it.name}" })
+            .distinct()
+            .forEach { name -> previousCommands[name] = registry.get(name) }
+        return CommandRollback(previousTracked, previousCommands, emptyList())
+    }
+
+    private fun registerPluginCommands(manifest: PluginManifest, rollback: CommandRollback): CommandRollback {
         val cmdNames = mutableListOf<String>()
-        manifest.commands.forEach { cmd ->
-            val qualifiedName = "${manifest.name}:${cmd.name}"
-            registry.register(
-                SlashCommand(
-                    name = qualifiedName,
-                    description = cmd.description,
-                    args = cmd.args.map { SlashCommandArg(it.name, it.description, it.required) },
-                    handler = { Result.success("Plugin command /$qualifiedName executed") },
+        try {
+            val newNames = manifest.commands.map { "${manifest.name}:${it.name}" }.toSet()
+            rollback.previousTracked.forEach { oldName ->
+                if (oldName !in newNames) {
+                    registry.unregister(oldName)
+                }
+            }
+            manifest.commands.forEach { cmd ->
+                val qualifiedName = "${manifest.name}:${cmd.name}"
+                registry.register(
+                    SlashCommand(
+                        name = qualifiedName,
+                        description = cmd.description,
+                        args = cmd.args.map { SlashCommandArg(it.name, it.description, it.required) },
+                        handler = { Result.success("Plugin command /$qualifiedName executed") },
+                    )
                 )
-            )
-            cmdNames.add(qualifiedName)
+                cmdNames.add(qualifiedName)
+            }
+            registeredCommands[manifest.name] = cmdNames
+            return rollback.copy(newCommands = cmdNames)
+        } catch (throwable: Throwable) {
+            restoreCommands(manifest.name, rollback.copy(newCommands = cmdNames))
+            throw throwable
         }
-        registeredCommands[manifest.name] = cmdNames
+    }
+
+    private fun rollbackPluginActivation(
+        pluginDir: File,
+        backupDir: File,
+        stagingDir: File,
+        pluginName: String,
+        commandRollback: CommandRollback,
+    ) {
+        var rollbackFailure: Throwable? = null
+        try {
+            restoreCommands(pluginName, commandRollback)
+        } catch (throwable: Throwable) {
+            rollbackFailure = throwable
+        }
+
+        try {
+            restorePluginActivationFiles(pluginDir, backupDir, stagingDir)
+        } catch (fileFailure: Throwable) {
+            if (rollbackFailure == null) rollbackFailure = fileFailure
+            else rollbackFailure?.addSuppressed(fileFailure)
+        }
+        rollbackFailure?.let { throw it }
+    }
+
+    private fun restoreCommands(pluginName: String, commandRollback: CommandRollback) {
+        commandRollback.newCommands.forEach { registry.unregister(it) }
+        commandRollback.previousCommands.forEach { (name, command) ->
+            if (command != null) registry.register(command) else registry.unregister(name)
+        }
+        if (commandRollback.previousTracked.isEmpty()) registeredCommands.remove(pluginName)
+        else registeredCommands[pluginName] = commandRollback.previousTracked.toMutableList()
     }
 
     private fun safeZipTarget(root: File, entryName: String): File {
@@ -277,4 +374,21 @@ class PluginManager(
         return dir
     }
 
+    private fun Throwable.rethrowCancellation() {
+        if (this is CancellationException) throw this
+    }
+
+}
+
+/** Restores the previous plugin while retaining the backup if activation cannot be undone. */
+internal fun restorePluginActivationFiles(pluginDir: File, backupDir: File, stagingDir: File) {
+    if (pluginDir.exists() && !pluginDir.deleteRecursively()) {
+        error("could not remove failed plugin activation: ${pluginDir.path}")
+    }
+    if (backupDir.exists() && !backupDir.renameTo(pluginDir)) {
+        error("could not restore previous plugin; backup retained at ${backupDir.path}")
+    }
+    if (stagingDir.exists() && !stagingDir.deleteRecursively()) {
+        error("could not remove plugin staging directory: ${stagingDir.path}")
+    }
 }
