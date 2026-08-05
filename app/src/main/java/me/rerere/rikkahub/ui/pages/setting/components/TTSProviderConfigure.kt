@@ -321,7 +321,10 @@ private fun OpenAITTSConfiguration(
 
     // Voice
     var voiceExpanded by remember { mutableStateOf(false) }
-    val voices = listOf("alloy", "echo", "fable", "onyx", "nova", "shimmer")
+    val voices = listOf(
+        "alloy", "ash", "ballad", "coral", "echo", "fable", "nova",
+        "onyx", "sage", "shimmer", "verse", "marin", "cedar"
+    )
 
     FormItem(
         label = { Text(stringResource(R.string.setting_tts_page_voice)) },
@@ -599,18 +602,50 @@ private fun GeminiTTSConfiguration(
     }
 
     // Voice Name
+    var voiceExpanded by remember { mutableStateOf(false) }
+    val voices = listOf(
+        "Zephyr", "Puck", "Charon", "Kore", "Fenrir", "Leda", "Orus", "Aoede",
+        "Callirrhoe", "Autonoe", "Enceladus", "Iapetus", "Umbriel", "Algieba",
+        "Despina", "Erinome", "Algenib", "Rasalgethi", "Laomedeia", "Achernar",
+        "Alnilam", "Schedar", "Gacrux", "Pulcherrima", "Achird", "Zubenelgenubi",
+        "Vindemiatrix", "Sadachbia", "Sadaltager", "Sulafat"
+    )
+
     FormItem(
         label = { Text(stringResource(R.string.setting_tts_page_voice_name)) },
         description = { Text(stringResource(R.string.setting_tts_page_voice_name_description)) }
     ) {
-        OutlinedTextField(
-            value = setting.voiceName,
-            onValueChange = { newVoiceName ->
-                onValueChange(setting.copy(voiceName = newVoiceName))
-            },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text(stringResource(R.string.setting_tts_page_voice_name_placeholder)) }
-        )
+        ExposedDropdownMenuBox(
+            expanded = voiceExpanded,
+            onExpandedChange = { voiceExpanded = !voiceExpanded }
+        ) {
+            OutlinedTextField(
+                value = setting.voiceName,
+                onValueChange = { newVoiceName ->
+                    onValueChange(setting.copy(voiceName = newVoiceName))
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable),
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = voiceExpanded)
+                }
+            )
+            ExposedDropdownMenu(
+                expanded = voiceExpanded,
+                onDismissRequest = { voiceExpanded = false }
+            ) {
+                voices.forEach { voice ->
+                    DropdownMenuItem(
+                        text = { Text(voice) },
+                        onClick = {
+                            voiceExpanded = false
+                            onValueChange(setting.copy(voiceName = voice))
+                        }
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -844,9 +879,23 @@ private fun GroqTTSConfiguration(
         )
     }
 
-    // Voice
+    // Voice (canopylabs/orpheus-v1-english: autumn, diana, hannah, austin, daniel, troy)
+    // Voice (canopylabs/orpheus-arabic-saudi: abdullah, fahad, sultan, lulwa, noura, aisha)
     var voiceExpanded by remember { mutableStateOf(false) }
-    val voices = listOf("austin", "natalie", "kailin")
+    val voices = listOf(
+        "austin",
+        "autumn",
+        "daniel",
+        "diana",
+        "hannah",
+        "troy",
+        "abdullah",
+        "fahad",
+        "sultan",
+        "lulwa",
+        "noura",
+        "aisha"
+    )
 
     FormItem(
         label = { Text(stringResource(R.string.setting_tts_page_voice)) },
@@ -924,11 +973,32 @@ private fun XAITTSConfiguration(
     // Voice ID
     var voiceExpanded by remember { mutableStateOf(false) }
     val voices = listOf(
-        "eve" to "Eve",
+        "altair" to "Altair",
         "ara" to "Ara",
+        "atlas" to "Atlas",
+        "carina" to "Carina",
+        "castor" to "Castor",
+        "celeste" to "Celeste",
+        "cosmo" to "Cosmo",
+        "eve" to "Eve",
+        "helios" to "Helios",
+        "helix" to "Helix",
+        "iris" to "Iris",
+        "kepler" to "Kepler",
+        "leo" to "Leo",
+        "lumen" to "Lumen",
+        "luna" to "Luna",
+        "lux" to "Lux",
+        "naksh" to "Naksh",
+        "orion" to "Orion",
+        "perseus" to "Perseus",
         "rex" to "Rex",
+        "rigel" to "Rigel",
         "sal" to "Sal",
-        "leo" to "Leo"
+        "sirius" to "Sirius",
+        "ursa" to "Ursa",
+        "zenith" to "Zenith",
+        "zagan" to "Zagan"
     )
 
     FormItem(
