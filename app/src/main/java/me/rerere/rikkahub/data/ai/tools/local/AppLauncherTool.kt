@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.core.net.toUri
 import kotlinx.coroutines.delay
-import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -28,21 +27,23 @@ private suspend fun waitForForegroundPackage(
     val deadline = System.currentTimeMillis() + timeoutMs
     var current: String? = null
     while (System.currentTimeMillis() < deadline) {
-        val svc = RikkaAccessibilityService.instance ?: return null
-        current = svc.rootInActiveWindow?.packageName?.toString()
+        val service = RikkaAccessibilityService.instance ?: return null
+        current = service.rootInActiveWindow?.packageName?.toString()
         if (current == expectedPkg) return current
         delay(stepMs)
     }
     return current
 }
 
+private fun resolveActivityName(packageName: String, rawActivityName: String): String =
+    if (rawActivityName.startsWith('.')) packageName + rawActivityName else rawActivityName
+
 /**
- * Launches an installed app by package name. Useful when the LLM needs to bring a specific
- * app to the foreground before performing screen automation gestures (taps/swipes), or when
- * the user explicitly asks to "open Termux" / "open Settings" / etc.
+ * Opens either an app's normal launcher entry point or one explicit exported activity.
  *
- * The companion list_installed_apps tool exposes available package names so the model does
- * not have to guess.
+ * Supplying [activity_name] lets the agent jump directly to a settings screen, share target,
+ * or other exported activity discovered through [listInstalledAppsTool], instead of opening
+ * the app and blindly navigating with accessibility gestures.
  */
 fun launchAppTool(
     context: Context,
@@ -51,243 +52,395 @@ fun launchAppTool(
 ): Tool = Tool(
     name = "launch_app",
     description = """
-        Open an installed app on the device by its package name (e.g. com.termux, com.android.settings).
-        Returns {success: true} if the launch intent was dispatched. If you do not know the package name,
-        first call list_installed_apps to discover available packages. The app is brought to the
-        foreground; screen-automation tools (tap, swipe, read_window_tree) can then drive its UI.
+        Open an installed app by package name. Optionally provide activity_name to open one
+        specific exported Android activity directly. Call list_installed_apps with package_name
+        to enumerate that package's activities first. Omit activity_name for the normal launcher
+        entry point. After launch, screen-automation tools can drive the foreground UI.
     """.trimIndent().replace("\n", " "),
     parameters = {
         InputSchema.Obj(
             properties = buildJsonObject {
                 put("package_name", buildJsonObject {
                     put("type", "string")
-                    put("description", "Application package id, e.g. com.termux")
+                    put("description", "Application package id, e.g. com.android.settings")
+                })
+                put("activity_name", buildJsonObject {
+                    put("type", "string")
+                    put(
+                        "description",
+                        "Optional activity class returned by list_installed_apps(package_name=...). A leading '.' is resolved against package_name.",
+                    )
                 })
             },
-            required = listOf("package_name")
+            required = listOf("package_name"),
         )
     },
     execute = { input ->
-        val pkg = input.jsonObject["package_name"]?.jsonPrimitive?.contentOrNull
-        if (pkg.isNullOrBlank()) {
+        val packageName = input.jsonObject["package_name"]?.jsonPrimitive?.contentOrNull
+        if (packageName.isNullOrBlank()) {
             return@Tool listOf(
                 UIMessagePart.Text(
-                    buildJsonObject { put("error", "package_name is required") }.toString()
-                )
+                    buildJsonObject { put("error", "package_name is required") }.toString(),
+                ),
             )
         }
-        val intent = context.packageManager.getLaunchIntentForPackage(pkg)
+
+        val rawActivityName = input.jsonObject["activity_name"]?.jsonPrimitive?.contentOrNull
+            ?.takeIf { it.isNotBlank() }
+        val activityName = rawActivityName?.let { resolveActivityName(packageName, it) }
+        val intent = if (activityName != null) {
+            Intent()
+                .setClassName(packageName, activityName)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        } else {
+            context.packageManager.getLaunchIntentForPackage(packageName)
+                ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
         if (intent == null) {
             return@Tool listOf(
                 UIMessagePart.Text(
                     buildJsonObject {
                         put("error", "no_launch_intent")
-                        put("package", pkg)
-                        put("recovery", "Package may not be installed or has no launcher activity. Call list_installed_apps to verify.")
-                    }.toString()
-                )
+                        put("package", packageName)
+                        put(
+                            "recovery",
+                            "The package may not be installed or may have no launcher activity. Call list_installed_apps to verify it, or pass an exported activity_name.",
+                        )
+                    }.toString(),
+                ),
             )
         }
-        // Wake the screen if it's off; without this the activity launches behind the lock
-        // screen and any subsequent read_window_tree call will see no_active_window. We do
-        // not bypass a real PIN/biometric keyguard - that requires the user.
+
         val wasOff = !ScreenWaker.isInteractive(context)
         val woke = if (wasOff) ScreenWaker.wakeIfOff(context) else false
-        val keyLocked = ScreenWaker.isKeyguardLocked(context)
-        val keySecure = ScreenWaker.isKeyguardSecure(context)
+        val keyguardLocked = ScreenWaker.isKeyguardLocked(context)
+        val keyguardSecure = ScreenWaker.isKeyguardSecure(context)
 
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val result = try {
             context.startActivity(intent)
-            // Confirm the launched app actually took focus. If the user is physically
-            // in another app (e.g. RikkaHub's own chat), the launch can be silently
-            // ignored and subsequent screen-automation calls will loop on
-            // wrong_foreground_app. Only meaningful when AccessibilityService is bound;
-            // when unbound we cannot verify and report confirmed_foreground:false.
+
             val accessibilityRunning = RikkaAccessibilityService.instance != null
-            val finalForeground: String? = if (accessibilityRunning && !keyLocked) {
-                waitForForegroundPackage(pkg)
-            } else null
-            val confirmed = finalForeground == pkg
-            if (accessibilityRunning && !keyLocked && !confirmed) {
+            val finalForeground = if (accessibilityRunning && !keyguardLocked) {
+                waitForForegroundPackage(packageName)
+            } else {
+                null
+            }
+            val confirmed = finalForeground == packageName
+
+            if (accessibilityRunning && !keyguardLocked && !confirmed) {
                 listOf(
                     UIMessagePart.Text(
                         buildJsonObject {
                             put("error", "launch_did_not_focus")
-                            put("requested", pkg)
+                            put("requested", packageName)
+                            activityName?.let { put("activity", it) }
                             put("current_foreground", finalForeground.orEmpty())
                             put(
                                 "recovery",
-                                "The launch intent was dispatched but the OS did not move ${pkg} to the foreground within 2.5s. The user is likely actively viewing another app (often RikkaHub itself) — do NOT pass package_name to read_window_tree on this turn. Either ask the user to switch to ${pkg}, or call read_window_tree with no package_name guard so you can see whatever IS currently on screen."
+                                "Android accepted the launch but did not foreground the requested package within 2.5 seconds. Read the current window without a package guard, or ask the user to switch apps.",
                             )
                             if (wasOff) put("woke_screen", woke)
-                        }.toString()
-                    )
+                        }.toString(),
+                    ),
                 )
             } else {
-                AgentTurnTracker.recordNavigatedAway(pkg)
-                AgentTurnTracker.touchPackage(pkg)
+                AgentTurnTracker.recordNavigatedAway(packageName)
+                AgentTurnTracker.touchPackage(packageName)
                 listOf(
                     UIMessagePart.Text(
                         buildJsonObject {
                             put("success", true)
-                            put("package", pkg)
+                            put("package", packageName)
+                            activityName?.let { put("activity", it) }
                             put("confirmed_foreground", confirmed)
                             if (!accessibilityRunning) {
-                                put("note", "AccessibilityService not bound — could not verify foreground. Treat success as best-effort.")
+                                put(
+                                    "note",
+                                    "AccessibilityService is not bound, so foreground state could not be verified.",
+                                )
                             }
                             if (wasOff) put("woke_screen", woke)
-                            if (keyLocked) {
+                            if (keyguardLocked) {
                                 put("keyguard_locked", true)
-                                put("keyguard_secure", keySecure)
-                                if (keySecure) {
-                                    put("warn", "Screen is woken but PIN/biometric keyguard is up. The user must unlock for the launched app to be visible and drivable.")
+                                put("keyguard_secure", keyguardSecure)
+                                if (keyguardSecure) {
+                                    put(
+                                        "warn",
+                                        "The screen is awake but a PIN or biometric keyguard is still visible. The user must unlock it before the activity can be driven.",
+                                    )
                                 }
                             }
-                        }.toString()
-                    )
+                        }.toString(),
+                    ),
                 )
             }
-        } catch (t: Throwable) {
+        } catch (error: SecurityException) {
+            listOf(
+                UIMessagePart.Text(
+                    buildJsonObject {
+                        put("error", "activity_not_exported")
+                        put("package", packageName)
+                        activityName?.let { put("activity", it) }
+                        put("reason", error.message ?: "SecurityException")
+                        put(
+                            "recovery",
+                            "Android only permits another app to launch activities declared exported=true. List the package again with exported_only=true, or open the normal app entry point and navigate from there.",
+                        )
+                    }.toString(),
+                ),
+            )
+        } catch (error: Throwable) {
             listOf(
                 UIMessagePart.Text(
                     buildJsonObject {
                         put("error", "launch_failed")
-                        put("reason", t.message ?: t::class.java.simpleName)
-                    }.toString()
-                )
+                        put("package", packageName)
+                        activityName?.let { put("activity", it) }
+                        put("reason", error.message ?: error::class.java.simpleName)
+                        put(
+                            "recovery",
+                            "Verify the package and activity names with list_installed_apps before retrying.",
+                        )
+                    }.toString(),
+                ),
             )
         }
-        streamer.streamIfHeadless(invocationContext, "LaunchApp $pkg")
+
+        val streamLabel = if (activityName == null) {
+            "LaunchApp $packageName"
+        } else {
+            "LaunchActivity $packageName/$activityName"
+        }
+        streamer.streamIfHeadless(invocationContext, streamLabel)
         result
-    }
+    },
 )
 
+/**
+ * Lists installed applications by default. When package_name is supplied, the same tool switches
+ * to activity discovery and returns every declared activity with its exported flag and label.
+ * This keeps the existing tool name and all persisted assistant configurations compatible while
+ * adding the useful upstream activity-navigation capability.
+ */
 fun listInstalledAppsTool(context: Context): Tool = Tool(
     name = "list_installed_apps",
-    description = "List installed apps as {label, package, has_launcher}. Default: launcher-visible only. With `filter` or `include_no_launcher=true`, also returns service-only addons (Termux:API, Termux:Boot, etc.) that have no app-drawer entry.",
+    description = """
+        List installed apps as {label, package, has_launcher}. To inspect one app's Android
+        activities instead, pass package_name; the response then contains {name, exported, label}
+        rows that can be passed to launch_app as activity_name. Use exported_only=true to return
+        only activities Android permits RikkaHub to launch.
+    """.trimIndent().replace("\n", " "),
     parameters = {
         InputSchema.Obj(
             properties = buildJsonObject {
                 put("filter", buildJsonObject {
                     put("type", "string")
-                    put("description", "Optional case-insensitive substring to match against label or package. Setting this auto-includes addon packages (no launcher activity).")
+                    put(
+                        "description",
+                        "Optional case-insensitive substring. For app listing it matches label/package; for activity listing it matches activity name/label.",
+                    )
                 })
                 put("user_only", buildJsonObject {
                     put("type", "boolean")
-                    put("description", "If true (default), only apps installed by the user; false includes system apps")
+                    put("description", "For app listing: only user-installed apps by default")
                 })
                 put("limit", buildJsonObject {
                     put("type", "integer")
-                    put("description", "Cap on the number of returned apps (default 200)")
+                    put("description", "Maximum returned rows. Default 200 for apps, 100 for activities.")
                 })
                 put("include_no_launcher", buildJsonObject {
                     put("type", "boolean")
-                    put("description", "If true, also returns packages that have no launcher activity (service-only addons). Auto-true when filter is non-empty.")
+                    put(
+                        "description",
+                        "For app listing: include service-only packages without launcher entries. Automatically enabled when filter is present.",
+                    )
                 })
-            }
+                put("package_name", buildJsonObject {
+                    put("type", "string")
+                    put("description", "When set, list activities declared by this package instead of listing apps")
+                })
+                put("exported_only", buildJsonObject {
+                    put("type", "boolean")
+                    put("description", "For activity listing: return only exported, externally launchable activities")
+                })
+            },
         )
     },
     execute = { input ->
+        val packageName = input.jsonObject["package_name"]?.jsonPrimitive?.contentOrNull
+            ?.takeIf { it.isNotBlank() }
         val filter = input.jsonObject["filter"]?.jsonPrimitive?.contentOrNull
-            ?.lowercase()?.takeIf { it.isNotBlank() }
+            ?.lowercase()
+            ?.takeIf { it.isNotBlank() }
+
+        if (packageName != null) {
+            val exportedOnly = input.jsonObject["exported_only"]?.jsonPrimitive?.contentOrNull
+                ?.toBooleanStrictOrNull() ?: false
+            val limit = input.jsonObject["limit"]?.jsonPrimitive?.contentOrNull
+                ?.toIntOrNull()?.coerceIn(1, 500) ?: 100
+            val packageManager = context.packageManager
+            val activities = try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    packageManager.getPackageInfo(
+                        packageName,
+                        PackageManager.PackageInfoFlags.of(PackageManager.GET_ACTIVITIES.toLong()),
+                    ).activities
+                } else {
+                    @Suppress("DEPRECATION")
+                    packageManager.getPackageInfo(packageName, PackageManager.GET_ACTIVITIES).activities
+                }
+            } catch (_: PackageManager.NameNotFoundException) {
+                return@Tool listOf(
+                    UIMessagePart.Text(
+                        buildJsonObject {
+                            put("error", "package_not_found")
+                            put("package", packageName)
+                            put("recovery", "Call list_installed_apps without package_name to find the correct package id.")
+                        }.toString(),
+                    ),
+                )
+            }
+
+            val all = activities.orEmpty()
+            val matched = all.filter { activity ->
+                if (exportedOnly && !activity.exported) return@filter false
+                if (filter == null) return@filter true
+                val label = runCatching { activity.loadLabel(packageManager).toString() }
+                    .getOrNull().orEmpty()
+                activity.name.lowercase().contains(filter) || label.lowercase().contains(filter)
+            }
+
+            return@Tool listOf(
+                UIMessagePart.Text(
+                    buildJsonObject {
+                        put("package", packageName)
+                        put("total", all.size)
+                        put("matched", matched.size)
+                        put("returned", minOf(matched.size, limit))
+                        put("activities", buildJsonArray {
+                            matched.take(limit).forEach { activity ->
+                                addJsonObject {
+                                    put("name", activity.name)
+                                    put("exported", activity.exported)
+                                    runCatching { activity.loadLabel(packageManager).toString() }
+                                        .getOrNull()
+                                        ?.takeIf { it.isNotBlank() && it != activity.name }
+                                        ?.let { put("label", it) }
+                                }
+                            }
+                        })
+                    }.toString(),
+                ),
+            )
+        }
+
         val userOnly = input.jsonObject["user_only"]?.jsonPrimitive?.contentOrNull
             ?.toBooleanStrictOrNull() ?: true
         val limit = input.jsonObject["limit"]?.jsonPrimitive?.contentOrNull
             ?.toIntOrNull()?.coerceIn(1, 1000) ?: 200
-        val includeNoLauncher = (input.jsonObject["include_no_launcher"]?.jsonPrimitive?.contentOrNull
-            ?.toBooleanStrictOrNull() ?: false) || filter != null
+        val includeNoLauncher = (
+            input.jsonObject["include_no_launcher"]?.jsonPrimitive?.contentOrNull
+                ?.toBooleanStrictOrNull() ?: false
+            ) || filter != null
 
-        val pm = context.packageManager
-
-        // Set of packages that DO have a launcher activity. Used to set has_launcher on each
-        // row regardless of whether we walked them via the launcher query or the full
-        // package list.
+        val packageManager = context.packageManager
         val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         @Suppress("DEPRECATION")
-        val launcherResolved = pm.queryIntentActivities(launcherIntent, 0)
-        val launcherPkgs = launcherResolved.mapNotNull { it.activityInfo?.packageName }.toHashSet()
+        val launcherResolved = packageManager.queryIntentActivities(launcherIntent, 0)
+        val launcherPackages = launcherResolved.mapNotNull { it.activityInfo?.packageName }.toHashSet()
 
-        data class Row(val label: String, val pkg: String, val hasLauncher: Boolean)
+        data class AppRow(val label: String, val packageName: String, val hasLauncher: Boolean)
 
-        val rows = mutableListOf<Row>()
-        val seen = mutableSetOf<String>()
+        val rows = mutableListOf<AppRow>()
+        val seenPackages = mutableSetOf<String>()
 
-        // 1) Walk launcher apps first so we get clean labels via ResolveInfo.loadLabel.
-        for (info in launcherResolved) {
-            val pkg = info.activityInfo?.packageName ?: continue
-            if (pkg in seen) continue
-            seen.add(pkg)
+        for (resolved in launcherResolved) {
+            val installedPackage = resolved.activityInfo?.packageName ?: continue
+            if (!seenPackages.add(installedPackage)) continue
             if (userOnly) {
                 try {
-                    val flags = pm.getApplicationInfo(pkg, 0).flags
-                    val isSystem = (flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
-                    val isUpdated = (flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
-                    if (isSystem && !isUpdated) continue
+                    val flags = packageManager.getApplicationInfo(installedPackage, 0).flags
+                    val isSystem = flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM != 0
+                    val isUpdatedSystemApp =
+                        flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0
+                    if (isSystem && !isUpdatedSystemApp) continue
                 } catch (_: PackageManager.NameNotFoundException) {
                     continue
                 }
             }
-            val label = info.loadLabel(pm).toString()
-            if (filter != null && !label.lowercase().contains(filter) && !pkg.lowercase().contains(filter)) {
+            val label = resolved.loadLabel(packageManager).toString()
+            if (
+                filter != null &&
+                !label.lowercase().contains(filter) &&
+                !installedPackage.lowercase().contains(filter)
+            ) {
                 continue
             }
-            rows.add(Row(label, pkg, hasLauncher = true))
+            rows.add(AppRow(label, installedPackage, hasLauncher = true))
             if (rows.size >= limit) break
         }
 
-        // 2) If asked, also walk the full installed-package list and pick up addons without
-        //    a launcher activity. Termux:API (com.termux.api), Termux:Boot, dialer addons,
-        //    etc. only show up here.
         if (rows.size < limit && includeNoLauncher) {
             @Suppress("DEPRECATION")
-            val all = try { pm.getInstalledPackages(0) } catch (_: Throwable) { emptyList() }
-            for (pkgInfo in all) {
-                val pkg = pkgInfo.packageName
-                if (pkg in seen) continue
-                seen.add(pkg)
-                val appInfo = pkgInfo.applicationInfo ?: continue
+            val packages = try {
+                packageManager.getInstalledPackages(0)
+            } catch (_: Throwable) {
+                emptyList()
+            }
+            for (packageInfo in packages) {
+                val installedPackage = packageInfo.packageName
+                if (!seenPackages.add(installedPackage)) continue
+                val applicationInfo = packageInfo.applicationInfo ?: continue
                 if (userOnly) {
-                    val isSystem = (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
-                    val isUpdated = (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
-                    if (isSystem && !isUpdated) continue
+                    val isSystem =
+                        applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM != 0
+                    val isUpdatedSystemApp =
+                        applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0
+                    if (isSystem && !isUpdatedSystemApp) continue
                 }
-                val label = appInfo.loadLabel(pm).toString()
-                if (filter != null && !label.lowercase().contains(filter) && !pkg.lowercase().contains(filter)) {
+                val label = applicationInfo.loadLabel(packageManager).toString()
+                if (
+                    filter != null &&
+                    !label.lowercase().contains(filter) &&
+                    !installedPackage.lowercase().contains(filter)
+                ) {
                     continue
                 }
-                rows.add(Row(label, pkg, hasLauncher = pkg in launcherPkgs))
+                rows.add(
+                    AppRow(
+                        label = label,
+                        packageName = installedPackage,
+                        hasLauncher = installedPackage in launcherPackages,
+                    ),
+                )
                 if (rows.size >= limit) break
             }
         }
 
-        rows.sortWith(compareBy({ it.label.lowercase() }, { it.pkg }))
-
-        val payload = buildJsonObject {
-            put("count", rows.size)
-            put("apps", buildJsonArray {
-                rows.forEach { row ->
-                    addJsonObject {
-                        put("label", row.label)
-                        put("package", row.pkg)
-                        put("has_launcher", row.hasLauncher)
-                    }
-                }
-            })
-        }
-        listOf(UIMessagePart.Text(payload.toString()))
-    }
+        rows.sortWith(compareBy({ it.label.lowercase() }, { it.packageName }))
+        listOf(
+            UIMessagePart.Text(
+                buildJsonObject {
+                    put("count", rows.size)
+                    put("apps", buildJsonArray {
+                        rows.forEach { row ->
+                            addJsonObject {
+                                put("label", row.label)
+                                put("package", row.packageName)
+                                put("has_launcher", row.hasLauncher)
+                            }
+                        }
+                    })
+                }.toString(),
+            ),
+        )
+    },
 )
 
 /**
- * Hand a URL to whatever app is registered as the system handler for it (browsers for
- * http/https, the dialer for tel:, the maps app for geo:, etc.). Massively cheaper than
- * driving Chrome's URL bar via accessibility set_text — for a "search hello in chrome"
- * request, just call open_url("https://www.google.com/search?q=hello") and the browser
- * lands directly on the results page.
- *
- * The package_name override exists for cases where the user explicitly names a non-default
- * browser; otherwise the system shows whatever default is configured.
+ * Hands a URL to its system handler. This is faster and more reliable than driving a browser,
+ * dialer, map, or mail client through accessibility gestures.
  */
 fun openUrlTool(
     context: Context,
@@ -296,28 +449,23 @@ fun openUrlTool(
 ): Tool = Tool(
     name = "open_url",
     description = """
-        Open a URL in the system's default handler app (browser for http/https, dialer for
-        tel:, maps for geo:, mailto: for email, etc.). Strongly preferred over
-        launch_app + screen automation when the user asks you to "search X in chrome",
-        "open google.com", "call this number", "show me this address on a map", or any
-        request that maps cleanly to a URL — typing into a browser URL bar via accessibility
-        is unreliable and slow. Optionally pass package_name to force a specific app
-        (e.g. com.android.chrome) when multiple handlers exist. Auto-wakes the screen if
-        it was off.
+        Open a URL in the system handler app: browser for http/https, dialer for tel:, maps for
+        geo:, and mail client for mailto:. Optionally provide package_name to force a particular
+        handler. Prefer this over accessibility navigation whenever the request maps to a URL.
     """.trimIndent().replace("\n", " "),
     parameters = {
         InputSchema.Obj(
             properties = buildJsonObject {
                 put("url", buildJsonObject {
                     put("type", "string")
-                    put("description", "Full URL with scheme. http(s):// for web, tel: for phone, geo:lat,lng for maps, mailto: for email.")
+                    put("description", "Full URL including its scheme")
                 })
                 put("package_name", buildJsonObject {
                     put("type", "string")
-                    put("description", "Optional: force a specific handler app (e.g. com.android.chrome). Omit for system default.")
+                    put("description", "Optional package id of the handler app")
                 })
             },
-            required = listOf("url")
+            required = listOf("url"),
         )
     },
     execute = { input ->
@@ -325,70 +473,75 @@ fun openUrlTool(
         if (url.isNullOrBlank()) {
             return@Tool listOf(
                 UIMessagePart.Text(
-                    buildJsonObject { put("error", "url is required") }.toString()
-                )
+                    buildJsonObject { put("error", "url is required") }.toString(),
+                ),
             )
         }
-        val pkg = input.jsonObject["package_name"]?.jsonPrimitive?.contentOrNull
+        val packageName = input.jsonObject["package_name"]?.jsonPrimitive?.contentOrNull
             ?.takeIf { it.isNotBlank() }
 
         val wasOff = !ScreenWaker.isInteractive(context)
         val woke = if (wasOff) ScreenWaker.wakeIfOff(context) else false
-        val keyLocked = ScreenWaker.isKeyguardLocked(context)
-        val keySecure = ScreenWaker.isKeyguardSecure(context)
+        val keyguardLocked = ScreenWaker.isKeyguardLocked(context)
+        val keyguardSecure = ScreenWaker.isKeyguardSecure(context)
 
         val intent = Intent(Intent.ACTION_VIEW, url.toUri()).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            if (pkg != null) setPackage(pkg)
+            packageName?.let(::setPackage)
         }
-        // Resolve before dispatch so we can return a useful error when no app handles the URL
-        // scheme (e.g. mailto: without a mail client installed).
         val resolved = context.packageManager.resolveActivity(intent, 0)
         if (resolved == null) {
             return@Tool listOf(
                 UIMessagePart.Text(
                     buildJsonObject {
                         put("error", "no_handler")
-                        put("recovery", "No installed app handles this URL scheme. Try a different URL or install an appropriate app first.")
                         put("url", url)
-                        if (pkg != null) put("package", pkg)
-                    }.toString()
-                )
+                        packageName?.let { put("package", it) }
+                        put(
+                            "recovery",
+                            "No installed application handles this URL scheme. Try another URL or install an appropriate handler.",
+                        )
+                    }.toString(),
+                ),
             )
         }
+
         val result = try {
             context.startActivity(intent)
-            val handlerPkg = resolved.activityInfo?.packageName
-            AgentTurnTracker.recordNavigatedAway(handlerPkg)
-            if (!handlerPkg.isNullOrBlank()) AgentTurnTracker.touchPackage(handlerPkg)
+            val handlerPackage = resolved.activityInfo?.packageName
+            AgentTurnTracker.recordNavigatedAway(handlerPackage)
+            if (!handlerPackage.isNullOrBlank()) AgentTurnTracker.touchPackage(handlerPackage)
             listOf(
                 UIMessagePart.Text(
                     buildJsonObject {
                         put("success", true)
                         put("url", url)
-                        put("handler", resolved.activityInfo?.packageName ?: "")
+                        put("handler", handlerPackage.orEmpty())
                         if (wasOff) put("woke_screen", woke)
-                        if (keyLocked) {
+                        if (keyguardLocked) {
                             put("keyguard_locked", true)
-                            put("keyguard_secure", keySecure)
-                            if (keySecure) {
-                                put("warn", "Screen is woken but PIN/biometric keyguard is up. The user must unlock for the URL handler to be visible.")
+                            put("keyguard_secure", keyguardSecure)
+                            if (keyguardSecure) {
+                                put(
+                                    "warn",
+                                    "The screen is awake but the keyguard must be unlocked before the handler is visible.",
+                                )
                             }
                         }
-                    }.toString()
-                )
+                    }.toString(),
+                ),
             )
-        } catch (t: Throwable) {
+        } catch (error: Throwable) {
             listOf(
                 UIMessagePart.Text(
                     buildJsonObject {
                         put("error", "open_failed")
-                        put("reason", t.message ?: t::class.java.simpleName)
-                    }.toString()
-                )
+                        put("reason", error.message ?: error::class.java.simpleName)
+                    }.toString(),
+                ),
             )
         }
         streamer.streamIfHeadless(invocationContext, "OpenUrl ${url.take(60)}")
         result
-    }
+    },
 )
