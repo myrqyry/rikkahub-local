@@ -265,7 +265,16 @@ val appModule = module {
             okHttpClient = get(),
             keyboardApiClient = get(),
             imageTools = get(),
+            androidShareService = get(),
         )
+    }
+
+    single {
+        me.rerere.rikkahub.data.share.ShareArtifactResolver(get(), get(), get())
+    }
+
+    single {
+        me.rerere.rikkahub.data.share.AndroidShareService(get(), get())
     }
 
     single {

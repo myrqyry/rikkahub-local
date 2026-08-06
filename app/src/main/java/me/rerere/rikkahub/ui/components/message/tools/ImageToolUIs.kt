@@ -15,11 +15,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.decodeFromJsonElement
@@ -28,9 +30,11 @@ import me.rerere.hugeicons.stroke.Image03
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.ai.tools.image.ImageToolResult
+import me.rerere.rikkahub.data.share.AndroidShareService
 import me.rerere.rikkahub.ui.components.richtext.ZoomableAsyncImage
 import me.rerere.rikkahub.ui.components.ui.ImagePreviewDialog
 import me.rerere.rikkahub.ui.context.LocalNavController
+import org.koin.compose.koinInject
 
 /**
  * 聊天内四个图片工具 (generate_image / edit_image / analyze_image / extract_text_from_image)
@@ -80,6 +84,8 @@ class ImageToolCardRenderer(
 
         val navController = LocalNavController.current
         var showFullImage by remember { mutableStateOf(false) }
+        val scope = rememberCoroutineScope()
+        val shareService = koinInject<AndroidShareService>()
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp)) {
@@ -98,6 +104,19 @@ class ImageToolCardRenderer(
                 ) {
                     TextButton(onClick = { showFullImage = true }) {
                         Text(stringResource(R.string.image_tool_open))
+                    }
+                    // Share 首个产物: 解析为 FileProvider content:// URI 后打开系统分享面板
+                    TextButton(onClick = {
+                        val first = artifacts.firstOrNull()
+                        if (first != null) {
+                            scope.launch {
+                                shareService.resolve(first.artifactId)?.let { artifact ->
+                                    shareService.shareArtifact(artifact, null, null)
+                                }
+                            }
+                        }
+                    }) {
+                        Text(stringResource(R.string.image_tool_share))
                     }
                     // ImageGenPage 目前不支持初始参考图参数, "用作参考"/"编辑" 都直接打开图片工作室
                     TextButton(onClick = { navController.navigate(Screen.ImageGen) }) {

@@ -378,6 +378,8 @@ class LocalTools(
     // Chat multimodal tools (generate_image / edit_image / analyze_image / extract_text_from_image).
     // Core capability tools: always registered, NOT gated by LocalToolOption.
     private val imageTools: ImageTools,
+    // Outbound share service — backs the share tool (text / url / artifact_ref).
+    private val androidShareService: me.rerere.rikkahub.data.share.AndroidShareService,
 ) {
     val javascriptTool by lazy {
         Tool(
@@ -766,7 +768,7 @@ class LocalTools(
             tools.add(notificationTool(context, invocationContext, interactiveToolStreamer))
         }
         if (options.contains(LocalToolOption.Share)) {
-            tools.add(shareTool(context, invocationContext, interactiveToolStreamer))
+            tools.add(shareTool(context, invocationContext, interactiveToolStreamer, androidShareService))
         }
         if (options.contains(LocalToolOption.Torch)) {
             tools.add(torchTool(context))

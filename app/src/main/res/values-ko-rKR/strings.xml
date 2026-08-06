@@ -412,6 +412,7 @@
   <string name="image_tool_use_as_reference">참조로 사용</string>
   <string name="image_tool_edit">편집</string>
   <string name="image_tool_open_studio">이미지 생성 열기</string>
+  <string name="image_tool_share">공유</string>
   <string name="language_english">🇺🇸 영어</string>
   <string name="language_french">🇫🇷 프랑스어</string>
   <string name="language_german">🇩🇪 독일어</string>

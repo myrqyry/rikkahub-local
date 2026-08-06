@@ -412,6 +412,7 @@
   <string name="image_tool_use_as_reference">参照として使用</string>
   <string name="image_tool_edit">編集</string>
   <string name="image_tool_open_studio">画像生成を開く</string>
+  <string name="image_tool_share">共有</string>
   <string name="language_english">🇺🇸 English</string>
   <string name="language_french">🇫🇷 Français</string>
   <string name="language_german">🇩🇪 Deutsch</string>
