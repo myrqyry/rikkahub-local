@@ -21,6 +21,18 @@ data class ArtifactProvenance(
     val contentSha256: String? = null,
 )
 
+data class ImportRequest(
+    val source: String,
+    val sourceKind: ArtifactSourceKind? = null,
+    val expectedKind: ArtifactKind? = null,
+    val expectedSha256: String? = null,
+    val origin: ImportOrigin? = null,
+)
+
+sealed interface ImportOrigin {
+    data class Catalog(val entryId: String) : ImportOrigin
+}
+
 data class ImportCandidate(
     val kind: ArtifactKind,
     val name: String,

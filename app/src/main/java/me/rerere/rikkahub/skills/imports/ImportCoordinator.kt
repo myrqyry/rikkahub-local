@@ -110,4 +110,34 @@ sealed class ImportResult {
         val provenanceSaved: Boolean = true,
         val warning: String? = null,
     ) : ImportResult()
+
+    data class Blocked(val reason: String, val detail: String? = null) : ImportResult()
+
+    data class Failed(val code: String, val detail: String? = null) : ImportResult()
+}
+
+suspend fun ImportCoordinator.import(request: ImportRequest): ImportResult {
+    val candidate = prepare(request.source, request.expectedKind).getOrElse {
+        return ImportResult.Failed("prepare_failed", it.message)
+    }
+    request.expectedSha256?.let { expected ->
+        val actual = candidate.provenance.contentSha256
+        if (actual == null) {
+            discard(candidate)
+            return ImportResult.Blocked(
+                "missing_hash",
+                "prepared artifact has no content hash to verify against the expected hash",
+            )
+        }
+        if (actual != expected) {
+            discard(candidate)
+            return ImportResult.Blocked(
+                "sha_mismatch",
+                "artifact content does not match the expected hash",
+            )
+        }
+    }
+    return install(candidate).getOrElse {
+        ImportResult.Failed("install_failed", it.message)
+    }
 }
