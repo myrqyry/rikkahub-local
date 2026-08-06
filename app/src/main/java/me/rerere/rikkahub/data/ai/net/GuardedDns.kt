@@ -90,10 +90,13 @@ internal fun hostIsBlockedLiteral(host: String): Boolean {
  * literal-IP redirects. `callTimeout` bounds the complete blocking call, including a server that
  * sends bytes slowly forever; a coroutine timeout around `execute()` cannot interrupt that by
  * itself because the blocking call has no suspension point.
+ *
+ * The guard wraps this client's existing resolver instead of replacing it, preserving any
+ * app-level DNS or network-monitor behavior configured on the shared client.
  */
 internal fun OkHttpClient.withEgressGuard(allowPrivate: Boolean = false): OkHttpClient =
     newBuilder()
-        .dns(GuardedDns(Dns.SYSTEM, allowPrivate))
+        .dns(GuardedDns(dns, allowPrivate))
         .callTimeout(30, TimeUnit.SECONDS)
         .addNetworkInterceptor { chain ->
             val host = chain.request().url.host
