@@ -14,6 +14,9 @@ interface GenMediaDAO {
     @Query("SELECT * FROM genmediaentity ORDER BY create_at DESC")
     suspend fun getAllMedia(): List<GenMediaEntity>
 
+    @Query("SELECT * FROM genmediaentity WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Int): GenMediaEntity?
+
     @Insert
     suspend fun insert(media: GenMediaEntity)
 

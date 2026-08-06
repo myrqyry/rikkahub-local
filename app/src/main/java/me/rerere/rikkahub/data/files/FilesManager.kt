@@ -6,6 +6,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.core.net.toFile
 import androidx.core.net.toUri
+import androidx.documentfile.provider.DocumentFile
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -258,6 +259,24 @@ class FilesManager(
         }
         return dir
     }
+
+    /**
+     * Copies a content:// URI into a private cache file so the caller does not need the
+     * OS URI grant to survive across cron / resume / background execution. Follows the
+     * stream-copy pattern of [me.rerere.rikkahub.data.ai.tools.local.ContentUriResolver.openInput].
+     * Returns null when the URI cannot be opened.
+     */
+    suspend fun stageContentUri(context: Context, uri: Uri, doc: DocumentFile?): File? =
+        withContext(Dispatchers.IO) {
+            val target = File(context.cacheDir, "imggen_stage_${System.currentTimeMillis()}.png")
+            val input = context.contentResolver.openInputStream(uri) ?: return@withContext null
+            input.use { stream ->
+                target.outputStream().use { output ->
+                    stream.copyTo(output)
+                }
+            }
+            target
+        }
 
     @OptIn(ExperimentalEncodingApi::class)
     fun createImageFileFromBase64(base64Data: String, filePath: String): File {
