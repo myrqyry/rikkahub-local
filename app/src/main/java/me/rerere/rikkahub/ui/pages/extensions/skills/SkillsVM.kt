@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import me.rerere.rikkahub.data.catalog.mapInstallResult
 import me.rerere.rikkahub.data.files.SkillManager
 import me.rerere.rikkahub.data.files.SkillFrontmatterParser
 import me.rerere.rikkahub.data.files.SkillMetadata
@@ -24,7 +25,10 @@ import me.rerere.rikkahub.skills.SkillZipImporter
 import me.rerere.rikkahub.skills.loadCatalogFromAssets
 import me.rerere.rikkahub.skills.imports.ImportCandidate
 import me.rerere.rikkahub.skills.imports.ImportCoordinator
+import me.rerere.rikkahub.skills.imports.ImportOrigin
+import me.rerere.rikkahub.skills.imports.ImportRequest
 import me.rerere.rikkahub.skills.imports.ImportResult
+import me.rerere.rikkahub.skills.imports.import
 import me.rerere.rikkahub.skills.imports.ArtifactKind
 import java.io.File
 import java.nio.file.Files
@@ -190,20 +194,15 @@ class SkillsVM(
                 withContext(Dispatchers.Main) { onResult(false, "skill_catalog_install_failed") }
                 return@launch
             }
-            val prepared = importCoordinator.prepare(url, ArtifactKind.SKILL)
-            val result = prepared.fold(
-                onSuccess = { importCoordinator.install(it) },
-                onFailure = { Result.failure(it) },
+            val request = ImportRequest(
+                source = url,
+                expectedKind = ArtifactKind.SKILL,
+                expectedSha256 = null,
+                origin = ImportOrigin.Catalog(entry.name),
             )
+            val (ok, message) = mapInstallResult(importCoordinator.import(request), entry.name)
             _skills.value = skillManager.listSkills()
-            val outcome = result.fold(
-                onSuccess = { installed ->
-                    val value = installed as ImportResult.Installed
-                    true to value.name
-                },
-                onFailure = { false to (it.message ?: "skill_catalog_install_failed") },
-            )
-            withContext(Dispatchers.Main) { onResult(outcome.first, outcome.second) }
+            withContext(Dispatchers.Main) { onResult(ok, message) }
         }
     }
 
