@@ -408,6 +408,10 @@
   <string name="imggen_page_save_failed">Не удалось сохранить: %1$s</string>
   <string name="imggen_page_settings_title">Настройки генерации изображений</string>
   <string name="imggen_page_title">Генерация изображений</string>
+  <string name="image_tool_open">Открыть</string>
+  <string name="image_tool_use_as_reference">Использовать как образец</string>
+  <string name="image_tool_edit">Изменить</string>
+  <string name="image_tool_open_studio">Открыть генерацию изображений</string>
   <string name="language_english">🇺🇸 Английский</string>
   <string name="language_french">🇫🇷 Французский</string>
   <string name="language_german">🇩🇪 Немецкий</string>

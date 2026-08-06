@@ -141,12 +141,21 @@ One result structure for generation and editing. Return one `UIMessagePart.Image
 ```kotlin
 @Serializable
 data class ImageToolResult(
+    val schemaVersion: Int = 1,
     val success: Boolean,
     val operation: ImageOperation,
-    val artifacts: List<StoredImageArtifact>,
-    val modelId: String,
-    val providerId: String?,
-    val executionSource: ModelSource,
+    val artifacts: List<StoredImageArtifact> = emptyList(),
+    val modelId: String? = null,
+    val providerId: String? = null,
+    val executionSource: String? = null,
+    val error: ImageToolError? = null,
+)
+
+@Serializable
+data class ImageToolError(
+    val code: String,
+    val detail: String? = null,
+    val recovery: JsonObject? = null,
 )
 
 @Serializable
@@ -161,23 +170,9 @@ data class StoredImageArtifact(
 )
 ```
 
-### Typed metadata
+### Typed result contract
 
-UI behavior is driven by metadata, never by parsing the JSON envelope:
-
-```kotlin
-@Serializable
-data class ImageToolResultMetadata(
-    val operation: ImageOperation,
-    val artifacts: List<StoredImageArtifact>,
-    val prompt: String? = null,
-    val sourceArtifactIds: List<String> = emptyList(),
-    val modelId: String,
-    val providerId: String?,
-)
-```
-
-Stored on the `UIMessagePart.Tool` via the `MessageMetadata` seam (`T.toMetadata()` / `part.metadataAs<T>()`).
+`ImageToolResult` is the canonical typed result contract. Image tool renderers decode it directly from `ToolUIContext.content` using kotlinx serialization. Renderers must not parse display prose or search `UIMessagePart.Text` values. Extensible cross-module `PartMetadata` support is deferred because the current sealed metadata hierarchy and `ToolUIContext` do not expose an app-defined metadata path.
 
 ## Approval
 
@@ -247,7 +242,7 @@ Organize by responsibility; file count is not a quality metric.
 - Privacy enforcement
 - Shared image persistence / gallery registration (`ImageMediaStore`)
 - Shared OCR provider executor (`ImageTextExtractor`)
-- Typed result metadata
+- Typed result contract (`ImageToolResult` decoded by renderers)
 - Inline result card (Open / Use as reference / Edit / Open in Image Studio)
 - Static approval mapping
 - Unit and integration tests
@@ -276,4 +271,4 @@ Organize by responsibility; file count is not a quality metric.
 9. OCR tool and `OcrTransformer` use the same execution component.
 10. Failed gallery persistence does not return a fake successful artifact.
 11. Multiple generated images each receive distinct artifact and gallery IDs.
-12. Metadata and JSON envelope describe the same artifacts.
+12. JSON envelope decodes into the typed result with the same artifacts.

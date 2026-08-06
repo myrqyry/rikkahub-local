@@ -410,6 +410,10 @@
   <string name="imggen_page_save_failed">保存失败: %1$s</string>
   <string name="imggen_page_settings_title">图片生成设置</string>
   <string name="imggen_page_title">图片生成</string>
+  <string name="image_tool_open">打开</string>
+  <string name="image_tool_use_as_reference">用作参考</string>
+  <string name="image_tool_edit">编辑</string>
+  <string name="image_tool_open_studio">打开图片生成</string>
   <string name="language_english">🇺🇸 English</string>
   <string name="language_french">🇫🇷 Français</string>
   <string name="language_german">🇩🇪 Deutsch</string>

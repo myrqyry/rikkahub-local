@@ -488,6 +488,10 @@
   <string name="imggen_page_save_failed">فشل الحفظ: %1$s</string>
   <string name="imggen_page_settings_title">إعدادات توليد الصور</string>
   <string name="imggen_page_title">توليد الصور</string>
+  <string name="image_tool_open">فتح</string>
+  <string name="image_tool_use_as_reference">استخدام كمرجع</string>
+  <string name="image_tool_edit">تعديل</string>
+  <string name="image_tool_open_studio">فتح توليد الصور</string>
   <string name="language_english">🇺🇸 English</string>
   <string name="language_french">🇫🇷 Français</string>
   <string name="language_german">🇩🇪 Deutsch</string>

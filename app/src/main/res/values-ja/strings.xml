@@ -408,6 +408,10 @@
   <string name="imggen_page_save_failed">保存に失敗しました: %1$s</string>
   <string name="imggen_page_settings_title">画像生成設定</string>
   <string name="imggen_page_title">画像生成</string>
+  <string name="image_tool_open">開く</string>
+  <string name="image_tool_use_as_reference">参照として使用</string>
+  <string name="image_tool_edit">編集</string>
+  <string name="image_tool_open_studio">画像生成を開く</string>
   <string name="language_english">🇺🇸 English</string>
   <string name="language_french">🇫🇷 Français</string>
   <string name="language_german">🇩🇪 Deutsch</string>

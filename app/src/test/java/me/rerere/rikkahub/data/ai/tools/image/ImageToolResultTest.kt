@@ -50,22 +50,22 @@ class ImageToolResultTest {
     }
 
     @Test
-    fun `metadata and envelope describe same artifacts`() {
+    fun `result carries canonical schema version and error field`() {
         val artifact = StoredImageArtifact(
             artifactId = "img_7", path = "/p/1.png", uri = "file:///p/1.png",
             galleryId = 7, mimeType = "image/png", width = 512, height = 512,
         )
-        val result = ImageToolResult(true, ImageOperation.IMAGE_EDIT, listOf(artifact), "m1", "g", "cloud")
-        val metadata = ImageToolResultMetadata(
-            operation = result.operation,
-            artifacts = result.artifacts,
-            prompt = "a cat",
-            sourceArtifactIds = listOf("img_3"),
-            modelId = result.modelId,
-            providerId = result.providerId,
+        val result = ImageToolResult(
+            success = false,
+            operation = ImageOperation.IMAGE_EDIT,
+            artifacts = listOf(artifact),
+            error = ImageToolError(code = "provider_failed", detail = "boom"),
         )
-        assertEquals(result.artifacts, metadata.artifacts)
-        assertEquals(result.operation, metadata.operation)
+        assertEquals(1, result.schemaVersion)
+        assertEquals("provider_failed", result.error?.code)
+        val decoded = json.decodeFromString<ImageToolResult>(json.encodeToString(result))
+        assertEquals(result, decoded)
+        assertEquals(listOf("img_7"), decoded.artifacts.map { it.artifactId })
     }
 
     @Test

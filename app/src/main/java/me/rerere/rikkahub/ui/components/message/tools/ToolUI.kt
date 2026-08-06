@@ -25,6 +25,7 @@ import kotlinx.serialization.json.contentOrNull
 import me.rerere.ai.ui.UIMessagePart
 import me.rerere.common.http.jsonObjectOrNull
 import me.rerere.hugeicons.HugeIcons
+import me.rerere.rikkahub.data.ai.tools.image.ImageToolCatalog
 import me.rerere.hugeicons.stroke.Tools
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.ui.components.richtext.HighlightCodeBlock
@@ -113,6 +114,8 @@ object ToolUIRegistry {
         SendEmailIntentToolUI,
         OpenWifiSettingsToolUI,
         ShowLocationOnMapToolUI,
+        // 四个图片工具共用一个参数化渲染器, 按 ImageToolCatalog.TOOL_NAMES 注册
+        *ImageToolCatalog.TOOL_NAMES.map { ImageToolCardRenderer(it) }.toTypedArray(),
     ).associateBy { it.toolName }
 
     /** 查找工具对应的渲染器, 未注册时返回默认渲染器 */
