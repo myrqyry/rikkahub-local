@@ -301,6 +301,7 @@ class ConversationRepository(
             // 删除旧的节点，插入新的节点
             messageNodeDAO.deleteByConversation(conversation.id.toString())
             saveMessageNodes(conversation.id.toString(), conversation.messageNodes)
+            conversationDAO.incrementRevision(conversation.id.toString(), System.currentTimeMillis())
         }
         messageFtsManager.indexConversation(conversation)
     }
@@ -382,6 +383,7 @@ class ConversationRepository(
             lorebookIds = JsonInstant.encodeToString(conversation.lorebookIds),
             workspaceCwd = conversation.workspaceCwd ?: "",
             folderId = conversation.folderId?.toString() ?: "",
+            revision = conversation.revision,
         )
     }
 
@@ -403,6 +405,7 @@ class ConversationRepository(
             lorebookIds = JsonInstant.decodeFromString(conversationEntity.lorebookIds),
             workspaceCwd = conversationEntity.workspaceCwd.ifEmpty { null },
             folderId = conversationEntity.folderId.ifEmpty { null }?.let { Uuid.parse(it) },
+            revision = conversationEntity.revision,
         )
     }
 
