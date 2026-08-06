@@ -4,22 +4,21 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
-import me.rerere.ai.core.MessageRole
 import me.rerere.ai.provider.Modality
-import me.rerere.ai.provider.Model
-import me.rerere.ai.provider.ProviderManager
-import me.rerere.ai.provider.TextGenerationParams
 import me.rerere.ai.ui.UIMessage
 import me.rerere.ai.ui.UIMessagePart
 import me.rerere.common.cache.LruCache
 import me.rerere.common.cache.SingleFileCacheStore
 import me.rerere.rikkahub.R
+import me.rerere.rikkahub.data.ai.tools.image.ImageTextExtractor
+import me.rerere.rikkahub.data.ai.tools.image.ResolvedMedia
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.datastore.findModelById
 import me.rerere.rikkahub.data.datastore.findProvider
+import me.rerere.rikkahub.data.datastore.getCurrentAssistant
+import me.rerere.rikkahub.data.model.Assistant
 import me.rerere.rikkahub.data.modelregistry.canProcessAttachmentWith
 import me.rerere.rikkahub.data.modelregistry.isOnDevice
 import org.koin.core.component.KoinComponent
@@ -90,7 +89,7 @@ object OcrTransformer : InputMessageTransformer, KoinComponent {
                         parts = message.parts.map { part ->
                             when {
                                 part is UIMessagePart.Image && part.url.startsWith("file:") -> {
-                                     UIMessagePart.Text(performOcr(part, ctx.settings, requireLocalProcessor))
+                                     UIMessagePart.Text(performOcr(part, ctx.settings, requireLocalProcessor, ctx.assistant))
                                 }
 
                                 else -> part
@@ -114,6 +113,7 @@ object OcrTransformer : InputMessageTransformer, KoinComponent {
         part: UIMessagePart.Image,
         settings: me.rerere.rikkahub.data.datastore.Settings = get<SettingsStore>().settingsFlow.value,
         requireLocal: Boolean = false,
+        assistant: Assistant = settings.getCurrentAssistant(),
     ): String = runCatching {
         // Check cache first
         cache.get(part.url)?.let { cachedResult ->
@@ -121,36 +121,33 @@ object OcrTransformer : InputMessageTransformer, KoinComponent {
             return cachedResult
         }
 
-        val model = settings.findModelById(settings.ocrModelId) ?: return "[Image]"
-        val providerSetting = model.findProvider(settings.providers) ?: return "[Image]"
-        if (requireLocal && !providerSetting.isOnDevice()) {
-            return "[Image blocked: no local OCR provider is configured]"
+        val media = ResolvedMedia(
+            stablePath = part.url.removePrefix("file://"),
+            originalReference = part.url,
+            // The transformer only knows the file url; the extractor does not consume
+            // mimeType/sizeBytes, so they are left unset here.
+            mimeType = "",
+            sizeBytes = 0L,
+            temporary = false,
+        )
+        val result = get<ImageTextExtractor>().extract(
+            media = media,
+            assistant = assistant,
+            settings = settings,
+            requireLocal = requireLocal,
+            timeoutMillis = OCR_TIMEOUT_MS,
+        )
+        if (result.success != true) {
+            Log.w(TAG, "performOcr: OCR failed with ${result.errorCode} for ${part.url}")
+            return when (result.errorCode) {
+                "cloud_processing_blocked" ->
+                    if (requireLocal) "[Image blocked: no local OCR provider is configured]"
+                    else "[Image blocked: this assistant disallows cloud attachment processing and no local OCR model is ready]"
+                "provider_failed" -> "[Image: could not be read — the OCR model did not respond in time]"
+                else -> "[Image]"
+            }
         }
-        val provider = get<ProviderManager>().getProviderByType(providerSetting)
-        val result = withTimeoutOrNull(OCR_TIMEOUT_MS) {
-            provider.generateText(
-                providerSetting = providerSetting,
-                messages = listOf(
-                    UIMessage.system(settings.ocrPrompt),
-                    UIMessage(
-                        role = MessageRole.USER,
-                        parts = listOf(UIMessagePart.Image(part.url))
-                    )
-                ),
-                params = TextGenerationParams(
-                    model = model,
-                    customHeaders = model.customHeaders,
-                    customBody = model.customBodies,
-                ),
-            )
-        }
-        if (result == null) {
-            Log.w(TAG, "performOcr: timed out after ${OCR_TIMEOUT_MS}ms for ${part.url}")
-            // Not cached: a timeout is usually transient/config-related, so a later retry
-            // should be allowed to reach the model again.
-            return "[Image: could not be read — the OCR model did not respond in time]"
-        }
-        val content = result.choices[0].message?.toText() ?: "[ERROR, OCR failed]"
+        val content = result.text ?: "[ERROR, OCR failed]"
         Log.i(TAG, "performOcr: $content")
         val ocrResult = """
             <image_file_ocr>

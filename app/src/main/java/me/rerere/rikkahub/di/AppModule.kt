@@ -290,6 +290,10 @@ val appModule = module {
         me.rerere.rikkahub.data.modelregistry.SettingsModelRegistry(get(), get(), get<me.rerere.rikkahub.AppScope>(), get())
     }
     single { me.rerere.rikkahub.data.modelregistry.ModelRoleResolver(get()) }
+    single { me.rerere.rikkahub.data.ai.tools.image.ProviderImageToolBackend(get()) }
+    single { me.rerere.rikkahub.data.ai.tools.image.ImageTextExtractor(get(), get()) }
+    single<me.rerere.rikkahub.data.media.ImageMediaStore> { me.rerere.rikkahub.data.media.DefaultImageMediaStore(get(), get()) }
+    single<me.rerere.rikkahub.data.ai.tools.image.MediaInputResolver> { me.rerere.rikkahub.data.ai.tools.image.DefaultMediaInputResolver(get(), get(), get()) }
     single<me.rerere.rikkahub.data.modelregistry.LegacyModelAssignmentAdapter> {
         me.rerere.rikkahub.data.modelregistry.SettingsLegacyModelAssignmentAdapter(get(), get<me.rerere.rikkahub.AppScope>())
     }
