@@ -127,6 +127,7 @@ The check result is typed:
 - `ConversationMissing(conversationId)`
 - `BranchChanged(expectedBranchId, currentBranchId)`
 - `RevisionAdvanced(expected, actual)`
+- `RevisionRegressed(expected, actual)`
 
 The API includes a future-compatible policy seam:
 

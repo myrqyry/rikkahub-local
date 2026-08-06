@@ -295,13 +295,18 @@ class ConversationRepository(
 
     suspend fun updateConversation(conversation: Conversation) {
         database.withTransaction {
+            val current = conversationDAO.getConversationById(conversation.id.toString())
+                ?: return@withTransaction
             conversationDAO.update(
-                conversationToConversationEntity(conversation)
+                conversationToConversationEntity(conversation).copy(
+                    // The caller may hold an old in-memory snapshot. The database row is
+                    // authoritative for the monotonic revision.
+                    revision = current.revision + 1,
+                )
             )
             // 删除旧的节点，插入新的节点
             messageNodeDAO.deleteByConversation(conversation.id.toString())
             saveMessageNodes(conversation.id.toString(), conversation.messageNodes)
-            conversationDAO.incrementRevision(conversation.id.toString(), System.currentTimeMillis())
         }
         messageFtsManager.indexConversation(conversation)
     }

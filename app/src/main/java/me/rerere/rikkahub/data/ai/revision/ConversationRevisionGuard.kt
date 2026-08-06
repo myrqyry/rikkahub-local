@@ -29,6 +29,11 @@ sealed interface RevisionCheckResult {
         val expected: Long,
         val actual: Long,
     ) : RevisionCheckResult
+
+    data class RevisionRegressed(
+        val expected: Long,
+        val actual: Long,
+    ) : RevisionCheckResult
 }
 
 interface ConversationRevisionSource {
@@ -53,6 +58,10 @@ class ConversationRevisionGuard(
         if (policy == RevisionCommitPolicy.ALLOW_DESCENDANT_REVISION && current.revision > snapshot.revision) {
             return RevisionCheckResult.Match
         }
-        return RevisionCheckResult.RevisionAdvanced(snapshot.revision, current.revision)
+        return if (current.revision < snapshot.revision) {
+            RevisionCheckResult.RevisionRegressed(snapshot.revision, current.revision)
+        } else {
+            RevisionCheckResult.RevisionAdvanced(snapshot.revision, current.revision)
+        }
     }
 }

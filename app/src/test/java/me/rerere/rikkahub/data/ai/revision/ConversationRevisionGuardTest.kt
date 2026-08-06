@@ -16,6 +16,20 @@ class ConversationRevisionGuardTest {
     }
 
     @Test
+    fun regressedRevisionIsReportedSeparately() = runTest {
+        val expected = ConversationSnapshot("conversation", "branch-a", 3)
+        val guard = ConversationRevisionGuard(object : ConversationRevisionSource {
+            override suspend fun currentState(conversationId: String) =
+                ConversationSnapshot(conversationId, "branch-a", 2)
+        })
+
+        assertEquals(
+            RevisionCheckResult.RevisionRegressed(3, 2),
+            guard.check(expected),
+        )
+    }
+
+    @Test
     fun changedBranchIsNotReducedToRevisionDrift() = runTest {
         val expected = ConversationSnapshot("conversation", "branch-a", 3)
         val guard = ConversationRevisionGuard(object : ConversationRevisionSource {
