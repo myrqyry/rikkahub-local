@@ -171,6 +171,10 @@ val appModule = module {
         )
     }
 
+    single<me.rerere.rikkahub.data.catalog.ArtifactCatalogProvider> {
+        me.rerere.rikkahub.data.catalog.BundledCatalogAdapter()
+    }
+
     // Phase 19B: Skill isolation tester. Eager construction is safe here — ChatService
     // doesn't reach back into SkillTestRunner anywhere, so no DI cycle.
     single {
