@@ -103,9 +103,6 @@ android {
         // agent-keyboard IPC: IKeyboardApi.aidl + EditorInfoBundle.aidl in src/main/aidl.
         aidl = true
     }
-    testOptions {
-        unitTests.isReturnDefaultValues = true
-    }
 
     externalNativeBuild {
         cmake {
