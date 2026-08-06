@@ -120,6 +120,7 @@ import me.rerere.rikkahub.data.ai.tools.local.batchCopyTool
 import me.rerere.rikkahub.data.ai.tools.local.batchMoveTool
 import me.rerere.rikkahub.data.ai.tools.local.batchDeleteTool
 import me.rerere.rikkahub.data.ai.tools.local.webFetchTool
+import me.rerere.rikkahub.data.ai.tools.image.ImageTools
 import me.rerere.rikkahub.data.event.AppEvent
 import me.rerere.rikkahub.data.event.AppEventBus
 import me.rerere.rikkahub.utils.readClipboardText
@@ -374,6 +375,9 @@ class LocalTools(
     private val okHttpClient: okhttp3.OkHttpClient,
     // agent-keyboard IPC client — backs the keyboard_* tools (drives the active text field).
     private val keyboardApiClient: me.rerere.rikkahub.data.keyboard.KeyboardApiClient,
+    // Chat multimodal tools (generate_image / edit_image / analyze_image / extract_text_from_image).
+    // Core capability tools: always registered, NOT gated by LocalToolOption.
+    private val imageTools: ImageTools,
 ) {
     val javascriptTool by lazy {
         Tool(
@@ -1054,6 +1058,10 @@ class LocalTools(
             tools.add(keyboardSetCursorTool(keyboardApiClient))
             tools.add(keyboardSelectRangeTool(keyboardApiClient))
         }
+        // Chat multimodal tools are core capabilities — always registered regardless of which
+        // LocalToolOption categories the assistant has enabled. Every getTools() caller (chat
+        // fast-path router, cron, workflow, sub-agent) picks them up through this single path.
+        tools.addAll(imageTools.tools(invocationContext))
         // Centralised opt-in to needsApproval. Tool factories themselves don't have to know
         // whether their op is destructive — ToolApprovalDefaults is the single source of
         // truth, and the GenerationHandler / Telegram/in-app prompt path keys off needsApproval.

@@ -256,6 +256,7 @@ val appModule = module {
             storageVolumeGrantStore = get(),
             okHttpClient = get(),
             keyboardApiClient = get(),
+            imageTools = get(),
         )
     }
 
@@ -294,6 +295,16 @@ val appModule = module {
     single { me.rerere.rikkahub.data.ai.tools.image.ImageTextExtractor(get(), get()) }
     single<me.rerere.rikkahub.data.media.ImageMediaStore> { me.rerere.rikkahub.data.media.DefaultImageMediaStore(get(), get()) }
     single<me.rerere.rikkahub.data.ai.tools.image.MediaInputResolver> { me.rerere.rikkahub.data.ai.tools.image.DefaultMediaInputResolver(get(), get(), get()) }
+    single {
+        me.rerere.rikkahub.data.ai.tools.image.ImageTools(
+            settingsStore = me.rerere.rikkahub.data.ai.tools.image.SettingsProvider { get<me.rerere.rikkahub.data.datastore.SettingsStore>().settingsFlow.value },
+            modelRoleResolver = get(),
+            imageToolBackend = get(),
+            imageMediaStore = get(),
+            mediaInputResolver = get(),
+            imageTextExtractor = get(),
+        )
+    }
     single<me.rerere.rikkahub.data.modelregistry.LegacyModelAssignmentAdapter> {
         me.rerere.rikkahub.data.modelregistry.SettingsLegacyModelAssignmentAdapter(get(), get<me.rerere.rikkahub.AppScope>())
     }
