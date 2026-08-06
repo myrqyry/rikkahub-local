@@ -79,8 +79,9 @@ Use the original RikkaHub provider ecosystem alongside local Android runtimes.
 - Manual model import from local files or supported URLs
 - Separate model capabilities for chat, reasoning, tools, vision, OCR, document analysis, image generation, image editing, speech, embeddings, and reranking
 - A registry and resolver that preserve local/cloud boundaries and avoid silent cloud fallback
+- A unified Models page backed by `ModelRegistry` for role-based assignment, capability browsing, and provider management
 
-The current `ModelRegistry` is the foundation for a unified Models surface. Existing provider and runtime pages still own several lifecycle and configuration actions while that UI migration is completed.
+The unified Models page assigns models to roles (chat, vision, OCR, image generation, image editing, embeddings), filters inventory by capability, groups by provider, and supports deep links from feature screens. Per-assistant model-role overrides (including separate speech provider overrides) let one assistant use a different image or vision model than the chat default, and cloud attachment and image-processing privacy toggles gate which content may reach cloud models.
 
 ### Assistants and prompt library
 
@@ -106,7 +107,7 @@ RikkaHub Local can absorb reusable agent artifacts instead of treating every ext
 - Plugin commands and tools exposed through the existing assistant/tool system
 - Compatibility handling for native RikkaHub skills and selected external skill formats
 
-Direct catalog adapters for more ecosystems are planned. The current import foundation is deliberately source-adapter based so ClawHub, LobeHub, Hugging Face, and other catalogs can be added without creating another unrelated installer for each one.
+Direct catalog adapters for more ecosystems are planned. The current import foundation is deliberately source-adapter based so ClawHub, LobeHub, Hugging Face, and other catalogs can be added without creating another unrelated installer for each one. Catalog providers resolve entries into the same import pipeline (`ImportRequest` with optional pinned SHA-256), so catalog-sourced artifacts get the same staging, review, provenance, and content-hash guarantees as any other import.
 
 ### Android tools and device control
 
@@ -161,6 +162,25 @@ Use cloud or local speech components independently from the active chat model.
 - Voice-note and audio handling through chat and remote integrations
 - Separate speech-to-text and text-to-speech configuration
 
+### Chat-native multimodal tools
+
+Assistants can analyze, read, generate, and edit images directly from a conversation, independent of the active chat model's capabilities.
+
+- `analyze_image`, `extract_text_from_image`, `generate_image`, and `edit_image` agent tools
+- Explicit `image_ref` inputs that accept artifact IDs, `file://`/`content://` URIs, or absolute paths
+- Each tool resolves its model through the capability registry and respects the assistant's cloud-processing privacy policy
+- Inline result cards with Open, Use as reference, Edit, Open in Image Studio, and Share actions
+- Generated images are saved and registered in Image Studio, so they can be passed to other tools or shared onward
+
+### Android sharing
+
+RikkaHub Local participates in the Android share ecosystem in both directions.
+
+- Receiving shared text, URLs, and files, with recognized skills/plugins routed to the import preview and ordinary content to the composer
+- Sending text, URLs, or a single file-backed artifact (including generated images) through the Android sharesheet
+- Assistant-triggered shares request approval with a preview; direct user shares open the chooser without extra prompts
+- Outbound files are exposed as `content://` URIs with read-permission grants — never raw filesystem paths
+
 ### Telegram and remote interaction
 
 A configured Telegram bot can act as a remote front end for an assistant.
@@ -206,6 +226,10 @@ What works depends on the models, permissions, integrations, and tools you enabl
 > “Import this GitHub skill, show me what files and permissions it contains, then add it to my coding assistant.”
 >
 > “Open the router admin page, inspect connected devices, and ask before changing anything.”
+>
+> “Generate a picture of the mascot, edit out the background, and share it to my gallery.”
+>
+> “Analyze this screenshot with the vision model and tell me what changed.”
 
 ---
 
@@ -228,7 +252,7 @@ User / Telegram / Android intent
      └── Sub-agents ───────── isolated delegated work
 ```
 
-Model selection is moving toward capability-based resolution:
+Model selection uses capability-based resolution with explicit source policies:
 
 ```text
 assistant override
@@ -242,7 +266,7 @@ first enabled compatible model
 clear “no compatible model” state
 ```
 
-Local models remain local unless the user has allowed an appropriate cloud fallback.
+An invalid assistant override fails loudly instead of silently falling through, and a `ModelSourcePolicy` (`ANY` vs `LOCAL_ONLY`) is applied at every candidate level. Local models remain local unless the user has allowed an appropriate cloud fallback, and privacy checks run after resolution but before any provider call.
 
 ---
 
@@ -262,15 +286,15 @@ The repository is functional but experimental. Large parts of the agent system a
 - Experimental Stable Diffusion model management and native bridge
 - Local and cloud speech integrations
 - Expanded document parsing, including XLSX and CSV
-- Initial model capability registry and resolver
+- Unified Models page backed by `ModelRegistry` with capability tabs, search, provider grouping, and role assignments
+- Per-assistant model-role and speech overrides with cloud attachment/image-processing privacy controls
+- Chat-native multimodal tools (`analyze_image`, `extract_text_from_image`, `generate_image`, `edit_image`) with inline result cards
+- Catalog adapters routed through the safe-import pipeline with pinned-hash gating
+- Inbound and outbound Android share (text, URLs, and single file-backed artifacts)
 
 ### In progress / next
 
-- Unified Models page backed by `ModelRegistry`
-- Registry-backed assignments for chat, vision, OCR, image generation, and embeddings
-- Provider accordions and capability-filtered local/cloud model browsing
 - More catalog source adapters, including ClawHub, LobeHub, and Hugging Face flows
-- Chat-native image generation, editing, analysis, and OCR tools
 - Continued runtime validation and acceleration work for local image generation
 - Documentation and screenshots that catch up with the implementation before it mutates again
 
