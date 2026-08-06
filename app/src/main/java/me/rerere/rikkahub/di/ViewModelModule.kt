@@ -29,6 +29,8 @@ import me.rerere.rikkahub.ui.pages.translator.TranslatorVM
 import me.rerere.rikkahub.ui.pages.setting.doctor.DoctorViewModel
 import me.rerere.rikkahub.ui.pages.setting.scheduledjobs.ScheduledJobsViewModel
 import me.rerere.rikkahub.workflow.ui.WorkflowsViewModel
+import me.rerere.rikkahub.data.media.DefaultImageMediaStore
+import me.rerere.rikkahub.data.media.ImageMediaStore
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
@@ -72,6 +74,7 @@ val viewModelModule = module {
     }
     viewModelOf(::BackupVM)
     viewModelOf(::ImgGenVM)
+    single<ImageMediaStore> { DefaultImageMediaStore(get(), get()) }
     viewModelOf(::PromptVM)
     viewModelOf(::QuickMessagesVM)
     viewModel<SkillsVM> {

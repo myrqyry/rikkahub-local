@@ -28,12 +28,17 @@ import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.datastore.findModelById
 import me.rerere.rikkahub.data.datastore.findProvider
 import me.rerere.rikkahub.data.datastore.getCurrentAssistant
+import me.rerere.rikkahub.data.ai.tools.image.ImageOperation
 import me.rerere.rikkahub.data.db.entity.GenMediaEntity
 import me.rerere.rikkahub.data.files.FilesManager
+import me.rerere.rikkahub.data.media.ImageMediaStore
+import me.rerere.rikkahub.data.media.MediaArtifactRef
+import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
 import me.rerere.rikkahub.data.modelregistry.ModelRegistry
 import me.rerere.rikkahub.data.modelregistry.ModelResolution
 import me.rerere.rikkahub.data.modelregistry.ModelRole
 import me.rerere.rikkahub.data.modelregistry.ModelRoleResolver
+import me.rerere.rikkahub.data.modelregistry.ModelSource
 import me.rerere.rikkahub.data.modelregistry.ModelSourcePolicy
 import me.rerere.rikkahub.data.modelregistry.canProcessImageWith
 import me.rerere.rikkahub.data.repository.GenMediaRepository
@@ -71,6 +76,7 @@ class ImgGenVM(
     private val filesManager: FilesManager,
     private val modelRoleResolver: ModelRoleResolver,
     private val modelRegistry: ModelRegistry,
+    private val imageMediaStore: ImageMediaStore,
 ) : AndroidViewModel(context) {
     private val _prompt = MutableStateFlow("")
     val prompt: StateFlow<String> = _prompt
@@ -334,27 +340,21 @@ class ImgGenVM(
         type: String = GenMediaEntity.TYPE_IMAGE_GENERATION,
         sourcePaths: String? = null,
     ): File {
-        val imagesDir = filesManager.getImagesDir()
-
-        val timestamp = System.currentTimeMillis()
-        val filename = "${timestamp}_${modelName}_$index.png"
-        val imageFile = File(imagesDir, filename)
-
-        val createdFile = filesManager.createImageFileFromBase64(item.data, imageFile.absolutePath)
-
-        // Save to database with relative path
-        val relativePath = "images/${imageFile.name}"
-        val entity = GenMediaEntity(
-            path = relativePath,
-            modelId = modelName,
+        val descriptor = modelRegistry.models.value.firstOrNull { it.displayName == modelName }
+            ?: ModelDescriptor(
+                id = modelName,
+                displayName = modelName,
+                source = ModelSource.Cloud(providerId = "", remoteModelId = ""),
+                capabilities = emptySet(),
+            )
+        val artifact = imageMediaStore.saveGenerated(
+            item = item,
             prompt = prompt,
-            createAt = timestamp,
-            type = type,
-            sourcePaths = sourcePaths,
+            model = descriptor,
+            operation = if (type == GenMediaEntity.TYPE_IMAGE_EDIT) ImageOperation.IMAGE_EDIT else ImageOperation.IMAGE_GENERATION,
+            sourceArtifacts = sourcePaths?.lines()?.filter { it.isNotBlank() }?.map { MediaArtifactRef(artifactId = it, path = it) } ?: emptyList(),
         )
-        genMediaRepository.insertMedia(entity)
-
-        return createdFile
+        return File(artifact.path)
     }
 
     fun deleteImage(image: GeneratedImage) {
