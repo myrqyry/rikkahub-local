@@ -1,6 +1,9 @@
 package me.rerere.rikkahub.data.ai.tools.local
 
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
@@ -22,6 +25,44 @@ import java.io.InterruptedIOException
 
 private const val WEB_FETCH_TIMEOUT_MS = 30_000L
 private const val WEB_FETCH_BODY_CAP = 8 * 1024  // 8 KB
+internal const val WEB_FETCH_REQUEST_BODY_CAP_BYTES = 64 * 1024
+internal const val WEB_FETCH_HEADER_COUNT_CAP = 32
+internal const val WEB_FETCH_HEADER_BYTES_CAP = 16 * 1024
+
+internal enum class WebFetchHeaderValidation {
+    VALID,
+    TOO_MANY,
+    TOO_LARGE,
+    INVALID_VALUE,
+}
+
+/** The POST body cap is measured in serialized UTF-8 bytes, not UTF-16 Kotlin characters. */
+internal fun webFetchBodyWithinLimit(body: String?): Boolean =
+    body == null || body.toByteArray(Charsets.UTF_8).size <= WEB_FETCH_REQUEST_BODY_CAP_BYTES
+
+/**
+ * Validate request-header shape and aggregate size before handing agent-controlled values to
+ * OkHttp. Header names and scalar values count toward the byte cap; protocol framing adds only a
+ * small fixed overhead and OkHttp applies its own syntax validation when the request is built.
+ */
+internal fun validateWebFetchHeaders(headers: JsonObject?): WebFetchHeaderValidation {
+    if (headers == null) return WebFetchHeaderValidation.VALID
+    if (headers.size > WEB_FETCH_HEADER_COUNT_CAP) return WebFetchHeaderValidation.TOO_MANY
+
+    var totalBytes = 0L
+    headers.forEach { (name, element) ->
+        val primitive = element as? JsonPrimitive
+            ?: return WebFetchHeaderValidation.INVALID_VALUE
+        val value = primitive.contentOrNull
+            ?: return WebFetchHeaderValidation.INVALID_VALUE
+        totalBytes += name.toByteArray(Charsets.UTF_8).size
+        totalBytes += value.toByteArray(Charsets.UTF_8).size
+        if (totalBytes > WEB_FETCH_HEADER_BYTES_CAP) {
+            return WebFetchHeaderValidation.TOO_LARGE
+        }
+    }
+    return WebFetchHeaderValidation.VALID
+}
 
 /**
  * Lightweight HTTP GET/POST tool so workflows and agents can fetch a public URL without driving
@@ -31,16 +72,19 @@ private const val WEB_FETCH_BODY_CAP = 8 * 1024  // 8 KB
  *
  * OkHttp's call timeout enforces the advertised 30-second bound on the complete blocking request,
  * including slow response reads. [withTimeoutOrNull] remains as a secondary coroutine-side bound.
- * The response body is capped at 8 KB and the cap is reported to the caller.
+ * The response body is capped at 8 KB and the cap is reported to the caller. Agent-controlled
+ * request bodies and headers are bounded before a request is constructed.
  */
 fun webFetchTool(client: OkHttpClient): Tool = Tool(
     name = "web_fetch",
     description = """
         Fetch a public URL over HTTP(S). method is GET (default) or POST. Optionally pass headers
-        (object of name->value) and a body string (POST only). Private, loopback, link-local, and
-        other non-public network targets are refused, including redirect targets. Hard 30s timeout.
-        The response body is capped at 8192 bytes; body_truncated=true when more data remained.
-        Returns {status, ok, headers, body, body_truncated} or {error, detail, recovery}.
+        (object of name->value) and a body string (POST only). Requests allow at most 32 headers,
+        16384 UTF-8 bytes of combined header names and values, and a 65536-byte UTF-8 POST body.
+        Private, loopback, link-local, and other non-public network targets are refused, including
+        redirect targets. Hard 30s timeout. The response body is capped at 8192 bytes;
+        body_truncated=true when more data remained. Returns
+        {status, ok, headers, body, body_truncated} or {error, detail, recovery}.
     """.trimIndent().replace("\n", " "),
     parameters = {
         InputSchema.Obj(
@@ -59,7 +103,7 @@ fun webFetchTool(client: OkHttpClient): Tool = Tool(
                 })
                 put("body", buildJsonObject {
                     put("type", "string")
-                    put("description", "Optional request body string (POST only)")
+                    put("description", "Optional request body string (POST only, max 65536 UTF-8 bytes)")
                 })
             },
             required = listOf("url"),
@@ -109,11 +153,70 @@ fun webFetchTool(client: OkHttpClient): Tool = Tool(
             )
         }
         val bodyStr = obj["body"]?.jsonPrimitive?.contentOrNull
+        if (method == "POST" && !webFetchBodyWithinLimit(bodyStr)) {
+            return@Tool fmTextPart(
+                buildJsonObject {
+                    put("error", "request_body_too_large")
+                    put(
+                        "detail",
+                        "POST body exceeds the $WEB_FETCH_REQUEST_BODY_CAP_BYTES-byte UTF-8 limit.",
+                    )
+                    put("recovery", "Send a smaller textual body or use a dedicated upload tool.")
+                }.toString(),
+            )
+        }
+
+        val headers = when (val element = obj["headers"]) {
+            null, JsonNull -> null
+            is JsonObject -> element
+            else -> {
+                return@Tool fmTextPart(
+                    buildJsonObject {
+                        put("error", "bad_headers")
+                        put("detail", "headers must be an object of scalar name-to-value entries.")
+                        put("recovery", "Pass headers as an object such as {\"Accept\":\"application/json\"}.")
+                    }.toString(),
+                )
+            }
+        }
+        when (validateWebFetchHeaders(headers)) {
+            WebFetchHeaderValidation.VALID -> Unit
+            WebFetchHeaderValidation.TOO_MANY -> {
+                return@Tool fmTextPart(
+                    buildJsonObject {
+                        put("error", "too_many_headers")
+                        put("detail", "Request contains more than $WEB_FETCH_HEADER_COUNT_CAP headers.")
+                        put("recovery", "Remove unnecessary request headers and retry.")
+                    }.toString(),
+                )
+            }
+            WebFetchHeaderValidation.TOO_LARGE -> {
+                return@Tool fmTextPart(
+                    buildJsonObject {
+                        put("error", "headers_too_large")
+                        put(
+                            "detail",
+                            "Combined header names and values exceed the $WEB_FETCH_HEADER_BYTES_CAP-byte UTF-8 limit.",
+                        )
+                        put("recovery", "Shorten or remove request headers and retry.")
+                    }.toString(),
+                )
+            }
+            WebFetchHeaderValidation.INVALID_VALUE -> {
+                return@Tool fmTextPart(
+                    buildJsonObject {
+                        put("error", "bad_headers")
+                        put("detail", "Every header value must be a non-null scalar value.")
+                        put("recovery", "Use string, number, or boolean header values; do not nest objects or arrays.")
+                    }.toString(),
+                )
+            }
+        }
 
         val request = try {
             val builder = Request.Builder().url(url)
-            (obj["headers"] as? kotlinx.serialization.json.JsonObject)?.forEach { (name, value) ->
-                value.jsonPrimitive.contentOrNull?.let { builder.header(name, it) }
+            headers?.forEach { (name, value) ->
+                builder.header(name, (value as JsonPrimitive).content)
             }
             if (method == "POST") {
                 builder.post((bodyStr ?: "").toRequestBody())
@@ -199,6 +302,7 @@ fun webFetchTool(client: OkHttpClient): Tool = Tool(
  * remained while bounding memory regardless of Content-Length or a missing/incorrect header.
  */
 internal fun readBounded(ins: InputStream, cap: Int): Pair<ByteArray, Boolean> {
+    require(cap >= 0) { "cap must be non-negative" }
     val out = ByteArrayOutputStream(minOf(cap, 8 * 1024))
     val buffer = ByteArray(8192)
     val limit = cap.toLong() + 1
@@ -207,6 +311,15 @@ internal fun readBounded(ins: InputStream, cap: Int): Pair<ByteArray, Boolean> {
         val wanted = minOf(buffer.size.toLong(), limit - total).toInt()
         val read = ins.read(buffer, 0, wanted)
         if (read < 0) break
+        if (read == 0) {
+            // A conforming blocking InputStream should not return zero for a positive-length read,
+            // but defensive handling prevents a buggy/custom stream from spinning forever.
+            val single = ins.read()
+            if (single < 0) break
+            out.write(single)
+            total += 1
+            continue
+        }
         out.write(buffer, 0, read)
         total += read
     }
