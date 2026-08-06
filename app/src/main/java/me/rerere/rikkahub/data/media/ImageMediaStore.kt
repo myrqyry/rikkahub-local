@@ -44,7 +44,7 @@ class DefaultImageMediaStore(
             ImageOperation.IMAGE_EDIT -> GenMediaEntity.TYPE_IMAGE_EDIT
             else -> GenMediaEntity.TYPE_IMAGE_GENERATION
         }
-        val relativePath = "images/${timestamp}_${model.displayName}_0.png"
+        val relativePath = buildImageRelativePath(timestamp, model.displayName)
         val entity = buildEntity(
             relativePath = relativePath,
             modelName = model.displayName,
@@ -90,4 +90,16 @@ class DefaultImageMediaStore(
             sourcePaths = sourceArtifacts.joinToString("\n").ifBlank { null },
         )
     }
+}
+
+/**
+ * Builds the on-disk relative path for a generated image.
+ * [modelName] is provider-controlled, so it is sanitized to [A-Za-z0-9_.-] before
+ * being embedded in the path (keeps the DB `relativePath` and the resolved file
+ * consistent). `System.nanoTime()` disambiguates files produced within the same
+ * millisecond (multi-image generation), so concurrent saves never share a path.
+ */
+internal fun buildImageRelativePath(timestamp: Long, modelName: String): String {
+    val sanitizedModelName = modelName.replace(Regex("[^A-Za-z0-9_.\\-]"), "_").ifBlank { "image" }
+    return "images/${timestamp}_${sanitizedModelName}_${System.nanoTime()}.png"
 }
