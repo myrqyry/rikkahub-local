@@ -175,6 +175,10 @@ val appModule = module {
         me.rerere.rikkahub.data.catalog.BundledCatalogAdapter()
     }
 
+    single<me.rerere.rikkahub.data.share.SharedPayloadStore> {
+        me.rerere.rikkahub.data.share.InMemorySharedPayloadStore()
+    }
+
     // Phase 19B: Skill isolation tester. Eager construction is safe here — ChatService
     // doesn't reach back into SkillTestRunner anywhere, so no DI cycle.
     single {

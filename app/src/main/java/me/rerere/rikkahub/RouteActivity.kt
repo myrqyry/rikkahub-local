@@ -68,6 +68,11 @@ import me.rerere.rikkahub.data.db.DatabaseMigrationTracker
 import me.rerere.rikkahub.data.db.MigrationState
 import me.rerere.rikkahub.data.event.AppEvent
 import me.rerere.rikkahub.data.event.AppEventBus
+import me.rerere.rikkahub.data.share.ArtifactImportRecognizer
+import me.rerere.rikkahub.data.share.InboundShareNormalizer
+import me.rerere.rikkahub.data.share.SharedPayloadHandoff
+import me.rerere.rikkahub.data.share.SharedPayloadStore
+import me.rerere.rikkahub.data.share.ShareRoutingDecision
 import me.rerere.rikkahub.ui.activity.SafeModeActivity
 import me.rerere.rikkahub.ui.components.ui.TTSController
 import me.rerere.rikkahub.ui.context.LocalNavController
@@ -134,6 +139,7 @@ import me.rerere.rikkahub.ui.pages.setting.SettingSpeechPage
 import me.rerere.rikkahub.ui.pages.setting.SettingTelegramPage
 import me.rerere.rikkahub.ui.pages.setting.SettingWebPage
 import me.rerere.rikkahub.ui.pages.share.handler.ShareHandlerPage
+import me.rerere.rikkahub.ui.pages.share.handler.ShareImportPage
 import me.rerere.rikkahub.ui.pages.stats.StatsPage
 import me.rerere.rikkahub.ui.pages.translator.TranslatorPage
 import me.rerere.rikkahub.ui.pages.webview.WebViewPage
@@ -156,6 +162,7 @@ class RouteActivity : ComponentActivity() {
     private val highlighter by inject<Highlighter>()
     private val okHttpClient by inject<OkHttpClient>()
     private val settingsStore by inject<SettingsStore>()
+    private val sharedPayloadStore by inject<SharedPayloadStore>()
     private var navStack: MutableList<NavKey>? = null
 
     // Volume key listener registry — last registered handler wins
@@ -252,20 +259,27 @@ class RouteActivity : ComponentActivity() {
     }
 
     private fun appendShareRoute(backStack: MutableList<NavKey>, shareIntent: Intent?) {
-        when (shareIntent?.action) {
-            Intent.ACTION_SEND, Intent.ACTION_PROCESS_TEXT -> {
-                val text = if (shareIntent.action == Intent.ACTION_PROCESS_TEXT) {
-                    shareIntent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
-                } else {
-                    shareIntent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
-                }.orEmpty().take(MAX_SHARED_TEXT_LENGTH)
-                val stream = IntentCompat.getParcelableExtra(
-                    shareIntent,
-                    Intent.EXTRA_STREAM,
-                    Uri::class.java,
-                )?.takeIf { it.scheme == "content" }?.toString()
-                backStack.add(Screen.ShareHandler(text, stream))
+        val payload = shareIntent?.let { InboundShareNormalizer.normalize(it) }
+        when (val decision = payload?.let { ArtifactImportRecognizer.recognize(it) }) {
+            is ShareRoutingDecision.ImportCandidate -> {
+                val handoff = SharedPayloadHandoff(
+                    id = java.util.UUID.randomUUID().toString(),
+                    payload = payload!!,
+                    createdAt = System.currentTimeMillis(),
+                )
+                backStack.add(Screen.ShareImport(sharedPayloadStore.put(handoff)))
             }
+            is ShareRoutingDecision.ComposerDraft -> {
+                val draft = decision.draft
+                backStack.add(
+                    Screen.ShareHandler(
+                        draft.initText.orEmpty().take(MAX_SHARED_TEXT_LENGTH),
+                        draft.initFiles?.firstOrNull(),
+                    )
+                )
+            }
+            is ShareRoutingDecision.Unsupported -> backStack.add(Screen.ShareHandler("", null))
+            null -> backStack.add(Screen.ShareHandler("", null))
         }
     }
 
@@ -405,6 +419,10 @@ class RouteActivity : ComponentActivity() {
                                     text = key.text,
                                     image = key.streamUri
                                 )
+                            }
+
+                            entry<Screen.ShareImport> { key ->
+                                ShareImportPage(handoffId = key.handoffId)
                             }
 
                             entry<Screen.History> {
@@ -712,6 +730,9 @@ sealed interface Screen : NavKey {
 
     @Serializable
     data class ShareHandler(val text: String, val streamUri: String? = null) : Screen
+
+    @Serializable
+    data class ShareImport(val handoffId: String) : Screen
 
     @Serializable
     data object History : Screen
