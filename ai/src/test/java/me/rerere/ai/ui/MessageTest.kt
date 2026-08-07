@@ -707,6 +707,39 @@ class MessageTest {
         assertTrue(assistantParts[2] is UIMessagePart.Image)
     }
 
+    // ==================== Tool.merge Tests ====================
+
+    @Test
+    fun `Tool merge with existing name and blank incoming name keeps existing name`() {
+        val existing = UIMessagePart.Tool("call1", "search", "{}")
+        val merged = existing.merge(UIMessagePart.Tool("call1", "", """{"q":"x"}"""))
+        assertEquals("search", merged.toolName)
+    }
+
+    @Test
+    fun `Tool merge with blank existing name and incoming name adopts incoming name`() {
+        val existing = UIMessagePart.Tool("call1", "", "{}")
+        val merged = existing.merge(UIMessagePart.Tool("call1", "search", """{"q":"x"}"""))
+        assertEquals("search", merged.toolName)
+    }
+
+    @Test
+    fun `Tool merge with existing name and repeated incoming name does not concatenate`() {
+        val existing = UIMessagePart.Tool("call1", "search", "{}")
+        val merged = existing
+            .merge(UIMessagePart.Tool("call1", "search", """{"q":"a"}"""))
+            .merge(UIMessagePart.Tool("call1", "search", """{"q":"b"}"""))
+        assertEquals("search", merged.toolName)
+    }
+
+    @Test
+    fun `Tool merge input fragments concatenate normally`() {
+        val existing = UIMessagePart.Tool("call1", "search", """{"q":""")
+        val merged = existing.merge(UIMessagePart.Tool("call1", "", """"x"}"""))
+        assertEquals("search", merged.toolName)
+        assertEquals("""{"q":"x"}""", merged.input)
+    }
+
     // ==================== Helper Functions ====================
 
     private fun createTestMessages(count: Int): List<UIMessage> {
