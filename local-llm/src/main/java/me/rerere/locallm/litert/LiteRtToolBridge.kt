@@ -34,6 +34,13 @@ private const val TAG = "LiteRtToolBridge"
  *   - Single bridge is simpler to test and reason about; the SDK's prompt template is
  *     still the canonical source of truth for what the model sees.
  *
+ * Approval safety: LiteRT-LM automatic tool calling invokes this method inside the SDK,
+ * before Rikka's normal [GenerationHandler] Pending/Approved loop can inspect the call.
+ * Until native tool calls are surfaced back into that loop, any Rikka tool whose
+ * [RikkaTool.needsApproval] predicate returns true is refused here instead of executing
+ * silently. This is deliberately fail-closed: losing one automatic action is preferable
+ * to bypassing a user approval boundary.
+ *
  * Concurrency: the bridge holds an immutable snapshot of the current request's tools.
  * Each [LiteRtProvider.streamText] call updates the snapshot via
  * [LiteRtToolBridgeRegistry] before invoking the SDK; the @Tool method reads from there.
@@ -56,6 +63,20 @@ class LiteRtToolBridge : ToolSet {
             ?: return errorEnvelope("tool_not_found", "No tool named '$name' is registered for this request.")
         val args: JsonObject = parseArgs(argsJson)
             ?: return errorEnvelope("invalid_json_args", "argsJson must be a valid JSON object, got: $argsJson")
+
+        val requiresApproval = runCatching { tool.needsApproval(args) }.getOrElse { t ->
+            return errorEnvelope(
+                "approval_check_failed",
+                "Could not determine whether tool '$name' requires approval: ${t.message ?: t::class.java.simpleName}",
+            )
+        }
+        if (requiresApproval) {
+            return errorEnvelope(
+                "approval_required",
+                "Tool '$name' requires user approval and cannot execute through LiteRT automatic tool calling yet.",
+            )
+        }
+
         return runBlocking {
             runCatching {
                 val parts = tool.execute(args)
