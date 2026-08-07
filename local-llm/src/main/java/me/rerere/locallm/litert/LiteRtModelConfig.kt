@@ -24,7 +24,9 @@ object LiteRtModelDefaults {
     /** Look up by exact `modelFile` name. Returns sensible fallback if unknown so HF-URL-pasted
      *  models still get reasonable defaults instead of silent SDK defaults. */
     fun forModelFile(modelFile: String): LiteRtModelConfig =
-        BUILT_IN.firstOrNull { it.modelFile == modelFile } ?: FALLBACK
+        FunctionGemmaMobileActionsProfile.runtimeConfigFor(modelFile)
+            ?: BUILT_IN.firstOrNull { it.modelFile == modelFile }
+            ?: FALLBACK
 
     private val FALLBACK = LiteRtModelConfig(
         modelFile = "<unknown>",
