@@ -36,7 +36,7 @@ object FunctionGemmaMobileActionsProfile {
             supportsAudio = false,
             supportsThinking = false,
             supportsSpeculativeDecoding = false,
-            minDeviceMemoryGb = 1,
+            minDeviceMemoryGb = 2,
             sizeBytes = 288_964_608L,
         )
 
