@@ -13,7 +13,8 @@ local.properties
 .kotlin
 
 # --- Personal / AI-agent workspace (not for the public fork) ---
-.claude/
+/.claude/
+/.superpowers/
 /docs/superpowers/
 **/CLAUDE.md
 
@@ -44,4 +45,3 @@ app/src/main/jni/litert/litert_cc_sdk/
 
 # OpenCode plugin install artifacts — not project code
 .opencode/
-.superpowers/
