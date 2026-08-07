@@ -45,6 +45,7 @@ import me.rerere.ai.ui.UIMessagePart
 import me.rerere.ai.ui.ToolApprovalState
 import me.rerere.ai.ui.handleMessageChunk
 import me.rerere.ai.ui.limitContext
+import me.rerere.rikkahub.BuildConfig
 import me.rerere.rikkahub.data.repository.ConversationRepository
 import me.rerere.rikkahub.data.ai.transformers.InputMessageTransformer
 import me.rerere.rikkahub.data.ai.transformers.MessageTransformer
@@ -757,7 +758,9 @@ class GenerationHandler(
                             val toolDef = toolsInternal.find { toolDef -> toolDef.name == tool.toolName }
                                 ?: error("Tool ${tool.toolName} not found")
                             val args = parsedArgs.getOrThrow()
-                            Log.i(TAG, "generateText: executing tool ${toolDef.name} with args: ${redactSecrets(args)}")
+                            if (BuildConfig.DEBUG) {
+                                Log.i(TAG, "generateText: executing tool ${toolDef.name} with args: ${redactSecrets(args)}")
+                            }
                             // Mark the tool as "execution started" BEFORE actually running.
                             // ChatService persists this when it sees the chunk so a process
                             // kill between mark-and-output leaves a clear breadcrumb on disk:
