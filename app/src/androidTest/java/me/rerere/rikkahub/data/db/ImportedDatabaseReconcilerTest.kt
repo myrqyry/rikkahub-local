@@ -5,6 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import me.rerere.rikkahub.data.db.migrations.Migration_27_28
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -63,6 +64,7 @@ class ImportedDatabaseReconcilerTest {
 
         val room = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
             .allowMainThreadQueries()
+            .addMigrations(Migration_27_28)
             .build()
         try {
             // Forcing the db open replays the 24 -> 25 auto-migration; this is where the
@@ -91,6 +93,7 @@ class ImportedDatabaseReconcilerTest {
 
         val room = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
             .allowMainThreadQueries()
+            .addMigrations(Migration_27_28)
             .build()
         try {
             val db = room.openHelper.writableDatabase // opens + validates now; no migration runs

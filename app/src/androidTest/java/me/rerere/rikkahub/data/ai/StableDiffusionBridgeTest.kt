@@ -8,19 +8,21 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class StableDiffusionBridgeTest {
 
-    @Test fun `nativeInit fails gracefully with nonexistent model`() {
+    @Test fun nativeInitFailsGracefullyWithNonexistentModel() {
         val bridge = StableDiffusionBridge
         bridge.ensureLoaded()
         val ok = bridge.nativeInit("/nonexistent/model.gguf", 1)
         assertFalse(ok)
     }
 
-    @Test fun `nativeRelease is safe when not initialized`() {
+    @Test fun nativeReleaseIsSafeWhenNotInitialized() {
+        StableDiffusionBridge.ensureLoaded()
         StableDiffusionBridge.nativeRelease()
         // Should not crash
     }
 
-    @Test fun `nativeGenerate returns null when not initialized`() {
+    @Test fun nativeGenerateReturnsNullWhenNotInitialized() {
+        StableDiffusionBridge.ensureLoaded()
         val result = StableDiffusionBridge.nativeGenerate("test", "", 512, 512, 1, 7.0f, -1)
         assertNull(result)
     }
