@@ -4,9 +4,9 @@ import java.time.DateTimeException
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.ResolverStyle
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -20,6 +20,10 @@ import kotlinx.serialization.json.put
  * the existing hardline, approval, loop-guard, and execution pipeline remains authoritative.
  */
 object FunctionGemmaMobileActionsMapper {
+
+    private val mobileActionsDateTimeFormatter = DateTimeFormatter
+        .ofPattern("uuuu-MM-dd'T'HH:mm:ss")
+        .withResolverStyle(ResolverStyle.STRICT)
 
     sealed interface Result {
         data class Mapped(
@@ -106,7 +110,7 @@ object FunctionGemmaMobileActionsMapper {
         val title = requiredString(args, "title") ?: return missing("title")
         val datetime = requiredString(args, "datetime") ?: return missing("datetime")
         val startTimeMs = try {
-            LocalDateTime.parse(datetime, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            LocalDateTime.parse(datetime, mobileActionsDateTimeFormatter)
                 .atZone(zoneId)
                 .toInstant()
                 .toEpochMilli()
