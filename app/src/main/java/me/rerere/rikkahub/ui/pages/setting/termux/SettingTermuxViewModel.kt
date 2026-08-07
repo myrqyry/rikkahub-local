@@ -31,7 +31,8 @@ class SettingTermuxViewModel(
         },
         prefs.maxStderrFlow(),
         prefs.aptWrapEnabledFlow(),
-    ) { partial, maxStderr, aptWrap ->
+        prefs.maxToolStepsFlow(),
+    ) { partial, maxStderr, aptWrap, maxToolSteps ->
         TermuxRuntimeConfig(
             commandTimeoutMs  = partial.commandTimeoutMs,
             turnBudgetMs      = partial.turnBudgetMs,
@@ -40,6 +41,7 @@ class SettingTermuxViewModel(
             maxStdoutBytes    = partial.maxStdoutBytes,
             maxStderrBytes    = maxStderr,
             aptWrapEnabled    = aptWrap,
+            maxToolSteps      = maxToolSteps,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -52,6 +54,7 @@ class SettingTermuxViewModel(
             maxStdoutBytes    = TermuxDefaults.DEFAULT_MAX_STDOUT,
             maxStderrBytes    = TermuxDefaults.DEFAULT_MAX_STDERR,
             aptWrapEnabled    = TermuxDefaults.DEFAULT_APT_WRAP_ENABLED,
+            maxToolSteps      = TermuxDefaults.DEFAULT_MAX_TOOL_STEPS,
         ),
     )
 
@@ -86,6 +89,11 @@ class SettingTermuxViewModel(
 
     fun setAptWrapEnabled(enabled: Boolean) {
         viewModelScope.launch { prefs.setAptWrapEnabled(enabled) }
+    }
+
+    /** [steps] is the UI display unit for the per-turn tool-step limit. Clamping in [TermuxPreferences]. */
+    fun setMaxToolSteps(steps: Int) {
+        viewModelScope.launch { prefs.setMaxToolSteps(steps) }
     }
 
     // Private intermediate holder to avoid 7-flow combine vararg.

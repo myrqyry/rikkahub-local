@@ -142,6 +142,35 @@ class TermuxDefaultsTest {
         assertEquals(custom, TermuxDefaults.clampWorkingDir(custom))
     }
 
+    // --- clampMaxToolSteps ----------------------------------------------------------------
+
+    @Test
+    fun maxToolSteps_belowFloor_snapsToMin() {
+        assertEquals(TermuxDefaults.MIN_MAX_TOOL_STEPS, TermuxDefaults.clampMaxToolSteps(0))
+        assertEquals(TermuxDefaults.MIN_MAX_TOOL_STEPS,
+            TermuxDefaults.clampMaxToolSteps(TermuxDefaults.MIN_MAX_TOOL_STEPS - 1))
+    }
+
+    @Test
+    fun maxToolSteps_aboveCeiling_snapsToMax() {
+        assertEquals(TermuxDefaults.MAX_MAX_TOOL_STEPS, TermuxDefaults.clampMaxToolSteps(Int.MAX_VALUE))
+        assertEquals(TermuxDefaults.MAX_MAX_TOOL_STEPS,
+            TermuxDefaults.clampMaxToolSteps(TermuxDefaults.MAX_MAX_TOOL_STEPS + 1))
+    }
+
+    @Test
+    fun maxToolSteps_inRange_passesThrough() {
+        assertEquals(TermuxDefaults.DEFAULT_MAX_TOOL_STEPS,
+            TermuxDefaults.clampMaxToolSteps(TermuxDefaults.DEFAULT_MAX_TOOL_STEPS))
+        assertEquals(100, TermuxDefaults.clampMaxToolSteps(100))
+    }
+
+    @Test
+    fun maxToolSteps_defaultIs32() {
+        // Pin that the default matches the previous hardcoded GenerationHandler default.
+        assertEquals(32, TermuxDefaults.DEFAULT_MAX_TOOL_STEPS)
+    }
+
     // --- Default values are within their own bounds (regression guard) --------------------
 
     @Test
@@ -156,6 +185,8 @@ class TermuxDefaultsTest {
             TermuxDefaults.clampMaxStdout(TermuxDefaults.DEFAULT_MAX_STDOUT))
         assertEquals(TermuxDefaults.DEFAULT_MAX_STDERR,
             TermuxDefaults.clampMaxStderr(TermuxDefaults.DEFAULT_MAX_STDERR))
+        assertEquals(TermuxDefaults.DEFAULT_MAX_TOOL_STEPS,
+            TermuxDefaults.clampMaxToolSteps(TermuxDefaults.DEFAULT_MAX_TOOL_STEPS))
     }
 
     @Test

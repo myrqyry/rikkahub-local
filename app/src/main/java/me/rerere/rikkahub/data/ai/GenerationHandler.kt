@@ -289,7 +289,7 @@ class GenerationHandler(
         assistant: Assistant,
         memories: List<AssistantMemory>? = null,
         tools: List<Tool> = emptyList(),
-        maxSteps: Int = 32,
+        maxSteps: Int = ToolRuntimeLimits.maxToolSteps,
         processingStatus: MutableStateFlow<String?> = MutableStateFlow(null),
         // Returns true when the user has pre-approved [toolName] for this turn (e.g.
         // "Allow for this chat" or "Always Allow" granted earlier). When true, the loop

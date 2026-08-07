@@ -14,4 +14,5 @@ import me.rerere.rikkahub.data.preferences.TermuxDefaults
  */
 object ToolRuntimeLimits {
     @Volatile var turnBudgetMs: Long = TermuxDefaults.DEFAULT_TURN_BUDGET_MS
+    @Volatile var maxToolSteps: Int = TermuxDefaults.DEFAULT_MAX_TOOL_STEPS
 }

@@ -43,6 +43,7 @@ class TermuxPreferences(private val context: Context) {
     private val maxStdoutKey      = intPreferencesKey("max_stdout_bytes")
     private val maxStderrKey      = intPreferencesKey("max_stderr_bytes")
     private val aptWrapKey        = booleanPreferencesKey("apt_wrap_enabled")
+    private val maxToolStepsKey   = intPreferencesKey("max_tool_steps")
 
     init {
         // Seed the runtime holders SYNCHRONOUSLY from DataStore before starting the async
@@ -61,6 +62,7 @@ class TermuxPreferences(private val context: Context) {
         TermuxRuntime.maxStderrBytes     = initial.maxStderrBytes
         TermuxRuntime.aptWrapEnabled     = initial.aptWrapEnabled
         ToolRuntimeLimits.turnBudgetMs   = initial.turnBudgetMs
+        ToolRuntimeLimits.maxToolSteps   = initial.maxToolSteps
 
         // Async collectors keep the holders live on subsequent user edits. This scope is
         // intentionally NOT stored as a field — it is process-lived and we want it to stay
@@ -109,6 +111,12 @@ class TermuxPreferences(private val context: Context) {
                 .onEach { TermuxRuntime.aptWrapEnabled = it }
                 .collect {}
         }
+        scope.launch {
+            maxToolStepsFlow()
+                .distinctUntilChanged()
+                .onEach { ToolRuntimeLimits.maxToolSteps = it }
+                .collect {}
+        }
     }
 
     // --- Flow accessors -------------------------------------------------------------------
@@ -153,6 +161,12 @@ class TermuxPreferences(private val context: Context) {
         prefs[aptWrapKey] ?: TermuxDefaults.DEFAULT_APT_WRAP_ENABLED
     }
 
+    fun maxToolStepsFlow(): Flow<Int> = store.data.map { prefs ->
+        TermuxDefaults.clampMaxToolSteps(
+            prefs[maxToolStepsKey] ?: TermuxDefaults.DEFAULT_MAX_TOOL_STEPS
+        )
+    }
+
     // --- Suspend writers (clamped before persist) -----------------------------------------
 
     suspend fun setCommandTimeoutMs(ms: Long) {
@@ -183,6 +197,10 @@ class TermuxPreferences(private val context: Context) {
         store.edit { it[aptWrapKey] = enabled }
     }
 
+    suspend fun setMaxToolSteps(steps: Int) {
+        store.edit { it[maxToolStepsKey] = TermuxDefaults.clampMaxToolSteps(steps) }
+    }
+
     /**
      * One-shot suspend snapshot for callers that need all fields at once (e.g. the VM's
      * combined state flow). Fields are clamped on read, same as the individual flow accessors.
@@ -197,6 +215,7 @@ class TermuxPreferences(private val context: Context) {
             maxStdoutBytes     = TermuxDefaults.clampMaxStdout(prefs[maxStdoutKey]              ?: TermuxDefaults.DEFAULT_MAX_STDOUT),
             maxStderrBytes     = TermuxDefaults.clampMaxStderr(prefs[maxStderrKey]              ?: TermuxDefaults.DEFAULT_MAX_STDERR),
             aptWrapEnabled     = prefs[aptWrapKey]                                              ?: TermuxDefaults.DEFAULT_APT_WRAP_ENABLED,
+            maxToolSteps       = TermuxDefaults.clampMaxToolSteps(prefs[maxToolStepsKey]        ?: TermuxDefaults.DEFAULT_MAX_TOOL_STEPS),
         )
     }
 
@@ -216,4 +235,5 @@ data class TermuxRuntimeConfig(
     val maxStdoutBytes: Int,
     val maxStderrBytes: Int,
     val aptWrapEnabled: Boolean,
+    val maxToolSteps: Int,
 )

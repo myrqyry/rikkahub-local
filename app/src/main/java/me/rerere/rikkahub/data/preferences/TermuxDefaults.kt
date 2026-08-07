@@ -47,6 +47,12 @@ object TermuxDefaults {
     /** Raised from 300 to 600 s so it aligns with the configurable command timeout ceiling. */
     const val MAX_COMMAND_TIMEOUT_SECONDS = 600
 
+    // --- Per-turn tool-step limit (app-wide) ----------------------------------------------
+    /** Default max tool executions per user turn. Matches the old hardcoded default in GenerationHandler.kt. */
+    const val DEFAULT_MAX_TOOL_STEPS = 32
+    const val MIN_MAX_TOOL_STEPS     = 1
+    const val MAX_MAX_TOOL_STEPS     = 500
+
     // --- Clamp helpers ---------------------------------------------------------------------
 
     fun clampCommandTimeoutMs(ms: Long): Long =
@@ -63,6 +69,9 @@ object TermuxDefaults {
 
     fun clampMaxStderr(bytes: Int): Int =
         bytes.coerceIn(MIN_MAX_STDERR, MAX_MAX_STDERR)
+
+    fun clampMaxToolSteps(steps: Int): Int =
+        steps.coerceIn(MIN_MAX_TOOL_STEPS, MAX_MAX_TOOL_STEPS)
 
     /**
      * Non-empty rule for the working directory. An empty value would pass a blank string to
