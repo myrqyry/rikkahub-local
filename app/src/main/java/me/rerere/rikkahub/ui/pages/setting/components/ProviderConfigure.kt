@@ -939,6 +939,7 @@ private fun ColumnScope.ProviderConfigureLiteRT(
     val downloadProgress by vm.downloadProgress.collectAsStateWithLifecycle()
     val errorMessage by vm.errorMessage.collectAsStateWithLifecycle()
     val accelerator by vm.accelerator.collectAsStateWithLifecycle()
+    val taskAccelerator by vm.taskAccelerator.collectAsStateWithLifecycle()
     val forceCpu by vm.forceCpu.collectAsStateWithLifecycle()
     val maxNumTokensOverride by vm.maxNumTokensOverride.collectAsStateWithLifecycle()
     val crashRecoveryAccel by vm.crashRecoveryAccelerator.collectAsStateWithLifecycle()
@@ -1117,6 +1118,22 @@ private fun ColumnScope.ProviderConfigureLiteRT(
             style = MaterialTheme.typography.bodyMedium,
         )
         OutlinedButton(onClick = { vm.reDetectAccelerator() }) {
+            Text(stringResource(R.string.local_llm_re_detect))
+        }
+    }
+
+    // Task-models accelerator row (small JIT vision/OCR/audio models). NPU only when the
+    // NPU runtime libraries are present — see AcceleratorProbe.probeTaskNpu.
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            stringResource(R.string.local_llm_task_accelerator_label, taskAccelerator ?: "auto"),
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        OutlinedButton(onClick = { vm.reDetectTaskAccelerator() }) {
             Text(stringResource(R.string.local_llm_re_detect))
         }
     }

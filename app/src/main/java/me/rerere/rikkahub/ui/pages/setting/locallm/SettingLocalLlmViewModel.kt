@@ -63,6 +63,11 @@ class SettingLocalLlmViewModel(
     private val _accelerator = MutableStateFlow<String?>(null)
     val accelerator: StateFlow<String?> = _accelerator.asStateFlow()
 
+    /** Cached accelerator decision for the small JIT task models (vision/OCR/audio),
+     *  e.g. "NPU"/"GPU"/"CPU". Shared across all task runners, not per-runtime. */
+    private val _taskAccelerator = MutableStateFlow<String?>(null)
+    val taskAccelerator: StateFlow<String?> = _taskAccelerator.asStateFlow()
+
     /** True (default) when the runtime is locked to CPU. Off lets the probe pick GPU/NNAPI/QNN.
      *  Auto-flipped to true by [me.rerere.rikkahub.RikkaHubApp] when the prior process exited
      *  with a native crash inside the runtime's JNI lib (see crashRecoveryAccelerator). */
@@ -253,6 +258,7 @@ class SettingLocalLlmViewModel(
 
         // Restore cached accelerator so the UI can display it without re-probing.
         _accelerator.value = prefs.acceleratorFlow(runtime).first()
+        _taskAccelerator.value = prefs.taskAcceleratorFlow().first()
     }
 
     private suspend fun probeAndCache(): String {
@@ -315,6 +321,16 @@ class SettingLocalLlmViewModel(
             prefs.clearAccelerator(runtime)
             _accelerator.value = null
             probeAndCache()
+        }
+    }
+
+    /** Re-probe and persist the accelerator decision for the JIT task models
+     *  (vision/OCR/audio). NPU only when the NPU runtime libraries are present. */
+    fun reDetectTaskAccelerator() {
+        viewModelScope.launch {
+            val accel = AcceleratorProbe.probeTaskAccelerator(context)
+            prefs.setTaskAccelerator(accel)
+            _taskAccelerator.value = accel
         }
     }
 

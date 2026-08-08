@@ -1686,6 +1686,7 @@
   <string name="local_llm_download_default">Download default model</string>
   <string name="local_llm_installed_models_count">%1$d model(s) installed. Manage them in the Models tab.</string>
   <string name="local_llm_accelerator_label">Accelerator: %1$s</string>
+  <string name="local_llm_task_accelerator_label">Task models: %1$s</string>
   <string name="local_llm_test_model">Test</string>
   <string name="local_llm_manage_files_title">Installed model files</string>
   <string name="local_llm_rename">Rename</string>
