@@ -27,10 +27,11 @@ import me.rerere.asr.ASRController
 import me.rerere.asr.ASRProviderSetting
 import me.rerere.asr.ASRState
 import me.rerere.asr.ASRStatus
+import me.rerere.asr.PannsMel
 import me.rerere.asr.appendAmplitude
 import me.rerere.asr.calculateRmsAmplitude
 import me.rerere.locallm.task.NpuTaskInference
-import org.tensorflow.lite.task.audio.classifier.AudioClassifier
+import org.tensorflow.lite.Interpreter
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -38,16 +39,19 @@ import java.nio.ByteOrder
 private const val TAG = "LocalAudioClassifier"
 
 /**
- * Local on-device audio classifier (TFLite Task Library AudioClassifier).
+ * Local on-device audio classifier (PANNs-CNN14 over the raw LiteRT Interpreter).
  *
  * Slots into the existing ASRController surface so it shows up in the speech
  * settings picker like the streaming providers: `start()` records PCM16 via
- * [AudioRecord], streams it into the model's [org.tensorflow.lite.support.audio.TensorAudio]
- * ring buffer, and emits the top-3 classification labels as the "transcript".
+ * [AudioRecord] at 32 kHz, computes a host-side log-mel spectrogram
+ * ([PannsMel], mirroring torchlibrosa for the litert-community PANNs-CNN14
+ * model), and emits the top-3 AudioSet tags as the "transcript".
  *
- * Model files (e.g. `cnn14_audioset_fp16.tflite` or `w2v2_frontend_fp16.tflite`)
- * are link-only imports via Settings → Speech → Local Audio Classifier; without a
- * model installed the controller fails closed with a clear message.
+ * The model (`cnn14_audioset_fp16.tflite`) is a link-only import via
+ * Settings → Speech → Local Audio Classifier; the mel filterbank
+ * (`mel_basis.bin`) must sit next to it in the same directory. Runs on NPU
+ * (CompiledModel) when available, else the raw Interpreter. wav2vec2-KWS
+ * (two-graph frontend+head) is not supported by this rewrite.
  */
 class LocalAudioClassifierController(
     private val appContext: Context,
@@ -58,17 +62,17 @@ class LocalAudioClassifierController(
     private val _state = MutableStateFlow(ASRState(isAvailable = true))
     override val state: StateFlow<ASRState> = _state.asStateFlow()
 
-    // One confined dispatcher owns the NPU model (scaffolding rule 1); the AudioRecord
+    // One confined dispatcher owns the models (scaffolding rule 1); the AudioRecord
     // loop below runs inside it too so capture + classify are serialized.
     private val modelDispatcher: CoroutineDispatcher =
         Dispatchers.IO.limitedParallelism(1, "ModelDispatcher")
     private var npuModel: CompiledModel? = null
     private var npuInput: TensorBuffer? = null
     private var npuOutput: TensorBuffer? = null
+    private var interpreter: Interpreter? = null
 
     private var recorderJob: Job? = null
     private var audioRecord: AudioRecord? = null
-    private var classifier: AudioClassifier? = null
     private var onTranscriptChange: ((String) -> Unit)? = null
 
     override fun start(onTranscriptChange: (String) -> Unit) {
@@ -116,24 +120,36 @@ class LocalAudioClassifierController(
     private fun startRecorder(modelFile: File) {
         recorderJob?.cancel()
         recorderJob = scope.launch(modelDispatcher) {
-            val classifier = runCatching { AudioClassifier.createFromFile(modelFile) }
-                .getOrElse { e ->
-                    Log.e(TAG, "Failed to load audio classifier model", e)
-                    setError("Failed to load audio classifier model: ${e.message}")
-                    return@launch
-                }
-            this@LocalAudioClassifierController.classifier = classifier
-
-            val requiredFormat = classifier.requiredTensorAudioFormat
-            val tensorAudio = classifier.createInputTensorAudio()
-            val captureSampleRate = requiredFormat.sampleRate.coerceIn(8000, 48000)
-            val channels = requiredFormat.channels.coerceAtLeast(1)
-            val channelMask = if (channels == 2) {
-                AudioFormat.CHANNEL_IN_STEREO
-            } else {
-                AudioFormat.CHANNEL_IN_MONO
+            val melBasis = PannsMel.loadMelBasis(
+                File(modelFile.parentFile ?: File("."), "mel_basis.bin")
+            )
+            if (melBasis == null) {
+                Log.e(TAG, "mel_basis.bin not found next to the model")
+                setError("mel_basis.bin not found next to the model. Import it via Settings → Speech.")
+                return@launch
             }
 
+            val interpreter = runCatching {
+                Interpreter(modelFile, Interpreter.Options().setNumThreads(2))
+            }.getOrElse { e ->
+                Log.e(TAG, "Failed to load audio classifier model", e)
+                setError("Failed to load audio classifier model: ${e.message}")
+                return@launch
+            }
+            this@LocalAudioClassifierController.interpreter = interpreter
+
+            val inputShape = interpreter.getInputTensor(0).shape()
+            if (inputShape?.size != 4 || inputShape.lastOrNull() != PannsMel.NMEL) {
+                Log.e(
+                    TAG,
+                    "Unsupported model input shape ${inputShape?.contentToString()}; PANNs log-mel [1,1,1001,64] expected",
+                )
+                setError("Unsupported model: expected a PANNs-CNN14 log-mel model (input [1,1,1001,64]).")
+                return@launch
+            }
+
+            val captureSampleRate = PannsMel.SAMPLE_RATE
+            val channelMask = AudioFormat.CHANNEL_IN_MONO
             val minBufferSize = AudioRecord.getMinBufferSize(
                 captureSampleRate,
                 channelMask,
@@ -159,13 +175,28 @@ class LocalAudioClassifierController(
             if (npu != null && npuIn != null && npuOut != null) {
                 // One dummy inference right after create so the first real chunk is not the NPU compile.
                 runCatching {
-                    npuIn.writeFloat(FloatArray(bufferSize / 2))
+                    npuIn.writeFloat(FloatArray(PannsMel.INPUT_FLOATS))
                     npu.run(listOf(npuIn), listOf(npuOut))
                 }
             }
             this@LocalAudioClassifierController.npuModel = npu
             this@LocalAudioClassifierController.npuInput = npuIn
             this@LocalAudioClassifierController.npuOutput = npuOut
+
+            // Warm the raw Interpreter up once too, so the first real chunk is not a JIT.
+            val outputSize = interpreter.getOutputTensor(0).numBytes().toInt() / 4
+            runCatching {
+                val warmIn = ByteBuffer.allocateDirect(PannsMel.INPUT_FLOATS * 4)
+                    .order(ByteOrder.nativeOrder())
+                warmIn.asFloatBuffer().put(FloatArray(PannsMel.INPUT_FLOATS))
+                val warmOut = ByteBuffer.allocateDirect(interpreter.getOutputTensor(0).numBytes().toInt())
+                    .order(ByteOrder.nativeOrder())
+                interpreter.run(warmIn, warmOut)
+            }
+
+            // Ring buffer holding the last 10s of PCM16, scaled to float.
+            val pcmRing = FloatArray(PannsMel.CLIP_SAMPLES)
+            var filled = 0
 
             try {
                 recorder.startRecording()
@@ -176,24 +207,24 @@ class LocalAudioClassifierController(
                     if (read > 0) {
                         val amplitude = calculateRmsAmplitude(byteBuffer, read)
                         _state.update { it.copy(amplitudes = it.amplitudes.appendAmplitude(amplitude)) }
-                        // bytes -> shorts for the ring buffer
                         ByteBuffer.wrap(byteBuffer, 0, read)
                             .order(ByteOrder.LITTLE_ENDIAN)
                             .asShortBuffer()
                             .get(shortBuffer, 0, read / 2)
+                        val count = read / 2
+                        if (filled + count > PannsMel.CLIP_SAMPLES) {
+                            val drop = filled + count - PannsMel.CLIP_SAMPLES
+                            System.arraycopy(pcmRing, drop, pcmRing, 0, filled - drop)
+                            filled -= drop
+                        }
+                        for (i in 0 until count) pcmRing[filled + i] = shortBuffer[i] / 32768f
+                        filled += count
+
+                        val logmel = PannsMel.computeLogMel(pcmRing, melBasis)
                         val label = if (npu != null && npuIn != null && npuOut != null) {
-                            classifyNpu(npu, npuIn, npuOut, shortBuffer, read / 2)
+                            classifyNpu(npu, npuIn, npuOut, logmel)
                         } else {
-                            tensorAudio.load(shortBuffer, 0, read / 2)
-                            classifier
-                                .classify(tensorAudio)
-                                .firstOrNull()
-                                ?.categories
-                                ?.take(3)
-                                ?.joinToString(", ") { c ->
-                                    val name = c.label.ifBlank { c.displayName ?: "unknown" }
-                                    "$name(%.0f%%)".format(c.score * 100f)
-                                }
+                            classifyInterpreter(interpreter, logmel, outputSize)
                         }
                         if (!label.isNullOrBlank()) {
                             _state.update { it.copy(transcript = label, errorMessage = null) }
@@ -217,21 +248,41 @@ class LocalAudioClassifierController(
         model: CompiledModel,
         input: TensorBuffer,
         output: TensorBuffer,
-        shortBuffer: ShortArray,
-        sampleCount: Int,
+        logmel: FloatArray,
     ): String? {
         return runCatching {
-            val floats = FloatArray(sampleCount) { shortBuffer[it] / 32768f }
-            input.writeFloat(floats)
+            input.writeFloat(logmel)
             model.run(listOf(input), listOf(output))
-            val logits = output.readFloat()
-            val step = labels().size
-            if (step == 0 || logits.isEmpty()) return null
-            val best = (logits.indices step step).maxByOrNull { logits[it] } ?: return null
-            val top = labels().getOrNull(best / step) ?: "class$best"
-            val score = logits[best]
-            "$top(%.0f%%)".format(score * 100f)
+            topLabels(output.readFloat())
         }.getOrNull()
+    }
+
+    private fun classifyInterpreter(
+        interpreter: Interpreter,
+        logmel: FloatArray,
+        outputSize: Int,
+    ): String? {
+        return runCatching {
+            val input = ByteBuffer.allocateDirect(logmel.size * 4).order(ByteOrder.nativeOrder())
+            input.asFloatBuffer().put(logmel)
+            val output = ByteBuffer.allocateDirect(outputSize * 4).order(ByteOrder.nativeOrder())
+            interpreter.run(input, output)
+            output.rewind()
+            val probs = FloatArray(outputSize) { output.float }
+            topLabels(probs)
+        }.getOrNull()
+    }
+
+    private fun topLabels(probs: FloatArray): String? {
+        val labels = labels()
+        return probs.indices
+            .sortedByDescending { probs[it] }
+            .take(3)
+            .joinToString(", ") { i ->
+                val name = labels.getOrNull(i) ?: "class$i"
+                "$name(%.0f%%)".format(probs[i].coerceIn(0f, 1f) * 100f)
+            }
+            .takeIf { it.isNotBlank() }
     }
 
     private fun labels(): List<String> {
@@ -254,13 +305,13 @@ class LocalAudioClassifierController(
         runCatching { audioRecord?.stop() }
         runCatching { audioRecord?.release() }
         audioRecord = null
-        runCatching { classifier?.close() }
-        classifier = null
         runCatching { npuInput?.close() }
         runCatching { npuOutput?.close() }
         runCatching { npuModel?.close() }
         npuInput = null
         npuOutput = null
         npuModel = null
+        runCatching { interpreter?.close() }
+        interpreter = null
     }
 }

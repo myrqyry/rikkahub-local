@@ -60,18 +60,14 @@ dependencies {
     // CompiledModel / Accelerator.NPU Kotlin API for on-device JIT task inference
     // (same artifact the speech module already pins; must stay 2.1.5).
     implementation("com.google.ai.edge.litert:litert:2.1.5")
-    // TFLite Task Library: on-device vision/audio inference for the curated Task Library
-    // catalog (image classification, object detection, audio classification). task-vision
-    // transitively pulls task-core + tensorflow-lite (raw Interpreter for PP-OCRv5).
-    // TFLite Task Library: on-device vision/audio inference for the curated Task Library
-    // catalog (image classification, object detection, audio classification). task-vision
-    // transitively pulls task-core + tensorflow-lite (raw Interpreter for PP-OCRv5).
+    // Raw org.tensorflow.lite.Interpreter for the PP-OCRv5 det/rec graphs (the 
+    // task-vision/-audio AARs were dropped: their jni libs are 4KB-aligned, which
+    // Android 15+ 16KB-page devices reject at install; task inference now runs via
+    // litert CompiledModel (NPU) or this raw Interpreter).
     // tensorflow-lite pinned to 2.16.1: 2.14.0's tensorflow-lite-api AAR declared the same
     // org.tensorflow.lite package as tensorflow-lite (AGP manifest-merge conflict); 2.16.1
     // renamed the api package to org.tensorflow.lite.api (TFLite#63043).
     implementation(libs.tensorflow.lite)
-    implementation(libs.tensorflow.lite.task.vision)
-    implementation(libs.tensorflow.lite.task.audio)
 
     testImplementation(libs.junit)
 }

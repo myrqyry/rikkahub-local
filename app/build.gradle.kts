@@ -346,10 +346,6 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":material3"))
     implementation(project(":workspace"))
-    implementation(libs.tensorflow.lite.task.vision) {
-        exclude(group = "org.tensorflow", module = "tensorflow-lite")
-        exclude(group = "org.tensorflow", module = "tensorflow-lite-api")
-    }
     // LiteRT CompiledModel / Accelerator.NPU Kotlin API — same 2.1.5 pin as :speech
     // (the org.tensorflow.lite.* drop-in lives in this AAR, so no duplicate-class risk).
     implementation("com.google.ai.edge.litert:litert:2.1.5")

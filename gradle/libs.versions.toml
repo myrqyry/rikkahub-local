@@ -33,7 +33,6 @@ serialization-json = "1.11.0"
 kotlin-coroutines-core = "1.11.0"
 onnxruntime = "1.25.0"
 tflite = "2.16.1"
-tfliteTask = "0.4.4"
 kotlinx-datetime = "0.8.0"
 ksp = "2.3.4"
 paging = "3.5.0"
@@ -132,8 +131,6 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlin-coroutines-core" }
 onnxruntime-android = { module = "com.microsoft.onnxruntime:onnxruntime-android", version.ref = "onnxruntime" }
 tensorflow-lite = { group = "org.tensorflow", name = "tensorflow-lite", version.ref = "tflite" }
-tensorflow-lite-task-vision = { group = "org.tensorflow", name = "tensorflow-lite-task-vision", version.ref = "tfliteTask" }
-tensorflow-lite-task-audio = { group = "org.tensorflow", name = "tensorflow-lite-task-audio", version.ref = "tfliteTask" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 lucide-icons = { group = "com.composables", name = "icons-lucide", version.ref = "lucide-icons" }
 huge-icons = { group = "com.github.rikkahub", name = "hugeicons-compose", version.ref = "huge-icons" }

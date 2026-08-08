@@ -10,11 +10,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.rerere.locallm.task.NpuTaskInference
 import me.rerere.rikkahub.data.datastore.Settings
-import org.tensorflow.lite.support.image.TensorImage
-import org.tensorflow.lite.task.vision.classifier.ImageClassifier
+import org.tensorflow.lite.Interpreter
 import java.io.File
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
-/** Opt-in on-device tagging of inbound Telegram photos via TFLite Task Library.
+/** Opt-in on-device tagging of inbound Telegram photos via the raw LiteRT Interpreter.
  *  Purely additive: returns null (and the caller's text is unchanged) whenever the
  *  toggle is off, no classifier model is installed, or the download/decode fails. */
 object LocalPhotoTagger {
@@ -35,8 +36,8 @@ object LocalPhotoTagger {
         val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
         return withContext(modelDispatcher) {
             runCatching {
-                // NPU first; fall back to the Task Library ImageClassifier when NPU is
-                // unavailable (create() returns null rather than throwing).
+                // NPU first; fall back to the raw LiteRT Interpreter (same runtime as the
+                // NPU path via libLiteRt.so, 16KB-aligned) when NPU is unavailable.
                 val npu = NpuTaskInference.create(context, modelFile)
                 if (npu != null) {
                     try {
@@ -45,17 +46,7 @@ object LocalPhotoTagger {
                         npu.close()
                     }
                 } else {
-                    val image = TensorImage.fromBitmap(bitmap)
-                    val classifier = ImageClassifier.createFromFile(File(modelFile))
-                    try {
-                        classifier.classify(image).firstOrNull()
-                            ?.categories
-                            ?.take(3)
-                            ?.joinToString(", ") { "${it.label}(%.2f)".format(it.score) }
-                            ?.takeIf { it.isNotBlank() }
-                    } finally {
-                        classifier.close()
-                    }
+                    classifyInterpreter(modelFile, bitmap)
                 }
             }.onFailure { Log.w(TAG, "tag failed for $fileId", it) }.getOrNull()
         }
@@ -91,6 +82,39 @@ object LocalPhotoTagger {
             if (scaled !== bitmap) scaled.recycle()
             runCatching { input.close() }
             runCatching { output.close() }
+        }
+    }
+
+    /** Fallback: classify via the raw LiteRT Interpreter (same 224x224 RGB preprocessing as NPU). */
+    private fun classifyInterpreter(modelFile: String, bitmap: Bitmap): String? {
+        val interpreter = Interpreter(File(modelFile), Interpreter.Options().setNumThreads(2))
+        val scaled = Bitmap.createScaledBitmap(bitmap, 224, 224, true)
+        try {
+            val pixels = IntArray(224 * 224)
+            scaled.getPixels(pixels, 0, 224, 0, 0, 224, 224)
+            val floats = FloatArray(pixels.size * 3)
+            var i = 0
+            for (p in pixels) {
+                floats[i++] = ((p shr 16 and 0xFF) / 255f) * 2f - 1f
+                floats[i++] = ((p shr 8 and 0xFF) / 255f) * 2f - 1f
+                floats[i++] = ((p and 0xFF) / 255f) * 2f - 1f
+            }
+            val input = ByteBuffer.allocateDirect(floats.size * 4).order(ByteOrder.nativeOrder())
+            input.asFloatBuffer().put(floats)
+            val output = ByteBuffer.allocateDirect(interpreter.getOutputTensor(0).numBytes().toInt())
+                .order(ByteOrder.nativeOrder())
+            interpreter.run(input, output)
+            output.rewind()
+            val logits = FloatArray(output.capacity() / 4)
+            for (j in logits.indices) logits[j] = output.float
+            return logits.indices
+                .sortedByDescending { logits[it] }
+                .take(3)
+                .joinToString(", ") { "class${it}(%.2f)".format(logits[it]) }
+                .takeIf { it.isNotBlank() }
+        } finally {
+            if (scaled !== bitmap) scaled.recycle()
+            runCatching { interpreter.close() }
         }
     }
 
