@@ -175,6 +175,7 @@ class SettingsStore(
         val WEB_SERVER_JWT_ENABLED = booleanPreferencesKey("web_server_jwt_enabled")
         val WEB_SERVER_ACCESS_PASSWORD = stringPreferencesKey("web_server_access_password")
         val WEB_SERVER_LOCALHOST_ONLY = booleanPreferencesKey("web_server_localhost_only")
+        val ENABLE_TELEGRAM_PHOTO_TAGGING = booleanPreferencesKey("enable_telegram_photo_tagging")
 
         // AI logging
         val AI_LOG_LEVEL = stringPreferencesKey("ai_log_level")
@@ -293,6 +294,7 @@ class SettingsStore(
                 webServerJwtEnabled = preferences[WEB_SERVER_JWT_ENABLED] == true,
                 webServerAccessPassword = preferences[WEB_SERVER_ACCESS_PASSWORD] ?: "",
                 webServerLocalhostOnly = preferences[WEB_SERVER_LOCALHOST_ONLY] == true,
+                enableTelegramPhotoTagging = preferences[ENABLE_TELEGRAM_PHOTO_TAGGING] == true,
                 aiLogLevel = AiLogLevel.fromPreference(preferences[AI_LOG_LEVEL]),
                 backupReminderConfig = preferences[BACKUP_REMINDER_CONFIG]?.let {
                     JsonInstant.decodeFromString(it)
@@ -545,6 +547,7 @@ class SettingsStore(
             preferences[WEB_SERVER_JWT_ENABLED] = settings.webServerJwtEnabled
             preferences[WEB_SERVER_ACCESS_PASSWORD] = settings.webServerAccessPassword
             preferences[WEB_SERVER_LOCALHOST_ONLY] = settings.webServerLocalhostOnly
+            preferences[ENABLE_TELEGRAM_PHOTO_TAGGING] = settings.enableTelegramPhotoTagging
             preferences[AI_LOG_LEVEL] = settings.aiLogLevel.preferenceName
             preferences[BACKUP_REMINDER_CONFIG] = JsonInstant.encodeToString(settings.backupReminderConfig)
             preferences[LAUNCH_COUNT] = settings.launchCount
@@ -701,6 +704,7 @@ data class Settings(
     val webServerJwtEnabled: Boolean = false,
     val webServerAccessPassword: String = "",
     val webServerLocalhostOnly: Boolean = false,
+    val enableTelegramPhotoTagging: Boolean = false,
     val aiLogLevel: AiLogLevel = AiLogLevel.INFO,
     val backupReminderConfig: BackupReminderConfig = BackupReminderConfig(),
     val launchCount: Int = 0,

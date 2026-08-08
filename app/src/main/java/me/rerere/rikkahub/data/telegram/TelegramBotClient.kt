@@ -289,6 +289,22 @@ class TelegramBotClient(
         }
     }
 
+    /** Resolve a file_id and download the bytes in-memory (used by local photo tagging). */
+    suspend fun downloadFileBytes(fileId: String): ByteArray? = withContext(Dispatchers.IO) {
+        try {
+            val info = getFile(fileId)
+            val filePath = info["file_path"]?.jsonPrimitive?.contentOrNull ?: return@withContext null
+            val url = "https://api.telegram.org/file/bot${tokenProvider()}/$filePath"
+            val req = Request.Builder().url(url).get().build()
+            shortClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return@withContext null
+                resp.body?.bytes()
+            }
+        } catch (e: IOException) {
+            throw redactException(e)
+        }
+    }
+
     /* ------------ low-level dispatch ------------ */
 
     private suspend fun call(client: OkHttpClient, method: String, body: JsonObject): kotlinx.serialization.json.JsonElement {

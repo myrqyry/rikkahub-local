@@ -17,6 +17,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -45,6 +46,8 @@ import me.rerere.hugeicons.stroke.Stop
 import me.rerere.hugeicons.stroke.View
 import me.rerere.hugeicons.stroke.ViewOff
 import me.rerere.rikkahub.R
+import me.rerere.rikkahub.data.datastore.Settings
+import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.telegram.TelegramBotConfig
 import me.rerere.rikkahub.data.telegram.TelegramBotPreferences
 import me.rerere.rikkahub.service.TelegramBotService
@@ -65,6 +68,8 @@ import org.koin.compose.koinInject
 @Composable
 fun SettingTelegramPage() {
     val prefs: TelegramBotPreferences = koinInject()
+    val settingsStore: SettingsStore = koinInject()
+    val settings by settingsStore.settingsFlow.collectAsStateWithLifecycle(initialValue = Settings())
     val cfg by prefs.flow.collectAsStateWithLifecycle(initialValue = TelegramBotConfig())
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val scope = rememberCoroutineScope()
@@ -255,6 +260,28 @@ fun SettingTelegramPage() {
                                 text = stringResource(R.string.setting_page_telegram_boot_note),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                    )
+                    item(
+                        headlineContent = {
+                            Text(stringResource(R.string.setting_page_telegram_photo_tagging))
+                        },
+                        supportingContent = {
+                            Text(
+                                text = stringResource(R.string.setting_page_telegram_photo_tagging_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = settings.enableTelegramPhotoTagging,
+                                onCheckedChange = { value ->
+                                    scope.launch {
+                                        settingsStore.update { it.copy(enableTelegramPhotoTagging = value) }
+                                    }
+                                },
                             )
                         },
                     )

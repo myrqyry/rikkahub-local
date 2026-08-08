@@ -47,6 +47,7 @@ import me.rerere.rikkahub.data.telegram.TelegramCallbackQuery
 import me.rerere.rikkahub.data.telegram.TelegramHtmlRenderer
 import me.rerere.rikkahub.data.telegram.TelegramIncomingMessage
 import me.rerere.rikkahub.data.telegram.TelegramMyChatMember
+import me.rerere.rikkahub.data.telegram.LocalPhotoTagger
 import me.rerere.rikkahub.data.telegram.parseCallbackQuery
 import me.rerere.rikkahub.data.telegram.parseIncoming
 import me.rerere.rikkahub.data.telegram.parseMyChatMember
@@ -704,6 +705,17 @@ class TelegramBotService : Service() {
         val (imageParts, photoPaths) = downloadInboundPhotos(client, m.chatId, m.photoFileIds)
         val photoNote = buildPhotoNote(photoPaths)
 
+        // Opt-in on-device tagging of the first inbound photo (TFLite Task Library ImageClassifier).
+        // Null whenever the toggle is off or no classifier model is installed — purely additive.
+        val photoTags = if (m.photoFileIds.isNotEmpty()) {
+            LocalPhotoTagger.tag(
+                settings = settingsStore.settingsFlow.value,
+                fileId = m.photoFileIds.first(),
+                client = client,
+                context = applicationContext,
+            )
+        } else null
+
         // Download non-photo attachments (documents, audio, video, voice, video_note) to
         // /sdcard/Download/telegram_inbox/<chatId>/ and build a structured note for the LLM.
         val downloadedAttachments = downloadInboundAttachments(client, m.chatId, m.attachments)
@@ -713,7 +725,9 @@ class TelegramBotService : Service() {
             addAll(imageParts)
             // Build the user-visible text by joining the typed message with the structured
             // photo / attachment notes for whatever arrived alongside it.
-            val combinedText = listOf(m.text, photoNote, attachmentNote)
+            val tagNote = photoTags?.let { "[photo tags: $it]" }
+            val combinedText = listOf(m.text, photoNote, tagNote, attachmentNote)
+                .filterNotNull()
                 .filter { it.isNotEmpty() }
                 .joinToString("\n\n")
             // Only emit a Text part when there is actual content; an empty text triggers

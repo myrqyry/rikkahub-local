@@ -1213,6 +1213,8 @@
   <string name="setting_page_telegram_stop">Stop</string>
   <string name="setting_page_telegram_no_token_toast">Set the bot token first.</string>
   <string name="setting_page_telegram_boot_note">When started, the bot also auto-starts on device boot.</string>
+  <string name="setting_page_telegram_photo_tagging">Tag incoming photos locally</string>
+  <string name="setting_page_telegram_photo_tagging_desc">Runs an on-device ImageClassifier on inbound photos. Requires a model from Settings → Providers → Local Task Library. No images leave the device.</string>
   <string name="setting_page_telegram_battery_ok">Battery optimization: whitelisted</string>
   <string name="setting_page_telegram_battery_needed">Battery optimization: not whitelisted - tap to fix</string>
   <string name="setting_page_telegram_battery_desc">When the screen turns off, aggressive OEM ROMs (Xiaomi, OPPO, OnePlus, Vivo) cut network for non-whitelisted apps. The bot will only deliver during occasional maintenance windows. Tap to whitelist RikkaHub.</string>
