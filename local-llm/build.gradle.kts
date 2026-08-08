@@ -57,6 +57,9 @@ dependencies {
     // that 0.12+ is safe on the device classes Gallery supports, we stay aligned with
     // Gallery's reference build.
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.11.0")
+    // CompiledModel / Accelerator.NPU Kotlin API for on-device JIT task inference
+    // (same artifact the speech module already pins; must stay 2.1.5).
+    implementation("com.google.ai.edge.litert:litert:2.1.5")
     // TFLite Task Library: on-device vision/audio inference for the curated Task Library
     // catalog (image classification, object detection, audio classification). task-vision
     // transitively pulls task-core + tensorflow-lite (raw Interpreter for PP-OCRv5).

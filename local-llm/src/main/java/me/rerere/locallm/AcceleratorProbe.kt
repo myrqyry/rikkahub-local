@@ -3,6 +3,7 @@ package me.rerere.locallm
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import com.google.ai.edge.litert.BuiltinNpuAcceleratorProvider
 
 /**
  * Decides which accelerator to use for each runtime. Two layers:
@@ -22,10 +23,20 @@ object AcceleratorProbe {
         val qnnLibrarySupported: Boolean,
         val gpuDelegateSupported: Boolean,
         val nnapiSupported: Boolean,
+        val npuSupported: Boolean = false,
     )
 
     fun pickLiteRt(caps: LiteRtCapabilities): String = when {
         caps.isQualcomm && caps.qnnLibrarySupported -> "QNN"
+        caps.gpuDelegateSupported -> "GPU"
+        caps.nnapiSupported -> "NNAPI"
+        else -> "CPU"
+    }
+
+    /** Decision function for the small JIT task models (image/audio classifiers, OCR, detection).
+     *  NPU wins over everything; then GPU; then NNAPI; CPU last. Pure and JVM-testable. */
+    fun pickTaskAccelerator(caps: LiteRtCapabilities): String = when {
+        caps.npuSupported -> "NPU"
         caps.gpuDelegateSupported -> "GPU"
         caps.nnapiSupported -> "NNAPI"
         else -> "CPU"
@@ -95,6 +106,35 @@ object AcceleratorProbe {
                 qnnLibrarySupported = qnnLibrarySupported,
                 gpuDelegateSupported = gpuDelegateSupported,
                 nnapiSupported = nnapiSupported,
+            )
+        )
+    }
+
+    /** True when the device can run task models on the NPU via JIT: SDK >= 31 AND the
+     *  built-in NPU accelerator provider reports both device support and that the vendor
+     *  runtime libs are present. Never throws — any failure means "no NPU". */
+    fun probeTaskNpu(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
+        return runCatching {
+            // One-arg ctor uses the default compatibility checker internally.
+            val provider = BuiltinNpuAcceleratorProvider(context)
+            provider.isDeviceSupported() && provider.isLibraryReady()
+        }.getOrDefault(false)
+    }
+
+    /** Production probe for the task-model accelerator label: NPU when libs present,
+     *  else the classic GPU/NNAPI/CPU ladder. Cached by the caller (Task 3). */
+    fun probeTaskAccelerator(context: Context): String {
+        val npu = probeTaskNpu(context)
+        val gpu = context.packageManager.hasSystemFeature(PackageManager.FEATURE_OPENGLES_EXTENSION_PACK)
+        val nnapi = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1
+        return pickTaskAccelerator(
+            LiteRtCapabilities(
+                isQualcomm = false,
+                qnnLibrarySupported = false,
+                gpuDelegateSupported = gpu,
+                nnapiSupported = nnapi,
+                npuSupported = npu,
             )
         )
     }

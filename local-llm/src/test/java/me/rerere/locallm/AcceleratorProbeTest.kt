@@ -79,4 +79,38 @@ class AcceleratorProbeTest {
         // Pre-API-31 devices report null SOC_* - no Tensor device runs an OS that old.
         assertEquals(false, AcceleratorProbe.defaultForceCpu(null, null))
     }
+
+    // -- pickTaskAccelerator: NPU first, then GPU, then NNAPI, CPU last --
+
+    @Test fun `task accelerator picks NPU first when supported`() {
+        val accel = AcceleratorProbe.pickTaskAccelerator(
+            AcceleratorProbe.LiteRtCapabilities(
+                isQualcomm = false,
+                qnnLibrarySupported = false,
+                gpuDelegateSupported = true,
+                nnapiSupported = true,
+                npuSupported = true,
+            )
+        )
+        assertEquals("NPU", accel)
+    }
+
+    @Test fun `task accelerator falls back NPU to GPU then NNAPI then CPU`() {
+        val npu = AcceleratorProbe.pickTaskAccelerator(
+            AcceleratorProbe.LiteRtCapabilities(false, false, false, false, npuSupported = true)
+        )
+        assertEquals("NPU", npu)
+        val gpu = AcceleratorProbe.pickTaskAccelerator(
+            AcceleratorProbe.LiteRtCapabilities(false, false, true, false, npuSupported = false)
+        )
+        assertEquals("GPU", gpu)
+        val nnapi = AcceleratorProbe.pickTaskAccelerator(
+            AcceleratorProbe.LiteRtCapabilities(false, false, false, true, npuSupported = false)
+        )
+        assertEquals("NNAPI", nnapi)
+        val cpu = AcceleratorProbe.pickTaskAccelerator(
+            AcceleratorProbe.LiteRtCapabilities(false, false, false, false, npuSupported = false)
+        )
+        assertEquals("CPU", cpu)
+    }
 }
