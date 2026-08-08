@@ -26,6 +26,9 @@ interface AgentRunDao {
     @Query("SELECT * FROM agent_runs WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): AgentRun?
 
+    @Query("SELECT * FROM agent_runs WHERE id = :id LIMIT 1")
+    fun observeById(id: String): Flow<AgentRun?>
+
     /**
      * Rows that were still in flight (`queued` / `awaiting_approval` / `running`) and have
      * not been touched since [beforeMs]. Used by [AgentRunBootRecovery].

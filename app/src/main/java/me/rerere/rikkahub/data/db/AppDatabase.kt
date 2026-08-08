@@ -8,6 +8,8 @@ import androidx.room.TypeConverters
 import me.rerere.ai.core.TokenUsage
 import me.rerere.rikkahub.data.agentrun.AgentRun
 import me.rerere.rikkahub.data.agentrun.AgentRunDao
+import me.rerere.rikkahub.data.agentrun.AgentRunEvent
+import me.rerere.rikkahub.data.agentrun.AgentRunEventDao
 import me.rerere.rikkahub.data.db.dao.ConversationDAO
 import me.rerere.rikkahub.data.db.dao.FavoriteDAO
 import me.rerere.rikkahub.data.db.dao.FolderDAO
@@ -61,11 +63,12 @@ import me.rerere.rikkahub.workflow.db.WorkflowRunEntity
         WorkflowEntity::class,
         WorkflowRunEntity::class,
         AgentRun::class,
+        AgentRunEvent::class,
         WorkspaceEntity::class,
         FolderEntity::class,
         VectorEntity::class,
     ],
-    version = 28,
+    version = 30,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
@@ -125,6 +128,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun workflowRunDao(): WorkflowRunDao
 
     abstract fun agentRunDao(): AgentRunDao
+
+    abstract fun agentRunEventDao(): AgentRunEventDao
 
     abstract fun workspaceDao(): WorkspaceDAO
 
