@@ -62,6 +62,7 @@ android {
 
 dependencies {
     implementation(project(":common"))
+    implementation(project(":local-llm"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.okhttp)
