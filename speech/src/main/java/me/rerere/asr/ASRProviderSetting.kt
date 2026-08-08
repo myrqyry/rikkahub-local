@@ -170,6 +170,26 @@ sealed class ASRProviderSetting {
     }
 
     @Serializable
+    @SerialName("local_audio_classifier")
+    data class LocalAudioClassifier(
+        override val id: Uuid = Uuid.random(),
+        override val name: String = "Local Audio Classifier",
+        val modelPath: String = "",
+        val labelsPath: String = "",
+        val sampleRate: Int = 16000,
+    ) : ASRProviderSetting() {
+        override fun copyProvider(
+            id: Uuid,
+            name: String,
+        ): ASRProviderSetting {
+            return this.copy(
+                id = id,
+                name = name,
+            )
+        }
+    }
+
+    @Serializable
     @SerialName("whisper")
     data class WhisperAsr(
         override val id: Uuid = Uuid.random(),
@@ -199,6 +219,7 @@ sealed class ASRProviderSetting {
                 MiMo::class,
                 Step::class,
                 WhisperAsr::class,
+                LocalAudioClassifier::class,
             )
         }
     }

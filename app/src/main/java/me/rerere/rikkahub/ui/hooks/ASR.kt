@@ -16,6 +16,7 @@ import me.rerere.asr.ASRController
 import me.rerere.asr.ASRProviderSetting
 import me.rerere.asr.ASRState
 import me.rerere.asr.providers.DashScopeASRController
+import me.rerere.asr.providers.LocalAudioClassifierController
 import me.rerere.asr.providers.MiMoASRController
 import me.rerere.asr.providers.OpenAIRealtimeASRController
 import me.rerere.asr.providers.StepASRController
@@ -135,6 +136,11 @@ private class CustomAsrStateImpl(
             is ASRProviderSetting.WhisperAsr -> {
                 if (provider.modelPath.isBlank()) return null
                 WhisperASRController(context, provider)
+            }
+
+            is ASRProviderSetting.LocalAudioClassifier -> {
+                if (provider.modelPath.isBlank()) return null
+                LocalAudioClassifierController(context, provider)
             }
         }
     }

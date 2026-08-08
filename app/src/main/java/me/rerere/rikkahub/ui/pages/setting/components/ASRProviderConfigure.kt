@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -51,6 +52,7 @@ fun ASRProviderConfigure(
                     is ASRProviderSetting.MiMo -> "MiMo"
                     is ASRProviderSetting.Step -> "Step"
                     is ASRProviderSetting.WhisperAsr -> "Whisper (Local)"
+                    is ASRProviderSetting.LocalAudioClassifier -> "Local Audio Classifier"
                 },
                 onValueChange = {},
                 readOnly = true,
@@ -77,6 +79,7 @@ fun ASRProviderConfigure(
             is ASRProviderSetting.MiMo -> MiMoASRConfiguration(setting, onValueChange)
             is ASRProviderSetting.Step -> StepASRConfiguration(setting, onValueChange)
             is ASRProviderSetting.WhisperAsr -> WhisperASRConfiguration(setting, onValueChange)
+            is ASRProviderSetting.LocalAudioClassifier -> LocalAudioClassifierConfiguration(setting, onValueChange)
         }
     }
 }
@@ -611,6 +614,81 @@ private fun WhisperASRConfiguration(
             label = "Sample Rate"
         )
     }
+}
+
+@Composable
+private fun LocalAudioClassifierConfiguration(
+    setting: ASRProviderSetting.LocalAudioClassifier,
+    onValueChange: (ASRProviderSetting) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val modelFilePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val dest = copyModelToAppDir(context, uri, "audio-classifier")
+            if (dest != null) {
+                onValueChange(setting.copy(modelPath = dest.absolutePath))
+            }
+        }
+    }
+    val labelsFilePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val dest = copyModelToAppDir(context, uri, "audio-classifier")
+            if (dest != null) {
+                onValueChange(setting.copy(labelsPath = dest.absolutePath))
+            }
+        }
+    }
+
+    FormItem(
+        label = { Text("Model file") },
+        description = { Text("Path to cnn14_audioset_fp16.tflite or w2v2 model") }
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedTextField(
+                value = setting.modelPath,
+                onValueChange = { onValueChange(setting.copy(modelPath = it)) },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("cnn14_audioset_fp16.tflite") },
+            )
+            Button(onClick = { modelFilePickerLauncher.launch(arrayOf("*/*")) }) {
+                Text("Browse")
+            }
+        }
+    }
+    FormItem(
+        label = { Text("Labels file (optional)") },
+        description = { Text("audioset_labels.txt for human-readable class names") }
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedTextField(
+                value = setting.labelsPath,
+                onValueChange = { onValueChange(setting.copy(labelsPath = it)) },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("audioset_labels.txt") },
+            )
+            Button(onClick = { labelsFilePickerLauncher.launch(arrayOf("*/*")) }) {
+                Text("Browse")
+            }
+        }
+    }
+    Text(
+        text = "On-device sound classification with TFLite Task Library. Copy the model URL from Local Task Library models in Settings → Providers, import the file via the LiteRT import picker, then set the path here. Audio never leaves the device.",
+        style = MaterialTheme.typography.labelSmall,
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 private suspend fun copyModelToAppDir(context: Context, uri: Uri, subDir: String): File? = withContext(Dispatchers.IO) {
