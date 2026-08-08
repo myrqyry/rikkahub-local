@@ -881,7 +881,9 @@ class LiteRtRuntime(private val context: Context) {
             )
             awaitClose { /* SDK callback already closed the channel above. */ }
         } } finally {
-            runCatching { hintSession?.close() }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                runCatching { hintSession?.close() }
+            }
             runCatching { Process.setThreadPriority(callerTid, originalPriority) }
             // Arm (or re-arm) the idle teardown. A new turn cancels the prior schedule and
             // starts a fresh window from now; no turn keeps the existing one ticking.
