@@ -206,6 +206,22 @@ class LocalRuntimePreferences(private val context: Context) {
         context.localRuntimeDataStore.edit { it.remove(acceleratorKey(runtime)) }
     }
 
+    private val taskAcceleratorKey = stringPreferencesKey("task_accel")
+
+    /** Cached accelerator decision for the small JIT task models (vision/OCR/audio).
+     *  Not keyed on [LocalRuntime]: one shared value across all task runners. Unset
+     *  means "probe on next use". Cleared by the settings Re-detect action. */
+    fun taskAcceleratorFlow(): Flow<String?> =
+        context.localRuntimeDataStore.data.map { it[taskAcceleratorKey] }
+
+    suspend fun setTaskAccelerator(accel: String) {
+        context.localRuntimeDataStore.edit { it[taskAcceleratorKey] = accel }
+    }
+
+    suspend fun clearTaskAccelerator() {
+        context.localRuntimeDataStore.edit { it.remove(taskAcceleratorKey) }
+    }
+
     /** True means the probe ALWAYS returns "CPU" regardless of device capabilities;
      *  false lets the probe pick GPU/NNAPI/QNN. When the user has set no preference,
      *  falls back to the device-dependent [defaultForceCpu]. */
