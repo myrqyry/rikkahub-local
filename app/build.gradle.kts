@@ -328,8 +328,17 @@ dependencies {
 
     // modules
     implementation(project(":ai"))
-    implementation(project(":local-llm"))
-    implementation(project(":speech"))
+    implementation(project(":local-llm")) {
+        // LiteRT (com.google.ai.edge.litert, transitively via :speech) ships the
+        // org.tensorflow.lite.* runtime as a drop-in; exclude the legacy jars to
+        // avoid duplicate classes at app merge.
+        exclude(group = "org.tensorflow", module = "tensorflow-lite")
+        exclude(group = "org.tensorflow", module = "tensorflow-lite-api")
+    }
+    implementation(project(":speech")) {
+        exclude(group = "org.tensorflow", module = "tensorflow-lite")
+        exclude(group = "org.tensorflow", module = "tensorflow-lite-api")
+    }
     implementation(project(":web"))
     implementation(project(":document"))
     implementation(project(":highlight"))
@@ -337,7 +346,10 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":material3"))
     implementation(project(":workspace"))
-    implementation(libs.tensorflow.lite.task.vision)
+    implementation(libs.tensorflow.lite.task.vision) {
+        exclude(group = "org.tensorflow", module = "tensorflow-lite")
+        exclude(group = "org.tensorflow", module = "tensorflow-lite-api")
+    }
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar", "*.aar"))))
     implementation(kotlin("reflect"))
 
