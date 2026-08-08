@@ -60,6 +60,12 @@ dependencies {
     // TFLite Task Library: on-device vision/audio inference for the curated Task Library
     // catalog (image classification, object detection, audio classification). task-vision
     // transitively pulls task-core + tensorflow-lite (raw Interpreter for PP-OCRv5).
+    // TFLite Task Library: on-device vision/audio inference for the curated Task Library
+    // catalog (image classification, object detection, audio classification). task-vision
+    // transitively pulls task-core + tensorflow-lite (raw Interpreter for PP-OCRv5).
+    // tensorflow-lite pinned to 2.16.1: 2.14.0's tensorflow-lite-api AAR declared the same
+    // org.tensorflow.lite package as tensorflow-lite (AGP manifest-merge conflict); 2.16.1
+    // renamed the api package to org.tensorflow.lite.api (TFLite#63043).
     implementation(libs.tensorflow.lite)
     implementation(libs.tensorflow.lite.task.vision)
     implementation(libs.tensorflow.lite.task.audio)

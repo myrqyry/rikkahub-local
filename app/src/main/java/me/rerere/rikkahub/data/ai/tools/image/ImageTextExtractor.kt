@@ -13,6 +13,8 @@ import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.ai.ui.MessageChunk
 import me.rerere.ai.ui.UIMessage
 import me.rerere.ai.ui.UIMessagePart
+import me.rerere.locallm.ocr.PpOcrEngine
+import me.rerere.locallm.ocr.PpOcrEngineException
 import me.rerere.rikkahub.data.datastore.Settings
 import me.rerere.rikkahub.data.datastore.findModelById
 import me.rerere.rikkahub.data.datastore.findProvider
@@ -23,6 +25,8 @@ import me.rerere.rikkahub.data.modelregistry.ModelRoleResolver
 import me.rerere.rikkahub.data.modelregistry.ModelSourcePolicy
 import me.rerere.rikkahub.data.modelregistry.canProcessAttachmentWith
 import me.rerere.rikkahub.data.modelregistry.isOnDevice
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
 import kotlin.uuid.Uuid
 
 data class ImageTextExtractionResult(
@@ -74,7 +78,8 @@ class ProviderImageToolBackend(private val providerManager: ProviderManager) : I
 class ImageTextExtractor(
     private val backend: ImageToolBackend,
     private val modelRoleResolver: ModelRoleResolver,
-) {
+    private val ocrEngine: (() -> PpOcrEngine)? = null,
+) : KoinComponent {
     suspend fun extract(
         media: ResolvedMedia,
         assistant: Assistant,
@@ -94,6 +99,29 @@ class ImageTextExtractor(
         val providerSetting = settings.providers.find { it.id == provider.id } ?: return failure("provider_not_found", media)
         if (requireLocal && !providerSetting.isOnDevice()) return failure("cloud_processing_blocked", media)
         if (!assistant.canProcessAttachmentWith(providerSetting)) return failure("cloud_processing_blocked", media)
+        if (providerSetting is ProviderSetting.TaskOcrLocal) {
+            return try {
+                val engine = ocrEngine?.invoke() ?: get<PpOcrEngine>()
+                val text = engine.recognize(
+                    imagePath = media.stablePath,
+                    detPath = providerSetting.detModelPath,
+                    recPath = providerSetting.recModelPath,
+                )
+                ImageTextExtractionResult(
+                    success = true,
+                    text = text,
+                    imageRef = media.originalReference,
+                    modelId = descriptor.id,
+                    processing = "ocr",
+                )
+            } catch (e: PpOcrEngineException) {
+                failure("provider_failed", media)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                failure("provider_failed", media)
+            }
+        }
         val prompt = settings.ocrPrompt
         val params = TextGenerationParams(model = model, customHeaders = model.customHeaders, customBody = model.customBodies)
         val messages = listOf(

@@ -342,6 +342,8 @@ val dataSourceModule = module {
         }
     }
 
+    single { me.rerere.locallm.ocr.PpOcrEngine() }
+
     single {
         WebDavSync(
             settingsStore = get(),

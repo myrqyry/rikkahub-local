@@ -335,6 +335,43 @@ sealed class ProviderSetting {
     }
 
     @Serializable
+    @SerialName("task_ocr_local")
+    data class TaskOcrLocal(
+        override val id: Uuid = Uuid.random(),
+        override var enabled: Boolean = false,
+        override var name: String = "Local Task OCR",
+        override var models: List<Model> = emptyList(),
+        override val balanceOption: BalanceOption = BalanceOption(),
+        @Transient override val builtIn: Boolean = true,
+        @Transient override val description: @Composable (() -> Unit) = {},
+        @Transient override val shortDescription: @Composable (() -> Unit) = {},
+        var detModelPath: String = "",
+        var recModelPath: String = "",
+    ) : ProviderSetting() {
+        override fun addModel(model: Model): ProviderSetting = copy(models = models + model)
+        override fun editModel(model: Model): ProviderSetting =
+            copy(models = models.map { if (it.id == model.id) model else it })
+        override fun delModel(model: Model): ProviderSetting =
+            copy(models = models.filter { it.id != model.id })
+        override fun moveMove(from: Int, to: Int): ProviderSetting =
+            copy(models = models.toMutableList().apply { add(to, removeAt(from)) })
+        override fun copyProvider(
+            id: Uuid,
+            enabled: Boolean,
+            name: String,
+            models: List<Model>,
+            balanceOption: BalanceOption,
+            builtIn: Boolean,
+            description: @Composable (() -> Unit),
+            shortDescription: @Composable (() -> Unit),
+        ): ProviderSetting = copy(
+            id = id, enabled = enabled, name = name, models = models,
+            builtIn = builtIn, description = description, shortDescription = shortDescription,
+            balanceOption = balanceOption,
+        )
+    }
+
+    @Serializable
     @SerialName("codex")
     data class Codex(
         override var id: Uuid = Uuid.random(),

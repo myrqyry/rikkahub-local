@@ -576,6 +576,7 @@ object ChatboxImporter {
         is ProviderSetting.Grok -> "grok"
         is ProviderSetting.LocalDream -> "local_dream"
         is ProviderSetting.StableDiffusion -> "stable_diffusion"
+        is ProviderSetting.TaskOcrLocal -> "task_ocr_local"
     }
 
     private fun millisToLocalDateTime(timestamp: Long?) =

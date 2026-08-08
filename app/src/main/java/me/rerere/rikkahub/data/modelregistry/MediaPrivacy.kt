@@ -7,6 +7,7 @@ fun ProviderSetting.isOnDevice(): Boolean = when (this) {
     is ProviderSetting.AICore,
     is ProviderSetting.LiteRtLocal,
     is ProviderSetting.StableDiffusion,
+    is ProviderSetting.TaskOcrLocal,
     -> true
     else -> false
 }

@@ -144,6 +144,10 @@ fun ProviderConfigure(
             is ProviderSetting.StableDiffusion -> {
                 ProviderConfigureStableDiffusion(provider, onEdit)
             }
+
+            is ProviderSetting.TaskOcrLocal -> {
+                ProviderConfigureTaskOcr(provider, onEdit)
+            }
         }
     }
 }
@@ -161,6 +165,7 @@ fun ProviderSetting.convertTo(type: KClass<out ProviderSetting>): ProviderSettin
         is ProviderSetting.Grok -> "" // OAuth, no API key
         is ProviderSetting.LocalDream -> "" // on-device, no API key
         is ProviderSetting.StableDiffusion -> "" // on-device, no API key
+        is ProviderSetting.TaskOcrLocal -> "" // on-device, no API key
     }
     val sourceBaseUrl = when (this) {
         is ProviderSetting.OpenAI -> this.baseUrl
@@ -172,6 +177,7 @@ fun ProviderSetting.convertTo(type: KClass<out ProviderSetting>): ProviderSettin
         is ProviderSetting.Grok -> "" // OAuth, no base URL
         is ProviderSetting.LocalDream -> "" // on-device, no base URL
         is ProviderSetting.StableDiffusion -> "" // on-device, no base URL
+        is ProviderSetting.TaskOcrLocal -> "" // on-device, no base URL
     }
     val targetDefaultBaseUrl = when (type) {
         ProviderSetting.OpenAI::class -> ProviderSetting.OpenAI().baseUrl
@@ -230,6 +236,7 @@ internal fun ProviderSetting.defaultBaseUrlForReset(): String {
             is ProviderSetting.Grok -> return "" // OAuth, no base URL
             is ProviderSetting.LocalDream -> return "" // on-device, no base URL
             is ProviderSetting.StableDiffusion -> return "" // on-device, no base URL
+            is ProviderSetting.TaskOcrLocal -> return "" // on-device, no base URL
         }
     }
     return when (this) {
@@ -242,6 +249,7 @@ internal fun ProviderSetting.defaultBaseUrlForReset(): String {
         is ProviderSetting.Grok -> ""
         is ProviderSetting.LocalDream -> ""
         is ProviderSetting.StableDiffusion -> ""
+        is ProviderSetting.TaskOcrLocal -> ""
     }
 }
 
@@ -257,6 +265,7 @@ internal fun ProviderSetting.resetBaseUrlToDefault(): ProviderSetting {
         is ProviderSetting.Grok -> this // no base URL to reset
         is ProviderSetting.LocalDream -> this // no base URL to reset
         is ProviderSetting.StableDiffusion -> this // no base URL to reset
+        is ProviderSetting.TaskOcrLocal -> this // no base URL to reset
     }
 }
 
@@ -271,6 +280,7 @@ internal fun ProviderSetting.isUsingDefaultBaseUrl(): Boolean {
         is ProviderSetting.Grok -> return true // no base URL concept
         is ProviderSetting.LocalDream -> return true // no base URL concept
         is ProviderSetting.StableDiffusion -> return true // no base URL concept
+        is ProviderSetting.TaskOcrLocal -> return true // no base URL concept
     }
     return baseUrl == defaultBaseUrlForReset()
 }
@@ -864,6 +874,54 @@ private fun ColumnScope.ProviderConfigureAICore(
 
     Text(
         text = stringResource(R.string.setting_provider_aicore_status_help),
+        style = MaterialTheme.typography.labelSmall,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun ColumnScope.ProviderConfigureTaskOcr(
+    provider: ProviderSetting.TaskOcrLocal,
+    onEdit: (provider: ProviderSetting.TaskOcrLocal) -> Unit,
+) {
+    provider.description()
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(stringResource(id = R.string.setting_provider_page_enable), modifier = Modifier.weight(1f))
+        Checkbox(
+            checked = provider.enabled,
+            onCheckedChange = { onEdit(provider.copy(enabled = it)) },
+        )
+    }
+
+    OutlinedTextField(
+        value = provider.name,
+        onValueChange = { onEdit(provider.copy(name = it.trim())) },
+        label = { Text(stringResource(id = R.string.setting_provider_page_name)) },
+        modifier = Modifier.fillMaxWidth(),
+        maxLines = 3,
+    )
+
+    OutlinedTextField(
+        value = provider.detModelPath,
+        onValueChange = { onEdit(provider.copy(detModelPath = it)) },
+        label = { Text("Detection model (ppocr_det_fp16.tflite path)") },
+        modifier = Modifier.fillMaxWidth(),
+    )
+
+    OutlinedTextField(
+        value = provider.recModelPath,
+        onValueChange = { onEdit(provider.copy(recModelPath = it)) },
+        label = { Text("Recognition model (ppocr_rec_fp16.tflite path)") },
+        modifier = Modifier.fillMaxWidth(),
+    )
+
+    Text(
+        text = "On-device PP-OCRv5 text recognition. Copy both model URLs from " +
+            "Local Task Library models below, import the files via the LiteRT import picker, " +
+            "then paste their paths here. No images leave the device.",
         style = MaterialTheme.typography.labelSmall,
         modifier = Modifier.fillMaxWidth(),
     )

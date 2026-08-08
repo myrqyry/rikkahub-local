@@ -9,7 +9,7 @@ import java.nio.ByteOrder
 
 class PpOcrEngineException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
-class PpOcrEngine(
+open class PpOcrEngine(
     private val interpreterFactory: InterpreterFactory = TensorFlowInterpreterFactory,
 ) {
     fun interface InterpreterFactory {
@@ -30,7 +30,7 @@ class PpOcrEngine(
     // ponytail: naive det->rec pipeline. det output is binarized into a single region whose
     // bounding box is cropped and fed to rec; rec logits are argmaxed against a bundled vocab.
     // No polygon reconstruction, no CTC. Upgrade when real OCR accuracy is needed.
-    suspend fun recognize(imagePath: String, detPath: String, recPath: String): String {
+    open suspend fun recognize(imagePath: String, detPath: String, recPath: String): String {
         val detFile = File(detPath)
         if (!detFile.exists()) throw PpOcrEngineException("PP-OCR detection model not found: $detPath")
         val recFile = File(recPath)
