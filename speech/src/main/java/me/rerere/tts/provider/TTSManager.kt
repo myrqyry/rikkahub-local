@@ -83,4 +83,58 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.promptGuidance
         }
     }
+
+    private var currentSetting: TTSProviderSetting? = null
+
+    fun onSessionStart(providerSetting: TTSProviderSetting) {
+        currentSetting = providerSetting
+        when (providerSetting) {
+            is TTSProviderSetting.OpenAI -> openAIProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.Gemini -> geminiProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.SystemTTS -> systemProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.MiniMax -> miniMaxProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.Qwen -> qwenProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.Groq -> groqProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.XAI -> xaiProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.MiMo -> miMoProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.ElevenLabs -> elevenLabsProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.FishAudio -> fishAudioProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.Step -> stepProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.NekoSpeakTts -> nekoSpeakProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.PocketTts -> pocketTTSProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.KittenTts -> kittenTTSProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.onSessionStart(providerSetting)
+        }
+    }
+
+    fun onSessionEnd() {
+        when (currentSetting) {
+            is TTSProviderSetting.OpenAI -> openAIProvider.onSessionEnd()
+            is TTSProviderSetting.Gemini -> geminiProvider.onSessionEnd()
+            is TTSProviderSetting.SystemTTS -> systemProvider.onSessionEnd()
+            is TTSProviderSetting.MiniMax -> miniMaxProvider.onSessionEnd()
+            is TTSProviderSetting.Qwen -> qwenProvider.onSessionEnd()
+            is TTSProviderSetting.Groq -> groqProvider.onSessionEnd()
+            is TTSProviderSetting.XAI -> xaiProvider.onSessionEnd()
+            is TTSProviderSetting.MiMo -> miMoProvider.onSessionEnd()
+            is TTSProviderSetting.ElevenLabs -> elevenLabsProvider.onSessionEnd()
+            is TTSProviderSetting.FishAudio -> fishAudioProvider.onSessionEnd()
+            is TTSProviderSetting.Step -> stepProvider.onSessionEnd()
+            is TTSProviderSetting.NekoSpeakTts -> nekoSpeakProvider.onSessionEnd()
+            is TTSProviderSetting.PocketTts -> pocketTTSProvider.onSessionEnd()
+            is TTSProviderSetting.KittenTts -> kittenTTSProvider.onSessionEnd()
+            is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.onSessionEnd()
+            null -> Unit
+        }
+        currentSetting = null
+    }
+
+    fun reusesEngine(providerSetting: TTSProviderSetting): Boolean {
+        return when (providerSetting) {
+            is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.reusesEngine
+            is TTSProviderSetting.PocketTts -> pocketTTSProvider.reusesEngine
+            is TTSProviderSetting.KittenTts -> kittenTTSProvider.reusesEngine
+            else -> false
+        }
+    }
 }

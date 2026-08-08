@@ -25,4 +25,22 @@ interface TTSProvider<T : TTSProviderSetting> {
      */
     val promptGuidance: String
         get() = ""
+
+    /**
+     * True when the provider keeps a reusable engine across chunks (local models).
+     * The controller uses this to disable speculative prefetch and evict completed
+     * PCM from the cache.
+     */
+    val reusesEngine: Boolean
+        get() = false
+
+    /**
+     * Session start hook, called by TtsController when a speak() session starts.
+     * Engine acquisition is lazy (first generateSpeech), so this only records
+     * intent and is safe to call on the main thread.
+     */
+    fun onSessionStart(setting: T) = Unit
+
+    /** Session end hook, called on stop()/dispose()/provider change. Releases the cached engine. */
+    fun onSessionEnd() = Unit
 }

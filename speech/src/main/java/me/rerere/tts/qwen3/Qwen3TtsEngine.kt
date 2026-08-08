@@ -210,6 +210,10 @@ class Qwen3TtsEngine(private val dir: File) {
             talkerNs += System.nanoTime() - t0
         }
 
+        // Frame generation is done: release the ~450 MB ping-pong KV sets
+        // before the codec decode allocates its own buffers.
+        decodeKv.close()
+
         // ---- codec decode (chunks with left context) ----
         t0 = System.nanoTime()
         val audio = decodeCodes(frames)
@@ -296,6 +300,16 @@ class Qwen3TtsEngine(private val dir: File) {
                 logits.copyOfRange(0, CODEC_VOCAB),
                 logits.copyOfRange(CODEC_VOCAB, CODEC_VOCAB + HIDDEN))
         }
+
+        /** Releases all ping-pong KV sets and decode buffers. */
+        fun close() {
+            setA.values.forEach { it.close() }
+            setB.values.forEach { it.close() }
+            embIn.close()
+            posIn.close()
+            maskIn.close()
+            logitsOut.close()
+        }
     }
 
     class Step(val logits: FloatArray, val hidden: FloatArray)
@@ -359,38 +373,43 @@ class Qwen3TtsEngine(private val dir: File) {
         if (frames.isEmpty()) return FloatArray(0)
         val codecIn = codec.createInputBuffers()
         val codecOut = codec.createOutputBuffers()
-        val pieces = ArrayList<FloatArray>()
-        var i = 0
-        while (i < frames.size) {
-            val ctx = min(CODEC_CTX, i)
-            // Window = left context + new frames must fit the fixed-T graph, so
-            // advance by at most CODEC_CHUNK - ctx new frames per chunk.
-            val j = min(i + CODEC_CHUNK - ctx, frames.size)
-            val n = j - (i - ctx) // = new frames + ctx, always <= CODEC_CHUNK
-            val buf = IntArray(16 * CODEC_CHUNK)
-            for (t in 0 until n) {
-                val frame = frames[i - ctx + t]
-                for (q in 0 until 16) {
-                    buf[q * CODEC_CHUNK + t] = frame[q]
+        try {
+            val pieces = ArrayList<FloatArray>()
+            var i = 0
+            while (i < frames.size) {
+                val ctx = min(CODEC_CTX, i)
+                // Window = left context + new frames must stay within the fixed-T graph, so
+                // advance by at most CODEC_CHUNK - ctx new frames per chunk.
+                val j = min(i + CODEC_CHUNK - ctx, frames.size)
+                val n = j - (i - ctx) // = new frames + ctx, always <= CODEC_CHUNK
+                val buf = IntArray(16 * CODEC_CHUNK)
+                for (t in 0 until n) {
+                    val frame = frames[i - ctx + t]
+                    for (q in 0 until 16) {
+                        buf[q * CODEC_CHUNK + t] = frame[q]
+                    }
                 }
+                codecIn[0].writeInt(buf)
+                codec.run(codecIn, codecOut)
+                val wav = codecOut[0].readFloat()
+                pieces.add(wav.copyOfRange(ctx * UPSAMPLE, n * UPSAMPLE))
+                i = j
             }
-            codecIn[0].writeInt(buf)
-            codec.run(codecIn, codecOut)
-            val wav = codecOut[0].readFloat()
-            pieces.add(wav.copyOfRange(ctx * UPSAMPLE, n * UPSAMPLE))
-            i = j
+            var total = 0
+            for (p in pieces) {
+                total += p.size
+            }
+            val out = FloatArray(total)
+            var off = 0
+            for (p in pieces) {
+                System.arraycopy(p, 0, out, off, p.size)
+                off += p.size
+            }
+            return out
+        } finally {
+            codecIn.forEach { it.close() }
+            codecOut.forEach { it.close() }
         }
-        var total = 0
-        for (p in pieces) {
-            total += p.size
-        }
-        val out = FloatArray(total)
-        var off = 0
-        for (p in pieces) {
-            System.arraycopy(p, 0, out, off, p.size)
-            off += p.size
-        }
-        return out
     }
 
     // ------------------------------------------------------------------
@@ -484,6 +503,10 @@ class Qwen3TtsEngine(private val dir: File) {
     }
 
     fun close() {
+        // Persistent MTP buffers must be closed before their model.
+        mtpIn.forEach { it.close() }
+        mtpOutPing.forEach { it.close() }
+        mtpOutPong.forEach { it.close() }
         talker.close()
         mtp.close()
         codec.close()

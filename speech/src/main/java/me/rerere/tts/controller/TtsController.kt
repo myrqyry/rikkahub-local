@@ -95,9 +95,14 @@ class TtsController(
 
     /** 选择/取消选择 Provider */
     fun setProvider(provider: TTSProviderSetting?) {
+        val previous = currentProvider
         currentProvider = provider
         _isAvailable.update { provider != null }
-        if (provider == null) stop()
+        if (provider == null) {
+            stop()
+        } else if (previous != null && previous != provider) {
+            ttsManager.onSessionEnd()
+        }
     }
 
     /**
@@ -112,6 +117,8 @@ class TtsController(
             _error.update { "No TTS provider selected" }
             return
         }
+
+        ttsManager.onSessionStart(provider)
 
         val newChunks = chunker.split(text)
         if (newChunks.isEmpty()) return
@@ -195,6 +202,7 @@ class TtsController(
 
     /** 停止并清空状态 */
     fun stop() {
+        ttsManager.onSessionEnd()
         workerJob?.cancel()
         audio.stop()
         audio.clear()
@@ -269,6 +277,12 @@ class TtsController(
                         _error.update { e.message ?: "Audio playback error" }
                     }
 
+                    // Engine-reusing providers hold a large model per session;
+                    // do not retain the completed PCM in cache (played once).
+                    if (ttsManager.reusesEngine(provider)) {
+                        cache.remove(chunk.id)
+                    }
+
                     if (queue.isNotEmpty()) delay(chunkDelayMs)
 
                     processedCount++
@@ -284,6 +298,9 @@ class TtsController(
 
     private fun prefetchFrom(startIndex: Int) {
         val provider = currentProvider ?: return
+        // Engine-reusing providers hold one large model; speculative prefetch
+        // would stack several engines in RAM. Synthesize sequentially.
+        if (ttsManager.reusesEngine(provider)) return
         val begin = startIndex.coerceAtLeast(lastPrefetchedIndex + 1)
         val endExclusive = (begin + prefetchCount).coerceAtMost(allChunks.size)
         if (begin >= endExclusive) return

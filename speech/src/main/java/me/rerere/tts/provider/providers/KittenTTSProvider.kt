@@ -1,10 +1,15 @@
 package me.rerere.tts.provider.providers
 
 import android.content.Context
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import me.rerere.tts.kitten.KittenTtsBundle
 import me.rerere.tts.kitten.KittenTtsConfig
 import me.rerere.tts.kitten.KittenTtsEngine
@@ -29,6 +34,34 @@ import java.nio.ByteOrder
  * Float32 waveform converted to PCM16 for the audio pipeline.
  */
 class KittenTTSProvider : TTSProvider<TTSProviderSetting.KittenTts> {
+    private val mutex = Mutex()
+    private val closeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    @Volatile
+    private var sessionPath: String? = null
+    private var session: Session? = null
+
+    private class Session(
+        val bundle: KittenTtsBundle,
+        val engine: KittenTtsEngine,
+        val tokenizer: KittenTtsTokenizer,
+    )
+
+    override val reusesEngine: Boolean
+        get() = true
+
+    override fun onSessionStart(providerSetting: TTSProviderSetting.KittenTts) {
+        sessionPath = providerSetting.modelPath
+    }
+
+    override fun onSessionEnd() {
+        val s = session
+        session = null
+        sessionPath = null
+        closeScope.launch {
+            mutex.withLock { s?.bundle?.close() }
+        }
+    }
+
     override fun generateSpeech(
         context: Context,
         providerSetting: TTSProviderSetting.KittenTts,
@@ -40,52 +73,63 @@ class KittenTTSProvider : TTSProvider<TTSProviderSetting.KittenTts> {
                 "Place kitten_tts_nano_v0_1.onnx + voices.npz in the folder or download from ${me.rerere.tts.kitten.KittenTtsCatalog.ENTRIES.first().sourceUrl}"
         }
 
-        KittenTtsBundle.open(directory).use { bundle ->
-            val engine = KittenTtsEngine.create(
-                bundle = bundle,
-                config = KittenTtsConfig(
-                    voice = providerSetting.voice,
+        val text = request.text.trim()
+        if (text.isEmpty()) {
+            emit(emptyLastChunk())
+            return@flow
+        }
+
+        val pcmBytes = mutex.withLock {
+            val s = session?.takeIf { sessionPath == providerSetting.modelPath }
+                ?: run {
+                    session?.bundle?.close()
+                    sessionPath = providerSetting.modelPath
+                    val bundle = KittenTtsBundle.open(directory)
+                    Session(
+                        bundle = bundle,
+                        engine = KittenTtsEngine.create(
+                            bundle = bundle,
+                            config = KittenTtsConfig(
+                                voice = providerSetting.voice,
+                                speed = providerSetting.speed,
+                            ),
+                        ),
+                        tokenizer = KittenTtsTokenizer(),
+                    ).also { session = it }
+                }
+            try {
+                val ids = s.tokenizer.encode(text)
+                if (ids.isEmpty()) return@withLock null
+                val style = s.bundle.voices[providerSetting.voice]
+                    ?: s.bundle.voices.values.firstOrNull()
+                    ?: throw IllegalStateException("No voices available in bundle")
+                val waveform = s.engine.runInference(
+                    inputIds = ids,
+                    style = style,
                     speed = providerSetting.speed,
+                )
+                FloatArrayToPcm16(waveform)
+            } catch (e: Throwable) {
+                if (session === s) {
+                    session = null
+                    s.bundle.close()
+                }
+                throw e
+            }
+        } ?: return@flow
+
+        emit(
+            AudioChunk(
+                data = pcmBytes,
+                format = AudioFormat.PCM,
+                sampleRate = 24000,
+                isLast = true,
+                metadata = mapOf(
+                    "provider" to "kitten-tts",
+                    "voice" to providerSetting.voice,
                 ),
             )
-
-            val tokenizer = KittenTtsTokenizer()
-            val text = request.text.trim()
-            if (text.isEmpty()) {
-                emit(emptyLastChunk())
-                return@flow
-            }
-
-            val ids = tokenizer.encode(text)
-            if (ids.isEmpty()) {
-                emit(emptyLastChunk())
-                return@flow
-            }
-
-            val style = bundle.voices[providerSetting.voice]
-                ?: bundle.voices.values.firstOrNull()
-                ?: throw IllegalStateException("No voices available in bundle")
-
-            val waveform = engine.runInference(
-                inputIds = ids,
-                style = style,
-                speed = providerSetting.speed,
-            )
-
-            val pcmBytes = FloatArrayToPcm16(waveform)
-            emit(
-                AudioChunk(
-                    data = pcmBytes,
-                    format = AudioFormat.PCM,
-                    sampleRate = 24000,
-                    isLast = true,
-                    metadata = mapOf(
-                        "provider" to "kitten-tts",
-                        "voice" to providerSetting.voice,
-                    ),
-                )
-            )
-        }
+        )
     }.flowOn(Dispatchers.IO)
 
     private fun FloatArrayToPcm16(waveform: FloatArray): ByteArray {
