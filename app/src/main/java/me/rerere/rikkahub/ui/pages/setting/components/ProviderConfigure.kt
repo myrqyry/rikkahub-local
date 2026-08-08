@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
@@ -70,6 +71,9 @@ import me.rerere.locallm.SdCatalog
 import me.rerere.locallm.SdCatalogEntry
 import me.rerere.locallm.litert.LiteRtCatalog
 import me.rerere.locallm.litert.LiteRtCatalogEntry
+import me.rerere.locallm.task.TaskKind
+import me.rerere.locallm.task.TaskLibraryCatalog
+import me.rerere.locallm.task.TaskLibraryCatalogEntry
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.DEFAULT_PROVIDERS
 import me.rerere.hugeicons.stroke.View
@@ -85,6 +89,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import kotlin.reflect.KClass
+import me.rerere.rikkahub.utils.writeClipboardText
 
 @Composable
 fun ProviderConfigure(
@@ -1020,6 +1025,29 @@ private fun ColumnScope.ProviderConfigureLiteRT(
         }
     }
 
+    // Local Task Library models — on-device classifiers, detectors, OCR and audio tagging.
+    // Link-only like LiteRtCatalog: each card copies the model URL or opens the HF page;
+    // the user imports the file via the Local LiteRT import picker above.
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 16.dp)) {
+        Text("Local Task Library models", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "On-device classifiers, detectors, OCR and audio tagging. Copy the model URL or import the file below.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TaskKind.entries.forEach { kind ->
+            val entries = TaskLibraryCatalog.findByTaskKind(kind)
+            if (entries.isNotEmpty()) {
+                Text(
+                    kind.displayName(),
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                entries.forEach { entry -> TaskLibraryCatalogEntryCard(entry = entry) }
+            }
+        }
+    }
+
     // Accelerator row with re-detect button.
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -1663,6 +1691,52 @@ private fun openModelSourceUrl(context: Context, url: String) {
         context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
     } catch (_: Exception) {
         // Activity not found or malformed URL — safe no-op.
+    }
+}
+
+private fun TaskKind.displayName(): String = when (this) {
+    TaskKind.IMAGE_CLASSIFICATION -> "Image classification"
+    TaskKind.OBJECT_DETECTION -> "Object detection"
+    TaskKind.OCR -> "OCR"
+    TaskKind.AUDIO_CLASSIFICATION -> "Audio classification"
+}
+
+@Composable
+private fun TaskLibraryCatalogEntryCard(entry: TaskLibraryCatalogEntry) {
+    val context = LocalContext.current
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(12.dp),
+        ) {
+            Text(entry.displayName, style = MaterialTheme.typography.titleSmall)
+            Text(
+                entry.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "Models: ${entry.modelFiles.joinToString()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                entry.modelFiles.forEach { file ->
+                    TextButton(onClick = { context.writeClipboardText(entry.resolveUrl(file)) }) {
+                        Text("Copy $file")
+                    }
+                }
+                TextButton(onClick = { openModelSourceUrl(context, entry.sourceUrl) }) {
+                    Text("Open")
+                }
+            }
+        }
     }
 }
 
