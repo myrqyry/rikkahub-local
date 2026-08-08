@@ -2,6 +2,10 @@ package me.rerere.locallm.ocr
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import com.google.ai.edge.litert.CompiledModel
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.tensorflow.lite.Interpreter
 import java.io.File
 import java.nio.ByteBuffer
@@ -11,6 +15,8 @@ class PpOcrEngineException(message: String, cause: Throwable? = null) : Exceptio
 
 open class PpOcrEngine(
     private val interpreterFactory: InterpreterFactory = TensorFlowInterpreterFactory,
+    private val npuDetFactory: (String) -> CompiledModel? = { null },
+    private val modelDispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1, "ModelDispatcher"),
 ) {
     fun interface InterpreterFactory {
         fun create(path: String): Interpreter
@@ -36,19 +42,88 @@ open class PpOcrEngine(
         val recFile = File(recPath)
         if (!recFile.exists()) throw PpOcrEngineException("PP-OCR recognition model not found: $recPath")
 
-        // Called on a background dispatcher by callers; keep it simple and synchronous here.
-        val det = interpreterFactory.create(detPath)
-        val rec = interpreterFactory.create(recPath)
-        try {
-            val image = decodePixels(imagePath) ?: return ""
-            val bbox = runDetection(det, image)
-            val crop = cropBbox(image, bbox)
-            val logits = runRecognition(rec, crop)
-            return argmaxText(logits, loadVocab(recPath))
-        } finally {
-            det.close()
-            rec.close()
+        return withContext(modelDispatcher) {
+            val detNpu = runCatching { npuDetFactory(detPath) }.getOrNull()
+            if (detNpu != null) warmUpDetection(detNpu)
+            val rec = interpreterFactory.create(recPath)
+            try {
+                val image = decodePixels(imagePath) ?: return@withContext ""
+                val bbox = if (detNpu != null) {
+                    runDetectionNpu(detNpu, image)
+                } else {
+                    val det = interpreterFactory.create(detPath)
+                    try {
+                        runDetection(det, image)
+                    } finally {
+                        det.close()
+                    }
+                }
+                val crop = cropBbox(image, bbox)
+                val logits = runRecognition(rec, crop)
+                argmaxText(logits, loadVocab(recPath))
+            } finally {
+                runCatching { detNpu?.close() }
+                rec.close()
+            }
         }
+    }
+
+    private fun warmUpDetection(det: CompiledModel) = runCatching {
+        val input = det.createInputBuffers()[0]
+        val output = det.createOutputBuffers()[0]
+        try {
+            input.writeFloat(FloatArray(INPUT_SIZE * INPUT_SIZE * 3))
+            det.run(listOf(input), listOf(output))
+        } finally {
+            runCatching { input.close() }
+            runCatching { output.close() }
+        }
+    }
+
+    private fun runDetectionNpu(det: CompiledModel, image: ByteBuffer): IntArray {
+        val input = det.createInputBuffers()[0]
+        val output = det.createOutputBuffers()[0]
+        try {
+            val floats = FloatArray(INPUT_SIZE * INPUT_SIZE * 3)
+            val holder = ByteBuffer.allocate(floats.size * 4).order(ByteOrder.nativeOrder())
+            image.rewind()
+            holder.put(image)
+            holder.rewind()
+            holder.asFloatBuffer().get(floats)
+            input.writeFloat(floats)
+            det.run(listOf(input), listOf(output))
+            return binarizeBbox(output.readFloat())
+        } finally {
+            runCatching { input.close() }
+            runCatching { output.close() }
+        }
+    }
+
+    private fun binarizeBbox(detScores: FloatArray): IntArray {
+        // 1x80x80x1 region map: binarize at threshold, then take the enclosing box.
+        var minX = DET_MAP_SIZE
+        var minY = DET_MAP_SIZE
+        var maxX = -1
+        var maxY = -1
+        var idx = 0
+        for (y in 0 until DET_MAP_SIZE) {
+            for (x in 0 until DET_MAP_SIZE) {
+                if (detScores[idx++] > DET_THRESHOLD) {
+                    if (x < minX) minX = x
+                    if (x > maxX) maxX = x
+                    if (y < minY) minY = y
+                    if (y > maxY) maxY = y
+                }
+            }
+        }
+        if (maxX < 0) return intArrayOf(0, 0, 0, 0)
+        val scale = INPUT_SIZE.toFloat() / DET_MAP_SIZE
+        return intArrayOf(
+            (minX * scale).toInt(),
+            (minY * scale).toInt(),
+            ((maxX - minX + 1) * scale).toInt(),
+            ((maxY - minY + 1) * scale).toInt(),
+        )
     }
 
     private fun decodePixels(imagePath: String): ByteBuffer? = runCatching {
@@ -74,29 +149,9 @@ open class PpOcrEngine(
             .order(ByteOrder.nativeOrder())
         det.run(image, out)
         out.rewind()
-        // 1x80x80x1 region map: binarize at threshold, then take the enclosing box.
-        var minX = DET_MAP_SIZE
-        var minY = DET_MAP_SIZE
-        var maxX = -1
-        var maxY = -1
-        for (y in 0 until DET_MAP_SIZE) {
-            for (x in 0 until DET_MAP_SIZE) {
-                if (out.float > DET_THRESHOLD) {
-                    if (x < minX) minX = x
-                    if (x > maxX) maxX = x
-                    if (y < minY) minY = y
-                    if (y > maxY) maxY = y
-                }
-            }
-        }
-        if (maxX < 0) return intArrayOf(0, 0, 0, 0)
-        val scale = INPUT_SIZE.toFloat() / DET_MAP_SIZE
-        return intArrayOf(
-            (minX * scale).toInt(),
-            (minY * scale).toInt(),
-            ((maxX - minX + 1) * scale).toInt(),
-            ((maxY - minY + 1) * scale).toInt(),
-        )
+        val scores = FloatArray(out.capacity() / 4)
+        for (i in scores.indices) scores[i] = out.float
+        return binarizeBbox(scores)
     }
 
     private fun cropBbox(image: ByteBuffer, box: IntArray): ByteBuffer {

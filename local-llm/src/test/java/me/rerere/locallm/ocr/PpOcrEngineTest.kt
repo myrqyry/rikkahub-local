@@ -33,4 +33,14 @@ class PpOcrEngineTest {
         val text = runBlocking { runCatching { engine.recognize("/img.png", "/det.tflite", "/rec.tflite") } }.getOrNull()
         assertEquals("", text ?: "") // missing files -> PpOcrEngineException -> null; must not throw
     }
+
+    @Test
+    fun `recognize falls back to interpreter when npu factory returns null`() {
+        val engine = PpOcrEngine(
+            interpreterFactory = FakeInterpreterFactory("ok"),
+            npuDetFactory = { null },
+        )
+        val text = runBlocking { runCatching { engine.recognize("/img.png", "/det.tflite", "/rec.tflite") } }.getOrNull()
+        assertEquals("", text ?: "") // NPU unavailable -> interpreter path -> missing files -> null; must not throw
+    }
 }
