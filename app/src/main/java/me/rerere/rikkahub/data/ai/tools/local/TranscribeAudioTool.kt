@@ -60,7 +60,7 @@ private const val PREFERRED_MODEL_NAME = "ggml-tiny.bin"
  */
 fun transcribeAudioFileTool(context: Context): Tool = Tool(
     name = "transcribe_audio_file",
-    description = "Transcribe speech in an audio file via whisper.cpp on Termux. Accepts OGG/Opus (Telegram voice notes), WAV, MP3, M4A, FLAC. Returns text + detected language + duration + transcription time. Needs whisper.cpp + a model — error envelope's `hint` field tells you which is missing. Path absolute or ~.",
+    description = "Transcribe speech in an audio file via whisper.cpp on Termux. Accepts OGG/Opus (Telegram voice notes), WAV, MP3, M4A, FLAC. Returns text + detected language + duration + transcription time. Needs whisper.cpp + a model (.bin or .gguf, tiny=75MB base=142MB small=466MB medium=1.5GB) — error envelope's `hint` field tells you which is missing. Path absolute or ~.",
     parameters = {
         InputSchema.Obj(
             properties = buildJsonObject {
@@ -340,12 +340,12 @@ fun transcribeAudioFileTool(context: Context): Tool = Tool(
  */
 private suspend fun findWhisperModelViaShell(context: Context): String? {
     val pathsShell = WHISPER_MODEL_SEARCH_PATHS.joinToString(" ") { "'${it.replace("'", "'\\''")}'" }
-    val script = """
+        val script = """
         for d in $pathsShell ; do
             if [ -d "${'$'}d" ]; then
                 preferred="${'$'}d/$PREFERRED_MODEL_NAME"
                 if [ -f "${'$'}preferred" ]; then echo "${'$'}preferred"; exit 0; fi
-                first=${'$'}(ls "${'$'}d"/*.bin 2>/dev/null | head -1)
+                first=${'$'}(ls "${'$'}d"/*.bin "${'$'}d"/*.gguf 2>/dev/null | head -1)
                 if [ -n "${'$'}first" ]; then echo "${'$'}first"; exit 0; fi
             fi
         done
@@ -381,7 +381,9 @@ fun whisperStatusTool(context: Context, settingsStore: SettingsStore): Tool = To
         Check whether whisper.cpp transcription is ready to use. Returns a structured
         report: whether Termux is enabled in this assistant, whether the Termux app is
         installed and reachable, whether whisper-cli is on disk, and whether a model
-        (.bin) file is present. Also returns install commands for anything missing.
+        (.bin or .gguf) file is present. Model sizes: tiny=75MB (fastest), base=142MB,
+        small=466MB, medium=1.5GB (best quality). Also returns install commands for
+        anything missing, including download links for all model sizes.
         Call this BEFORE calling transcribe_audio_file, especially when the user sends
         an audio or voice note. Takes no parameters.
     """.trimIndent().replace("\n", " "),
@@ -463,6 +465,13 @@ fun whisperStatusTool(context: Context, settingsStore: SettingsStore): Tool = To
             put("install_commands", buildJsonObject {
                 put("build_whisper_from_source", "cd ~ && pkg install -y git cmake clang make && git clone https://github.com/ggerganov/whisper.cpp && cd whisper.cpp && cmake -B build && cmake --build build -j --config Release")
                 put("download_tiny_model", "mkdir -p ~/.cache/whisper-models && cd ~/.cache/whisper-models && wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin")
+                put("download_tiny_en_model", "mkdir -p ~/.cache/whisper-models && cd ~/.cache/whisper-models && wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin")
+                put("download_base_model", "mkdir -p ~/.cache/whisper-models && cd ~/.cache/whisper-models && wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin")
+                put("download_base_en_model", "mkdir -p ~/.cache/whisper-models && cd ~/.cache/whisper-models && wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin")
+                put("download_small_model", "mkdir -p ~/.cache/whisper-models && cd ~/.cache/whisper-models && wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin")
+                put("download_small_en_model", "mkdir -p ~/.cache/whisper-models && cd ~/.cache/whisper-models && wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin")
+                put("download_medium_model", "mkdir -p ~/.cache/whisper-models && cd ~/.cache/whisper-models && wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin")
+                put("download_medium_en_model", "mkdir -p ~/.cache/whisper-models && cd ~/.cache/whisper-models && wget https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin")
             })
         }.toString()))
     }

@@ -4,10 +4,12 @@ import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,7 +18,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -52,6 +59,7 @@ fun ASRProviderConfigure(
                     is ASRProviderSetting.MiMo -> "MiMo"
                     is ASRProviderSetting.Step -> "Step"
                     is ASRProviderSetting.WhisperAsr -> "Whisper (Local)"
+                    is ASRProviderSetting.WhisperLiteRT -> "Whisper LiteRT"
                     is ASRProviderSetting.LocalAudioClassifier -> "Local Audio Classifier"
                 },
                 onValueChange = {},
@@ -79,6 +87,7 @@ fun ASRProviderConfigure(
             is ASRProviderSetting.MiMo -> MiMoASRConfiguration(setting, onValueChange)
             is ASRProviderSetting.Step -> StepASRConfiguration(setting, onValueChange)
             is ASRProviderSetting.WhisperAsr -> WhisperASRConfiguration(setting, onValueChange)
+            is ASRProviderSetting.WhisperLiteRT -> WhisperLiteRTConfiguration(setting, onValueChange)
             is ASRProviderSetting.LocalAudioClassifier -> LocalAudioClassifierConfiguration(setting, onValueChange)
         }
     }
@@ -556,6 +565,20 @@ private fun WhisperASRConfiguration(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    var discoveredModels by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            val dir = File(context.filesDir, "models/whisper")
+            if (!dir.isDirectory) return@withContext
+            val models = dir.listFiles()
+                ?.filter { it.isFile && (it.name.endsWith(".bin") || it.name.endsWith(".gguf")) }
+                ?.map { it.absolutePath to "${it.name} (${it.length() / 1024 / 1024} MB)" }
+                ?: emptyList()
+            discoveredModels = models
+        }
+    }
+
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -570,23 +593,65 @@ private fun WhisperASRConfiguration(
 
     FormItem(
         label = { Text("Model Path") },
-        description = { Text("Path to whisper.cpp model file") }
+        description = { Text("Path to whisper.cpp model file (.bin or .gguf)") }
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            OutlinedTextField(
-                value = setting.modelPath,
-                onValueChange = { onValueChange(setting.copy(modelPath = it)) },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("ggml-base.bin") },
-            )
-            Button(onClick = { filePickerLauncher.launch(arrayOf("*/*")) }) {
-                Text("Browse")
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = setting.modelPath,
+                    onValueChange = { onValueChange(setting.copy(modelPath = it)) },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("ggml-base.bin") },
+                    singleLine = true,
+                )
+                Button(onClick = { filePickerLauncher.launch(arrayOf("*/*")) }) {
+                    Text("Browse")
+                }
+            }
+
+            if (discoveredModels.isNotEmpty()) {
+                Text(
+                    "Found in app storage:",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    discoveredModels.forEach { (path, label) ->
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .clickable { onValueChange(setting.copy(modelPath = path)) }
+                                .padding(vertical = 2.dp),
+                        )
+                    }
+                }
+            }
+
+            if (setting.modelPath.isNotBlank() && !File(setting.modelPath).exists()) {
+                Text(
+                    "⚠ Model file not found",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
         }
     }
+
+    Text(
+        text = "Download models via Settings → Manage Providers → Local. " +
+            "Recommended: ggml-tiny.en.bin (75 MB, English only, fastest) or " +
+            "ggml-small.bin (466 MB, multilingual, good quality).\n" +
+            "Sources: https://huggingface.co/ggerganov/whisper.cpp",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth(),
+    )
+
     FormItem(
         label = { Text("Language") },
         description = { Text("Language code (auto = detect)") }
@@ -614,6 +679,99 @@ private fun WhisperASRConfiguration(
             label = "Sample Rate"
         )
     }
+
+    FormItem(
+        label = { Text(stringResource(R.string.setting_asr_configure_vad_threshold)) },
+        description = { Text(stringResource(R.string.setting_asr_configure_vad_desc)) }
+    ) {
+        OutlinedNumberInput(
+            value = setting.vadThreshold,
+            onValueChange = { value ->
+                if (value in 0.0f..1.0f) {
+                    onValueChange(setting.copy(vadThreshold = value))
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = "VAD Threshold"
+        )
+    }
+}
+
+@Composable
+private fun WhisperLiteRTConfiguration(
+    setting: ASRProviderSetting.WhisperLiteRT,
+    onValueChange: (ASRProviderSetting) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val modelFilePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val dest = copyModelToAppDir(context, uri, "whisper-litert")
+            if (dest != null) {
+                onValueChange(setting.copy(modelPath = dest.absolutePath))
+            }
+        }
+    }
+
+    FormItem(
+        label = { Text("Model Path") },
+        description = { Text("Path to whisper_base_30s_f32.tflite LiteRT model (.tflite)") }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = setting.modelPath,
+                    onValueChange = { onValueChange(setting.copy(modelPath = it)) },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("whisper_base_30s_f32.tflite") },
+                    singleLine = true,
+                )
+                Button(onClick = { modelFilePickerLauncher.launch(arrayOf("*/*")) }) {
+                    Text("Browse")
+                }
+            }
+
+            if (setting.modelPath.isNotBlank() && !File(setting.modelPath).exists()) {
+                Text(
+                    "Model file not found",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+    }
+
+    FormItem(
+        label = { Text("Language") },
+        description = { Text("Language code (en, zh, de, es, ru, ko, fr, ja, ...)") }
+    ) {
+        OutlinedTextField(
+            value = setting.language,
+            onValueChange = { onValueChange(setting.copy(language = it)) },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("en") }
+        )
+    }
+
+    Text(
+        text = "Download whisper_base_30s_f32.tflite from HuggingFace:\n" +
+            "https://huggingface.co/litert-community/whisper-base\n\n" +
+            "Place vocab.json next to the model for full text decoding " +
+            "(also from HuggingFace openai/whisper-base).\n" +
+            "480 MB — CPU inference, no GPU/NPU required. " +
+            "Uses standard TFLite Interpreter (SignatureRunner API).\n" +
+            "30-second async windows, ~2-5s latency per transcription.",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 @Composable

@@ -910,6 +910,7 @@ private fun ASRProviderItem(
                             is ASRProviderSetting.MiMo -> "MiMo"
                             is ASRProviderSetting.Step -> "Step"
                             is ASRProviderSetting.WhisperAsr -> "Whisper (Local)"
+                            is ASRProviderSetting.WhisperLiteRT -> "Whisper LiteRT"
                             is ASRProviderSetting.LocalAudioClassifier -> "Local Audio Classifier"
                         },
                         style = MaterialTheme.typography.bodySmall,

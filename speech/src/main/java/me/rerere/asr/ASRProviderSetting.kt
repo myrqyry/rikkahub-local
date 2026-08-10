@@ -47,7 +47,7 @@ sealed class ASRProviderSetting {
         override val name: String = "DashScope ASR",
         val apiKey: String = "",
         val websocketUrl: String = "wss://dashscope.aliyuncs.com/api-ws/v1/inference",
-        val model: String = "qwen3-asr-flash-realtime",
+        val model: String = "qwen3-asr-flash-realtime-2026-02-10",
         val language: String = "",
         val sampleRate: Int = 16000,
         val vadThreshold: Float = 0.2f,
@@ -190,6 +190,26 @@ sealed class ASRProviderSetting {
     }
 
     @Serializable
+    @SerialName("whisper_litert")
+    data class WhisperLiteRT(
+        override val id: Uuid = Uuid.random(),
+        override val name: String = "Whisper LiteRT",
+        val modelPath: String = "",
+        val language: String = "en",
+        val sampleRate: Int = 16000,
+    ) : ASRProviderSetting() {
+        override fun copyProvider(
+            id: Uuid,
+            name: String,
+        ): ASRProviderSetting {
+            return this.copy(
+                id = id,
+                name = name,
+            )
+        }
+    }
+
+    @Serializable
     @SerialName("whisper")
     data class WhisperAsr(
         override val id: Uuid = Uuid.random(),
@@ -219,6 +239,7 @@ sealed class ASRProviderSetting {
                 MiMo::class,
                 Step::class,
                 WhisperAsr::class,
+                WhisperLiteRT::class,
                 LocalAudioClassifier::class,
             )
         }

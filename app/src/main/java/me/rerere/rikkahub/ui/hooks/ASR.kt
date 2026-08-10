@@ -21,6 +21,7 @@ import me.rerere.asr.providers.MiMoASRController
 import me.rerere.asr.providers.OpenAIRealtimeASRController
 import me.rerere.asr.providers.StepASRController
 import me.rerere.asr.providers.VolcengineASRController
+import me.rerere.asr.providers.WhisperLiteRTASRController
 import me.rerere.asr.providers.WhisperASRController
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.datastore.getSelectedASRProvider
@@ -136,6 +137,11 @@ private class CustomAsrStateImpl(
             is ASRProviderSetting.WhisperAsr -> {
                 if (provider.modelPath.isBlank()) return null
                 WhisperASRController(context, provider)
+            }
+
+            is ASRProviderSetting.WhisperLiteRT -> {
+                if (provider.modelPath.isBlank()) return null
+                WhisperLiteRTASRController(context, provider)
             }
 
             is ASRProviderSetting.LocalAudioClassifier -> {
