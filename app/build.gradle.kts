@@ -342,7 +342,10 @@ dependencies {
     implementation(project(":web"))
     implementation(project(":document"))
     implementation(project(":highlight"))
-    implementation(project(":search"))
+    implementation(project(":search")) {
+        exclude(group = "org.tensorflow", module = "tensorflow-lite")
+        exclude(group = "org.tensorflow", module = "tensorflow-lite-api")
+    }
     implementation(project(":common"))
     implementation(project(":material3"))
     implementation(project(":workspace"))

@@ -13,6 +13,7 @@ import me.rerere.tts.provider.providers.MiniMaxTTSProvider
 import me.rerere.tts.provider.providers.NekoSpeakTTSProvider
 import me.rerere.tts.provider.providers.OpenAITTSProvider
 import me.rerere.tts.provider.providers.KittenTTSProvider
+import me.rerere.tts.provider.providers.MatchaTTSProvider
 import me.rerere.tts.provider.providers.PocketTTSProvider
 import me.rerere.tts.provider.providers.QwenTTSProvider
 import me.rerere.tts.provider.providers.Qwen3TtsProvider
@@ -36,6 +37,7 @@ class TTSManager(private val context: Context) {
     private val pocketTTSProvider = PocketTTSProvider()
     private val kittenTTSProvider = KittenTTSProvider()
     private val qwen3TTSProvider = Qwen3TtsProvider()
+    private val matchaTTSProvider = MatchaTTSProvider()
 
     fun generateSpeech(
         providerSetting: TTSProviderSetting,
@@ -57,6 +59,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.PocketTts -> pocketTTSProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.generateSpeech(context, providerSetting, request)
+            is TTSProviderSetting.MatchaTts -> matchaTTSProvider.generateSpeech(context, providerSetting, request)
         }
     }
 
@@ -81,6 +84,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.PocketTts -> pocketTTSProvider.promptGuidance
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.promptGuidance
             is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.promptGuidance
+            is TTSProviderSetting.MatchaTts -> matchaTTSProvider.promptGuidance
         }
     }
 
@@ -104,6 +108,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.PocketTts -> pocketTTSProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.MatchaTts -> matchaTTSProvider.onSessionStart(providerSetting)
         }
     }
 
@@ -124,6 +129,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.PocketTts -> pocketTTSProvider.onSessionEnd()
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.onSessionEnd()
             is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.onSessionEnd()
+            is TTSProviderSetting.MatchaTts -> matchaTTSProvider.onSessionEnd()
             null -> Unit
         }
         currentSetting = null
@@ -134,6 +140,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.reusesEngine
             is TTSProviderSetting.PocketTts -> pocketTTSProvider.reusesEngine
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.reusesEngine
+            is TTSProviderSetting.MatchaTts -> matchaTTSProvider.reusesEngine
             else -> false
         }
     }

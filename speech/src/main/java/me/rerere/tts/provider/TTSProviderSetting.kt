@@ -2,6 +2,7 @@ package me.rerere.tts.provider
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import me.rerere.tts.matcha.MatchaTtsConfig
 import kotlin.uuid.Uuid
 
 @Serializable
@@ -375,6 +376,28 @@ sealed class TTSProviderSetting {
         }
     }
 
+    @Serializable
+    @SerialName("matcha-tts")
+    data class MatchaTts(
+        override var id: Uuid = Uuid.random(),
+        override var name: String = "Matcha TTS (Local)",
+        val modelPath: String = "",
+        val speechSpeed: Float = 1.0f,
+        val durationScale: Float = 1.0f,
+        val flowSteps: Int = 10,
+        val seed: Long? = null,
+        val hfLink: String = "https://huggingface.co/litert-community/Matcha-TTS",
+    ) : TTSProviderSetting() {
+        init {
+            MatchaTtsConfig(speechSpeed, durationScale, flowSteps, seed)
+        }
+
+        override fun copyProvider(
+            id: Uuid,
+            name: String,
+        ): TTSProviderSetting = copy(id = id, name = name)
+    }
+
     companion object {
         val Types by lazy {
             listOf(
@@ -393,6 +416,7 @@ sealed class TTSProviderSetting {
                 PocketTts::class,
                 KittenTts::class,
                 Qwen3Tts::class,
+                MatchaTts::class,
             )
         }
     }

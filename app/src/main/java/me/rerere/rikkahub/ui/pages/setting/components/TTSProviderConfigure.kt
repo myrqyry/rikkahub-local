@@ -44,6 +44,8 @@ import me.rerere.rikkahub.ui.context.LocalToaster
 import me.rerere.tts.kitten.KittenTtsBundle
 import me.rerere.tts.kitten.KittenTtsCatalog
 import me.rerere.tts.kitten.KittenTtsConfig
+import me.rerere.tts.matcha.MatchaTtsBundle
+import me.rerere.tts.matcha.MatchaTtsCatalog
 import me.rerere.tts.pocket.PocketTtsBundle
 import me.rerere.tts.pocket.PocketTtsCatalog
 import me.rerere.tts.provider.TTSProviderSetting
@@ -71,14 +73,16 @@ fun TTSProviderConfigure(
                     it == TTSProviderSetting.NekoSpeakTts::class ||
                     it == TTSProviderSetting.PocketTts::class ||
                     it == TTSProviderSetting.KittenTts::class ||
-                    it == TTSProviderSetting.Qwen3Tts::class
+                    it == TTSProviderSetting.Qwen3Tts::class ||
+                    it == TTSProviderSetting.MatchaTts::class
             }
             val cloud = types.filter {
                 it != TTSProviderSetting.SystemTTS::class &&
                     it != TTSProviderSetting.NekoSpeakTts::class &&
                     it != TTSProviderSetting.PocketTts::class &&
                     it != TTSProviderSetting.KittenTts::class &&
-                    it != TTSProviderSetting.Qwen3Tts::class
+                    it != TTSProviderSetting.Qwen3Tts::class &&
+                    it != TTSProviderSetting.MatchaTts::class
             }
             local + cloud
         }
@@ -108,6 +112,7 @@ fun TTSProviderConfigure(
                         is TTSProviderSetting.PocketTts -> "Pocket TTS (Local)"
                         is TTSProviderSetting.KittenTts -> "Kitten TTS (Local)"
                         is TTSProviderSetting.Qwen3Tts -> "Qwen3 TTS (Local)"
+                        is TTSProviderSetting.MatchaTts -> "Matcha TTS (Local)"
                     },
                     onValueChange = {},
                     readOnly = true,
@@ -142,6 +147,7 @@ fun TTSProviderConfigure(
                                         TTSProviderSetting.PocketTts::class -> "Pocket TTS (Local)"
                                         TTSProviderSetting.KittenTts::class -> "Kitten TTS (Local)"
                                         TTSProviderSetting.Qwen3Tts::class -> "Qwen3 TTS (Local)"
+                                        TTSProviderSetting.MatchaTts::class -> "Matcha TTS (Local)"
                                         else -> providerClass.simpleName ?: "Unknown"
                                     }
                                 )
@@ -223,6 +229,11 @@ fun TTSProviderConfigure(
                                         name = "Qwen3 TTS (Local)"
                                     )
 
+                                    TTSProviderSetting.MatchaTts::class -> TTSProviderSetting.MatchaTts(
+                                        id = setting.id,
+                                        name = "Matcha TTS (Local)"
+                                    )
+
                                     else -> setting
                                 }
                                 onValueChange(newSetting)
@@ -265,6 +276,7 @@ fun TTSProviderConfigure(
             is TTSProviderSetting.PocketTts -> PocketTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.KittenTts -> KittenTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.Qwen3Tts -> Qwen3TTSConfiguration(setting, onValueChange)
+            is TTSProviderSetting.MatchaTts -> MatchaTTSConfiguration(setting, onValueChange)
         }
     }
 }
@@ -2473,6 +2485,185 @@ private fun Qwen3TTSConfiguration(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun MatchaTTSConfiguration(
+    setting: TTSProviderSetting.MatchaTts,
+    onValueChange: (TTSProviderSetting) -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val httpClient = koinInjectOkHttp()
+    val toaster = LocalToaster.current
+    val doneTemplate = stringResource(R.string.local_tts_download_done)
+    val errorTemplate = stringResource(R.string.local_tts_download_error)
+    var downloading by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf(0) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    val folderPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            runCatching {
+                LocalTtsModelManager.importBundleFromTree(
+                    context,
+                    "matcha-tts",
+                    uri,
+                    MatchaTtsBundle.requiredFiles,
+                )
+            }.onSuccess { destination ->
+                onValueChange(setting.copy(modelPath = destination.absolutePath))
+                toaster.show(doneTemplate.format(destination.absolutePath), type = ToastType.Success)
+            }.onFailure { cause ->
+                toaster.show(cause.message ?: "Import failed", type = ToastType.Error)
+            }
+        }
+    }
+
+    FormItem(
+        label = { Text(stringResource(R.string.local_tts_model_dir_label)) },
+        description = { Text(stringResource(R.string.local_tts_model_dir_desc)) },
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedTextField(
+                value = setting.modelPath,
+                onValueChange = { onValueChange(setting.copy(modelPath = it)) },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Matcha-TTS model directory") },
+            )
+            Button(onClick = { folderPicker.launch(null) }) {
+                Text(stringResource(R.string.local_tts_browse))
+            }
+        }
+    }
+
+    FormItem(
+        label = { Text(stringResource(R.string.local_tts_download_section)) },
+        description = { Text("Download or import the eight-file Matcha-TTS LiteRT bundle.") },
+    ) {
+        val entry = MatchaTtsCatalog.ENTRIES.first()
+        val installed = setting.modelPath.isNotBlank() &&
+            LocalTtsModelManager.missingFiles(File(setting.modelPath), MatchaTtsBundle.requiredFiles).isEmpty()
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(entry.displayName, modifier = Modifier.weight(1f))
+            if (installed) {
+                Text(
+                    stringResource(R.string.local_tts_installed),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            } else {
+                Button(
+                    enabled = !downloading,
+                    onClick = {
+                        scope.launch {
+                            downloading = true
+                            error = null
+                            runCatching {
+                                LocalTtsModelManager.downloadBundle(
+                                    context,
+                                    httpClient,
+                                    "matcha-tts",
+                                    entry.downloadPairs(),
+                                    onProgress = { progress = it },
+                                )
+                            }.onSuccess { destination ->
+                                onValueChange(setting.copy(modelPath = destination.absolutePath, hfLink = entry.sourceUrl))
+                                toaster.show(doneTemplate.format(destination.absolutePath), type = ToastType.Success)
+                            }.onFailure { cause ->
+                                error = cause.message ?: "Download failed"
+                                toaster.show(errorTemplate.format(error!!), type = ToastType.Error)
+                            }
+                            downloading = false
+                        }
+                    },
+                ) { Text(stringResource(R.string.local_tts_install)) }
+            }
+            OutlinedButton(onClick = { openModelSourceUrl(context, entry.sourceUrl) }) {
+                Text(stringResource(R.string.local_tts_source))
+            }
+        }
+    }
+
+    if (downloading) {
+        LinearProgressIndicator(
+            progress = { progress / 100f },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(stringResource(R.string.local_tts_download_progress, progress))
+    }
+    error?.let { message ->
+        Text(
+            stringResource(R.string.local_tts_download_error, message),
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+
+    FormItem(
+        label = { Text("Speech speed") },
+        description = { Text("Values above 1.0 speak faster.") },
+    ) {
+        OutlinedNumberInput(
+            value = setting.speechSpeed,
+            onValueChange = { value ->
+                if (value.isFinite() && value in 0.5f..2.0f) {
+                    onValueChange(setting.copy(speechSpeed = value))
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = "Speed",
+        )
+    }
+    FormItem(
+        label = { Text("Duration scale") },
+        description = { Text("Advanced: effective duration is duration scale / speed.") },
+    ) {
+        OutlinedNumberInput(
+            value = setting.durationScale,
+            onValueChange = { value ->
+                if (value.isFinite() && value in 0.5f..2.0f) {
+                    onValueChange(setting.copy(durationScale = value))
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = "Duration scale",
+        )
+    }
+    FormItem(
+        label = { Text("Flow steps") },
+        description = { Text("More steps can improve quality but increase latency.") },
+    ) {
+        OutlinedNumberInput(
+            value = setting.flowSteps,
+            onValueChange = { value ->
+                if (value in 4..30) onValueChange(setting.copy(flowSteps = value))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = "Steps",
+        )
+    }
+    FormItem(
+        label = { Text("Noise seed") },
+        description = { Text("Leave blank for random output; enter a value for repeatable output.") },
+    ) {
+        OutlinedTextField(
+            value = setting.seed?.toString().orEmpty(),
+            onValueChange = { value ->
+                onValueChange(setting.copy(seed = value.trim().takeIf(String::isNotEmpty)?.toLongOrNull()))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Optional seed") },
+            singleLine = true,
+        )
     }
 }
 
