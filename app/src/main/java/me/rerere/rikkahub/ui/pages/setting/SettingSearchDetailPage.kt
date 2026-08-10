@@ -4,6 +4,8 @@ import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.Play
 import me.rerere.hugeicons.stroke.Delete01
 import androidx.compose.animation.animateContentSize
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -31,6 +33,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +59,9 @@ import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.theme.CustomColors
 import me.rerere.rikkahub.ui.theme.JetbrainsMono
 import me.rerere.rikkahub.ui.theme.LocalDarkMode
+import me.rerere.rikkahub.ui.pages.setting.components.QwenSemanticModelManager
+import me.rerere.rikkahub.ui.pages.setting.components.QwenSemanticModelSetupCard
+import me.rerere.rikkahub.ui.pages.setting.components.QwenSemanticModelSetupViewModel
 import me.rerere.rikkahub.utils.plus
 import me.rerere.search.SearchCommonOptions
 import me.rerere.search.SearchResult
@@ -76,6 +82,23 @@ fun SettingSearchDetailPage(
     val service = settings.searchServices.find { it.id == serviceId } ?: return
     val serviceIndex = settings.searchServices.indexOf(service)
     var options by remember(service) { mutableStateOf(service) }
+    val setupVm: QwenSemanticModelSetupViewModel = koinViewModel()
+    val embedderStatus by setupVm.embedderStatus.collectAsStateWithLifecycle()
+    val rerankerStatus by setupVm.rerankerStatus.collectAsStateWithLifecycle()
+    val activeOperation by setupVm.activeOperation.collectAsStateWithLifecycle()
+    val setupError by setupVm.errorMessage.collectAsStateWithLifecycle()
+    var pendingFolderKind by remember { mutableStateOf<QwenSemanticModelManager.ModelKind?>(null) }
+    val folderPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        val kind = pendingFolderKind
+        pendingFolderKind = null
+        if (uri != null && kind != null) setupVm.chooseFolder(kind, uri)
+    }
+
+    LaunchedEffect(settings.searchServices) {
+        setupVm.refresh(settings)
+    }
 
     fun save(updated: SearchServiceOptions) {
         options = updated
@@ -124,6 +147,24 @@ fun SettingSearchDetailPage(
             contentPadding = padding + PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            if (service is SearchServiceOptions.QwenEmbedderOptions ||
+                service is SearchServiceOptions.QwenRerankerOptions
+            ) {
+                item("qwen-semantic-models") {
+                    QwenSemanticModelSetupCard(
+                        embedderStatus = embedderStatus,
+                        rerankerStatus = rerankerStatus,
+                        activeOperation = activeOperation,
+                        errorMessage = setupError,
+                        onDownload = setupVm::download,
+                        onChooseFolder = { kind ->
+                            pendingFolderKind = kind
+                            folderPicker.launch(null)
+                        },
+                        onDismissError = setupVm::clearError,
+                    )
+                }
+            }
             item("config") {
                 Card(
                     colors = CardDefaults.cardColors(
@@ -223,6 +264,8 @@ private fun SearchServiceOptionsEditor(
         is SearchServiceOptions.CustomJsOptions -> {
             CustomJsOptions(options) { onUpdateOptions(it) }
         }
+        is SearchServiceOptions.QwenRerankerOptions -> {}
+        is SearchServiceOptions.QwenEmbedderOptions -> {}
     }
 }
 

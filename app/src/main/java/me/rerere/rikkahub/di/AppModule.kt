@@ -266,6 +266,8 @@ val appModule = module {
             keyboardApiClient = get(),
             imageTools = get(),
             androidShareService = get(),
+            reranker = get(),
+            embedder = get(),
         )
     }
 
@@ -275,6 +277,26 @@ val appModule = module {
 
     single {
         me.rerere.rikkahub.data.share.AndroidShareService(get(), get())
+    }
+
+    single<me.rerere.reranker.QwenReranker?> {
+        val modelsDir = java.io.File(
+            get<android.content.Context>().filesDir,
+            "models/reranker",
+        ).apply { mkdirs() }
+        runCatching {
+            me.rerere.reranker.QwenReranker(modelsDir)
+        }.getOrNull()
+    }
+
+    single<me.rerere.reranker.QwenEmbedder?> {
+        val modelsDir = java.io.File(
+            get<android.content.Context>().filesDir,
+            "models/embedder",
+        ).apply { mkdirs() }
+        runCatching {
+            me.rerere.reranker.QwenEmbedder(modelsDir)
+        }.getOrNull()
     }
 
     single {

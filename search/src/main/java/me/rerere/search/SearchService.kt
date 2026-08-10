@@ -63,6 +63,8 @@ interface SearchService<T : SearchServiceOptions> {
                 is SearchServiceOptions.TinyfishOptions -> TinyfishSearchService
                 is SearchServiceOptions.SerperOptions -> SerperSearchService
                 is SearchServiceOptions.CustomJsOptions -> CustomJsSearchService
+                is SearchServiceOptions.QwenRerankerOptions -> QwenRerankerSearchService
+                is SearchServiceOptions.QwenEmbedderOptions -> QwenEmbedderSearchService
             } as SearchService<T>
         }
 
@@ -158,6 +160,8 @@ sealed class SearchServiceOptions {
             TinyfishOptions::class to "Tinyfish",
             SerperOptions::class to "Serper",
             CustomJsOptions::class to "Custom JS",
+            QwenRerankerOptions::class to "Qwen Reranker",
+            QwenEmbedderOptions::class to "Qwen Embedder",
         )
     }
 
@@ -338,6 +342,23 @@ function search(query, resultSize) {
 }"""
         }
     }
+
+    @Serializable
+    @SerialName("qwen_reranker")
+    data class QwenRerankerOptions(
+        override val id: Uuid = Uuid.random(),
+        val modelDir: String = "",
+        val documents: List<String> = emptyList(),
+        val instruction: String = "Given a web search query, retrieve relevant passages that answer the query",
+    ) : SearchServiceOptions()
+
+    @Serializable
+    @SerialName("qwen_embedder")
+    data class QwenEmbedderOptions(
+        override val id: Uuid = Uuid.random(),
+        val modelDir: String = "",
+        val documents: List<String> = emptyList(),
+    ) : SearchServiceOptions()
 }
 
 internal suspend fun Call.await(): Response {

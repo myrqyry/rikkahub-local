@@ -19,6 +19,8 @@ import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import me.rerere.reranker.QwenReranker
+import me.rerere.reranker.QwenEmbedder
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -91,6 +93,9 @@ import me.rerere.rikkahub.data.ai.tools.local.telegramSetCommandsTool
 import me.rerere.rikkahub.data.ai.tools.local.telegramSetDefaultChatTool
 import me.rerere.rikkahub.data.ai.tools.local.telegramSetTokenTool
 import me.rerere.rikkahub.data.ai.tools.local.telegramStatusTool
+import me.rerere.rikkahub.data.ai.tools.local.rerankTool
+import me.rerere.rikkahub.data.ai.tools.local.embedTextTool
+import me.rerere.rikkahub.data.ai.tools.local.compareTextsTool
 import me.rerere.rikkahub.data.ai.tools.local.saveSshHostTool
 import me.rerere.rikkahub.data.ai.tools.local.sshDownloadTool
 import me.rerere.rikkahub.data.ai.tools.local.sshExecSavedTool
@@ -204,6 +209,8 @@ sealed class LocalToolOption {
     @Serializable @SerialName("external_storage")     data object ExternalStorage     : LocalToolOption()
     @Serializable @SerialName("archive")              data object Archive             : LocalToolOption()
     @Serializable @SerialName("keyboard_control")     data object KeyboardControl     : LocalToolOption()
+    @Serializable @SerialName("reranker")           data object Reranker           : LocalToolOption()
+    @Serializable @SerialName("embedder")           data object Embedder           : LocalToolOption()
 }
 
 /**
@@ -380,6 +387,8 @@ class LocalTools(
     private val imageTools: ImageTools,
     // Outbound share service — backs the share tool (text / url / artifact_ref).
     private val androidShareService: me.rerere.rikkahub.data.share.AndroidShareService,
+    private val reranker: QwenReranker?,
+    private val embedder: QwenEmbedder?,
 ) {
     val javascriptTool by lazy {
         Tool(
@@ -1059,6 +1068,13 @@ class LocalTools(
             tools.add(keyboardEditorInfoTool(keyboardApiClient))
             tools.add(keyboardSetCursorTool(keyboardApiClient))
             tools.add(keyboardSelectRangeTool(keyboardApiClient))
+        }
+        if (options.contains(LocalToolOption.Reranker)) {
+            tools.add(rerankTool(reranker))
+        }
+        if (options.contains(LocalToolOption.Embedder)) {
+            tools.add(embedTextTool(embedder))
+            tools.add(compareTextsTool(embedder))
         }
         // Chat multimodal tools are core capabilities — always registered regardless of which
         // LocalToolOption categories the assistant has enabled. Every getTools() caller (chat

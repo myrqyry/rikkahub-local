@@ -23,6 +23,7 @@ import me.rerere.rikkahub.ui.pages.models.UnifiedModelsViewModel
 import me.rerere.rikkahub.ui.pages.setting.browser.SettingBrowserViewModel
 import me.rerere.rikkahub.ui.pages.setting.termux.SettingTermuxViewModel
 import me.rerere.rikkahub.ui.pages.setting.locallm.SettingLocalLlmViewModel
+import me.rerere.rikkahub.ui.pages.setting.components.QwenSemanticModelSetupViewModel
 import me.rerere.rikkahub.ui.pages.modelmanager.ModelManagerViewModel
 import me.rerere.rikkahub.ui.pages.share.handler.ShareHandlerVM
 import me.rerere.rikkahub.ui.pages.translator.TranslatorVM
@@ -50,6 +51,7 @@ val viewModelModule = module {
     }
     viewModelOf(::ChatDrawerVM)
     viewModelOf(::SettingVM)
+    viewModelOf(::QwenSemanticModelSetupViewModel)
     viewModel { UnifiedModelsViewModel(get(), get()) }
     viewModelOf(::DebugVM)
     viewModelOf(::DeveloperVM)
