@@ -6,6 +6,8 @@ Speech-to-text, voice recording, and audio processing for voice input in chat.
 Local TTS providers include Pocket, Kitten, Qwen3-TTS, and Matcha-TTS; the
 LiteRT-backed providers use models downloaded into the app-managed local model
 directory.
+Whisper LiteRT ASR supports catalog-backed Base and Tiny model variants plus
+manual custom `.tflite` imports.
 
 ## Key Files
 

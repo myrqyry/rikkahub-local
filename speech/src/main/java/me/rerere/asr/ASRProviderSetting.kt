@@ -195,6 +195,7 @@ sealed class ASRProviderSetting {
         override val id: Uuid = Uuid.random(),
         override val name: String = "Whisper LiteRT",
         val modelPath: String = "",
+        val modelId: String = "whisper-base",
         val language: String = "en",
         val sampleRate: Int = 16000,
     ) : ASRProviderSetting() {

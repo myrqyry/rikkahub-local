@@ -26,6 +26,8 @@ import me.rerere.asr.ASRProviderSetting
 import me.rerere.asr.ASRState
 import me.rerere.asr.ASRStatus
 import me.rerere.asr.WhisperMel
+import me.rerere.asr.describeWhisperLiteRTModelError
+import me.rerere.asr.resolveWhisperLiteRTModel
 import org.json.JSONObject
 import org.tensorflow.lite.Interpreter
 import java.io.File
@@ -77,12 +79,17 @@ class WhisperLiteRTASRController(
         if (_state.value.status == ASRStatus.Listening) return
 
         val modelFile = File(provider.modelPath)
-        if (provider.modelPath.isBlank() || !modelFile.exists()) {
-            setError("Whisper LiteRT model not found. Download whisper_base_30s_f32.tflite to ${provider.modelPath}")
+        val modelStatus = resolveWhisperLiteRTModel(provider)
+        if (provider.modelPath.isBlank() || !modelStatus.exists) {
+            setError(describeWhisperLiteRTModelError(provider, modelStatus))
             return
         }
-        if (modelFile.length() == 0L) {
-            setError("Whisper LiteRT model file is empty (${provider.modelPath})")
+        if (modelStatus.empty) {
+            setError(describeWhisperLiteRTModelError(provider, modelStatus))
+            return
+        }
+        if (modelStatus.warning != null) {
+            setError(modelStatus.warning)
             return
         }
 
@@ -252,7 +259,7 @@ class WhisperLiteRTASRController(
      *
      * Token IDs from the GPT-2 vocabulary (50256 base) + whisper special tokens.
      * Prompt: `<|startoftranscript|> <|en|> <|transcribe|> <|notimestamps|>`
-     * Max output: 128 tokens.
+     * Max output: 128 tokens. KV cache accumulates across steps.
      */
     private fun decodeTokens(
         interp: Interpreter,
@@ -261,38 +268,52 @@ class WhisperLiteRTASRController(
     ): String {
         return runCatching {
             val maxTokens = 128
+            val vocabSize = 51865
+            val kvDim = 128
             val langToken = langTokens[provider.language] ?: langTokens["en"]!!
             val prompt = intArrayOf(startOfTranscript, langToken, transcribeToken, noTimestamps)
             val tokens = IntArray(maxTokens) { 0 }
             var tokenLen = prompt.size
             prompt.copyInto(tokens)
 
+            // Pre-allocated buffers — reused every step
+            val encBuf = ByteBuffer.allocateDirect(encoderOutput.size * 4)
+                .order(ByteOrder.nativeOrder())
+            encBuf.asFloatBuffer().put(encoderOutput)
+
+            val outBuf = ByteBuffer.allocateDirect(maxTokens * vocabSize * 4)
+                .order(ByteOrder.nativeOrder())
+            val logits = FloatArray(maxTokens * vocabSize)
+
+            // KV cache ping-pong: step N output → step N+1 input
+            val kv0 = ByteBuffer.allocateDirect(1 * 1 * maxTokens * kvDim * 4)
+                .order(ByteOrder.nativeOrder())
+            val kv1 = ByteBuffer.allocateDirect(1 * 1 * maxTokens * kvDim * 4)
+                .order(ByteOrder.nativeOrder())
+            var kvIn = kv0
+            var kvOut = kv1
+
             var resultText = ""
 
             for (step in 0 until (maxTokens - tokenLen)) {
-                val tokenBuf = ByteBuffer.allocateDirect(tokenLen * 4).order(ByteOrder.nativeOrder())
+                val tokenBuf = ByteBuffer.allocateDirect(tokenLen * 4)
+                    .order(ByteOrder.nativeOrder())
                 tokenBuf.asIntBuffer().put(tokens, 0, tokenLen)
 
-                val kvCache = ByteBuffer.allocateDirect(1 * 1 * tokenLen * 128 * 4)
-                    .order(ByteOrder.nativeOrder())
+                outBuf.rewind()
+                kvIn.rewind()
+                kvOut.rewind()
 
-                val encBuf = ByteBuffer.allocateDirect(encoderOutput.size * 4)
-                    .order(ByteOrder.nativeOrder())
-                encBuf.asFloatBuffer().put(encoderOutput)
-
-                val outLen = tokenLen * 51865
-                val outBuf = ByteBuffer.allocateDirect(outLen * 4).order(ByteOrder.nativeOrder())
-
-                val decodeInputs = arrayOf(encBuf, tokenBuf, kvCache)
-                val decodeOutputs = mapOf<Int, Any>(0 to outBuf)
+                val decodeInputs = arrayOf(encBuf, tokenBuf, kvIn)
+                val decodeOutputs = mapOf<Int, Any>(0 to outBuf, 1 to kvOut)
                 interp.runForMultipleInputsOutputs(decodeInputs, decodeOutputs)
 
                 outBuf.rewind()
-                val logits = FloatArray(outLen) { outBuf.float }
-                val lastOffset = (tokenLen - 1) * 51865
+                outBuf.asFloatBuffer().get(logits, 0, tokenLen * vocabSize)
+                val lastOffset = (tokenLen - 1) * vocabSize
                 var maxIdx = 0
                 var maxVal = Float.NEGATIVE_INFINITY
-                for (i in 0 until 51865) {
+                for (i in 0 until vocabSize) {
                     val v = logits[lastOffset + i]
                     if (v > maxVal) { maxVal = v; maxIdx = i }
                 }
@@ -300,6 +321,9 @@ class WhisperLiteRTASRController(
                 if (maxIdx == endOfText) break
                 tokens[tokenLen] = maxIdx
                 tokenLen++
+
+                // Ping-pong KV cache for next step
+                val tmp = kvIn; kvIn = kvOut; kvOut = tmp
 
                 resultText = decodeTokenSequence(tokens, tokenLen, vocab)
             }

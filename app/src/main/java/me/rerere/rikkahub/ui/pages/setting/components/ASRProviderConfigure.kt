@@ -14,6 +14,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -32,10 +37,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.rerere.asr.ASRProviderSetting
+import me.rerere.asr.WhisperLiteRTModelCatalog
+import me.rerere.asr.WhisperLiteRTModelEntry
+import me.rerere.asr.describeWhisperLiteRTModelError
+import me.rerere.asr.resolveWhisperLiteRTModel
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.ui.components.ui.FormItem
 import me.rerere.rikkahub.ui.components.ui.OutlinedNumberInput
 import java.io.File
+import okhttp3.OkHttpClient
+import org.koin.compose.koinInject
 
 @Composable
 fun ASRProviderConfigure(
@@ -704,6 +715,11 @@ private fun WhisperLiteRTConfiguration(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val httpClient = koinInject<OkHttpClient>()
+    var modelMenuExpanded by remember { mutableStateOf(false) }
+    var downloading by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf(0) }
+    var downloadError by remember { mutableStateOf<String?>(null) }
 
     val modelFilePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -712,14 +728,64 @@ private fun WhisperLiteRTConfiguration(
         scope.launch {
             val dest = copyModelToAppDir(context, uri, "whisper-litert")
             if (dest != null) {
-                onValueChange(setting.copy(modelPath = dest.absolutePath))
+                val importedId = WhisperLiteRTModelCatalog.findByFilename(dest.name)?.id
+                    ?: WhisperLiteRTModelCatalog.CUSTOM_ID
+                onValueChange(setting.copy(modelPath = dest.absolutePath, modelId = importedId))
+            }
+        }
+    }
+
+    val selectedModel = WhisperLiteRTModelCatalog.findById(setting.modelId)
+    val modelStatus = resolveWhisperLiteRTModel(setting)
+
+    FormItem(
+        label = { Text("Model") },
+        description = { Text("Choose Whisper Base, Tiny, quantized, or device-optimized Tiny.") },
+    ) {
+        ExposedDropdownMenuBox(
+            expanded = modelMenuExpanded,
+            onExpandedChange = { modelMenuExpanded = !modelMenuExpanded },
+        ) {
+            OutlinedTextField(
+                value = selectedModel?.displayName ?: "Custom model",
+                onValueChange = {},
+                readOnly = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelMenuExpanded)
+                },
+            )
+            ExposedDropdownMenu(
+                expanded = modelMenuExpanded,
+                onDismissRequest = { modelMenuExpanded = false },
+            ) {
+                WhisperLiteRTModelCatalog.entries.forEach { entry ->
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(entry.displayName)
+                                Text(
+                                    "${entry.sizeBytes?.let { it / 1_000_000 } ?: "Size unknown"} MB · " +
+                                        (entry.targetHardware ?: "Portable"),
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                        },
+                        onClick = {
+                            modelMenuExpanded = false
+                            onValueChange(setting.copy(modelId = entry.id))
+                        },
+                    )
+                }
             }
         }
     }
 
     FormItem(
         label = { Text("Model Path") },
-        description = { Text("Path to whisper_base_30s_f32.tflite LiteRT model (.tflite)") }
+        description = { Text("Path to the selected Whisper LiteRT model (.tflite)") }
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(
@@ -730,7 +796,7 @@ private fun WhisperLiteRTConfiguration(
                     value = setting.modelPath,
                     onValueChange = { onValueChange(setting.copy(modelPath = it)) },
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("whisper_base_30s_f32.tflite") },
+                    placeholder = { Text(selectedModel?.filename ?: "custom_whisper.tflite") },
                     singleLine = true,
                 )
                 Button(onClick = { modelFilePickerLauncher.launch(arrayOf("*/*")) }) {
@@ -748,6 +814,59 @@ private fun WhisperLiteRTConfiguration(
         }
     }
 
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Button(
+            enabled = selectedModel != null && !downloading,
+            onClick = {
+                val entry = selectedModel ?: return@Button
+                scope.launch {
+                    downloading = true
+                    progress = 0
+                    downloadError = null
+                    runCatching {
+                        LocalAsrModelManager.downloadModel(
+                            context,
+                            httpClient,
+                            entry,
+                            onProgress = { progress = it },
+                        )
+                    }.onSuccess { file ->
+                        onValueChange(setting.copy(modelPath = file.absolutePath, modelId = entry.id))
+                    }.onFailure { cause ->
+                        downloadError = cause.message ?: "Whisper model download failed"
+                    }
+                    downloading = false
+                }
+            },
+        ) {
+            Text("Download selected model")
+        }
+        Text(
+            text = if (modelStatus.exists && !modelStatus.empty) "Installed" else "Not installed",
+            color = if (modelStatus.exists && !modelStatus.empty) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            modifier = Modifier.alignByBaseline(),
+        )
+    }
+    if (downloading) {
+        LinearProgressIndicator(
+            progress = { progress / 100f },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    downloadError?.let { message ->
+        Text(message, color = MaterialTheme.colorScheme.error)
+    }
+    modelStatus.warning?.let { warning ->
+        Text(warning, color = MaterialTheme.colorScheme.error)
+    }
+
     FormItem(
         label = { Text("Language") },
         description = { Text("Language code (en, zh, de, es, ru, ko, fr, ja, ...)") }
@@ -761,13 +880,9 @@ private fun WhisperLiteRTConfiguration(
     }
 
     Text(
-        text = "Download whisper_base_30s_f32.tflite from HuggingFace:\n" +
-            "https://huggingface.co/litert-community/whisper-base\n\n" +
-            "Place vocab.json next to the model for full text decoding " +
-            "(also from HuggingFace openai/whisper-base).\n" +
-            "480 MB — CPU inference, no GPU/NPU required. " +
-            "Uses standard TFLite Interpreter (SignatureRunner API).\n" +
-            "30-second async windows, ~2-5s latency per transcription.",
+        text = "Place vocab.json next to the model for full text decoding. " +
+            "Whisper LiteRT uses standard TFLite Interpreter inference with " +
+            "30-second audio windows.",
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.fillMaxWidth(),
