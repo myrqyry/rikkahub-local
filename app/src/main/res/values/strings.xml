@@ -1989,4 +1989,7 @@
   <string name="setting_theme_page_set_source_color">Choose source color</string>
   <string name="setting_theme_page_clear_source_color">Use wallpaper colors</string>
   <string name="setting_theme_page_source_color_hint">Use a custom seed color for Material You instead of your wallpaper.</string>
+  <string name="setting_rag_index_status">Index status</string>
+  <string name="setting_rag_index_needs_rebuilding">Index needs rebuilding</string>
+  <string name="setting_rag_index_status_ready">Ready</string>
 </resources>

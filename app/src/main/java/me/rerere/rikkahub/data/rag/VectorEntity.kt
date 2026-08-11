@@ -13,6 +13,8 @@ data class VectorEntity(
     @PrimaryKey val id: String,
     @ColumnInfo(name = "embedding") val embedding: ByteArray,
     @ColumnInfo(name = "metadata") val metadata: String,
+    @ColumnInfo(name = "embeddingSpaceId", defaultValue = "legacy") val embeddingSpaceId: String = "legacy",
+    @ColumnInfo(name = "embeddingDimension", defaultValue = "0") val embeddingDimension: Int = 0,
 )
 
 @Dao

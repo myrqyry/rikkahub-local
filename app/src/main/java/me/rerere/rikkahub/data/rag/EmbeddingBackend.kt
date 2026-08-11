@@ -1,6 +1,8 @@
 package me.rerere.rikkahub.data.rag
 
 import java.io.File
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelType
 import me.rerere.ai.provider.ProviderSetting
@@ -15,6 +17,8 @@ import me.rerere.reranker.QwenEngineRegistry
  * [QwenEmbeddingBackend] (shared [QwenEmbedder] session via [QwenEngineRegistry]).
  */
 interface EmbeddingBackend {
+    val embeddingSpaceId: String
+
     suspend fun embed(text: String): EmbeddingResult?
 
     suspend fun embedBatch(texts: List<String>): List<EmbeddingResult?>
@@ -62,6 +66,9 @@ class ProviderEmbeddingBackend(
     private val providerSetting: ProviderSetting,
     private val model: Model,
 ) : EmbeddingBackend {
+    override val embeddingSpaceId: String =
+        "provider:${providerSetting.id}:${model.modelId}"
+
     override suspend fun embed(text: String): EmbeddingResult? =
         textEmbedder.embed(text, providerSetting, model)
 
@@ -72,6 +79,9 @@ class ProviderEmbeddingBackend(
 class QwenEmbeddingBackend(
     private val modelDir: File,
 ) : EmbeddingBackend {
+    override val embeddingSpaceId: String =
+        "local-qwen:${readBundleRevision(modelDir)}"
+
     private val engine: QwenEmbedder? = QwenEngineRegistry.embedder(modelDir)
 
     override suspend fun embed(text: String): EmbeddingResult? {
@@ -93,4 +103,13 @@ class QwenEmbeddingBackend(
             }
         }.getOrNull() ?: texts.map { null }
     }
+}
+
+private fun readBundleRevision(modelDir: File): String {
+    val revision = runCatching {
+        kotlinx.serialization.json.Json.parseToJsonElement(
+            File(modelDir, "manifest.json").readText()
+        ).jsonObject["revision"]?.jsonPrimitive?.content
+    }.getOrNull().orEmpty()
+    return revision.ifEmpty { "unknown:${modelDir.absolutePath}" }
 }

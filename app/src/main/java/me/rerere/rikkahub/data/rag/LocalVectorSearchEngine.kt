@@ -9,27 +9,47 @@ class LocalVectorSearchEngine {
         val id: String,
         val embedding: FloatArray,
         val metadata: JsonObject,
+        val embeddingSpaceId: String = "legacy",
+        val embeddingDimension: Int = 0,
     )
 
     data class ScoredMatch(
         val id: String,
         val score: Float,
         val metadata: JsonObject,
+        val embeddingSpaceId: String = "legacy",
+        val embeddingDimension: Int = 0,
     )
 
     val size: Int get() = vectors.size
 
-    fun addVector(id: String, embedding: FloatArray, metadata: JsonObject) {
-        vectors.add(IndexEntry(id, embedding, metadata))
+    fun addVector(
+        id: String,
+        embedding: FloatArray,
+        metadata: JsonObject,
+        embeddingSpaceId: String,
+        embeddingDimension: Int,
+    ) {
+        vectors.add(IndexEntry(id, embedding, metadata, embeddingSpaceId, embeddingDimension))
     }
 
-    fun search(queryEmbedding: FloatArray, topK: Int = 10): List<ScoredMatch> {
+    fun search(
+        queryEmbedding: FloatArray,
+        embeddingSpaceId: String,
+        embeddingDimension: Int,
+        topK: Int = 10,
+    ): List<ScoredMatch> {
         return vectors
+            .filter {
+                it.embeddingSpaceId == embeddingSpaceId && it.embeddingDimension == embeddingDimension
+            }
             .map { entry ->
                 ScoredMatch(
                     id = entry.id,
                     score = VectorMath.cosineSimilarity(queryEmbedding, entry.embedding),
                     metadata = entry.metadata,
+                    embeddingSpaceId = entry.embeddingSpaceId,
+                    embeddingDimension = entry.embeddingDimension,
                 )
             }
             .sortedByDescending { it.score }

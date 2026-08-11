@@ -86,6 +86,8 @@ class RagRerankingTest {
 private class FixedVectorEmbeddingBackend(
     private val vectorsByText: Map<String, FloatArray>,
 ) : EmbeddingBackend {
+    override val embeddingSpaceId: String = "test:fixed"
+
     override suspend fun embed(text: String): EmbeddingResult? =
         vectorsByText[text]?.let { EmbeddingResult(it, "fake", 0) }
 

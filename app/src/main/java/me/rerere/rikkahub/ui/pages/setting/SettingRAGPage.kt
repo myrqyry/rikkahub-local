@@ -34,7 +34,8 @@ import me.rerere.hugeicons.stroke.Database02
 import me.rerere.hugeicons.stroke.Tick01
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.SettingsStore
-import me.rerere.rikkahub.data.rag.VectorDao
+import me.rerere.rikkahub.data.rag.EmbeddingIndexStatus
+import me.rerere.rikkahub.data.rag.EmbeddingRepository
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.CardGroup
 import me.rerere.rikkahub.ui.context.LocalSettings
@@ -50,7 +51,7 @@ import org.koin.compose.koinInject
 fun SettingRAGPage() {
     val settingsStore: SettingsStore = koinInject()
     val settings = LocalSettings.current
-    val vectorDao: VectorDao = koinInject()
+    val embeddingRepository: EmbeddingRepository = koinInject()
     val scope = rememberCoroutineScope()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -72,8 +73,8 @@ fun SettingRAGPage() {
         setupVm.refresh(settings)
     }
 
-    val documentCount by produceState(initialValue = -1) {
-        value = vectorDao.count()
+    val indexStatus by produceState(initialValue = EmbeddingIndexStatus(0, stale = false)) {
+        value = embeddingRepository.indexStatus()
     }
 
     Scaffold(
@@ -142,8 +143,27 @@ fun SettingRAGPage() {
                         headlineContent = { Text(stringResource(R.string.setting_rag_indexed_documents)) },
                         supportingContent = {
                             Text(
-                                if (documentCount < 0) stringResource(R.string.setting_rag_loading)
-                                else stringResource(R.string.setting_rag_documents_indexed, documentCount)
+                                stringResource(
+                                    R.string.setting_rag_documents_indexed,
+                                    indexStatus.documentCount,
+                                )
+                            )
+                        },
+                    )
+                    item(
+                        leadingContent = { Icon(HugeIcons.Tick01, null) },
+                        headlineContent = {
+                            Text(stringResource(R.string.setting_rag_index_status))
+                        },
+                        supportingContent = {
+                            Text(
+                                stringResource(
+                                    if (indexStatus.stale) {
+                                        R.string.setting_rag_index_needs_rebuilding
+                                    } else {
+                                        R.string.setting_rag_index_status_ready
+                                    }
+                                )
                             )
                         },
                     )

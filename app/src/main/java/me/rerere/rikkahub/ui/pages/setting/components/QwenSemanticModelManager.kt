@@ -17,6 +17,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
 import me.rerere.locallm.ModelInstall
+import me.rerere.reranker.QwenEngineRegistry
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
@@ -364,6 +365,7 @@ object QwenSemanticModelManager {
             throw error
         }
         backup.deleteRecursively()
+        QwenEngineRegistry.invalidate(target)
         return target
     }
 

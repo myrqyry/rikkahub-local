@@ -7,6 +7,11 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import me.rerere.reranker.QwenReranker
 
+data class EmbeddingIndexStatus(
+    val documentCount: Int,
+    val stale: Boolean,
+)
+
 /**
  * RAG vector store. The embedding strategy is injected as a [EmbeddingBackend] provider
  * resolved per call, so switching between a local Qwen model and a cloud provider model
@@ -26,11 +31,20 @@ class EmbeddingRepository(
     suspend fun indexDocument(id: String, text: String, metadata: JsonObject): Boolean {
         val backend = backendProvider() ?: return false
         val result = backend.embed(text) ?: return false
-        searchEngine.addVector(id, result.embedding, metadata)
+        val embeddingDimension = result.embedding.size
+        searchEngine.addVector(
+            id = id,
+            embedding = result.embedding,
+            metadata = metadata,
+            embeddingSpaceId = backend.embeddingSpaceId,
+            embeddingDimension = embeddingDimension,
+        )
         val entity = VectorEntity(
             id = id,
             embedding = floatArrayToBytes(result.embedding),
             metadata = json.encodeToString(JsonObject.serializer(), metadata),
+            embeddingSpaceId = backend.embeddingSpaceId,
+            embeddingDimension = embeddingDimension,
         )
         vectorDao.insert(entity)
         return true
@@ -43,7 +57,12 @@ class EmbeddingRepository(
     ): List<LocalVectorSearchEngine.ScoredMatch> {
         val backend = backendProvider() ?: return emptyList()
         val result = backend.embed(query) ?: return emptyList()
-        val candidates = searchEngine.search(result.embedding, topK)
+        val candidates = searchEngine.search(
+            queryEmbedding = result.embedding,
+            embeddingSpaceId = backend.embeddingSpaceId,
+            embeddingDimension = result.embedding.size,
+            topK = topK,
+        )
         if (candidates.isEmpty()) return emptyList()
 
         val reranker = rerankerProvider()
@@ -59,6 +78,24 @@ class EmbeddingRepository(
         return rerankMatches(candidates, scores, finalTopK)
     }
 
+    suspend fun indexStatus(): EmbeddingIndexStatus {
+        val rows = vectorDao.getAll()
+        if (rows.isEmpty()) return EmbeddingIndexStatus(documentCount = 0, stale = false)
+
+    val backend = backendProvider()
+        ?: return EmbeddingIndexStatus(documentCount = 0, stale = true)
+        val currentSpace = backend.embeddingSpaceId
+        val matchingRows = rows.filter { it.embeddingSpaceId == currentSpace }
+        val dimensions = matchingRows.map { it.embeddingDimension }.toSet()
+        val stale = matchingRows.any { it.embeddingDimension <= 0 } ||
+            dimensions.size > 1 ||
+            matchingRows.size != rows.size
+    return EmbeddingIndexStatus(
+        documentCount = if (stale) 0 else matchingRows.size,
+        stale = stale,
+    )
+}
+
     suspend fun deleteDocument(id: String) {
         searchEngine.removeVector(id)
         vectorDao.deleteById(id)
@@ -66,11 +103,17 @@ class EmbeddingRepository(
 
     suspend fun loadFromDatabase() {
         searchEngine.clear()
+        val backend = backendProvider() ?: return
         for (entity in vectorDao.getAll()) {
+            if (entity.embeddingSpaceId != backend.embeddingSpaceId ||
+                entity.embeddingDimension <= 0
+            ) continue
             searchEngine.addVector(
                 id = entity.id,
                 embedding = bytesToFloatArray(entity.embedding),
                 metadata = json.parseToJsonElement(entity.metadata).jsonObject,
+                embeddingSpaceId = entity.embeddingSpaceId,
+                embeddingDimension = entity.embeddingDimension,
             )
         }
     }

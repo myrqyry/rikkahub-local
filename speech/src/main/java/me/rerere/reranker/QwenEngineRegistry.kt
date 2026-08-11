@@ -36,4 +36,10 @@ object QwenEngineRegistry {
         if (winner !== candidate) candidate.close()
         return winner
     }
+
+    fun invalidate(modelDir: File) {
+        val key = modelDir.absolutePath
+        embedders.remove(key)?.close()
+        rerankers.remove(key)?.close()
+    }
 }
