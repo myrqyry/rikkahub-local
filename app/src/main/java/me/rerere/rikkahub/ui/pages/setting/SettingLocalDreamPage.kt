@@ -350,7 +350,7 @@ fun SettingLocalDreamPage() {
                                                         }) {
                                                             Icon(HugeIcons.Download02, null, Modifier.size(16.dp))
                                                             Spacer(Modifier.width(4.dp))
-                                                             Text(stringResource(R.string.setting_local_dream_download), style = MaterialTheme.typography.labelLarge)
+                                                            Text(stringResource(R.string.setting_local_dream_download), style = MaterialTheme.typography.labelLarge)
                                                         }
                                                     }
                                                 }
@@ -367,7 +367,7 @@ fun SettingLocalDreamPage() {
                                                     Spacer(Modifier.height(4.dp))
                                                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                                                     Spacer(Modifier.height(2.dp))
-                                                     Text(stringResource(R.string.setting_local_dream_extracting), style = MaterialTheme.typography.bodySmall)
+                                                    Text(stringResource(R.string.setting_local_dream_extracting), style = MaterialTheme.typography.bodySmall)
                                                 }
                                                 is LocalDreamModelDownloader.Progress.Failed -> Text(state.error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                                                 else -> {}
