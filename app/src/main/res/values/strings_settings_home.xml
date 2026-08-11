@@ -16,8 +16,6 @@
 
     <string name="setting_home_model_manager">On-device models</string>
     <string name="setting_home_model_manager_desc">Install and manage on-device models</string>
-    <string name="setting_home_local_dream">Local Dream</string>
-    <string name="setting_home_local_dream_desc">Generate images with an on-device model</string>
     <string name="setting_home_rag">Knowledge &amp; RAG</string>
     <string name="setting_home_rag_desc">Configure retrieval, embeddings, and vector storage</string>
     <string name="setting_home_plugins">Plugins</string>

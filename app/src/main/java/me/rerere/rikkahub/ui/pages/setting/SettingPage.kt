@@ -184,14 +184,6 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     onClick = { navController.navigate(Screen.SettingModelManager) },
                 ),
                 SettingsHomeItem(
-                    id = "localDream",
-                    title = stringResource(R.string.setting_home_local_dream),
-                    description = stringResource(R.string.setting_home_local_dream_desc),
-                    icon = HugeIcons.Image02,
-                    keywords = listOf("image", "diffusion", "local model"),
-                    onClick = { navController.navigate(Screen.SettingLocalDream) },
-                ),
-                SettingsHomeItem(
                     id = "assistants",
                     title = stringResource(R.string.setting_page_assistant),
                     description = stringResource(R.string.setting_page_assistant_desc),
