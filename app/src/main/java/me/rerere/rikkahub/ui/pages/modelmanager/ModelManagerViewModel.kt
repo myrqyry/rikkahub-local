@@ -83,35 +83,41 @@ class ModelManagerViewModel(
     }
 
     fun importModelFromUri(uri: Uri) = viewModelScope.launch {
-        var target: File? = null
+        var cleanupTarget: File? = null
         try {
             val displayName = withContext(Dispatchers.IO) {
                 FileUtils.getFileNameFromUri(context, uri) ?: "model_${System.currentTimeMillis()}"
             }
             val safeName = sanitizeGgufFileName(displayName)
-            target = ModelInstall.targetFile(ModelInstall.localModelsDir(context), runtime, safeName)
+            val targetFile = ModelInstall.targetFile(
+                ModelInstall.localModelsDir(context),
+                runtime,
+                safeName,
+            )
+            cleanupTarget = targetFile
             withContext(Dispatchers.IO) {
                 context.contentResolver.openInputStream(uri)?.use { input ->
-                    target.outputStream().use { output -> input.copyTo(output) }
+                    targetFile.outputStream().use { output -> input.copyTo(output) }
                 } ?: error("Cannot open selected file")
             }
             val buf = ByteArray(16)
-            val bytesRead = target.inputStream().use { it.read(buf) }
+            val bytesRead = targetFile.inputStream().use { it.read(buf) }
             if (
                 bytesRead < 4 ||
                 !ModelInstall.isValidMagicForExtension("gguf", buf.copyOf(bytesRead))
             ) {
-                target.delete()
+                targetFile.delete()
                 _errorMessage.value = "Invalid or corrupted GGUF model file"
                 return@launch
             }
-            prefs.addInstalledModel(runtime, safeName, target.absolutePath)
-            registerModel(safeName, target.absolutePath)
+            prefs.addInstalledModel(runtime, safeName, targetFile.absolutePath)
+            registerModel(safeName, targetFile.absolutePath)
+            cleanupTarget = null
         } catch (e: CancellationException) {
-            target?.delete()
+            cleanupTarget?.delete()
             throw e
         } catch (e: Exception) {
-            target?.delete()
+            cleanupTarget?.delete()
             _errorMessage.value = e.message ?: "Import failed"
         }
     }
