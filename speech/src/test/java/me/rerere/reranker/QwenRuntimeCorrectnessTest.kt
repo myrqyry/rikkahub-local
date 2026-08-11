@@ -27,4 +27,20 @@ class QwenRuntimeCorrectnessTest {
         assertEquals(91, prompt.last())
         assertTrue(prompt.sliceArray(2 until 4).contentEquals(intArrayOf(10, 11)))
     }
+
+    @Test
+    fun reranker_truncation_clamps_prefix_instead_of_throwing() {
+        val prompt = buildTruncatedPrompt(
+            prefix = intArrayOf(1, 2, 3, 4, 5, 6, 7, 8),
+            document = intArrayOf(10, 11, 12),
+            suffix = intArrayOf(90, 91),
+            maxTokens = 6,
+        )
+
+        assertEquals(6, prompt.size)
+        // System/prefix head and structural suffix survive; the document is dropped.
+        assertTrue(prompt.sliceArray(0 until 4).contentEquals(intArrayOf(1, 2, 3, 4)))
+        assertEquals(90, prompt[prompt.lastIndex - 1])
+        assertEquals(91, prompt.last())
+    }
 }

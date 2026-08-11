@@ -28,22 +28,22 @@ class QwenEmbedder(private val modelDir: File) : Closeable {
     private val inputBuffer: TensorBuffer
     private val outputBuffer: TensorBuffer
 
+    // Tensor geometry derived from the model at init, not hardcoded: a shape mismatch
+    // otherwise overruns native memory (the Whisper tiny crash class).
+    private val hiddenSize: Int
+    private val maxTokens: Int
+    private val vocabSize: Long
+
     private val dispatcher: CoroutineDispatcher =
         Dispatchers.IO.limitedParallelism(1, "QwenEmbedder")
 
     companion object {
-        private const val HIDDEN = 1024
-        private const val MAX_TOKENS = 128
-        private const val VOCAB_SIZE = 151669
-
         internal fun requireTokenCount(tokenCount: Int) {
             require(tokenCount > 0) { "Embedding input must contain at least one token" }
         }
     }
 
     init {
-        embeddingTable = mmapRawHalf(File(modelDir, "embeddings_fp16.bin"))
-
         model = CompiledModel.create(
             File(modelDir, "qwen3emb_gpu_fp16.tflite").absolutePath,
             CompiledModel.Options(Accelerator.GPU),
@@ -53,8 +53,16 @@ class QwenEmbedder(private val modelDir: File) : Closeable {
         inputBuffer = model.createInputBuffers()[0]
         outputBuffer = model.createOutputBuffers()[0]
 
+        val inputShape = readModelShapes(File(modelDir, "qwen3emb_gpu_fp16.tflite"))?.first
+            ?: error("Could not read embedder input shape")
+        require(inputShape.isNotEmpty()) { "Qwen embedder input has no shape" }
+        hiddenSize = inputShape.last()
+        maxTokens = (inputShape.fold(1) { acc, dim -> acc * dim } / hiddenSize).coerceAtLeast(1)
+        embeddingTable = mmapRawHalf(File(modelDir, "embeddings_fp16.bin"))
+        vocabSize = (embeddingTable.capacity() / hiddenSize).toLong()
+
         runCatching {
-            inputBuffer.writeFloat(FloatArray(MAX_TOKENS * HIDDEN))
+            inputBuffer.writeFloat(FloatArray(maxTokens * hiddenSize))
             model.run(listOf(inputBuffer), listOf(outputBuffer))
         }
     }
@@ -73,35 +81,35 @@ class QwenEmbedder(private val modelDir: File) : Closeable {
     }
 
     private fun embedTokens(tokenIds: IntArray): FloatArray {
-        val numTokens = tokenIds.size.coerceAtMost(MAX_TOKENS)
+        val numTokens = tokenIds.size.coerceAtMost(maxTokens)
         requireTokenCount(numTokens)
 
-        val flat = FloatArray(MAX_TOKENS * HIDDEN)
+        val flat = FloatArray(maxTokens * hiddenSize)
         for (t in 0 until numTokens) {
             val row = tokenIds[t]
-            if (row < 0 || row >= VOCAB_SIZE) continue
-            embeddingTable.position(row * HIDDEN)
-            val off = t * HIDDEN
-            for (d in 0 until HIDDEN) {
+            if (row < 0 || row >= vocabSize) continue
+            embeddingTable.position((row * hiddenSize).toInt())
+            val off = t * hiddenSize
+            for (d in 0 until hiddenSize) {
                 flat[off + d] = Npy.halfToFloat(embeddingTable.get())
             }
         }
         inputBuffer.writeFloat(flat)
 
         model.run(listOf(inputBuffer), listOf(outputBuffer))
-        val hidden = outputBuffer.readFloat() // [MAX_TOKENS * HIDDEN]
+        val hidden = outputBuffer.readFloat() // [maxTokens * hiddenSize]
 
         // last-token pooling: take the last real token's hidden state
-        val last = (numTokens - 1) * HIDDEN
-        val emb = FloatArray(HIDDEN)
+        val last = (numTokens - 1) * hiddenSize
+        val emb = FloatArray(hiddenSize)
         var sumSq = 0f
-        for (i in 0 until HIDDEN) {
+        for (i in 0 until hiddenSize) {
             emb[i] = hidden[last + i]
             sumSq += emb[i] * emb[i]
         }
         // L2 normalize
         val norm = sqrt(sumSq).coerceAtLeast(1e-12f)
-        for (i in 0 until HIDDEN) {
+        for (i in 0 until hiddenSize) {
             emb[i] /= norm
         }
         return emb
@@ -119,4 +127,15 @@ class QwenEmbedder(private val modelDir: File) : Closeable {
             FileChannel.MapMode.READ_ONLY, 0, file.length())
         return map.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
     }
+
+    /** Read the model's default input/output tensor shapes via the TFLite runtime. */
+    private fun readModelShapes(modelFile: File): Pair<IntArray, IntArray>? =
+        runCatching {
+            val interp = org.tensorflow.lite.Interpreter(modelFile)
+            try {
+                interp.getInputTensor(0).shape() to interp.getOutputTensor(0).shape()
+            } finally {
+                interp.close()
+            }
+        }.getOrNull()
 }

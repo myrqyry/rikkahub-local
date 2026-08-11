@@ -25,12 +25,13 @@ import kotlin.math.exp
  * to the GPU `.tflite`, scores `P(yes)` from the baked 2-logit (no,yes) head.
  *
  * Files expected in [modelDir]:
- * - `qwen3rerank_gpu_fp16.tflite`  — 28-layer decoder + 2-logit head
- * - `embeddings_fp16.bin`          — fp16 table [151669, 1024]
+ * - `qwen3rerank_gpu_fp16.tflite`  — decoder + 2-logit head
+ * - `embeddings_fp16.bin`          — fp16 table
  * - `vocab.json` + `merges.txt`    — Qwen byte-level BPE tokenizer
  *
  * CompiledModel scaffolding rules: confined dispatcher, warm-up, buffer reuse,
- * strict GPU accelerator, readback-is-sync.
+ * strict GPU accelerator, readback-is-sync. Tensor geometry is derived from the
+ * model at init rather than hardcoded.
  */
 class QwenReranker(private val modelDir: File) : Closeable {
 
@@ -42,6 +43,12 @@ class QwenReranker(private val modelDir: File) : Closeable {
 
     private val inputBuffer: TensorBuffer
     private val outputBuffer: TensorBuffer
+
+    // Tensor geometry derived from the model at init, not hardcoded.
+    private val hiddenSize: Int
+    private val maxTokens: Int
+    private val vocabSize: Long
+    private val logitWidth: Int
 
     private val dispatcher: CoroutineDispatcher =
         Dispatchers.IO.limitedParallelism(1, "QwenReranker")
@@ -56,9 +63,6 @@ class QwenReranker(private val modelDir: File) : Closeable {
 
     companion object {
         private const val TAG = "QwenReranker"
-        private const val HIDDEN = 1024
-        private const val MAX_TOKENS = 256
-        private const val VOCAB_SIZE = 151669
 
         val DEFAULT_INSTRUCTION =
             "Given a web search query, retrieve relevant passages that answer the query"
@@ -69,8 +73,6 @@ class QwenReranker(private val modelDir: File) : Closeable {
     }
 
     init {
-        embeddingTable = mmapRawHalf(File(modelDir, "embeddings_fp16.bin"))
-
         model = CompiledModel.create(
             File(modelDir, "qwen3rerank_gpu_fp16.tflite").absolutePath,
             CompiledModel.Options(Accelerator.GPU),
@@ -79,6 +81,18 @@ class QwenReranker(private val modelDir: File) : Closeable {
 
         inputBuffer = model.createInputBuffers()[0]
         outputBuffer = model.createOutputBuffers()[0]
+
+        val shapes = readModelShapes(File(modelDir, "qwen3rerank_gpu_fp16.tflite"))
+            ?: error("Could not read reranker model shapes")
+        val inputShape = shapes.first
+        require(inputShape.isNotEmpty()) { "Qwen reranker input has no shape" }
+        hiddenSize = inputShape.last()
+        maxTokens = (inputShape.fold(1) { acc, dim -> acc * dim } / hiddenSize).coerceAtLeast(1)
+        val outputShape = shapes.second
+        logitWidth = outputShape.getOrElse(1) { 2 }
+
+        embeddingTable = mmapRawHalf(File(modelDir, "embeddings_fp16.bin"))
+        vocabSize = (embeddingTable.capacity() / hiddenSize).toLong()
 
         // Resolve special tokens by encoding them.
         imStart = tokenizer.encode("<|im_start|>")[0]
@@ -91,7 +105,7 @@ class QwenReranker(private val modelDir: File) : Closeable {
 
         // ponytail: warm-up so first real query doesn't pay GPU compile
         runCatching {
-            inputBuffer.writeFloat(FloatArray(MAX_TOKENS * HIDDEN))
+            inputBuffer.writeFloat(FloatArray(maxTokens * hiddenSize))
             model.run(listOf(inputBuffer), listOf(outputBuffer))
         }
     }
@@ -128,13 +142,13 @@ class QwenReranker(private val modelDir: File) : Closeable {
         val numTokens = tokenIds.size
 
         // Host-side embedding lookup into the input buffer (right-padded).
-        val flat = FloatArray(MAX_TOKENS * HIDDEN)
+        val flat = FloatArray(maxTokens * hiddenSize)
         for (t in 0 until numTokens) {
             val row = tokenIds[t]
-            if (row < 0 || row >= VOCAB_SIZE) continue
-            embeddingTable.position(row * HIDDEN)
-            val off = t * HIDDEN
-            for (d in 0 until HIDDEN) {
+            if (row < 0 || row >= vocabSize) continue
+            embeddingTable.position((row * hiddenSize).toInt())
+            val off = t * hiddenSize
+            for (d in 0 until hiddenSize) {
                 flat[off + d] = Npy.halfToFloat(embeddingTable.get())
             }
         }
@@ -142,12 +156,12 @@ class QwenReranker(private val modelDir: File) : Closeable {
 
         // GPU inference — readback is the sync point.
         model.run(listOf(inputBuffer), listOf(outputBuffer))
-        val logits = outputBuffer.readFloat() // [MAX_TOKENS * 2]
+        val logits = outputBuffer.readFloat() // [maxTokens * logitWidth]
 
         // Pool: softmax(yes) at last real token.
         val last = numTokens - 1
-        val no = logits[last * 2]
-        val yes = logits[last * 2 + 1]
+        val no = logits[last * logitWidth]
+        val yes = logits[last * logitWidth + 1]
         val maxVal = maxOf(no, yes)
         val eNo = exp(no - maxVal)
         val eYes = exp(yes - maxVal)
@@ -175,7 +189,7 @@ class QwenReranker(private val modelDir: File) : Closeable {
         prefix[p++] = imStart; prefix[p++] = userToken; prefix[p++] = newline
         userPrefix.copyInto(prefix, p)
         val suffix = intArrayOf(imEnd, newline, imStart, assistantToken)
-        return buildTruncatedPrompt(prefix, document, suffix, MAX_TOKENS)
+        return buildTruncatedPrompt(prefix, document, suffix, maxTokens)
     }
 
     override fun close() {
@@ -190,4 +204,15 @@ class QwenReranker(private val modelDir: File) : Closeable {
             FileChannel.MapMode.READ_ONLY, 0, file.length())
         return map.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
     }
+
+    /** Read the model's default input/output tensor shapes via the TFLite runtime. */
+    private fun readModelShapes(modelFile: File): Pair<IntArray, IntArray>? =
+        runCatching {
+            val interp = org.tensorflow.lite.Interpreter(modelFile)
+            try {
+                interp.getInputTensor(0).shape() to interp.getOutputTensor(0).shape()
+            } finally {
+                interp.close()
+            }
+        }.getOrNull()
 }
