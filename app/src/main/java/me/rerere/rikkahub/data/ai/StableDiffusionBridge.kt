@@ -55,7 +55,9 @@ object StableDiffusionBridge {
 
     fun invalidateSession() {
         warmSession = null
-        nativeRelease()
+        if (nativeLibraryLoaded.isInitialized()) {
+            nativeRelease()
+        }
     }
 
     private val _progress = MutableStateFlow<GenerationProgress?>(null)

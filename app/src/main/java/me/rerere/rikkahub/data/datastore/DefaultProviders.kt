@@ -58,6 +58,22 @@ val DEFAULT_PROVIDERS = listOf(
             Text("On-device — LiteRT-LM")
         },
     ),
+    ProviderSetting.StableDiffusion(
+        // On-device Stable Diffusion (stable-diffusion.cpp) provider. Disabled by
+        // default and carries zero models until the user installs a GGUF via Model
+        // Manager (Settings → On-device models), which then registers the model and
+        // flips the provider on. Keeping it in DEFAULT_PROVIDERS (like LiteRtLocal)
+        // ensures the card is always discoverable in the Providers list even on a
+        // fresh install with no models yet.
+        enabled = false,
+        builtIn = true,
+        description = {
+            Text("Runs Stable Diffusion GGUF models on-device via stable-diffusion.cpp. Install a model from Settings → On-device models, then configure image generation here — no API key, no network.")
+        },
+        shortDescription = {
+            Text("On-device — Stable Diffusion")
+        },
+    ),
     // All built-in providers ship DISABLED by default. New installs start with zero
     // network-egress paths so a freshly-installed app can never make an LLM call (or
     // bill any account) until the user explicitly enables a provider AND adds an API

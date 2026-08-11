@@ -214,28 +214,37 @@ class ModelManagerViewModel(
             inputModalities = listOf(Modality.TEXT),
             outputModalities = listOf(Modality.IMAGE),
         )
-        updateMyProvider { p ->
-            val sd = p as? ProviderSetting.StableDiffusion ?: return@updateMyProvider p
-            val models = if (sd.models.any { it.modelId == fileName }) {
-                sd.models.map { existing ->
-                    if (existing.modelId == fileName) {
-                        model.copy(id = existing.id, displayName = existing.displayName)
-                    } else {
-                        existing
+        settingsStore.update { settings ->
+            val sd = settings.providers
+                .firstOrNull { it.id == STABLE_DIFFUSION_PROVIDER_ID } as? ProviderSetting.StableDiffusion
+            val models = when {
+                sd != null && sd.models.any { it.modelId == fileName } ->
+                    sd.models.map { existing ->
+                        if (existing.modelId == fileName) {
+                            model.copy(id = existing.id, displayName = existing.displayName)
+                        } else {
+                            existing
+                        }
                     }
-                }
-            } else {
-                sd.models + model
+                sd != null -> sd.models + model
+                else -> listOf(model)
             }
-            sd.copy(
+            val newSd = (sd ?: ProviderSetting.StableDiffusion()).copy(
                 enabled = true,
                 models = models,
                 // Legacy compatibility only. StableDiffusionProvider now resolves params.model
                 // through LocalRuntimePreferences, but keeping a valid path here helps old state
                 // survive app upgrades until currentModelPath can be removed entirely.
-                currentModelPath = sd.currentModelPath
+                currentModelPath = sd?.currentModelPath
                     ?.takeIf { File(it).isFile }
                     ?: absolutePath,
+            )
+            settings.copy(
+                providers = if (sd != null) {
+                    settings.providers.map { if (it.id == STABLE_DIFFUSION_PROVIDER_ID) newSd else it }
+                } else {
+                    settings.providers + newSd
+                },
             )
         }
         me.rerere.rikkahub.data.ai.StableDiffusionBridge.invalidateSession()
