@@ -39,7 +39,7 @@ object QwenSemanticModelManager {
      * bundles are downloaded directly from the official `litert-community` Hugging Face
      * organization. This is an explicit exception to the model-import contract — the
      * files are immutable per-commit (`/resolve/<revision>/...`, the revision is pinned
-     * to the resolved `refs/main` SHA at install time so the four files can never mix
+     * to the resolved model-info `sha` at install time so the four files can never mix
      * revisions), come with server-declared sizes and SHA-256 hashes (validated after
      * download), and the org is the upstream publisher of the runtimes this app
      * consumes. All other model installation routes through the source page.
@@ -206,7 +206,7 @@ object QwenSemanticModelManager {
 
     /** Resolve the pinned revision (SHA) of the repository's default branch. */
     private suspend fun resolveRevision(client: OkHttpClient, kind: ModelKind): String {
-        val url = apiUrl(kind, "/refs/main")
+        val url = apiUrl(kind, "")
         val body = client.newCall(Request.Builder().url(url).build())
             .execute().use { response ->
                 if (!response.isSuccessful) {
