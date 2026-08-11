@@ -483,7 +483,7 @@ sealed class ProviderSetting {
         @Transient override val description: @Composable (() -> Unit) = {},
         @Transient override val shortDescription: @Composable (() -> Unit) = {},
         var currentModelPath: String? = null,
-        var useVulkan: Boolean = true,
+        var useVulkan: Boolean = false,
         var width: Int = 512,
         var height: Int = 512,
         var steps: Int = 20,

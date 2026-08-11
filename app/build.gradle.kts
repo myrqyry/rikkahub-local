@@ -32,6 +32,9 @@ android {
             cmake {
                 cppFlags += "-std=c++20"
                 arguments += listOf("-DCMAKE_CXX_STANDARD=20")
+                if (providers.gradleProperty("sd.vulkan").orNull == "true") {
+                    arguments += "-DSD_VULKAN=ON"
+                }
             }
         }
     }

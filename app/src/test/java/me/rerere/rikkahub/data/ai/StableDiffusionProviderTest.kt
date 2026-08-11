@@ -4,6 +4,7 @@ import me.rerere.ai.provider.ProviderSetting
 import me.rerere.locallm.SdCatalog
 import me.rerere.locallm.SdGenerationProfile
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -154,5 +155,10 @@ class StableDiffusionProviderTest {
         assertEquals("1 MB", formatMemorySize(1024L * 1024))
         assertEquals("1.00 GB", formatMemorySize(1024L * 1024 * 1024))
         assertEquals("2.16 GB", formatMemorySize(2_320_000_000L))
+    }
+
+    @Test
+    fun `stable diffusion provider defaults to cpu backend`() {
+        assertFalse(ProviderSetting.StableDiffusion().useVulkan)
     }
 }
