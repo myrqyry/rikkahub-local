@@ -28,6 +28,8 @@ import me.rerere.ai.ui.MessageChunk
 import me.rerere.ai.ui.UIMessage
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
+import me.rerere.locallm.SdCatalog
+import me.rerere.locallm.SdGenerationProfile
 import java.io.ByteArrayOutputStream
 import java.io.File
 
@@ -92,11 +94,15 @@ class StableDiffusionProvider(
         // through the same LocalRuntimePreferences inventory that Model Manager writes instead of
         // relying on a second, independently-mutated currentModelPath field.
         val modelPath = resolveInstalledModelPath(providerSetting, params.model)
+        val effective = resolveEffectiveGenerationParams(
+            providerSetting = providerSetting,
+            profile = SdCatalog.findByModelFile(params.model.modelId)?.generationProfile,
+        )
         stableDiffusionRequestError(
-            width = providerSetting.width,
-            height = providerSetting.height,
-            steps = providerSetting.steps,
-            cfg = providerSetting.cfgScale,
+            width = effective.width,
+            height = effective.height,
+            steps = effective.steps,
+            cfg = effective.cfgScale,
         )?.let { throw IllegalStateException(it) }
 
         var initialized = false
@@ -135,23 +141,23 @@ class StableDiffusionProvider(
             val rgba = generateNativeWithCancellation(
                 prompt = params.prompt,
                 negativePrompt = providerSetting.negativePrompt,
-                width = providerSetting.width,
-                height = providerSetting.height,
-                steps = providerSetting.steps,
-                cfg = providerSetting.cfgScale,
+                width = effective.width,
+                height = effective.height,
+                steps = effective.steps,
+                cfg = effective.cfgScale,
                 seed = providerSetting.seed,
             ) ?: throw IllegalStateException(
                 "Generation failed or was cancelled by the native runtime. Check model compatibility and available memory."
             )
 
-            val expectedBytes = providerSetting.width.toLong() * providerSetting.height.toLong() * 4L
+            val expectedBytes = effective.width.toLong() * effective.height.toLong() * 4L
             if (expectedBytes > Int.MAX_VALUE || rgba.size != expectedBytes.toInt()) {
                 throw IllegalStateException(
                     "Native image output had ${rgba.size} bytes; expected $expectedBytes RGBA bytes."
                 )
             }
 
-            val pngBytes = rgbaToPng(rgba, providerSetting.width, providerSetting.height)
+            val pngBytes = rgbaToPng(rgba, effective.width, effective.height)
             val b64 = Base64.encodeToString(pngBytes, Base64.NO_WRAP)
             emit(ImageGenerationItem(data = b64, mimeType = "image/png"))
         } catch (e: UnsatisfiedLinkError) {
@@ -266,6 +272,44 @@ internal fun stableDiffusionRequestError(
     !cfg.isFinite() || cfg !in 0f..50f ->
         "CFG scale must be a finite value between 0 and 50."
     else -> null
+}
+
+/** The resolved width/height/steps/CFG actually sent to the native runtime. */
+internal data class EffectiveGenerationParams(
+    val width: Int,
+    val height: Int,
+    val steps: Int,
+    val cfgScale: Float,
+)
+
+/**
+ * Resolves model-aware generation defaults.
+ *
+ * Catalog models carry an [SdGenerationProfile] with model-appropriate values — the
+ * 1-to-4-step distilled Turbo families must not inherit the generic 20-step / CFG-7
+ * defaults of ordinary SD/SDXL. A provider field still holding the generic factory
+ * default counts as "unset" and falls back to the model profile; any other value is a
+ * deliberate user override and wins as-is.
+ */
+internal fun resolveEffectiveGenerationParams(
+    providerSetting: ProviderSetting.StableDiffusion,
+    profile: SdGenerationProfile?,
+): EffectiveGenerationParams {
+    if (profile == null) {
+        return EffectiveGenerationParams(
+            width = providerSetting.width,
+            height = providerSetting.height,
+            steps = providerSetting.steps,
+            cfgScale = providerSetting.cfgScale,
+        )
+    }
+    val factory = ProviderSetting.StableDiffusion()
+    return EffectiveGenerationParams(
+        width = if (providerSetting.width == factory.width) profile.defaultWidth else providerSetting.width,
+        height = if (providerSetting.height == factory.height) profile.defaultHeight else providerSetting.height,
+        steps = if (providerSetting.steps == factory.steps) profile.defaultSteps else providerSetting.steps,
+        cfgScale = if (providerSetting.cfgScale == factory.cfgScale) profile.defaultCfgScale else providerSetting.cfgScale,
+    )
 }
 
 // bridge.cpp guarantees exactly width*height*4 RGBA bytes regardless of the channel count

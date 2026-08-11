@@ -1,5 +1,23 @@
 package me.rerere.locallm
 
+/**
+ * Recommended generation profile for a catalog model.
+ *
+ * Values are verified against each model's card: both distilled Turbo families are
+ * 1-to-4-step models and should never inherit the generic 20-step / CFG-7 defaults of
+ * ordinary SD/SDXL. Provider settings are treated as user overrides and win when they
+ * differ from the factory defaults.
+ */
+data class SdGenerationProfile(
+    val defaultWidth: Int = 512,
+    val defaultHeight: Int = 512,
+    val minSteps: Int = 1,
+    val maxSteps: Int = 4,
+    val defaultSteps: Int = 1,
+    val defaultCfgScale: Float = 0f,
+    val samplerOverride: String? = null,
+)
+
 data class SdCatalogEntry(
     val displayName: String,
     val family: String,
@@ -12,6 +30,7 @@ data class SdCatalogEntry(
     val minDeviceMemoryGb: Int,
     val recommended: Boolean = false,
     val tags: List<String> = emptyList(),
+    val generationProfile: SdGenerationProfile? = null,
 ) {
     fun resolveUrl(): String = "https://huggingface.co/$modelId/resolve/main/$modelFile"
 
@@ -43,6 +62,14 @@ object SdCatalog {
             minDeviceMemoryGb = 4,
             recommended = true,
             tags = listOf("fast", "distilled", "1-step"),
+            generationProfile = SdGenerationProfile(
+                defaultWidth = 512,
+                defaultHeight = 512,
+                minSteps = 1,
+                maxSteps = 4,
+                defaultSteps = 1,
+                defaultCfgScale = 0f,
+            ),
         ),
         SdCatalogEntry(
             displayName = "SD-Turbo 2.1 (Q4_0)",
@@ -55,6 +82,14 @@ object SdCatalog {
             license = "other",
             minDeviceMemoryGb = 3,
             tags = listOf("fast", "distilled", "compact"),
+            generationProfile = SdGenerationProfile(
+                defaultWidth = 512,
+                defaultHeight = 512,
+                minSteps = 1,
+                maxSteps = 4,
+                defaultSteps = 1,
+                defaultCfgScale = 0f,
+            ),
         ),
         SdCatalogEntry(
             displayName = "SDXL-Turbo (Q4_0)",
@@ -67,6 +102,14 @@ object SdCatalog {
             license = "sai-nc-community",
             minDeviceMemoryGb = 6,
             tags = listOf("sdxl", "distilled"),
+            generationProfile = SdGenerationProfile(
+                defaultWidth = 1024,
+                defaultHeight = 1024,
+                minSteps = 1,
+                maxSteps = 4,
+                defaultSteps = 1,
+                defaultCfgScale = 0f,
+            ),
         ),
         SdCatalogEntry(
             displayName = "SDXL-Turbo (Q8_0)",
@@ -79,11 +122,22 @@ object SdCatalog {
             license = "sai-nc-community",
             minDeviceMemoryGb = 8,
             tags = listOf("sdxl", "distilled", "high-quality"),
+            generationProfile = SdGenerationProfile(
+                defaultWidth = 1024,
+                defaultHeight = 1024,
+                minSteps = 1,
+                maxSteps = 4,
+                defaultSteps = 1,
+                defaultCfgScale = 0f,
+            ),
         ),
     )
 
     fun findById(modelId: String): SdCatalogEntry? =
         ENTRIES.firstOrNull { it.modelId == modelId }
+
+    fun findByModelFile(modelFile: String): SdCatalogEntry? =
+        ENTRIES.firstOrNull { it.modelFile == modelFile }
 
     fun findByFamily(family: String): List<SdCatalogEntry> =
         ENTRIES.filter { it.family == family }

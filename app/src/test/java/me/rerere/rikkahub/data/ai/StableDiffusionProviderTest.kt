@@ -1,7 +1,11 @@
 package me.rerere.rikkahub.data.ai
 
+import me.rerere.ai.provider.ProviderSetting
+import me.rerere.locallm.SdCatalog
+import me.rerere.locallm.SdGenerationProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class StableDiffusionProviderTest {
@@ -33,5 +37,84 @@ class StableDiffusionProviderTest {
             "CFG scale must be a finite value between 0 and 50.",
             stableDiffusionRequestError(512, 512, 20, Float.NaN),
         )
+    }
+
+    @Test
+    fun `no profile keeps provider values untouched`() {
+        val provider = ProviderSetting.StableDiffusion(
+            width = 768,
+            height = 768,
+            steps = 8,
+            cfgScale = 2.5f,
+        )
+        val effective = resolveEffectiveGenerationParams(provider, null)
+        assertEquals(
+            EffectiveGenerationParams(768, 768, 8, 2.5f),
+            effective,
+        )
+    }
+
+    @Test
+    fun `model profile replaces factory defaults`() {
+        val provider = ProviderSetting.StableDiffusion()
+        val profile = SdGenerationProfile(
+            defaultWidth = 512,
+            defaultHeight = 512,
+            minSteps = 1,
+            maxSteps = 4,
+            defaultSteps = 1,
+            defaultCfgScale = 0f,
+        )
+        val effective = resolveEffectiveGenerationParams(provider, profile)
+        assertEquals(EffectiveGenerationParams(512, 512, 1, 0f), effective)
+    }
+
+    @Test
+    fun `user overrides win over model profile`() {
+        val provider = ProviderSetting.StableDiffusion(
+            width = 768,
+            height = 768,
+            steps = 4,
+            cfgScale = 2.5f,
+        )
+        val profile = SdGenerationProfile(defaultSteps = 1, defaultCfgScale = 0f)
+        val effective = resolveEffectiveGenerationParams(provider, profile)
+        assertEquals(EffectiveGenerationParams(768, 768, 4, 2.5f), effective)
+    }
+
+    @Test
+    fun `sdxl turbo profile defaults to 1024 resolution`() {
+        val provider = ProviderSetting.StableDiffusion()
+        val profile = SdGenerationProfile(
+            defaultWidth = 1024,
+            defaultHeight = 1024,
+            minSteps = 1,
+            maxSteps = 4,
+            defaultSteps = 1,
+            defaultCfgScale = 0f,
+        )
+        val effective = resolveEffectiveGenerationParams(provider, profile)
+        assertEquals(EffectiveGenerationParams(1024, 1024, 1, 0f), effective)
+    }
+
+    @Test
+    fun `catalog entries carry verified turbo profiles`() {
+        val sdturbo = SdCatalog.findByModelFile("stable-diffusion-v2-1-turbo-Q8_0.gguf")
+        val sdxl = SdCatalog.findByModelFile("stable-diffusion-xl-1.0-turbo-Q8_0.gguf")
+        assertTrue(sdturbo?.generationProfile != null)
+        assertTrue(sdxl?.generationProfile != null)
+        for (entry in SdCatalog.ENTRIES) {
+            val profile = entry.generationProfile
+            assertTrue("entry ${entry.modelFile} missing profile", profile != null)
+            assertEquals(1, profile!!.minSteps)
+            assertEquals(4, profile.maxSteps)
+            assertEquals(1, profile.defaultSteps)
+            assertEquals(0f, profile.defaultCfgScale, 0f)
+        }
+        assertEquals(512, sdturbo!!.generationProfile!!.defaultWidth)
+        assertEquals(512, sdturbo.generationProfile!!.defaultHeight)
+        assertEquals(1024, sdxl!!.generationProfile!!.defaultWidth)
+        assertEquals(1024, sdxl.generationProfile!!.defaultHeight)
+        assertNull(SdCatalog.findByModelFile("unknown.gguf"))
     }
 }
