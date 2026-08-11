@@ -286,6 +286,18 @@
       </intent-filter>
     </receiver>
 
+    <!-- Debug-only on-device generation verification hook (BuildConfig.DEBUG-gated in the
+         receiver body, so release builds are inert). Driven from adb by broadcasting
+         rikkahub.intent.action.SD_GEN_TEST to the .debug.SdGenTestHook component with
+         extras for vulkan, steps, width, height, repeat, and cancelAfterMs. -->
+    <receiver
+      android:name=".debug.SdGenTestHook"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="rikkahub.intent.action.SD_GEN_TEST" />
+      </intent-filter>
+    </receiver>
+
     <service
       android:name=".service.TelegramBotService"
       android:exported="false"
