@@ -3,6 +3,10 @@ package me.rerere.rikkahub.data.ai.tools.image
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
 import me.rerere.rikkahub.data.modelregistry.ModelSource
+import me.rerere.rikkahub.data.ai.tools.safety.DataEgress
+import me.rerere.rikkahub.data.ai.tools.safety.ExecutionProvenance
+import me.rerere.rikkahub.data.ai.tools.safety.ToolEffect
+import me.rerere.rikkahub.data.ai.tools.safety.ToolExecutionPlan
 
 data class ImageToolExecutionPlan(
     val operation: ImageOperation,
@@ -24,4 +28,31 @@ object ImageToolCatalog {
 
     fun galleryIdFrom(artifactId: String): Int? =
         if (artifactId.startsWith("img_")) artifactId.removePrefix("img_").toIntOrNull() else null
+}
+
+fun ImageToolExecutionPlan.toToolExecutionPlan(
+    operationId: String,
+    toolName: String = operation.name.lowercase(),
+    provenance: ExecutionProvenance,
+): ToolExecutionPlan {
+    val effects = buildSet {
+        if (inputMedia.isNotEmpty()) add(ToolEffect.READ_LOCAL_DATA)
+        if (sendsUserMedia) {
+            add(ToolEffect.SEND_NETWORK_REQUEST)
+            add(ToolEffect.UPLOAD_DATA)
+        }
+        if (createsArtifact) add(ToolEffect.WRITE_LOCAL_DATA)
+    }
+    val egress = if (sendsUserMedia) {
+        listOf(DataEgress(category = "image", destination = "configured_provider", scope = "input_media"))
+    } else {
+        emptyList()
+    }
+    return ToolExecutionPlan(
+        operationId = operationId,
+        toolName = toolName,
+        effects = effects,
+        dataEgress = egress,
+        provenance = provenance,
+    )
 }
