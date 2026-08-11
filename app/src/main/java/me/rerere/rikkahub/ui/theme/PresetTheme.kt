@@ -26,7 +26,7 @@ val PresetThemes by lazy {
         SpringThemePreset,
         AutumnThemePreset,
         BlackThemePreset,
-    )
+    ) + ThemeFamilies.map { it.defaultPreset() }
 }
 
 fun findPresetTheme(id: String): PresetTheme {

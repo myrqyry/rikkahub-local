@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import io.pebbletemplates.pebble.PebbleEngine
@@ -112,6 +113,9 @@ class SettingsStore(
         // UI设置
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val THEME_ID = stringPreferencesKey("theme_id")
+        val THEME_VARIATION = stringPreferencesKey("theme_variation")
+        val THEME_ACCENT = stringPreferencesKey("theme_accent")
+        val MATERIAL_YOU_SOURCE_COLOR = longPreferencesKey("material_you_source_color")
         val CUSTOM_THEMES = stringPreferencesKey("custom_themes")
         val DISPLAY_SETTING = stringPreferencesKey("display_setting")
         val DEVELOPER_MODE = booleanPreferencesKey("developer_mode")
@@ -250,6 +254,9 @@ class SettingsStore(
                 assistants = JsonInstant.decodeFromString(preferences[ASSISTANTS] ?: "[]"),
                 dynamicColor = preferences[DYNAMIC_COLOR] != false,
                 themeId = preferences[THEME_ID] ?: PresetThemes[0].id,
+                themeVariation = preferences[THEME_VARIATION] ?: "default",
+                themeAccent = preferences[THEME_ACCENT] ?: "default",
+                materialYouSourceColor = preferences[MATERIAL_YOU_SOURCE_COLOR],
                 customThemes = preferences[CUSTOM_THEMES]?.let {
                     JsonInstant.decodeFromString(it)
                 } ?: emptyList(),
@@ -482,6 +489,11 @@ class SettingsStore(
         dataStore.edit { preferences ->
             preferences[DYNAMIC_COLOR] = settings.dynamicColor
             preferences[THEME_ID] = settings.themeId
+            preferences[THEME_VARIATION] = settings.themeVariation
+            preferences[THEME_ACCENT] = settings.themeAccent
+            settings.materialYouSourceColor?.let {
+                preferences[MATERIAL_YOU_SOURCE_COLOR] = it
+            } ?: preferences.remove(MATERIAL_YOU_SOURCE_COLOR)
             preferences[CUSTOM_THEMES] = JsonInstant.encodeToString(settings.customThemes)
             preferences[DEVELOPER_MODE] = settings.developerMode
             preferences[DISPLAY_SETTING] = JsonInstant.encodeToString(settings.displaySetting)
@@ -646,6 +658,9 @@ class SettingsStore(
 data class Settings(
     val dynamicColor: Boolean = true,
     val themeId: String = PresetThemes[0].id,
+    val themeVariation: String = "default",
+    val themeAccent: String = "default",
+    val materialYouSourceColor: Long? = null,
     val customThemes: List<CustomTheme> = emptyList(),
     val developerMode: Boolean = false,
     val displaySetting: DisplaySetting = DisplaySetting(),

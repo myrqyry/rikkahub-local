@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -79,6 +80,8 @@ import me.rerere.rikkahub.ui.pages.setting.components.PresetThemeButtonGroup
 import me.rerere.rikkahub.ui.theme.CustomColors
 import me.rerere.rikkahub.ui.theme.CustomTheme
 import me.rerere.rikkahub.ui.theme.LocalDarkMode
+import me.rerere.rikkahub.ui.theme.findThemeFamily
+import me.rerere.rikkahub.ui.theme.nextThemeAccent
 import me.rerere.rikkahub.utils.plus
 import org.koin.androidx.compose.koinViewModel
 import kotlin.math.roundToInt
@@ -99,6 +102,7 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
     val scope = rememberCoroutineScope()
     val exportSuccessMsg = stringResource(R.string.setting_theme_page_export_success)
     val importSuccessMsg = stringResource(R.string.setting_theme_page_import_success)
+    val activeFamily = findThemeFamily(settings.themeId)
 
     var showEditSheet by remember { mutableStateOf(false) }
     var editingTheme by remember { mutableStateOf<CustomTheme?>(null) }
@@ -137,6 +141,53 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
                         )
                     }
                 }
+                item("materialYouSource") {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.setting_theme_page_material_you_source),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            text = stringResource(R.string.setting_theme_page_source_color_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        val sourceColor = settings.materialYouSourceColor
+                        if (sourceColor == null) {
+                            Button(
+                                onClick = {
+                                    vm.updateSettings(
+                                        settings.copy(materialYouSourceColor = 0xFF6750A4)
+                                    )
+                                },
+                            ) {
+                                Text(stringResource(R.string.setting_theme_page_set_source_color))
+                            }
+                        } else {
+                            ColorPickerRow(
+                                color = Color(sourceColor.toInt()),
+                                onColorChange = {
+                                    vm.updateSettings(
+                                        settings.copy(
+                                            materialYouSourceColor = it.toArgb().toLong() and 0xFFFFFFFFL
+                                        )
+                                    )
+                                },
+                            )
+                            TextButton(
+                                onClick = {
+                                    vm.updateSettings(settings.copy(materialYouSourceColor = null))
+                                },
+                            ) {
+                                Text(stringResource(R.string.setting_theme_page_clear_source_color))
+                            }
+                        }
+                    }
+                }
             }
 
             if (!settings.dynamicColor) {
@@ -156,14 +207,51 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
                                 .clip(RoundedCornerShape(20.dp))
                                 .background(MaterialTheme.colorScheme.surfaceBright)
                         ) {
-                            PresetThemeButtonGroup(
-                                themeId = settings.themeId,
-                                modifier = Modifier.fillMaxWidth(),
-                                onChangeTheme = {
-                                    vm.updateSettings(settings.copy(themeId = it))
-                                }
+                                PresetThemeButtonGroup(
+                                    themeId = settings.themeId,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onChangeTheme = {
+                                        val family = findThemeFamily(it)
+                                        vm.updateSettings(
+                                            settings.copy(
+                                                themeId = it,
+                                                themeVariation = family?.defaultVariation?.id
+                                                    ?: settings.themeVariation,
+                                                themeAccent = family?.defaultAccent?.id
+                                                    ?: settings.themeAccent,
+                                            )
+                                        )
+                                    },
+                                    onLongPressTheme = {
+                                        findThemeFamily(settings.themeId)?.let { family ->
+                                            vm.updateSettings(
+                                                settings.copy(
+                                                    themeAccent = nextThemeAccent(
+                                                        family,
+                                                        settings.themeAccent,
+                                                    )
+                                                )
+                                            )
+                                        }
+                                    },
                             )
                         }
+                    }
+                }
+
+                if (activeFamily != null) {
+                    item("themeFamilyControls") {
+                        ThemeFamilyControls(
+                            family = activeFamily,
+                            variationId = settings.themeVariation,
+                            accentId = settings.themeAccent,
+                            onVariationChange = { variation ->
+                                vm.updateSettings(settings.copy(themeVariation = variation))
+                            },
+                            onAccentChange = { accent ->
+                                vm.updateSettings(settings.copy(themeAccent = accent))
+                            },
+                        )
                     }
                 }
 
@@ -304,6 +392,78 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
             Text(stringResource(R.string.setting_theme_page_delete_theme_message))
         }
     )
+}
+
+@Composable
+private fun ThemeFamilyControls(
+    family: me.rerere.rikkahub.ui.theme.ThemeFamily,
+    variationId: String,
+    accentId: String,
+    onVariationChange: (String) -> Unit,
+    onAccentChange: (String) -> Unit,
+) {
+    Column(
+        modifier = Modifier.padding(horizontal = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.setting_theme_page_variation),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            family.variations.forEach { variation ->
+                if (variation.id == variationId) {
+                    Button(onClick = { onVariationChange(variation.id) }) {
+                        Text(variation.id.replace('_', ' ').replaceFirstChar { it.uppercase() })
+                    }
+                } else {
+                    androidx.compose.material3.OutlinedButton(onClick = { onVariationChange(variation.id) }) {
+                        Text(variation.id.replace('_', ' ').replaceFirstChar { it.uppercase() })
+                    }
+                }
+            }
+        }
+        Text(
+            text = stringResource(R.string.setting_theme_page_accent),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            family.accents.forEach { accent ->
+                val label = accent.id.replace('_', ' ').replaceFirstChar { it.uppercase() }
+                if (accent.id == accentId) {
+                    Button(onClick = { onAccentChange(accent.id) }) {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(CircleShape)
+                                .background(Color(accent.seed.toInt()))
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(label)
+                    }
+                } else {
+                    androidx.compose.material3.OutlinedButton(onClick = { onAccentChange(accent.id) }) {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(CircleShape)
+                                .background(Color(accent.seed.toInt()))
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(label)
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

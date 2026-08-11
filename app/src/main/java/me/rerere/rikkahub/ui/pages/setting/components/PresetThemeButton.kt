@@ -4,7 +4,7 @@ import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.Tick01
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -43,7 +43,8 @@ fun PresetThemeButton(
     theme: PresetTheme,
     selected: Boolean,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit = {},
 ) {
     val darkMode = LocalDarkMode.current
     val scheme = theme.getColorScheme(darkMode)
@@ -53,12 +54,13 @@ fun PresetThemeButton(
         verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .clickable(
+            .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = LocalIndication.current,
                 onClick = {
                     onClick()
-                }
+                },
+                onLongClick = onLongClick,
             )
             .padding(8.dp),
     ) {
@@ -120,6 +122,7 @@ fun PresetThemeButtonGroup(
     themeId: String,
     modifier: Modifier = Modifier,
     onChangeTheme: (String) -> Unit,
+    onLongPressTheme: () -> Unit = {},
 ) {
     Column(
         modifier = modifier.padding(12.dp),
@@ -140,6 +143,7 @@ fun PresetThemeButtonGroup(
                         onClick = {
                             onChangeTheme(theme.id)
                         },
+                        onLongClick = if (theme.id == themeId) onLongPressTheme else ({}),
                     )
                 }
             }
