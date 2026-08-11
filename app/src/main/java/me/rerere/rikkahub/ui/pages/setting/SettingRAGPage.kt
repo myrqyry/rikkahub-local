@@ -1,15 +1,13 @@
 package me.rerere.rikkahub.ui.pages.setting
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
@@ -18,10 +16,13 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
@@ -37,8 +38,12 @@ import me.rerere.rikkahub.data.rag.VectorDao
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.CardGroup
 import me.rerere.rikkahub.ui.context.LocalSettings
+import me.rerere.rikkahub.ui.pages.setting.components.QwenSemanticModelManager
+import me.rerere.rikkahub.ui.pages.setting.components.QwenSemanticModelSetupCard
+import me.rerere.rikkahub.ui.pages.setting.components.QwenSemanticModelSetupViewModel
 import me.rerere.rikkahub.ui.theme.CustomColors
 import me.rerere.rikkahub.utils.plus
+import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
 @Composable
@@ -48,6 +53,24 @@ fun SettingRAGPage() {
     val vectorDao: VectorDao = koinInject()
     val scope = rememberCoroutineScope()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
+    val setupVm: QwenSemanticModelSetupViewModel = koinViewModel()
+    val embedderStatus by setupVm.embedderStatus.collectAsStateWithLifecycle()
+    val rerankerStatus by setupVm.rerankerStatus.collectAsStateWithLifecycle()
+    val activeOperation by setupVm.activeOperation.collectAsStateWithLifecycle()
+    val setupError by setupVm.errorMessage.collectAsStateWithLifecycle()
+    var pendingFolderKind by remember { mutableStateOf<QwenSemanticModelManager.ModelKind?>(null) }
+    val folderPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        val kind = pendingFolderKind
+        pendingFolderKind = null
+        if (uri != null && kind != null) setupVm.chooseFolder(kind, uri)
+    }
+
+    LaunchedEffect(settings) {
+        setupVm.refresh(settings)
+    }
 
     val documentCount by produceState(initialValue = -1) {
         value = vectorDao.count()
@@ -94,16 +117,19 @@ fun SettingRAGPage() {
             }
 
             item("embeddingModel") {
-                CardGroup(
+                QwenSemanticModelSetupCard(
+                    embedderStatus = embedderStatus,
+                    rerankerStatus = rerankerStatus,
+                    activeOperation = activeOperation,
+                    errorMessage = setupError,
+                    onDownload = setupVm::download,
+                    onChooseFolder = { kind ->
+                        pendingFolderKind = kind
+                        folderPicker.launch(null)
+                    },
+                    onDismissError = setupVm::clearError,
                     modifier = Modifier.padding(horizontal = 8.dp),
-                    title = { Text(stringResource(R.string.setting_rag_group_embedding_model)) },
-                ) {
-                    item(
-                        leadingContent = { Icon(HugeIcons.Database02, null) },
-                        headlineContent = { Text(stringResource(R.string.setting_rag_model)) },
-                        supportingContent = { Text(settings.ragEmbeddingModel) },
-                    )
-                }
+                )
             }
 
             item("vectorStore") {
