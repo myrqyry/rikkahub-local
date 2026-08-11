@@ -1,5 +1,8 @@
 package me.rerere.rikkahub.data.ai
 
+import android.content.ComponentCallbacks2
+import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.util.Base64
 import kotlinx.coroutines.CancellationException
@@ -29,10 +32,27 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 
 class StableDiffusionProvider(
+    private val context: Context = org.koin.java.KoinJavaComponent.getKoin().get(),
     private val runtimePreferences: LocalRuntimePreferences =
         org.koin.java.KoinJavaComponent.getKoin().get(),
     private val bridge: StableDiffusionBridge = StableDiffusionBridge,
 ) : Provider<ProviderSetting.StableDiffusion> {
+
+    init {
+        context.applicationContext.registerComponentCallbacks(object : ComponentCallbacks2 {
+            override fun onTrimMemory(level: Int) {
+                if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
+                    bridge.invalidateSession()
+                }
+            }
+
+            override fun onConfigurationChanged(newConfig: Configuration) = Unit
+
+            override fun onLowMemory() {
+                bridge.invalidateSession()
+            }
+        })
+    }
 
     override suspend fun listModels(providerSetting: ProviderSetting.StableDiffusion): List<Model> {
         return providerSetting.models
@@ -97,7 +117,7 @@ class StableDiffusionProvider(
             }
 
             initialized = withContext(nativeDispatcher) {
-                bridge.nativeInit(modelPath, backend.value)
+                bridge.ensureSession(modelPath, backend)
             }
             if (!initialized) {
                 throw IllegalStateException(
@@ -149,12 +169,6 @@ class StableDiffusionProvider(
             throw e
         } catch (e: Exception) {
             throw IllegalStateException("Generation error: ${e.message ?: e::class.simpleName}", e)
-        } finally {
-            if (initialized) {
-                withContext(NonCancellable + nativeDispatcher) {
-                    bridge.nativeRelease()
-                }
-            }
         }
     }
 
@@ -198,7 +212,7 @@ class StableDiffusionProvider(
         // Keep the blocking JNI call outside the timeout child. If the timeout fires, awaiting it
         // becomes cancellable while the native call remains alive long enough for nativeCancel()
         // to flip sd.cpp's atomic cancellation flag. We then wait for C++ to unwind before the
-        // provider is allowed to free the context in finally.
+        // warm native session is reused.
         val nativeCall = async(nativeDispatcher) {
             bridge.nativeGenerate(
                 prompt = prompt,

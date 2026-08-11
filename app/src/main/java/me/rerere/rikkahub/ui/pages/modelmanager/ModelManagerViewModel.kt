@@ -136,6 +136,7 @@ class ModelManagerViewModel(
                 currentModelPath = sd.currentModelPath?.takeUnless { it == path },
             )
         }
+        me.rerere.rikkahub.data.ai.StableDiffusionBridge.invalidateSession()
     }
 
     fun renameModel(modelId: String, newDisplayName: String) = viewModelScope.launch {
@@ -237,6 +238,7 @@ class ModelManagerViewModel(
                     ?: absolutePath,
             )
         }
+        me.rerere.rikkahub.data.ai.StableDiffusionBridge.invalidateSession()
     }
 
     private suspend fun refreshFromDisk() {

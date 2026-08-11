@@ -341,7 +341,7 @@ val dataSourceModule = module {
             )
             pm.registerProvider(
                 "stable_diffusion",
-                me.rerere.rikkahub.data.ai.StableDiffusionProvider(),
+                me.rerere.rikkahub.data.ai.StableDiffusionProvider(context = get()),
             )
         }
     }

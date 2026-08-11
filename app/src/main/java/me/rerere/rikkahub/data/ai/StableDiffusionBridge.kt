@@ -28,4 +28,23 @@ object StableDiffusionBridge {
     ): ByteArray?
     external fun nativeCancel()
     external fun nativeRelease()
+
+    @Volatile
+    private var warmSession: Pair<String, Int>? = null
+
+    val warmModelPath: String?
+        get() = warmSession?.first
+
+    fun ensureSession(modelPath: String, backend: Backend): Boolean {
+        if (warmSession == (modelPath to backend.value)) return true
+        warmSession = null
+        val ok = nativeInit(modelPath, backend.value)
+        if (ok) warmSession = modelPath to backend.value
+        return ok
+    }
+
+    fun invalidateSession() {
+        warmSession = null
+        nativeRelease()
+    }
 }
