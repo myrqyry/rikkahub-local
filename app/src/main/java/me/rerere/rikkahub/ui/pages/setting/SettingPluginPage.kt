@@ -188,9 +188,15 @@ fun SettingPluginPage() {
                                 maxLines = 2,
                             )
                             Text(
-                                text = "v${plugin.version} by ${plugin.author}" +
-                                        if (plugin.hasCommands) " • /${plugin.name}:* commands" else "" +
-                                        if (plugin.hasTools) " • MCP tools" else "",
+                                text = buildList {
+                                    add(stringResource(R.string.setting_plugin_metadata_version_author, plugin.version, plugin.author))
+                                    if (plugin.hasCommands) {
+                                        add(stringResource(R.string.setting_plugin_metadata_commands, plugin.name))
+                                    }
+                                    if (plugin.hasTools) {
+                                        add(stringResource(R.string.setting_plugin_metadata_tools))
+                                    }
+                                }.joinToString(),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

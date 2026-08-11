@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="setting_plugin_metadata_version_author">v%1$s بواسطة %2$s</string>
+    <string name="setting_plugin_metadata_commands"> • أوامر /%1$s:*</string>
+    <string name="setting_plugin_metadata_tools"> • أدوات MCP</string>
+</resources>

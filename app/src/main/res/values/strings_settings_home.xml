@@ -61,6 +61,10 @@
     <string name="setting_plugin_installed">Installed %1$s</string>
     <string name="setting_plugin_import_details">The prepared archive is checked for one plugin.json and extracted only after confirmation.</string>
 
+    <string name="setting_plugin_metadata_version_author">v%1$s by %2$s</string>
+    <string name="setting_plugin_metadata_commands"> • /%1$s:* commands</string>
+    <string name="setting_plugin_metadata_tools"> • MCP tools</string>
+
     <string name="setting_local_dream_page_title">Local Dream</string>
     <string name="setting_local_dream_model">Model</string>
     <string name="setting_local_dream_model_id">Model ID</string>

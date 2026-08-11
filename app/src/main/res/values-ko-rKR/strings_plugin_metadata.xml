@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="setting_plugin_metadata_version_author">v%1$s, %2$s 제작</string>
+    <string name="setting_plugin_metadata_commands"> • /%1$s:* 명령어</string>
+    <string name="setting_plugin_metadata_tools"> • MCP 도구</string>
+</resources>
