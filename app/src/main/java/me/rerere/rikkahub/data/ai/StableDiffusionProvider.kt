@@ -29,7 +29,8 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 
 class StableDiffusionProvider(
-    private val runtimePreferences: LocalRuntimePreferences,
+    private val runtimePreferences: LocalRuntimePreferences =
+        org.koin.java.KoinJavaComponent.getKoin().get(),
     private val bridge: StableDiffusionBridge = StableDiffusionBridge,
 ) : Provider<ProviderSetting.StableDiffusion> {
 
