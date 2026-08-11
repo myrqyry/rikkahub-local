@@ -125,7 +125,7 @@ class QwenReranker(private val modelDir: File) : Closeable {
 
     private fun scoreOne(query: String, doc: String, instruction: String): Float {
         val tokenIds = buildPrompt(query, doc, instruction)
-        val numTokens = tokenIds.size.coerceAtMost(MAX_TOKENS)
+        val numTokens = tokenIds.size
 
         // Host-side embedding lookup into the input buffer (right-padded).
         val flat = FloatArray(MAX_TOKENS * HIDDEN)
@@ -162,22 +162,20 @@ class QwenReranker(private val modelDir: File) : Closeable {
      */
     private fun buildPrompt(query: String, doc: String, instruction: String): IntArray {
         val systemContent = tokenizer.encode(SYSTEM_PROMPT)
-        val userContent = tokenizer.encode(
-            "<Instruct>: $instruction\n<Query>: $query\n<Document>: $doc")
-        val size = 12 + systemContent.size + userContent.size // 12 control tokens
-        val ids = IntArray(size)
+        val userPrefix = tokenizer.encode(
+            "<Instruct>: $instruction\n<Query>: $query\n<Document>: ")
+        val document = tokenizer.encode(doc)
+        val prefix = IntArray(8 + systemContent.size + userPrefix.size)
         var p = 0
         // <|im_start|>system\n
-        ids[p++] = imStart; ids[p++] = systemToken; ids[p++] = newline
-        systemContent.copyInto(ids, p); p += systemContent.size
-        ids[p++] = imEnd; ids[p++] = newline
+        prefix[p++] = imStart; prefix[p++] = systemToken; prefix[p++] = newline
+        systemContent.copyInto(prefix, p); p += systemContent.size
+        prefix[p++] = imEnd; prefix[p++] = newline
         // <|im_start|>user\n
-        ids[p++] = imStart; ids[p++] = userToken; ids[p++] = newline
-        userContent.copyInto(ids, p); p += userContent.size
-        ids[p++] = imEnd; ids[p++] = newline
-        // <|im_start|>assistant\n
-        ids[p++] = imStart; ids[p] = assistantToken
-        return ids
+        prefix[p++] = imStart; prefix[p++] = userToken; prefix[p++] = newline
+        userPrefix.copyInto(prefix, p)
+        val suffix = intArrayOf(imEnd, newline, imStart, assistantToken)
+        return buildTruncatedPrompt(prefix, document, suffix, MAX_TOKENS)
     }
 
     override fun close() {

@@ -145,8 +145,7 @@ class WhisperLiteRTASRController(
                 val dummyMel = ByteBuffer.allocateDirect(1 * 80 * 3000 * 4).order(ByteOrder.nativeOrder())
                 val dummyEnc = ByteBuffer.allocateDirect(1 * 1500 * 512 * 4).order(ByteOrder.nativeOrder())
                 val encInputs = arrayOf(dummyMel)
-                val encOutputs = mapOf<Int, Any>(0 to dummyEnc)
-                interp.runForMultipleInputsOutputs(encInputs, encOutputs)
+                runSignature(interp, "encode", encInputs, arrayOf(dummyEnc))
             }.onFailure { Log.w(TAG, "Encoder warm-up failed (non-fatal)", it) }
 
             // Audio capture
@@ -170,6 +169,8 @@ class WhisperLiteRTASRController(
             val ringSize = 30 * captureSampleRate
             val pcmRing = FloatArray(ringSize)
             var filled = 0
+            var samplesSinceTranscription = 0
+            val transcriptionStride = 2 * captureSampleRate
 
             try {
                 recorder.startRecording()
@@ -191,14 +192,16 @@ class WhisperLiteRTASRController(
                         for (i in 0 until count) pcmRing[filled + i] = shortBuffer[i] / 32768f
                         filled += count
 
-                        // Transcribe every ~2 seconds when we have ≥30s of audio
-                        if (filled >= ringSize) {
+                        samplesSinceTranscription += count
+                        // Whisper requires a 30-second input; pad the initial window and
+                        // then keep the latest 30 seconds for interactive updates.
+                        if (filled > 0 && samplesSinceTranscription >= transcriptionStride) {
                             val result = transcribe(interp, pcmRing.copyOf(), vocab)
                             if (result.isNotBlank()) {
                                 _state.update { it.copy(transcript = result, errorMessage = null) }
                                 onTranscriptChange?.invoke(result)
                             }
-                            filled = 0
+                            samplesSinceTranscription = 0
                         }
                     } else if (read < 0) {
                         throw IllegalStateException("AudioRecord read error: $read")
@@ -224,8 +227,7 @@ class WhisperLiteRTASRController(
 
         val encodeOutput = runCatching {
             val encInputs = arrayOf(melBuffer)
-            val encOutputs = mapOf<Int, Any>(0 to encBuffer)
-            interp.runForMultipleInputsOutputs(encInputs, encOutputs)
+            runSignature(interp, "encode", encInputs, arrayOf(encBuffer))
             encBuffer.rewind()
             val encFloats = FloatArray(encOutputSize) { encBuffer.float }
             encFloats
@@ -305,8 +307,7 @@ class WhisperLiteRTASRController(
                 kvOut.rewind()
 
                 val decodeInputs = arrayOf(encBuf, tokenBuf, kvIn)
-                val decodeOutputs = mapOf<Int, Any>(0 to outBuf, 1 to kvOut)
-                interp.runForMultipleInputsOutputs(decodeInputs, decodeOutputs)
+                runSignature(interp, "decode", decodeInputs, arrayOf(outBuf, kvOut))
 
                 outBuf.rewind()
                 outBuf.asFloatBuffer().get(logits, 0, tokenLen * vocabSize)
@@ -383,7 +384,7 @@ class WhisperLiteRTASRController(
             while (keys.hasNext()) {
                 val token = keys.next()
                 val id = json.getInt(token)
-                map[id] = token.toByteArray(Charsets.UTF_8)
+                map[id] = WhisperByteLevelCodec.decodeToken(token)
             }
             Log.i(TAG, "Loaded ${map.size} vocabulary entries from vocab.json")
             map
@@ -403,6 +404,27 @@ class WhisperLiteRTASRController(
         // These can't be decoded from ID alone without the full BPE merge table.
         // The vocab.json is needed for full decoding.
         return map
+    }
+
+    private fun runSignature(
+        interp: Interpreter,
+        signature: String,
+        inputs: Array<out Any>,
+        outputs: Array<out Any>,
+    ) {
+        val inputNames = interp.getSignatureInputs(signature)
+        val outputNames = interp.getSignatureOutputs(signature)
+        require(inputNames.size == inputs.size) {
+            "Whisper $signature expects ${inputNames.size} inputs, got ${inputs.size}"
+        }
+        require(outputNames.size == outputs.size) {
+            "Whisper $signature produces ${outputNames.size} outputs, got ${outputs.size}"
+        }
+        interp.runSignature(
+            inputNames.indices.associate { inputNames[it] to inputs[it] },
+            outputNames.indices.associate { outputNames[it] to outputs[it] },
+            signature,
+        )
     }
 
     // --- helpers ---

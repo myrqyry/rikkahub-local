@@ -35,6 +35,10 @@ class QwenEmbedder(private val modelDir: File) : Closeable {
         private const val HIDDEN = 1024
         private const val MAX_TOKENS = 128
         private const val VOCAB_SIZE = 151669
+
+        internal fun requireTokenCount(tokenCount: Int) {
+            require(tokenCount > 0) { "Embedding input must contain at least one token" }
+        }
     }
 
     init {
@@ -70,6 +74,7 @@ class QwenEmbedder(private val modelDir: File) : Closeable {
 
     private fun embedTokens(tokenIds: IntArray): FloatArray {
         val numTokens = tokenIds.size.coerceAtMost(MAX_TOKENS)
+        requireTokenCount(numTokens)
 
         val flat = FloatArray(MAX_TOKENS * HIDDEN)
         for (t in 0 until numTokens) {
