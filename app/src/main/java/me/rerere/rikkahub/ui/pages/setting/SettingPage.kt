@@ -1,8 +1,5 @@
 package me.rerere.rikkahub.ui.pages.setting
 
-import android.content.ActivityNotFoundException
-import android.content.Intent
-import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -46,11 +43,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.AiMagic
 import me.rerere.hugeicons.stroke.Alert01
-import me.rerere.hugeicons.stroke.Book01
 import me.rerere.hugeicons.stroke.Book03
 import me.rerere.hugeicons.stroke.Bookshelf01
 import me.rerere.hugeicons.stroke.Brain02
-import me.rerere.hugeicons.stroke.Clapping01
 import me.rerere.hugeicons.stroke.Clock02
 import me.rerere.hugeicons.stroke.Code
 import me.rerere.hugeicons.stroke.Connect
@@ -63,7 +58,6 @@ import me.rerere.hugeicons.stroke.Earth
 import me.rerere.hugeicons.stroke.Folder01
 import me.rerere.hugeicons.stroke.GlobalSearch
 import me.rerere.hugeicons.stroke.Image02
-import me.rerere.hugeicons.stroke.InLove
 import me.rerere.hugeicons.stroke.Link02
 import me.rerere.hugeicons.stroke.LookTop
 import me.rerere.hugeicons.stroke.McpServer
@@ -73,7 +67,6 @@ import me.rerere.hugeicons.stroke.Moon01
 import me.rerere.hugeicons.stroke.Package
 import me.rerere.hugeicons.stroke.ServerStack01
 import me.rerere.hugeicons.stroke.Settings03
-import me.rerere.hugeicons.stroke.Share04
 import me.rerere.hugeicons.stroke.Shield01
 import me.rerere.hugeicons.stroke.SmartPhone01
 import me.rerere.hugeicons.stroke.Sun01
@@ -88,7 +81,6 @@ import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.CardGroup
 import me.rerere.rikkahub.ui.components.ui.Select
-import me.rerere.rikkahub.ui.components.ui.icons.DiscordIcon
 import me.rerere.rikkahub.ui.components.ui.icons.TencentQQIcon
 import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.context.Navigator
@@ -96,12 +88,11 @@ import me.rerere.rikkahub.ui.hooks.rememberColorMode
 import me.rerere.rikkahub.ui.theme.ColorMode
 import me.rerere.rikkahub.ui.theme.CustomColors
 import me.rerere.rikkahub.utils.joinQQGroup
-import me.rerere.rikkahub.utils.openUrl
 import me.rerere.rikkahub.utils.plus
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
-private data class SettingsHomeItem(
+internal data class SettingsHomeItem(
     val id: String,
     val title: String,
     val description: String,
@@ -111,7 +102,7 @@ private data class SettingsHomeItem(
     val trailingContent: (@Composable () -> Unit)? = null,
 )
 
-private data class SettingsHomeSection(
+internal data class SettingsHomeSection(
     val id: String,
     val title: String,
     val keywords: List<String> = emptyList(),
@@ -122,7 +113,6 @@ private data class SettingsHomeSection(
 fun SettingPage(vm: SettingVM = koinViewModel()) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val navController = LocalNavController.current
-    val context = LocalContext.current
     val settings by vm.settings.collectAsStateWithLifecycle()
     val filesManager: FilesManager = koinInject()
     val storageState by produceState(-1 to 0L, filesManager) {
@@ -130,7 +120,6 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
     }
 
     var searchQuery by rememberSaveable { mutableStateOf("") }
-    var showQQGroupSheet by rememberSaveable { mutableStateOf(false) }
     var colorMode by rememberColorMode()
 
     if (settings.launchCount > 100 && (settings.launchCount - settings.sponsorAlertDismissedAt) >= 50) {
@@ -159,19 +148,11 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
         )
     }
 
-    if (showQQGroupSheet) {
-        QQGroupBottomSheet(onDismiss = { showQQGroupSheet = false })
-    }
-
     val selectedColorModeText = when (colorMode) {
         ColorMode.SYSTEM -> stringResource(R.string.setting_page_color_mode_system)
         ColorMode.LIGHT -> stringResource(R.string.setting_page_color_mode_light)
         ColorMode.DARK -> stringResource(R.string.setting_page_color_mode_dark)
     }
-    val shareText = stringResource(R.string.setting_page_share_text)
-    val shareTitle = stringResource(R.string.setting_page_share)
-    val noShareApp = stringResource(R.string.setting_page_no_share_app)
-
     val sections = listOf(
         SettingsHomeSection(
             id = "aiModels",
@@ -268,7 +249,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     id = "theme",
                     title = stringResource(R.string.setting_page_preferences_theme),
                     description = stringResource(R.string.setting_page_preferences_theme_desc),
-                    icon = HugeIcons.Sun01,
+                    icon = HugeIcons.Image02,
                     keywords = listOf("palette", "custom theme"),
                     onClick = { navController.navigate(Screen.SettingPreferencesTheme) },
                 ),
@@ -352,7 +333,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
         SettingsHomeSection(
             id = "tools",
             title = stringResource(R.string.setting_home_group_tools),
-            keywords = listOf("tools", "skills", "plugins", "mcp", "termux"),
+            keywords = listOf("tools", "skills", "plugins", "mcp", "termux", "workspace", "project", "folder"),
             items = listOf(
                 SettingsHomeItem(
                     id = "skills",
@@ -377,6 +358,14 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     icon = HugeIcons.Package,
                     keywords = listOf("installed", "commands", "tools"),
                     onClick = { navController.navigate(Screen.SettingPlugin) },
+                ),
+                SettingsHomeItem(
+                    id = "workspaces",
+                    title = stringResource(R.string.setting_home_workspaces),
+                    description = stringResource(R.string.setting_home_workspaces_desc),
+                    icon = HugeIcons.Folder01,
+                    keywords = listOf("workspace", "project", "folder", "drive", "portable"),
+                    onClick = { navController.navigate(Screen.Workspaces) },
                 ),
                 SettingsHomeItem(
                     id = "termux",
@@ -428,21 +417,6 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
             ),
         ),
         SettingsHomeSection(
-            id = "workspace",
-            title = stringResource(R.string.setting_home_group_workspace_extensions),
-            keywords = listOf("workspace", "project", "folder", "files"),
-            items = listOf(
-                SettingsHomeItem(
-                    id = "workspaces",
-                    title = stringResource(R.string.setting_home_workspaces),
-                    description = stringResource(R.string.setting_home_workspaces_desc),
-                    icon = HugeIcons.Developer,
-                    keywords = listOf("project", "folder", "drive", "portable"),
-                    onClick = { navController.navigate(Screen.Workspaces) },
-                ),
-            ),
-        ),
-        SettingsHomeSection(
             id = "dataStorage",
             title = stringResource(R.string.setting_home_group_data_storage),
             keywords = listOf("data", "storage", "backup", "files", "export", "restore"),
@@ -451,7 +425,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     id = "backup",
                     title = stringResource(R.string.setting_page_data_backup),
                     description = stringResource(R.string.setting_page_data_backup_desc),
-                    icon = HugeIcons.Database02,
+                    icon = HugeIcons.Download01,
                     keywords = listOf("restore", "export", "import", "sync"),
                     onClick = { navController.navigate(Screen.Backup) },
                 ),
@@ -544,85 +518,13 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                             id = "developer",
                             title = stringResource(R.string.setting_home_developer_tools),
                             description = stringResource(R.string.setting_home_developer_tools_desc),
-                            icon = HugeIcons.Developer,
+                            icon = HugeIcons.Code,
                             keywords = listOf("advanced", "debug", "developer"),
                             onClick = { navController.navigate(Screen.Developer) },
                         )
                     )
                 }
             },
-        ),
-        SettingsHomeSection(
-            id = "helpResources",
-            title = stringResource(R.string.setting_home_group_help_resources),
-            keywords = listOf("help", "about", "documentation", "community", "resources"),
-            items = listOf(
-                SettingsHomeItem(
-                    id = "about",
-                    title = stringResource(R.string.setting_page_about),
-                    description = stringResource(R.string.setting_page_about_desc),
-                    icon = HugeIcons.Clapping01,
-                    keywords = listOf("version", "license", "credits"),
-                    onClick = { navController.navigate(Screen.SettingAbout) },
-                ),
-                SettingsHomeItem(
-                    id = "documentation",
-                    title = stringResource(R.string.setting_page_documentation),
-                    description = stringResource(R.string.setting_page_documentation_desc),
-                    icon = HugeIcons.Book01,
-                    keywords = listOf("guide", "manual", "docs"),
-                    onClick = {
-                        val docUrl = if (java.util.Locale.getDefault().language == "zh") {
-                            "https://docs.rikka-ai.com/zh/introduction"
-                        } else {
-                            "https://docs.rikka-ai.com/introduction"
-                        }
-                        context.openUrl(docUrl)
-                    },
-                ),
-                SettingsHomeItem(
-                    id = "discord",
-                    title = stringResource(R.string.setting_home_discord),
-                    description = stringResource(R.string.setting_home_discord_desc),
-                    icon = DiscordIcon,
-                    keywords = listOf("community", "support", "chat"),
-                    onClick = { context.openUrl("https://discord.gg/9weBqxe5c4") },
-                ),
-                SettingsHomeItem(
-                    id = "qq",
-                    title = stringResource(R.string.setting_home_qq),
-                    description = stringResource(R.string.setting_home_qq_desc),
-                    icon = TencentQQIcon,
-                    keywords = listOf("community", "support", "china"),
-                    onClick = { showQQGroupSheet = true },
-                ),
-                SettingsHomeItem(
-                    id = "donate",
-                    title = stringResource(R.string.setting_page_donate),
-                    description = stringResource(R.string.setting_page_donate_desc),
-                    icon = HugeIcons.InLove,
-                    keywords = listOf("sponsor", "support", "contribute"),
-                    onClick = { navController.navigate(Screen.SettingDonate) },
-                ),
-                SettingsHomeItem(
-                    id = "share",
-                    title = stringResource(R.string.setting_page_share),
-                    description = stringResource(R.string.setting_page_share_desc),
-                    icon = HugeIcons.Share04,
-                    keywords = listOf("recommend", "send", "link"),
-                    onClick = {
-                        val intent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, shareText)
-                        }
-                        try {
-                            context.startActivity(Intent.createChooser(intent, shareTitle))
-                        } catch (_: ActivityNotFoundException) {
-                            Toast.makeText(context, noShareApp, Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                ),
-            ),
         ),
     )
 
@@ -734,7 +636,7 @@ private fun SettingsNoResultsCard() {
     }
 }
 
-private fun filterSettingsSections(
+internal fun filterSettingsSections(
     sections: List<SettingsHomeSection>,
     query: String,
 ): List<SettingsHomeSection> {
@@ -753,7 +655,7 @@ private fun filterSettingsSections(
     }
 }
 
-private fun SettingsHomeItem.matches(query: String): Boolean {
+internal fun SettingsHomeItem.matches(query: String): Boolean {
     return title.contains(query, ignoreCase = true) ||
         description.contains(query, ignoreCase = true) ||
         keywords.any { it.contains(query, ignoreCase = true) }
