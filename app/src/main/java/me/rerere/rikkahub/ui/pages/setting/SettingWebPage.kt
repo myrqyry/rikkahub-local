@@ -264,7 +264,7 @@ fun SettingWebPage() {
                                         }
                                     }
                                 },
-                                enabled = settings.webServerJwtEnabled || accessPasswordText.isNotBlank(),
+                                enabled = !serverState.isRunning && (settings.webServerJwtEnabled || accessPasswordText.isNotBlank()),
                             )
                         },
                     )
@@ -299,8 +299,9 @@ fun SettingWebPage() {
                                         )
                                     }
                                 },
-                                singleLine = true,
-                                isError = settings.webServerJwtEnabled && accessPasswordText.isBlank(),
+                        singleLine = true,
+                        enabled = !serverState.isRunning,
+                        isError = settings.webServerJwtEnabled && accessPasswordText.isBlank(),
                                 modifier = Modifier.width(180.dp),
                                 shape = CircleShape,
                                 colors = TextFieldDefaults.colors(
