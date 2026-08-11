@@ -32,6 +32,18 @@ class SettingPageTest {
                 ),
             ),
             SettingsHomeSection(
+                id = "aiModels",
+                title = "AI & Models",
+                items = listOf(
+                    SettingsHomeItem(
+                        id = "localDream",
+                        title = "Local Dream",
+                        description = "Generate images with an on-device model",
+                        icon = testIcon,
+                    ),
+                ),
+            ),
+            SettingsHomeSection(
                 id = "appearance",
                 title = "Appearance",
                 items = listOf(
@@ -50,5 +62,8 @@ class SettingPageTest {
         assertEquals(listOf("tools"), filtered.map { it.id })
         assertEquals(listOf("workspaces"), filtered.single().items.map { it.id })
         assertTrue(filtered.single().items.single().matches("project"))
+
+        val localDream = sections[1].items.single()
+        assertTrue(localDream.matches("image"))
     }
 }
