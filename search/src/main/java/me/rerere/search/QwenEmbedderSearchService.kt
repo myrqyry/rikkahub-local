@@ -8,7 +8,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import me.rerere.ai.core.InputSchema
-import me.rerere.reranker.QwenEmbedder
+import me.rerere.reranker.QwenEngineRegistry
 import java.io.File
 
 object QwenEmbedderSearchService : SearchService<SearchServiceOptions.QwenEmbedderOptions> {
@@ -37,27 +37,26 @@ object QwenEmbedderSearchService : SearchService<SearchServiceOptions.QwenEmbedd
     ): Result<SearchResult> = withContext(Dispatchers.IO) {
         runCatching {
             val query = params["query"]?.jsonPrimitive?.content ?: error("query is required")
-            val embedder = QwenEmbedder(File(serviceOptions.modelDir))
-            embedder.use { emb ->
-                val qEmb = emb.embed(query)
-                val docs = serviceOptions.documents
-                val scored = docs.mapIndexed { i, doc ->
-                    val dEmb = emb.embed(doc)
-                    var dot = 0f
-                    for (j in qEmb.indices) dot += qEmb[j] * dEmb[j]
-                    i to dot
-                }.sortedByDescending { it.second }
-                    .take(commonOptions.resultSize)
-                val items = scored.map { (i, score) ->
-                    val doc = docs[i]
-                    SearchResult.SearchResultItem(
-                        title = doc.take(80),
-                        url = "",
-                        text = "score: ${"%.4f".format(score)}\n$doc",
-                    )
-                }
-                SearchResult(items = items)
+            val embedder = QwenEngineRegistry.embedder(File(serviceOptions.modelDir))
+                ?: error("Embedding model not installed")
+            val qEmb = embedder.embed(query)
+            val docs = serviceOptions.documents
+            val scored = docs.mapIndexed { i, doc ->
+                val dEmb = embedder.embed(doc)
+                var dot = 0f
+                for (j in qEmb.indices) dot += qEmb[j] * dEmb[j]
+                i to dot
+            }.sortedByDescending { it.second }
+                .take(commonOptions.resultSize)
+            val items = scored.map { (i, score) ->
+                val doc = docs[i]
+                SearchResult.SearchResultItem(
+                    title = doc.take(80),
+                    url = "",
+                    text = "score: ${"%.4f".format(score)}\n$doc",
+                )
             }
+            SearchResult(items = items)
         }
     }
 

@@ -4,16 +4,21 @@ import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import java.io.File
+import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
+import kotlinx.serialization.json.put
 import me.rerere.locallm.ModelInstall
 import okhttp3.OkHttpClient
+import okhttp3.Request
 
 object QwenSemanticModelManager {
     enum class ModelKind {
@@ -33,9 +38,11 @@ object QwenSemanticModelManager {
      * Install contract: unlike the catalog/source-page flow, these on-device LiteRT
      * bundles are downloaded directly from the official `litert-community` Hugging Face
      * organization. This is an explicit exception to the model-import contract — the
-     * files are immutable per-commit (`/resolve/...`), come with server-declared sizes
-     * (validated after download), and the org is the upstream publisher of the runtimes
-     * this app consumes. All other model installation routes through the source page.
+     * files are immutable per-commit (`/resolve/<revision>/...`, the revision is pinned
+     * to the resolved `refs/main` SHA at install time so the four files can never mix
+     * revisions), come with server-declared sizes and SHA-256 hashes (validated after
+     * download), and the org is the upstream publisher of the runtimes this app
+     * consumes. All other model installation routes through the source page.
      */
     private const val MANIFEST_FILE = "manifest.json"
 
@@ -69,15 +76,21 @@ object QwenSemanticModelManager {
     fun validate(directory: File, kind: ModelKind): ModelStatus {
         if (!directory.isDirectory) return ModelStatus.NotInstalled
 
-        val expected = readManifest(directory)
+        val manifest = readManifest(directory)
         val missing = requiredFiles(kind).filter { name ->
             val file = File(directory, name)
-            val expectedSize = expected?.get(name)
+            val expected = manifest?.files?.get(name)
             when {
                 !file.isFile || !file.canRead() -> true
-                // A recorded size from the server catches truncated downloads; without a
-                // manifest (legacy/manual installs) fall back to a non-empty check.
-                expectedSize != null -> file.length() != expectedSize
+                // A recorded size/hash from the server catches truncated or corrupted
+                // downloads; without a manifest (legacy/manual installs) fall back to a
+                // non-empty check.
+                expected != null -> {
+                    val sizeOk = file.length() == expected.size
+                    val hashOk = expected.sha256 == null ||
+                        sha256Hex(file) == expected.sha256
+                    !sizeOk || !hashOk
+                }
                 else -> file.length() <= 0L
             }
         }
@@ -88,33 +101,138 @@ object QwenSemanticModelManager {
         }
     }
 
-    private fun readManifest(directory: File): Map<String, Long>? =
+    internal data class ExpectedFile(
+        val size: Long,
+        val sha256: String?,
+    )
+
+    internal data class ManifestInfo(
+        val revision: String?,
+        val files: Map<String, ExpectedFile>,
+    )
+
+    private fun readManifest(directory: File): ManifestInfo? =
         runCatching {
-            val files = Json.parseToJsonElement(File(directory, MANIFEST_FILE).readText())
-                .jsonObject["files"]!!.jsonObject
-            files.mapValues { (_, value) -> value.jsonPrimitive.long }
+            val root = Json.parseToJsonElement(File(directory, MANIFEST_FILE).readText())
+                .jsonObject
+            val revision = root["revision"]?.jsonPrimitive?.content
+            val files = root["files"]!!.jsonObject.mapValues { (_, value) ->
+                val obj = value as? JsonObject
+                val size = obj?.get("size")?.jsonPrimitive?.long
+                    ?: value.jsonPrimitive.long
+                val sha256 = obj?.get("sha256")?.jsonPrimitive?.content
+                ExpectedFile(size = size, sha256 = sha256)
+            }
+            ManifestInfo(revision, files)
         }.getOrNull()
 
-    private fun writeManifest(directory: File, sizes: Map<String, Long>) {
-        val files = JsonObject(
-            sizes.mapValues { (_, size) -> JsonPrimitive(size) }
+    private fun writeManifest(
+        directory: File,
+        revision: String,
+        files: Map<String, ExpectedFile>,
+    ) {
+        val filesJson = JsonObject(
+            files.mapValues { (_, expected) ->
+                buildJsonObject {
+                    put("size", expected.size)
+                    if (expected.sha256 != null) put("sha256", expected.sha256)
+                }
+            }
         )
         File(directory, MANIFEST_FILE).writeText(
             Json.encodeToString(
                 JsonObject.serializer(),
-                JsonObject(mapOf("files" to files)),
+                buildJsonObject {
+                    put("revision", revision)
+                    put("files", filesJson)
+                },
             )
         )
     }
 
-    fun downloadUrls(kind: ModelKind): List<Pair<String, String>> {
-        val repository = when (kind) {
-            ModelKind.Embedder -> EMBEDDER_REPOSITORY
-            ModelKind.Reranker -> RERANKER_REPOSITORY
-        }
+    fun downloadUrls(kind: ModelKind): List<Pair<String, String>> =
+        downloadUrls(kind, revision = "main")
+
+    fun downloadUrls(kind: ModelKind, revision: String): List<Pair<String, String>> {
+        val repository = repositoryUrl(kind)
         return requiredFiles(kind).map { fileName ->
-            "$repository/resolve/main/$fileName?download=true" to fileName
+            "$repository/resolve/$revision/$fileName?download=true" to fileName
         }
+    }
+
+    internal fun sha256Hex(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val read = input.read(buffer)
+                if (read <= 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    /**
+     * Parse the HF `/api/models/<repo>/tree/<revision>` response into expected file
+     * metadata. Each entry: `{"path": ..., "size": ..., "lfs": {"oid": "sha256:<hex>", ...}}`.
+     * Entries without `lfs.oid` (non-LFS files) carry `sha256 = null` — size only.
+     */
+    internal fun parseFileMetadata(
+        jsonText: String,
+        required: List<String>,
+    ): Map<String, ExpectedFile> =
+        Json.parseToJsonElement(jsonText).jsonArray.mapNotNull { element ->
+            val objectValue = element.jsonObject
+            val path = objectValue["path"]?.jsonPrimitive?.content
+                ?: return@mapNotNull null
+            if (path !in required) return@mapNotNull null
+            val size = objectValue["size"]?.jsonPrimitive?.long ?: 0L
+            val oid = objectValue["lfs"]?.jsonObject?.get("oid")?.jsonPrimitive?.content
+            val sha256 = oid?.takeIf { it.startsWith("sha256:") }
+                ?.substringAfter("sha256:")
+            path to ExpectedFile(size = size, sha256 = sha256)
+        }.toMap()
+
+    private fun repositoryUrl(kind: ModelKind): String = when (kind) {
+        ModelKind.Embedder -> EMBEDDER_REPOSITORY
+        ModelKind.Reranker -> RERANKER_REPOSITORY
+    }
+
+    private fun apiUrl(kind: ModelKind, suffix: String): String {
+        val repoId = repositoryUrl(kind).substringAfter("https://huggingface.co/")
+        return "https://huggingface.co/api/models/$repoId$suffix"
+    }
+
+    /** Resolve the pinned revision (SHA) of the repository's default branch. */
+    private suspend fun resolveRevision(client: OkHttpClient, kind: ModelKind): String {
+        val url = apiUrl(kind, "/refs/main")
+        val body = client.newCall(Request.Builder().url(url).build())
+            .execute().use { response ->
+                if (!response.isSuccessful) {
+                    error("Failed to resolve model revision: HTTP ${response.code}")
+                }
+                response.body?.string() ?: error("Empty revision response")
+            }
+        return runCatching {
+            Json.parseToJsonElement(body).jsonObject["sha"]?.jsonPrimitive?.content
+        }.getOrNull() ?: error("Model revision response missing sha")
+    }
+
+    private suspend fun fetchFileMetadata(
+        client: OkHttpClient,
+        kind: ModelKind,
+        revision: String,
+    ): Map<String, ExpectedFile> {
+        val url = apiUrl(kind, "/tree/$revision")
+        val body = client.newCall(Request.Builder().url(url).build())
+            .execute().use { response ->
+                if (!response.isSuccessful) {
+                    error("Failed to fetch model file metadata: HTTP ${response.code}")
+                }
+                response.body?.string() ?: error("Empty tree response")
+            }
+        return parseFileMetadata(body, requiredFiles(kind))
     }
 
     suspend fun importBundleFromTree(
@@ -143,7 +261,10 @@ object QwenSemanticModelManager {
             }
             writeManifest(
                 destination,
-                requiredFiles(kind).associateWith { destination.resolve(it).length() },
+                revision = "",
+                files = requiredFiles(kind).associateWith { fileName ->
+                    ExpectedFile(destination.resolve(fileName).length(), sha256 = null)
+                },
             )
             promoteValidated(destination, modelDirectory(context, kind), kind)
         } catch (error: Throwable) {
@@ -166,7 +287,9 @@ object QwenSemanticModelManager {
         destination.mkdirs()
         val expectedSizes = mutableMapOf<String, Long>()
         try {
-            downloadUrls(kind).forEachIndexed { index, (url, fileName) ->
+            val revision = resolveRevision(client, kind)
+            val metadata = fetchFileMetadata(client, kind, revision)
+            downloadUrls(kind, revision).forEachIndexed { index, (url, fileName) ->
                 ModelInstall.download(client, url, destination.resolve(fileName)).collect { progress ->
                     when (progress) {
                         is ModelInstall.Progress.Started -> {
@@ -193,6 +316,13 @@ object QwenSemanticModelManager {
                                         "(${file.length()} of $declared bytes)"
                                 )
                             }
+                            val expectedSha = metadata[fileName]?.sha256
+                            if (expectedSha != null && sha256Hex(file) != expectedSha) {
+                                file.delete()
+                                throw IllegalStateException(
+                                    "Downloaded $fileName failed SHA-256 verification"
+                                )
+                            }
                             onFileDone(fileName, index, requiredFiles(kind).size)
                         }
                         is ModelInstall.Progress.Failed -> throw progress.cause
@@ -201,8 +331,12 @@ object QwenSemanticModelManager {
             }
             writeManifest(
                 destination,
-                requiredFiles(kind).associateWith { fileName ->
-                    expectedSizes[fileName] ?: destination.resolve(fileName).length()
+                revision = revision,
+                files = requiredFiles(kind).associateWith { fileName ->
+                    ExpectedFile(
+                        size = expectedSizes[fileName] ?: destination.resolve(fileName).length(),
+                        sha256 = metadata[fileName]?.sha256,
+                    )
                 },
             )
             promoteValidated(destination, modelDirectory(context, kind), kind)

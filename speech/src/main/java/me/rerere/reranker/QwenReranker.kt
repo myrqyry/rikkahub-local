@@ -199,10 +199,13 @@ class QwenReranker(private val modelDir: File) : Closeable {
     }
 
     private fun mmapRawHalf(file: File): ShortBuffer {
-        val channel = RandomAccessFile(file, "r").channel
-        val map: MappedByteBuffer = channel.map(
-            FileChannel.MapMode.READ_ONLY, 0, file.length())
-        return map.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
+        RandomAccessFile(file, "r").use { raf ->
+            raf.channel.use { channel ->
+                return channel.map(
+                    FileChannel.MapMode.READ_ONLY, 0, file.length()
+                ).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
+            }
+        }
     }
 
     /** Read the model's default input/output tensor shapes via the TFLite runtime. */

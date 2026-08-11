@@ -10,7 +10,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import me.rerere.ai.core.InputSchema
-import me.rerere.reranker.QwenReranker
+import me.rerere.reranker.QwenEngineRegistry
 import java.io.File
 
 object QwenRerankerSearchService : SearchService<SearchServiceOptions.QwenRerankerOptions> {
@@ -39,19 +39,18 @@ object QwenRerankerSearchService : SearchService<SearchServiceOptions.QwenRerank
     ): Result<SearchResult> = withContext(Dispatchers.IO) {
         runCatching {
             val query = params["query"]?.jsonPrimitive?.content ?: error("query is required")
-            val reranker = QwenReranker(File(serviceOptions.modelDir))
-            reranker.use { r ->
-                val items = r.rerank(query, serviceOptions.documents, serviceOptions.instruction)
-                    .take(commonOptions.resultSize)
-                    .map { (doc, score) ->
-                        SearchResult.SearchResultItem(
-                            title = doc.take(80),
-                            url = "",
-                            text = "score: ${"%.4f".format(score)}\n$doc",
-                        )
-                    }
-                SearchResult(items = items)
-            }
+            val reranker = QwenEngineRegistry.reranker(File(serviceOptions.modelDir))
+                ?: error("Reranking model not installed")
+            val items = reranker.rerank(query, serviceOptions.documents, serviceOptions.instruction)
+                .take(commonOptions.resultSize)
+                .map { (doc, score) ->
+                    SearchResult.SearchResultItem(
+                        title = doc.take(80),
+                        url = "",
+                        text = "score: ${"%.4f".format(score)}\n$doc",
+                    )
+                }
+            SearchResult(items = items)
         }
     }
 

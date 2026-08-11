@@ -103,6 +103,52 @@ class QwenSemanticModelManagerTest {
         }
     }
 
+    @Test
+    fun parseFileMetadataExtractsPinnedSizesAndSha256() {
+        val json = """
+            [
+              {"path": "qwen3emb_gpu_fp16.tflite", "size": 12, "lfs": {"oid": "sha256:abc123", "size": 12}},
+              {"path": "embeddings_fp16.bin", "size": 34, "lfs": {"oid": "sha256:def456", "size": 34}},
+              {"path": "vocab.json", "size": 56},
+              {"path": "unrelated.bin", "size": 999, "lfs": {"oid": "sha256:zzz", "size": 999}}
+            ]
+        """.trimIndent()
+
+        val parsed = QwenSemanticModelManager.parseFileMetadata(
+            json,
+            QwenSemanticModelManager.requiredFiles(ModelKind.Embedder),
+        )
+
+        assertEquals(
+            QwenSemanticModelManager.ExpectedFile(12, "abc123"),
+            parsed["qwen3emb_gpu_fp16.tflite"],
+        )
+        assertEquals(
+            QwenSemanticModelManager.ExpectedFile(34, "def456"),
+            parsed["embeddings_fp16.bin"],
+        )
+        assertEquals(
+            QwenSemanticModelManager.ExpectedFile(56, null),
+            parsed["vocab.json"],
+        )
+        assertEquals(3, parsed.size)
+    }
+
+    @Test
+    fun sha256HexMatchesKnownDigest() {
+        val file = Files.createTempDirectory("qwen-sha").toFile()
+            .resolve("sample.bin")
+        try {
+            file.writeText("hello world")
+            assertEquals(
+                "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+                QwenSemanticModelManager.sha256Hex(file),
+            )
+        } finally {
+            file.delete()
+        }
+    }
+
     private fun writeManifest(directory: java.io.File, sizes: Map<String, Long>) {
         val files = kotlinx.serialization.json.JsonObject(
             sizes.mapValues { (_, size) -> kotlinx.serialization.json.JsonPrimitive(size) }
