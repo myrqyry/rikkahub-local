@@ -74,31 +74,44 @@ class ModelManagerViewModel(
             _errorMessage.value = "Invalid URL: must be https and well-formed"
             return@launch
         }
+        val fileName = ModelInstall.extractFileNameFromUrl(normalized)
+        if (!fileName.endsWith(".gguf", ignoreCase = true)) {
+            _errorMessage.value = "Stable Diffusion requires a .gguf model file"
+            return@launch
+        }
         executeDownload(normalized)
     }
 
     fun importModelFromUri(uri: Uri) = viewModelScope.launch {
+        var target: File? = null
         try {
             val displayName = withContext(Dispatchers.IO) {
                 FileUtils.getFileNameFromUri(context, uri) ?: "model_${System.currentTimeMillis()}"
             }
-            val safeName = if (displayName.endsWith(".gguf")) displayName else "$displayName.gguf"
-            val target = ModelInstall.targetFile(ModelInstall.localModelsDir(context), runtime, safeName)
+            val safeName = sanitizeGgufFileName(displayName)
+            target = ModelInstall.targetFile(ModelInstall.localModelsDir(context), runtime, safeName)
             withContext(Dispatchers.IO) {
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     target.outputStream().use { output -> input.copyTo(output) }
                 } ?: error("Cannot open selected file")
             }
             val buf = ByteArray(16)
-            target.inputStream().use { it.read(buf) }
-            if (!ModelInstall.isValidMagicForExtension("gguf", buf)) {
+            val bytesRead = target.inputStream().use { it.read(buf) }
+            if (
+                bytesRead < 4 ||
+                !ModelInstall.isValidMagicForExtension("gguf", buf.copyOf(bytesRead))
+            ) {
                 target.delete()
-                _errorMessage.value = "Invalid or corrupted model file"
+                _errorMessage.value = "Invalid or corrupted GGUF model file"
                 return@launch
             }
             prefs.addInstalledModel(runtime, safeName, target.absolutePath)
-            registerModel(safeName)
+            registerModel(safeName, target.absolutePath)
+        } catch (e: CancellationException) {
+            target?.delete()
+            throw e
         } catch (e: Exception) {
+            target?.delete()
             _errorMessage.value = e.message ?: "Import failed"
         }
     }
@@ -111,8 +124,11 @@ class ModelManagerViewModel(
             prefs.removeInstalledModel(runtime, fileName)
         }
         updateMyProvider { p ->
-            val m = p.models.firstOrNull { it.modelId == fileName }
-            if (m != null) p.delModel(m) else p
+            val sd = p as? ProviderSetting.StableDiffusion ?: return@updateMyProvider p
+            sd.copy(
+                models = sd.models.filterNot { it.modelId == fileName },
+                currentModelPath = sd.currentModelPath?.takeUnless { it == path },
+            )
         }
     }
 
@@ -140,6 +156,10 @@ class ModelManagerViewModel(
 
     private suspend fun executeDownload(url: String) {
         val fileName = ModelInstall.extractFileNameFromUrl(url)
+        if (!fileName.endsWith(".gguf", ignoreCase = true)) {
+            _errorMessage.value = "Stable Diffusion requires a .gguf model file"
+            return
+        }
         val target = ModelInstall.targetFile(ModelInstall.localModelsDir(context), runtime, fileName)
         try {
             collectDownloadProgress(url, fileName, target)
@@ -169,7 +189,7 @@ class ModelManagerViewModel(
                 is ModelInstall.Progress.Done -> {
                     _downloadProgress.value = null
                     prefs.addInstalledModel(runtime, fileName, p.file.absolutePath)
-                    registerModel(fileName)
+                    registerModel(fileName, p.file.absolutePath)
                 }
                 is ModelInstall.Progress.Failed -> {
                     _downloadProgress.value = null
@@ -179,7 +199,7 @@ class ModelManagerViewModel(
         }
     }
 
-    private suspend fun registerModel(fileName: String) {
+    private suspend fun registerModel(fileName: String, absolutePath: String? = null) {
         val model = Model(
             modelId = fileName,
             displayName = fileName,
@@ -187,7 +207,30 @@ class ModelManagerViewModel(
             inputModalities = listOf(Modality.TEXT),
             outputModalities = listOf(Modality.IMAGE),
         )
-        updateMyProvider { it.addModel(model) }
+        updateMyProvider { p ->
+            val sd = p as? ProviderSetting.StableDiffusion ?: return@updateMyProvider p
+            val models = if (sd.models.any { it.modelId == fileName }) {
+                sd.models.map { existing ->
+                    if (existing.modelId == fileName) {
+                        model.copy(id = existing.id, displayName = existing.displayName)
+                    } else {
+                        existing
+                    }
+                }
+            } else {
+                sd.models + model
+            }
+            sd.copy(
+                enabled = true,
+                models = models,
+                // Legacy compatibility only. StableDiffusionProvider now resolves params.model
+                // through LocalRuntimePreferences, but keeping a valid path here helps old state
+                // survive app upgrades until currentModelPath can be removed entirely.
+                currentModelPath = sd.currentModelPath
+                    ?.takeIf { File(it).isFile }
+                    ?: absolutePath,
+            )
+        }
     }
 
     private suspend fun refreshFromDisk() {
@@ -198,8 +241,9 @@ class ModelManagerViewModel(
                 true
             } else {
                 val buf = ByteArray(16)
-                f.inputStream().use { it.read(buf) }
-                !ModelInstall.isValidMagicForExtension("gguf", buf)
+                val bytesRead = f.inputStream().use { it.read(buf) }
+                bytesRead < 4 ||
+                    !ModelInstall.isValidMagicForExtension("gguf", buf.copyOf(bytesRead.coerceAtLeast(0)))
             }
         }
         if (broken.isNotEmpty()) {
@@ -207,17 +251,37 @@ class ModelManagerViewModel(
                 File(path).delete()
                 prefs.removeInstalledModel(runtime, fileName)
                 updateMyProvider { p ->
-                    val m = p.models.firstOrNull { it.modelId == fileName }
-                    if (m != null) p.delModel(m) else p
+                    val sd = p as? ProviderSetting.StableDiffusion ?: return@updateMyProvider p
+                    sd.copy(
+                        models = sd.models.filterNot { it.modelId == fileName },
+                        currentModelPath = sd.currentModelPath?.takeUnless { it == path },
+                    )
                 }
             }
             _errorMessage.value = "Removed ${broken.size} broken model file(s)"
-        } else {
-            installed.keys.forEach { fileName ->
-                if (provider.value?.models?.none { it.modelId == fileName } != false) {
-                    registerModel(fileName)
-                }
+        }
+
+        val currentModels = settingsStore.settingsFlow.value.providers
+            .firstOrNull { it.id == STABLE_DIFFUSION_PROVIDER_ID }
+            ?.models
+            .orEmpty()
+            .map { it.modelId }
+            .toSet()
+        installed.forEach { (fileName, path) ->
+            if (fileName !in broken && fileName !in currentModels) {
+                registerModel(fileName, path)
             }
         }
+    }
+
+    private fun sanitizeGgufFileName(displayName: String): String {
+        val leaf = displayName
+            .substringAfterLast('/')
+            .substringAfterLast('\\')
+            .trim()
+            .replace(Regex("[^A-Za-z0-9._ ()+\\-]"), "_")
+            .trim('.')
+            .ifBlank { "model_${System.currentTimeMillis()}" }
+        return if (leaf.endsWith(".gguf", ignoreCase = true)) leaf else "$leaf.gguf"
     }
 }
