@@ -1992,4 +1992,15 @@
   <string name="setting_rag_index_status">Index status</string>
   <string name="setting_rag_index_needs_rebuilding">Index needs rebuilding</string>
   <string name="setting_rag_index_status_ready">Ready</string>
+  <string name="setting_home_group_experience">"Experience"</string>
+  <string name="setting_home_group_knowledge_tools">"Knowledge &amp; Tools"</string>
+  <string name="setting_home_group_automation_device">"Automation &amp; Device"</string>
+  <string name="setting_home_group_privacy_safety">"Privacy &amp; Safety"</string>
+  <string name="setting_home_group_data_maintenance">"Data &amp; Maintenance"</string>
+  <string name="setting_page_appearance">"Appearance"</string>
+  <string name="setting_page_appearance_desc">"Theme, color mode, dynamic color"</string>
+  <string name="setting_page_response_notifications">"Response notifications"</string>
+  <string name="setting_page_response_notifications_desc">"Notifications for completed/generated responses"</string>
+  <string name="setting_page_notification_access">"Notification access"</string>
+  <string name="setting_page_notification_access_desc">"Read device notifications for tools, workflows and routing"</string>
 </resources>

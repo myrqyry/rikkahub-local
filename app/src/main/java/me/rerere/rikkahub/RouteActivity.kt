@@ -782,9 +782,6 @@ sealed interface Screen : NavKey {
     data object SettingTheme : Screen
 
     @Serializable
-    data object SettingPreferences : Screen
-
-    @Serializable
     data object SettingPreferencesTheme : Screen
 
     @Serializable

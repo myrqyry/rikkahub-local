@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -19,10 +18,8 @@ import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -30,13 +27,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -58,12 +53,10 @@ import me.rerere.hugeicons.stroke.Earth
 import me.rerere.hugeicons.stroke.Folder01
 import me.rerere.hugeicons.stroke.GlobalSearch
 import me.rerere.hugeicons.stroke.Image02
-import me.rerere.hugeicons.stroke.Link02
 import me.rerere.hugeicons.stroke.LookTop
 import me.rerere.hugeicons.stroke.McpServer
 import me.rerere.hugeicons.stroke.Megaphone01
 import me.rerere.hugeicons.stroke.MessageNotification01
-import me.rerere.hugeicons.stroke.Moon01
 import me.rerere.hugeicons.stroke.Package
 import me.rerere.hugeicons.stroke.ServerStack01
 import me.rerere.hugeicons.stroke.Settings03
@@ -80,14 +73,9 @@ import me.rerere.rikkahub.data.datastore.isNotConfigured
 import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.CardGroup
-import me.rerere.rikkahub.ui.components.ui.Select
-import me.rerere.rikkahub.ui.components.ui.icons.TencentQQIcon
 import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.context.Navigator
-import me.rerere.rikkahub.ui.hooks.rememberColorMode
-import me.rerere.rikkahub.ui.theme.ColorMode
 import me.rerere.rikkahub.ui.theme.CustomColors
-import me.rerere.rikkahub.utils.joinQQGroup
 import me.rerere.rikkahub.utils.plus
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -118,9 +106,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
     val storageState by produceState(-1 to 0L, filesManager) {
         value = filesManager.countChatFiles()
     }
-
     var searchQuery by rememberSaveable { mutableStateOf("") }
-    var colorMode by rememberColorMode()
 
     if (settings.launchCount > 100 && (settings.launchCount - settings.sponsorAlertDismissedAt) >= 50) {
         AlertDialog(
@@ -148,16 +134,11 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
         )
     }
 
-    val selectedColorModeText = when (colorMode) {
-        ColorMode.SYSTEM -> stringResource(R.string.setting_page_color_mode_system)
-        ColorMode.LIGHT -> stringResource(R.string.setting_page_color_mode_light)
-        ColorMode.DARK -> stringResource(R.string.setting_page_color_mode_dark)
-    }
     val sections = listOf(
         SettingsHomeSection(
             id = "aiModels",
             title = stringResource(R.string.setting_home_group_ai_models),
-            keywords = listOf("ai", "model", "local", "provider", "assistant", "image"),
+            keywords = listOf("ai", "model", "provider", "assistant", "prompt"),
             items = listOf(
                 SettingsHomeItem(
                     id = "providers",
@@ -202,9 +183,9 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
             ),
         ),
         SettingsHomeSection(
-            id = "chatVoice",
-            title = stringResource(R.string.setting_home_group_chat_voice),
-            keywords = listOf("chat", "voice", "message", "input", "speech"),
+            id = "experience",
+            title = stringResource(R.string.setting_home_group_experience),
+            keywords = listOf("chat", "voice", "message", "input", "speech", "appearance", "theme", "color"),
             items = listOf(
                 SettingsHomeItem(
                     id = "chatBehavior",
@@ -223,6 +204,14 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     onClick = { navController.navigate(Screen.SettingPreferencesUI) },
                 ),
                 SettingsHomeItem(
+                    id = "appearance",
+                    title = stringResource(R.string.setting_page_appearance),
+                    description = stringResource(R.string.setting_page_appearance_desc),
+                    icon = HugeIcons.Image02,
+                    keywords = listOf("theme", "color mode", "dark mode", "light mode", "dynamic color", "amoled", "palette"),
+                    onClick = { navController.navigate(Screen.SettingPreferencesTheme) },
+                ),
+                SettingsHomeItem(
                     id = "speech",
                     title = stringResource(R.string.setting_page_tts_service),
                     description = stringResource(R.string.setting_page_tts_service_desc),
@@ -231,9 +220,9 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     onClick = { navController.navigate(Screen.SettingSpeech) },
                 ),
                 SettingsHomeItem(
-                    id = "chatNotifications",
-                    title = stringResource(R.string.setting_page_preferences_notification),
-                    description = stringResource(R.string.setting_page_preferences_notification_desc),
+                    id = "responseNotifications",
+                    title = stringResource(R.string.setting_page_response_notifications),
+                    description = stringResource(R.string.setting_page_response_notifications_desc),
                     icon = HugeIcons.MessageNotification01,
                     keywords = listOf("conversation", "response", "message alert"),
                     onClick = { navController.navigate(Screen.SettingPreferencesNotification) },
@@ -241,68 +230,9 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
             ),
         ),
         SettingsHomeSection(
-            id = "appearance",
-            title = stringResource(R.string.setting_home_group_appearance),
-            keywords = listOf("theme", "color", "dark", "light", "display"),
-            items = listOf(
-                SettingsHomeItem(
-                    id = "theme",
-                    title = stringResource(R.string.setting_page_preferences_theme),
-                    description = stringResource(R.string.setting_page_preferences_theme_desc),
-                    icon = HugeIcons.Image02,
-                    keywords = listOf("palette", "custom theme"),
-                    onClick = { navController.navigate(Screen.SettingPreferencesTheme) },
-                ),
-                SettingsHomeItem(
-                    id = "colorMode",
-                    title = stringResource(R.string.setting_page_color_mode),
-                    description = selectedColorModeText,
-                    icon = HugeIcons.Moon01,
-                    keywords = listOf("system", "dark mode", "light mode"),
-                    trailingContent = {
-                        Select(
-                            options = ColorMode.entries,
-                            selectedOption = colorMode,
-                            onOptionSelected = {
-                                colorMode = it
-                                navController.navigate(Screen.Setting) {
-                                    popUpTo(Screen.Setting) {
-                                        inclusive = true
-                                    }
-                                }
-                            },
-                            optionToString = {
-                                when (it) {
-                                    ColorMode.SYSTEM -> stringResource(R.string.setting_page_color_mode_system)
-                                    ColorMode.LIGHT -> stringResource(R.string.setting_page_color_mode_light)
-                                    ColorMode.DARK -> stringResource(R.string.setting_page_color_mode_dark)
-                                }
-                            },
-                            modifier = Modifier.width(140.dp),
-                        )
-                    },
-                ),
-                SettingsHomeItem(
-                    id = "dynamicColor",
-                    title = stringResource(R.string.setting_page_dynamic_color),
-                    description = stringResource(R.string.setting_page_dynamic_color_desc),
-                    icon = HugeIcons.AiMagic,
-                    keywords = listOf("material you", "wallpaper", "accent"),
-                    trailingContent = {
-                        Switch(
-                            checked = settings.dynamicColor,
-                            onCheckedChange = {
-                                vm.updateSettings(settings.copy(dynamicColor = it))
-                            },
-                        )
-                    },
-                ),
-            ),
-        ),
-        SettingsHomeSection(
-            id = "searchKnowledge",
-            title = stringResource(R.string.setting_home_group_tools_knowledge),
-            keywords = listOf("knowledge", "search", "rag", "retrieval", "browser"),
+            id = "knowledgeTools",
+            title = stringResource(R.string.setting_home_group_knowledge_tools),
+            keywords = listOf("knowledge", "search", "rag", "retrieval", "browser", "tools", "skills", "plugins", "mcp", "workspace", "project", "folder"),
             items = listOf(
                 SettingsHomeItem(
                     id = "search",
@@ -328,13 +258,6 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     keywords = listOf("webview", "headless", "website", "internet"),
                     onClick = { navController.navigate(Screen.SettingBrowser) },
                 ),
-            ),
-        ),
-        SettingsHomeSection(
-            id = "tools",
-            title = stringResource(R.string.setting_home_group_tools),
-            keywords = listOf("tools", "skills", "plugins", "mcp", "termux", "workspace", "project", "folder"),
-            items = listOf(
                 SettingsHomeItem(
                     id = "skills",
                     title = stringResource(R.string.setting_home_skills_page),
@@ -367,20 +290,12 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     keywords = listOf("workspace", "project", "folder", "drive", "portable"),
                     onClick = { navController.navigate(Screen.Workspaces) },
                 ),
-                SettingsHomeItem(
-                    id = "termux",
-                    title = stringResource(R.string.setting_page_termux),
-                    description = stringResource(R.string.setting_page_termux_desc),
-                    icon = HugeIcons.Console,
-                    keywords = listOf("shell", "terminal", "command", "android"),
-                    onClick = { navController.navigate(Screen.SettingTermux) },
-                ),
             ),
         ),
         SettingsHomeSection(
-            id = "automationConnections",
-            title = stringResource(R.string.setting_home_group_automation_connections),
-            keywords = listOf("automation", "workflow", "schedule", "server", "telegram"),
+            id = "automation",
+            title = stringResource(R.string.setting_home_group_automation_device),
+            keywords = listOf("automation", "workflow", "schedule", "server", "telegram", "notification", "accessibility", "shell", "terminal"),
             items = listOf(
                 SettingsHomeItem(
                     id = "webServer",
@@ -414,72 +329,86 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     keywords = listOf("bot", "messaging", "remote"),
                     onClick = { navController.navigate(Screen.SettingTelegram) },
                 ),
+                SettingsHomeItem(
+                    id = "notificationAccess",
+                    title = stringResource(R.string.setting_page_notification_access),
+                    description = stringResource(R.string.setting_page_notification_access_desc),
+                    icon = HugeIcons.Alert01,
+                    keywords = listOf("android notification", "channel", "system"),
+                    onClick = { navController.navigate(Screen.SettingNotifications) },
+                ),
+                SettingsHomeItem(
+                    id = "accessibility",
+                    title = stringResource(R.string.setting_page_accessibility),
+                    description = stringResource(R.string.setting_page_accessibility_desc),
+                    icon = HugeIcons.SmartPhone01,
+                    keywords = listOf("android", "service", "device control", "automation"),
+                    onClick = { navController.navigate(Screen.SettingAccessibility) },
+                ),
+                SettingsHomeItem(
+                    id = "termux",
+                    title = stringResource(R.string.setting_page_termux),
+                    description = stringResource(R.string.setting_page_termux_desc),
+                    icon = HugeIcons.Console,
+                    keywords = listOf("shell", "terminal", "command", "android"),
+                    onClick = { navController.navigate(Screen.SettingTermux) },
+                ),
             ),
         ),
         SettingsHomeSection(
-            id = "dataStorage",
-            title = stringResource(R.string.setting_home_group_data_storage),
-            keywords = listOf("data", "storage", "backup", "files", "export", "restore"),
+            id = "privacySafety",
+            title = stringResource(R.string.setting_home_group_privacy_safety),
+            keywords = listOf("safety", "privacy", "permission", "approval", "trust", "security"),
             items = listOf(
                 SettingsHomeItem(
-                    id = "backup",
-                    title = stringResource(R.string.setting_page_data_backup),
-                    description = stringResource(R.string.setting_page_data_backup_desc),
-                    icon = HugeIcons.Download01,
-                    keywords = listOf("restore", "export", "import", "sync"),
-                    onClick = { navController.navigate(Screen.Backup) },
+                    id = "permissions",
+                    title = stringResource(R.string.setting_page_permissions),
+                    description = stringResource(R.string.setting_page_permissions_desc),
+                    icon = HugeIcons.Shield01,
+                    keywords = listOf("privacy", "android permission", "access"),
+                    onClick = { navController.navigate(Screen.SettingPermissions) },
                 ),
                 SettingsHomeItem(
-                    id = "chatStorage",
-                    title = stringResource(R.string.setting_page_chat_storage),
-                    description = if (storageState.first == -1) {
-                        stringResource(R.string.calculating)
-                    } else {
-                        stringResource(
-                            R.string.setting_page_chat_storage_desc,
-                            storageState.first,
-                            storageState.second / 1024 / 1024.0,
-                        )
-                    },
-                    icon = HugeIcons.Folder01,
-                    keywords = listOf("attachments", "cache", "cleanup", "disk"),
-                    onClick = { navController.navigate(Screen.SettingFiles) },
+                    id = "toolApprovals",
+                    title = stringResource(R.string.setting_page_tool_approvals),
+                    description = stringResource(R.string.setting_page_tool_approvals_desc),
+                    icon = HugeIcons.Tick01,
+                    keywords = listOf("approval", "trust", "tool execution", "security"),
+                    onClick = { navController.navigate(Screen.SettingToolApprovals) },
                 ),
             ),
         ),
         SettingsHomeSection(
-            id = "safetyDiagnostics",
-            title = stringResource(R.string.setting_home_group_safety_diagnostics),
-            keywords = listOf("safety", "privacy", "permission", "diagnostic", "log", "doctor"),
+            id = "dataMaintenance",
+            title = stringResource(R.string.setting_home_group_data_maintenance),
+            keywords = listOf("data", "storage", "backup", "files", "export", "restore", "log", "doctor", "developer", "about"),
             items = buildList {
                 add(
                     SettingsHomeItem(
-                        id = "permissions",
-                        title = stringResource(R.string.setting_page_permissions),
-                        description = stringResource(R.string.setting_page_permissions_desc),
-                        icon = HugeIcons.Shield01,
-                        keywords = listOf("privacy", "android permission", "access"),
-                        onClick = { navController.navigate(Screen.SettingPermissions) },
+                        id = "backup",
+                        title = stringResource(R.string.setting_page_data_backup),
+                        description = stringResource(R.string.setting_page_data_backup_desc),
+                        icon = HugeIcons.Download01,
+                        keywords = listOf("restore", "export", "import", "sync"),
+                        onClick = { navController.navigate(Screen.Backup) },
                     )
                 )
                 add(
                     SettingsHomeItem(
-                        id = "systemNotifications",
-                        title = stringResource(R.string.setting_page_notifications),
-                        description = stringResource(R.string.setting_page_notifications_desc),
-                        icon = HugeIcons.Alert01,
-                        keywords = listOf("android notification", "channel", "system"),
-                        onClick = { navController.navigate(Screen.SettingNotifications) },
-                    )
-                )
-                add(
-                    SettingsHomeItem(
-                        id = "toolApprovals",
-                        title = stringResource(R.string.setting_page_tool_approvals),
-                        description = stringResource(R.string.setting_page_tool_approvals_desc),
-                        icon = HugeIcons.Tick01,
-                        keywords = listOf("approval", "trust", "tool execution", "security"),
-                        onClick = { navController.navigate(Screen.SettingToolApprovals) },
+                        id = "chatStorage",
+                        title = stringResource(R.string.setting_page_chat_storage),
+                        description = if (storageState.first == -1) {
+                            stringResource(R.string.calculating)
+                        } else {
+                            stringResource(
+                                R.string.setting_page_chat_storage_desc,
+                                storageState.first,
+                                storageState.second / 1024 / 1024.0,
+                            )
+                        },
+                        icon = HugeIcons.Folder01,
+                        keywords = listOf("attachments", "cache", "cleanup", "disk"),
+                        onClick = { navController.navigate(Screen.SettingFiles) },
                     )
                 )
                 add(
@@ -502,16 +431,6 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         onClick = { navController.navigate(Screen.SettingDoctor) },
                     )
                 )
-                add(
-                    SettingsHomeItem(
-                        id = "accessibility",
-                        title = stringResource(R.string.setting_page_accessibility),
-                        description = stringResource(R.string.setting_page_accessibility_desc),
-                        icon = HugeIcons.SmartPhone01,
-                        keywords = listOf("android", "service", "device control", "automation"),
-                        onClick = { navController.navigate(Screen.SettingAccessibility) },
-                    )
-                )
                 if (settings.developerMode) {
                     add(
                         SettingsHomeItem(
@@ -524,19 +443,28 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         )
                     )
                 }
+                add(
+                    SettingsHomeItem(
+                        id = "about",
+                        title = stringResource(R.string.setting_page_about),
+                        description = stringResource(R.string.setting_page_about_desc),
+                        icon = HugeIcons.WavingHand01,
+                        keywords = listOf("version", "info", "credits", "help"),
+                        onClick = { navController.navigate(Screen.SettingAbout) },
+                    )
+                )
             },
         ),
     )
-
     val filteredSections = filterSettingsSections(sections, searchQuery)
 
     Scaffold(
         topBar = {
             LargeFlexibleTopAppBar(
-                title = { Text(text = stringResource(R.string.settings)) },
+                title = { Text(stringResource(R.string.settings)) },
                 navigationIcon = { BackButton() },
                 scrollBehavior = scrollBehavior,
-                colors = CustomColors.topBarColors,
+                colors = CustomColors.topBarColors
             )
         },
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -545,7 +473,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = innerPadding + PaddingValues(8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item("settingsSearch") {
                 SettingsSearchField(
@@ -583,21 +511,25 @@ private fun SettingsSearchField(
     OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp),
         placeholder = { Text(stringResource(R.string.setting_home_search_placeholder)) },
-        leadingIcon = { Icon(HugeIcons.GlobalSearch, null) },
-        trailingIcon = if (query.isNotBlank()) {
-            {
+        leadingIcon = {
+            Icon(
+                HugeIcons.GlobalSearch,
+                contentDescription = null,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
                 TextButton(onClick = { onQueryChange("") }) {
                     Text(stringResource(R.string.setting_home_clear_search))
                 }
             }
-        } else {
-            null
         },
         singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp),
     )
 }
 
@@ -607,13 +539,19 @@ private fun SettingsSectionCard(section: SettingsHomeSection) {
         modifier = Modifier.padding(horizontal = 8.dp),
         title = { Text(section.title) },
     ) {
-        section.items.forEach { entry ->
+        section.items.forEach { item ->
             item(
-                onClick = entry.onClick,
-                leadingContent = { Icon(entry.icon, null) },
-                supportingContent = { Text(entry.description) },
-                trailingContent = entry.trailingContent,
-                headlineContent = { Text(entry.title) },
+                onClick = item.onClick,
+                leadingContent = {
+                    Icon(
+                        item.icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                },
+                supportingContent = { Text(item.description) },
+                trailingContent = item.trailingContent,
+                headlineContent = { Text(item.title) },
             )
         }
     }
@@ -622,7 +560,9 @@ private fun SettingsSectionCard(section: SettingsHomeSection) {
 @Composable
 private fun SettingsNoResultsCard() {
     Card(
-        modifier = Modifier.padding(horizontal = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
@@ -630,8 +570,9 @@ private fun SettingsNoResultsCard() {
         ListItem(
             headlineContent = { Text(stringResource(R.string.setting_home_no_results)) },
             supportingContent = { Text(stringResource(R.string.setting_home_no_results_desc)) },
-            leadingContent = { Icon(HugeIcons.GlobalSearch, null) },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            colors = ListItemDefaults.colors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            ),
         )
     }
 }
@@ -651,7 +592,8 @@ internal fun filterSettingsSections(
         } else {
             section.items.filter { it.matches(normalizedQuery) }
         }
-        if (matchingItems.isEmpty()) null else section.copy(items = matchingItems)
+        if (matchingItems.isEmpty()) null
+        else section.copy(items = matchingItems)
     }
 }
 
@@ -664,86 +606,35 @@ internal fun SettingsHomeItem.matches(query: String): Boolean {
 @Composable
 private fun ProviderConfigWarningCard(navController: Navigator) {
     Card(
-        modifier = Modifier.padding(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.errorContainer,
         ),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            ListItem(
-                headlineContent = {
-                    Text(stringResource(R.string.setting_page_config_api_title))
-                },
-                supportingContent = {
-                    Text(stringResource(R.string.setting_page_config_api_desc))
-                },
-                leadingContent = {
-                    Icon(HugeIcons.Alert01, null)
-                },
-                colors = ListItemDefaults.colors(
-                    containerColor = Color.Transparent,
-                ),
+            Text(
+                text = stringResource(R.string.setting_page_config_api_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
             )
-
+            Text(
+                text = stringResource(R.string.setting_page_config_api_desc),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
             Button(
-                onClick = {
-                    navController.navigate(Screen.SettingProvider)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                onClick = { navController.navigate(Screen.SettingProvider) },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError,
                 ),
             ) {
-                Icon(HugeIcons.Brain02, null, modifier = Modifier.padding(end = 8.dp))
                 Text(stringResource(R.string.setting_page_config))
-            }
-        }
-    }
-}
-
-private data class QQGroup(
-    val name: String,
-    val key: String,
-)
-
-private val QQ_GROUPS = listOf(
-    QQGroup("RikkaHub 一群", "4POE46u9e_zoy1TkNfWdCvueR9CKFJdk"),
-    QQGroup("RikkaHub 二群", "Qsm0whzbPsm1UyNpR683ulLyMZ2Pqrw0"),
-    QQGroup("RikkaHub 三群", "Qc9oP-9tXioZeQEvEvI2_owWtBAIx3lS"),
-)
-
-@Composable
-private fun QQGroupBottomSheet(onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            QQ_GROUPS.forEach { group ->
-                ListItem(
-                    headlineContent = { Text(group.name) },
-                    leadingContent = {
-                        Icon(
-                            imageVector = TencentQQIcon,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.secondary,
-                        )
-                    },
-                    modifier = Modifier.clickable {
-                        context.joinQQGroup(group.key)
-                        onDismiss()
-                    },
-                )
             }
         }
     }

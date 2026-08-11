@@ -82,12 +82,13 @@ fun SettingNotificationsPage() {
     val cfg by listenerPrefs.flow.collectAsStateWithLifecycle(initialValue = NotificationListenerConfig())
     val tg by telegramPrefs.flow.collectAsStateWithLifecycle(initialValue = TelegramBotConfig())
 
-    // Live service handle: collected via StateFlow when the service is bound; falls back to
-    // empty defaults otherwise. Recompositions key off the listener's bound flag.
-    val svc = remember { RikkaNotificationListenerService.instance }
-    val boundFlow: StateFlow<Boolean> = svc?.bound ?: remember { MutableStateFlow(false) }
+    // Live service handle: collected from the process-level instance flow so the page picks
+    // up a service that connects while this composition is alive (e.g. after the user
+    // enables notification access in Android settings). Recompositions key off the flow.
+    val svc by RikkaNotificationListenerService.instanceFlow.collectAsStateWithLifecycle()
+    val boundFlow: StateFlow<Boolean> = remember(svc) { svc?.bound ?: MutableStateFlow(false) }
     val bound by boundFlow.collectAsStateWithLifecycle()
-    val recentFlow: StateFlow<List<NotificationEntry>> = svc?.recent ?: remember { MutableStateFlow(emptyList()) }
+    val recentFlow: StateFlow<List<NotificationEntry>> = remember(svc) { svc?.recent ?: MutableStateFlow(emptyList()) }
     val recent by recentFlow.collectAsStateWithLifecycle()
 
     var pickerOpen by remember { mutableStateOf(false) }
