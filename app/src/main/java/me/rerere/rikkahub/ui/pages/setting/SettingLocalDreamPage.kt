@@ -356,7 +356,7 @@ fun SettingLocalDreamPage() {
                                                 }
                                             }
                                             when (state) {
-                                                 is LocalDreamModelDownloader.Progress.Started -> { Spacer(Modifier.height(4.dp)); Text(stringResource(R.string.setting_local_dream_starting), style = MaterialTheme.typography.bodySmall) }
+                                                is LocalDreamModelDownloader.Progress.Started -> { Spacer(Modifier.height(4.dp)); Text(stringResource(R.string.setting_local_dream_starting), style = MaterialTheme.typography.bodySmall) }
                                                 is LocalDreamModelDownloader.Progress.Downloading -> {
                                                     Spacer(Modifier.height(4.dp))
                                                     LinearProgressIndicator(progress = { state.percent / 100f }, modifier = Modifier.fillMaxWidth())
