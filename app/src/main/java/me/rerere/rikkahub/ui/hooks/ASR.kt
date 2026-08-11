@@ -82,6 +82,8 @@ private class CustomAsrStateImpl(
         get() = controller?.state ?: idleState
 
     fun updateProvider(provider: ASRProviderSetting?) {
+        controller?.stop()
+        audioManager.abandonAudioFocusRequest(audioFocusRequest)
         controller?.dispose()
         controller = provider?.let { createController(it) }
         if (controller == null) {
