@@ -17,6 +17,7 @@ local.properties
 /.claude/
 /.superpowers/
 /docs/superpowers/
+SESSION-STATE.md
 **/CLAUDE.md
 
 # Sibling clones of upstream projects used as references during development

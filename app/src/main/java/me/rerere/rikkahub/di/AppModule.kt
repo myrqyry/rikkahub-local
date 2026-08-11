@@ -266,8 +266,8 @@ val appModule = module {
             keyboardApiClient = get(),
             imageTools = get(),
             androidShareService = get(),
-            reranker = get(),
-            embedder = get(),
+            reranker = { getOrNull<me.rerere.reranker.QwenReranker>() },
+            embedder = { getOrNull<me.rerere.reranker.QwenEmbedder>() },
         )
     }
 

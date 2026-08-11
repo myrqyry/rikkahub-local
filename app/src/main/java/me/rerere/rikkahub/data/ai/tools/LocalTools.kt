@@ -387,8 +387,8 @@ class LocalTools(
     private val imageTools: ImageTools,
     // Outbound share service — backs the share tool (text / url / artifact_ref).
     private val androidShareService: me.rerere.rikkahub.data.share.AndroidShareService,
-    private val reranker: QwenReranker?,
-    private val embedder: QwenEmbedder?,
+    private val reranker: () -> QwenReranker?,
+    private val embedder: () -> QwenEmbedder?,
 ) {
     val javascriptTool by lazy {
         Tool(
@@ -1070,11 +1070,11 @@ class LocalTools(
             tools.add(keyboardSelectRangeTool(keyboardApiClient))
         }
         if (options.contains(LocalToolOption.Reranker)) {
-            tools.add(rerankTool(reranker))
+            tools.add(rerankTool(reranker()))
         }
         if (options.contains(LocalToolOption.Embedder)) {
-            tools.add(embedTextTool(embedder))
-            tools.add(compareTextsTool(embedder))
+            tools.add(embedTextTool(embedder()))
+            tools.add(compareTextsTool(embedder()))
         }
         // Chat multimodal tools are core capabilities — always registered regardless of which
         // LocalToolOption categories the assistant has enabled. Every getTools() caller (chat
