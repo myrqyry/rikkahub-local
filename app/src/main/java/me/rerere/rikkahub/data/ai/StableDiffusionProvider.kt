@@ -1,5 +1,6 @@
 package me.rerere.rikkahub.data.ai
 
+import android.app.ActivityManager
 import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.res.Configuration
@@ -56,6 +57,13 @@ class StableDiffusionProvider(
         })
     }
 
+    /** Best-effort total physical RAM in bytes; 0 when unavailable (policy then skips the check). */
+    private fun deviceTotalRamBytes(): Long = runCatching {
+        val memInfo = ActivityManager.MemoryInfo()
+        (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.getMemoryInfo(memInfo)
+        memInfo.totalMem
+    }.getOrDefault(0L)
+
     override suspend fun listModels(providerSetting: ProviderSetting.StableDiffusion): List<Model> {
         return providerSetting.models
     }
@@ -103,6 +111,16 @@ class StableDiffusionProvider(
             height = effective.height,
             steps = effective.steps,
             cfg = effective.cfgScale,
+        )?.let { throw IllegalStateException(it) }
+
+        // Memory policy: refuse clearly-dangerous model-size + resolution combinations BEFORE
+        // paying for a multi-GB context init. The warm session is already released on
+        // TRIM_MEMORY_RUNNING_CRITICAL / onLowMemory via the ComponentCallbacks2 above.
+        sdMemoryPolicyViolation(
+            modelSizeBytes = File(modelPath).length(),
+            width = effective.width,
+            height = effective.height,
+            deviceRamBytes = deviceTotalRamBytes(),
         )?.let { throw IllegalStateException(it) }
 
         var initialized = false
@@ -310,6 +328,36 @@ internal fun resolveEffectiveGenerationParams(
         steps = if (providerSetting.steps == factory.steps) profile.defaultSteps else providerSetting.steps,
         cfgScale = if (providerSetting.cfgScale == factory.cfgScale) profile.defaultCfgScale else providerSetting.cfgScale,
     )
+}
+
+/** Conservative per-pixel buffer estimate (output RGBA + working latents) used by the memory policy. */
+internal const val SD_MEMORY_BYTES_PER_PIXEL = 4L
+
+/**
+ * Memory policy (roadmap #4). Returns a refusal message when a model-size + resolution
+ * combination would clearly exceed the device's physical RAM, or null when it is safe to
+ * proceed. Uses the on-disk model size (mmap keeps most pages lazily loaded, but the sampling
+ * working set is comparable) plus a per-pixel buffer estimate. The check is intentionally
+ * conservative: refusing a combo here is far cheaper than OOM-killing a 2 GB context mid-sampling.
+ */
+internal fun sdMemoryPolicyViolation(
+    modelSizeBytes: Long,
+    width: Int,
+    height: Int,
+    deviceRamBytes: Long,
+): String? {
+    if (modelSizeBytes <= 0L || width <= 0 || height <= 0 || deviceRamBytes <= 0L) return null
+    val estimatedBytes = modelSizeBytes + width.toLong() * height.toLong() * SD_MEMORY_BYTES_PER_PIXEL
+    if (estimatedBytes <= deviceRamBytes) return null
+    return "This image model (${formatMemorySize(modelSizeBytes)}) at ${width}x$height needs roughly " +
+        "${formatMemorySize(estimatedBytes)} of memory, more than the device's " +
+        "${formatMemorySize(deviceRamBytes)}. Use a smaller model or image size."
+}
+
+/** Renders a byte count as "N MB" or "N.NN GB" for policy messages. */
+internal fun formatMemorySize(bytes: Long): String {
+    val mb = bytes / (1024L * 1024L)
+    return if (mb >= 1024L) String.format("%.2f GB", mb / 1024.0) else "$mb MB"
 }
 
 // bridge.cpp guarantees exactly width*height*4 RGBA bytes regardless of the channel count

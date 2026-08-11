@@ -117,4 +117,42 @@ class StableDiffusionProviderTest {
         assertEquals(1024, sdxl.generationProfile!!.defaultHeight)
         assertNull(SdCatalog.findByModelFile("unknown.gguf"))
     }
+
+    @Test
+    fun `memory policy skips unknown or nonpositive inputs`() {
+        assertNull(sdMemoryPolicyViolation(0L, 512, 512, 8L * 1024 * 1024 * 1024))
+        assertNull(sdMemoryPolicyViolation(2_000_000_000L, 0, 512, 8L * 1024 * 1024 * 1024))
+        assertNull(sdMemoryPolicyViolation(2_000_000_000L, 512, 512, 0L))
+    }
+
+    @Test
+    fun `memory policy allows fits-and-boundary`() {
+        val deviceRam = 8L * 1024 * 1024 * 1024
+        assertNull(sdMemoryPolicyViolation(2_000_000_000L, 512, 512, deviceRam))
+        assertNull(sdMemoryPolicyViolation(8L * 1024 * 1024 * 1024, 1, 1, 8L * 1024 * 1024 * 1024 + 1024))
+    }
+
+    @Test
+    fun `memory policy refuses model larger than ram`() {
+        val message = sdMemoryPolicyViolation(12L * 1024 * 1024 * 1024, 512, 512, 8L * 1024 * 1024 * 1024)
+        assertTrue(message != null)
+        assertTrue(message!!.contains("Use a smaller model or image size"))
+    }
+
+    @Test
+    fun `memory policy refuses model plus buffers exceeding ram`() {
+        val deviceRam = 4L * 1024 * 1024 * 1024
+        val model = 4L * 1024 * 1024 * 1024 - 1
+        val message = sdMemoryPolicyViolation(model, 1024, 1024, deviceRam)
+        assertTrue(message != null)
+        assertTrue(message!!.contains("needs roughly"))
+    }
+
+    @Test
+    fun `format memory size renders mb and gb`() {
+        assertEquals("0 MB", formatMemorySize(0L))
+        assertEquals("1 MB", formatMemorySize(1024L * 1024))
+        assertEquals("1.00 GB", formatMemorySize(1024L * 1024 * 1024))
+        assertEquals("2.16 GB", formatMemorySize(2_320_000_000L))
+    }
 }
