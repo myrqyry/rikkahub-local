@@ -13,6 +13,7 @@ import me.rerere.rikkahub.data.rag.ProviderEmbeddingBackend
 import me.rerere.rikkahub.data.rag.QwenEmbeddingBackend
 import me.rerere.rikkahub.data.rag.RagEmbeddingSource
 import me.rerere.rikkahub.data.rag.resolveRagEmbeddingSource
+import me.rerere.reranker.QwenEngineRegistry
 import me.rerere.rikkahub.data.repository.ConversationRepository
 import me.rerere.rikkahub.data.repository.FavoriteRepository
 import me.rerere.rikkahub.data.repository.FolderRepository
@@ -112,6 +113,9 @@ val repositoryModule = module {
             },
             vectorDao = get(),
             json = get(),
+            rerankerProvider = {
+                QwenEngineRegistry.reranker(File(context.filesDir, "models/reranker"))
+            },
         )
     }
 }

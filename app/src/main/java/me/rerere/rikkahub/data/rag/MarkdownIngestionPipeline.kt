@@ -74,6 +74,7 @@ class MarkdownIngestionPipeline(
                     put("docId", docId)
                     put("chunkId", chunk.id)
                     put("position", chunk.position)
+                    put("text", chunk.text)
                     put("headingPath", json.encodeToString(chunk.headingPath))
                     put("sourceMetadata", json.encodeToString(metadata))
                 }
