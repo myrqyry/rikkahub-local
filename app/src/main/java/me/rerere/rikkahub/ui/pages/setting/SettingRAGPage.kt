@@ -56,7 +56,7 @@ fun SettingRAGPage() {
     Scaffold(
         topBar = {
             LargeFlexibleTopAppBar(
-                title = { Text("RAG Settings") },
+                title = { Text(stringResource(R.string.setting_rag_page_title)) },
                 navigationIcon = { BackButton() },
                 scrollBehavior = scrollBehavior,
                 colors = CustomColors.topBarColors,
@@ -73,12 +73,12 @@ fun SettingRAGPage() {
             item("ragToggle") {
                 CardGroup(
                     modifier = Modifier.padding(horizontal = 8.dp),
-                    title = { Text("RAG") },
+                    title = { Text(stringResource(R.string.setting_rag_group_rag)) },
                 ) {
                     item(
                         leadingContent = { Icon(HugeIcons.Database02, null) },
-                        headlineContent = { Text("Enable RAG") },
-                        supportingContent = { Text("Use embeddings for context-aware retrieval") },
+                        headlineContent = { Text(stringResource(R.string.setting_rag_enable)) },
+                        supportingContent = { Text(stringResource(R.string.setting_rag_enable_desc)) },
                         trailingContent = {
                             Switch(
                                 checked = settings.enableRag,
@@ -96,11 +96,11 @@ fun SettingRAGPage() {
             item("embeddingModel") {
                 CardGroup(
                     modifier = Modifier.padding(horizontal = 8.dp),
-                    title = { Text("Embedding Model") },
+                    title = { Text(stringResource(R.string.setting_rag_group_embedding_model)) },
                 ) {
                     item(
                         leadingContent = { Icon(HugeIcons.Database02, null) },
-                        headlineContent = { Text("Model") },
+                        headlineContent = { Text(stringResource(R.string.setting_rag_model)) },
                         supportingContent = { Text(settings.ragEmbeddingModel) },
                     )
                 }
@@ -109,15 +109,15 @@ fun SettingRAGPage() {
             item("vectorStore") {
                 CardGroup(
                     modifier = Modifier.padding(horizontal = 8.dp),
-                    title = { Text("Vector Store") },
+                    title = { Text(stringResource(R.string.setting_rag_group_vector_store)) },
                 ) {
                     item(
                         leadingContent = { Icon(HugeIcons.Database02, null) },
-                        headlineContent = { Text("Indexed Documents") },
+                        headlineContent = { Text(stringResource(R.string.setting_rag_indexed_documents)) },
                         supportingContent = {
                             Text(
-                                if (documentCount < 0) "Loading..."
-                                else "$documentCount documents indexed"
+                                if (documentCount < 0) stringResource(R.string.setting_rag_loading)
+                                else stringResource(R.string.setting_rag_documents_indexed, documentCount)
                             )
                         },
                     )
@@ -125,8 +125,8 @@ fun SettingRAGPage() {
                         leadingContent = {
                             Icon(HugeIcons.Tick01, null)
                         },
-                        headlineContent = { Text("Last Indexed") },
-                        supportingContent = { Text("Open ingestion screen to index documents") },
+                        headlineContent = { Text(stringResource(R.string.setting_rag_last_indexed)) },
+                        supportingContent = { Text(stringResource(R.string.setting_rag_open_ingestion)) },
                     )
                 }
             }

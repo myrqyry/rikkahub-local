@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -54,6 +55,7 @@ import me.rerere.hugeicons.stroke.Download02
 import me.rerere.hugeicons.stroke.Link02
 import me.rerere.hugeicons.stroke.Search01
 import me.rerere.rikkahub.data.datastore.SettingsStore
+import me.rerere.rikkahub.R
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.CardGroup
 import me.rerere.rikkahub.ui.context.LocalSettings
@@ -130,7 +132,7 @@ fun SettingLocalDreamPage() {
     Scaffold(
         topBar = {
             LargeFlexibleTopAppBar(
-                title = { Text("Local Dream") },
+                title = { Text(stringResource(R.string.setting_local_dream_page_title)) },
                 navigationIcon = { BackButton() },
                 scrollBehavior = scrollBehavior,
                 colors = CustomColors.topBarColors,
@@ -147,11 +149,11 @@ fun SettingLocalDreamPage() {
             item("model") {
                 CardGroup(
                     modifier = Modifier.padding(horizontal = 8.dp),
-                    title = { Text("Model") },
+                    title = { Text(stringResource(R.string.setting_local_dream_model)) },
                 ) {
                     item(
                         leadingContent = { Icon(HugeIcons.AiMagic, null) },
-                        headlineContent = { Text("Model ID") },
+                        headlineContent = { Text(stringResource(R.string.setting_local_dream_model_id)) },
                         supportingContent = { Text(modelId) },
                     )
                 }
@@ -160,14 +162,14 @@ fun SettingLocalDreamPage() {
             item("fields") {
                 CardGroup(
                     modifier = Modifier.padding(horizontal = 8.dp),
-                    title = { Text("Parameters") },
+                    title = { Text(stringResource(R.string.setting_local_dream_parameters)) },
                 ) {
                     item(
                         headlineContent = {
                             OutlinedTextField(
                                 value = modelId,
                                 onValueChange = { modelId = it; save() },
-                                label = { Text("Model ID") },
+                                label = { Text(stringResource(R.string.setting_local_dream_model_id)) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                             )
@@ -178,7 +180,7 @@ fun SettingLocalDreamPage() {
                             OutlinedTextField(
                                 value = width,
                                 onValueChange = { width = it; it.toIntOrNull()?.let { save() } },
-                                label = { Text("Width") },
+                                label = { Text(stringResource(R.string.setting_local_dream_width)) },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.fillMaxWidth(),
@@ -190,7 +192,7 @@ fun SettingLocalDreamPage() {
                             OutlinedTextField(
                                 value = height,
                                 onValueChange = { height = it; it.toIntOrNull()?.let { save() } },
-                                label = { Text("Height") },
+                                label = { Text(stringResource(R.string.setting_local_dream_height)) },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.fillMaxWidth(),
@@ -202,7 +204,7 @@ fun SettingLocalDreamPage() {
                             OutlinedTextField(
                                 value = steps,
                                 onValueChange = { steps = it; it.toIntOrNull()?.let { save() } },
-                                label = { Text("Steps") },
+                                label = { Text(stringResource(R.string.setting_local_dream_steps)) },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.fillMaxWidth(),
@@ -214,7 +216,7 @@ fun SettingLocalDreamPage() {
                             OutlinedTextField(
                                 value = cfg,
                                 onValueChange = { cfg = it; it.toFloatOrNull()?.let { save() } },
-                                label = { Text("CFG Scale") },
+                                label = { Text(stringResource(R.string.setting_local_dream_cfg_scale)) },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 modifier = Modifier.fillMaxWidth(),
@@ -231,7 +233,7 @@ fun SettingLocalDreamPage() {
                                     value = backendType,
                                     onValueChange = {},
                                     readOnly = true,
-                                    label = { Text("Backend Type") },
+                                    label = { Text(stringResource(R.string.setting_local_dream_backend_type)) },
                                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = backendExpanded) },
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -260,7 +262,7 @@ fun SettingLocalDreamPage() {
                             OutlinedTextField(
                                 value = port,
                                 onValueChange = { port = it; it.toIntOrNull()?.let { save() } },
-                                label = { Text("Port") },
+                                label = { Text(stringResource(R.string.setting_local_dream_port)) },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.fillMaxWidth(),
@@ -272,29 +274,29 @@ fun SettingLocalDreamPage() {
 
             item("model_download_header") {
                 Column {
-                    Text("Model Download", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 12.dp))
+                    Text(stringResource(R.string.setting_local_dream_download_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 12.dp))
                     TextButton(onClick = { context.openUrl("https://huggingface.co/xororz/sd-qnn/tree/main") }, modifier = Modifier.padding(horizontal = 4.dp)) {
                         Icon(HugeIcons.Link02, null, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Browse all models on HuggingFace", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.setting_local_dream_browse_models), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
 
             if (isLoadingModels) {
                 item("loading") {
-                    Text("Loading...", modifier = Modifier.padding(horizontal = 12.dp))
+                    Text(stringResource(R.string.setting_local_dream_loading), modifier = Modifier.padding(horizontal = 12.dp))
                 }
             } else if (availableModels.isEmpty()) {
                 item("error") {
-                    Text("Failed to load model list", modifier = Modifier.padding(horizontal = 12.dp))
+                    Text(stringResource(R.string.setting_local_dream_load_failed), modifier = Modifier.padding(horizontal = 12.dp))
                 }
             } else {
                 item("search") {
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        label = { Text("Search models") },
+                        label = { Text(stringResource(R.string.setting_local_dream_search)) },
                         singleLine = true,
                         leadingIcon = { Icon(HugeIcons.Search01, null) },
                         modifier = Modifier.padding(horizontal = 8.dp).fillMaxWidth(),
@@ -331,14 +333,14 @@ fun SettingLocalDreamPage() {
                                                         OutlinedButton(onClick = { modelId = name; save() }) {
                                                             Icon(HugeIcons.CheckmarkCircle02, null, Modifier.size(16.dp))
                                                             Spacer(Modifier.width(4.dp))
-                                                            Text("Use", style = MaterialTheme.typography.labelLarge)
+                                                            Text(stringResource(R.string.setting_local_dream_use), style = MaterialTheme.typography.labelLarge)
                                                         }
                                                     }
                                                     state is LocalDreamModelDownloader.Progress.Failed -> {
                                                         Button(onClick = {
                                                             val dl = model
                                                             scope.launch { LocalDreamModelDownloader.downloadModel(context, httpClient, dl).collect { p -> downloadProgress[dl.fileName] = p; if (p is LocalDreamModelDownloader.Progress.Done) { downloadedModels[dl.fileName] = true; modelId = dl.modelName; save() } } }
-                                                        }) { Text("Retry") }
+                                                        }) { Text(stringResource(R.string.setting_local_dream_retry)) }
                                                     }
                                                     state != null -> {}
                                                     else -> {
@@ -348,13 +350,13 @@ fun SettingLocalDreamPage() {
                                                         }) {
                                                             Icon(HugeIcons.Download02, null, Modifier.size(16.dp))
                                                             Spacer(Modifier.width(4.dp))
-                                                            Text("Download", style = MaterialTheme.typography.labelLarge)
+                                                             Text(stringResource(R.string.setting_local_dream_download), style = MaterialTheme.typography.labelLarge)
                                                         }
                                                     }
                                                 }
                                             }
                                             when (state) {
-                                                is LocalDreamModelDownloader.Progress.Started -> { Spacer(Modifier.height(4.dp)); Text("Starting...", style = MaterialTheme.typography.bodySmall) }
+                                                 is LocalDreamModelDownloader.Progress.Started -> { Spacer(Modifier.height(4.dp)); Text(stringResource(R.string.setting_local_dream_starting), style = MaterialTheme.typography.bodySmall) }
                                                 is LocalDreamModelDownloader.Progress.Downloading -> {
                                                     Spacer(Modifier.height(4.dp))
                                                     LinearProgressIndicator(progress = { state.percent / 100f }, modifier = Modifier.fillMaxWidth())
@@ -365,7 +367,7 @@ fun SettingLocalDreamPage() {
                                                     Spacer(Modifier.height(4.dp))
                                                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                                                     Spacer(Modifier.height(2.dp))
-                                                    Text("Extracting...", style = MaterialTheme.typography.bodySmall)
+                                                     Text(stringResource(R.string.setting_local_dream_extracting), style = MaterialTheme.typography.bodySmall)
                                                 }
                                                 is LocalDreamModelDownloader.Progress.Failed -> Text(state.error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                                                 else -> {}

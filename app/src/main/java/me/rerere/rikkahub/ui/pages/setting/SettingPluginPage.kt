@@ -76,7 +76,7 @@ fun SettingPluginPage() {
     Scaffold(
         topBar = {
             LargeFlexibleTopAppBar(
-                title = { Text("Plugins") },
+                title = { Text(stringResource(R.string.setting_plugin_page_title)) },
                 navigationIcon = { BackButton() },
                 actions = {
                     IconButton(onClick = {
@@ -116,7 +116,7 @@ fun SettingPluginPage() {
                             OutlinedTextField(
                                 value = installUrl,
                                 onValueChange = { installUrl = it; installError = null },
-                                label = { Text("Plugin reference") },
+                                label = { Text(stringResource(R.string.setting_plugin_reference)) },
                                 placeholder = { Text("telegram@claude-plugins-official") },
                                 singleLine = true,
                                 modifier = Modifier.weight(1f),
@@ -138,7 +138,7 @@ fun SettingPluginPage() {
                                      preparing = false
                                  }
                             }) {
-                                Icon(HugeIcons.Add01, "Install")
+                                Icon(HugeIcons.Add01, stringResource(R.string.setting_plugin_install))
                             }
                         }
                     }
@@ -148,7 +148,7 @@ fun SettingPluginPage() {
             if (plugins.isEmpty()) {
                 item("empty") {
                     Text(
-                        text = "No plugins installed.",
+                        text = stringResource(R.string.setting_plugin_empty),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(16.dp),
@@ -198,7 +198,7 @@ fun SettingPluginPage() {
                         IconButton(onClick = {
                             scope.launch { manager.uninstall(plugin.name) }
                         }) {
-                            Icon(HugeIcons.Delete02, "Uninstall", tint = MaterialTheme.colorScheme.error)
+                            Icon(HugeIcons.Delete02, stringResource(R.string.setting_plugin_uninstall), tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
@@ -209,7 +209,7 @@ fun SettingPluginPage() {
     pendingInstall?.let { candidate ->
         ArtifactImportReviewDialog(
             candidate = candidate,
-            details = "The prepared archive is checked for one plugin.json and extracted only after confirmation.",
+            details = stringResource(R.string.setting_plugin_import_details),
             onDismiss = {
                 pendingOwnership.discard()
                 pendingInstall = null
@@ -225,7 +225,7 @@ fun SettingPluginPage() {
                             installUrl = ""
                             val installed = result as ImportResult.Installed
                             installError = buildString {
-                                append("Installed ${installed.name}")
+                                append(context.getString(R.string.setting_plugin_installed, installed.name))
                                 installed.warning?.let { append(" — $it") }
                             }
                         }

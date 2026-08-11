@@ -39,4 +39,46 @@
     <string name="setting_general_group_feedback">Feedback &amp; Effects</string>
     <string name="setting_ui_group_message_content">Message Content</string>
     <string name="setting_ui_group_typography">Typography</string>
+
+    <string name="setting_rag_page_title">RAG Settings</string>
+    <string name="setting_rag_group_rag">RAG</string>
+    <string name="setting_rag_enable">Enable RAG</string>
+    <string name="setting_rag_enable_desc">Use embeddings for context-aware retrieval</string>
+    <string name="setting_rag_group_embedding_model">Embedding Model</string>
+    <string name="setting_rag_model">Model</string>
+    <string name="setting_rag_group_vector_store">Vector Store</string>
+    <string name="setting_rag_indexed_documents">Indexed Documents</string>
+    <string name="setting_rag_loading">Loading…</string>
+    <string name="setting_rag_documents_indexed">%1$d documents indexed</string>
+    <string name="setting_rag_last_indexed">Last Indexed</string>
+    <string name="setting_rag_open_ingestion">Open ingestion screen to index documents</string>
+
+    <string name="setting_plugin_page_title">Plugins</string>
+    <string name="setting_plugin_reference">Plugin reference</string>
+    <string name="setting_plugin_install">Install</string>
+    <string name="setting_plugin_empty">No plugins installed.</string>
+    <string name="setting_plugin_uninstall">Uninstall</string>
+    <string name="setting_plugin_installed">Installed %1$s</string>
+    <string name="setting_plugin_import_details">The prepared archive is checked for one plugin.json and extracted only after confirmation.</string>
+
+    <string name="setting_local_dream_page_title">Local Dream</string>
+    <string name="setting_local_dream_model">Model</string>
+    <string name="setting_local_dream_model_id">Model ID</string>
+    <string name="setting_local_dream_parameters">Parameters</string>
+    <string name="setting_local_dream_width">Width</string>
+    <string name="setting_local_dream_height">Height</string>
+    <string name="setting_local_dream_steps">Steps</string>
+    <string name="setting_local_dream_cfg_scale">CFG Scale</string>
+    <string name="setting_local_dream_backend_type">Backend Type</string>
+    <string name="setting_local_dream_port">Port</string>
+    <string name="setting_local_dream_download_title">Model Download</string>
+    <string name="setting_local_dream_browse_models">Browse all models on HuggingFace</string>
+    <string name="setting_local_dream_loading">Loading…</string>
+    <string name="setting_local_dream_load_failed">Failed to load model list</string>
+    <string name="setting_local_dream_search">Search models</string>
+    <string name="setting_local_dream_use">Use</string>
+    <string name="setting_local_dream_retry">Retry</string>
+    <string name="setting_local_dream_download">Download</string>
+    <string name="setting_local_dream_starting">Starting…</string>
+    <string name="setting_local_dream_extracting">Extracting…</string>
 </resources>
