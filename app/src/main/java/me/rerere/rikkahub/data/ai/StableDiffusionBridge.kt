@@ -1,24 +1,31 @@
 package me.rerere.rikkahub.data.ai
 
 object StableDiffusionBridge {
-    private var loaded = false
+    private val nativeLibraryLoaded = lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        System.loadLibrary("stablediffusion_jni")
+        true
+    }
 
     fun ensureLoaded() {
-        if (!loaded) {
-            System.loadLibrary("stablediffusion_jni")
-            loaded = true
-        }
+        nativeLibraryLoaded.value
     }
 
     enum class Backend(val value: Int) {
         CPU(0),
-        VULKAN(1)
+        VULKAN(1),
     }
 
+    external fun nativeSupportsBackend(backend: Int): Boolean
     external fun nativeInit(modelPath: String, backend: Int): Boolean
     external fun nativeGenerate(
-        prompt: String, negativePrompt: String,
-        width: Int, height: Int, steps: Int, cfg: Float, seed: Int
+        prompt: String,
+        negativePrompt: String,
+        width: Int,
+        height: Int,
+        steps: Int,
+        cfg: Float,
+        seed: Int,
     ): ByteArray?
+    external fun nativeCancel()
     external fun nativeRelease()
 }
