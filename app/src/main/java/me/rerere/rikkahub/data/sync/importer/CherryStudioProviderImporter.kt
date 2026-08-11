@@ -130,7 +130,6 @@ object CherryStudioProviderImporter {
             is ProviderSetting.LiteRtLocal -> "local_litert|${provider.id}"
             is ProviderSetting.Codex -> "codex|${provider.id}"
             is ProviderSetting.Grok -> "grok|${provider.id}"
-            is ProviderSetting.LocalDream -> "local_dream|${provider.id}"
             is ProviderSetting.StableDiffusion -> "stable_diffusion|${provider.id}"
             is ProviderSetting.TaskOcrLocal -> "task_ocr_local|${provider.id}"
         }

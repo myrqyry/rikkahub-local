@@ -518,52 +518,6 @@ sealed class ProviderSetting {
         )
     }
 
-    @Serializable
-    @SerialName("local_dream")
-    data class LocalDream(
-        override var id: Uuid = LOCAL_DREAM_PROVIDER_ID,
-        override var enabled: Boolean = false,
-        override var name: String = "Local · Dream",
-        override var models: List<Model> = emptyList(),
-        override val balanceOption: BalanceOption = BalanceOption(),
-        @Transient override val builtIn: Boolean = true,
-        @Transient override val description: @Composable (() -> Unit) = {},
-        @Transient override val shortDescription: @Composable (() -> Unit) = {},
-        var modelId: String = "anythingv5",
-        var width: Int = 512,
-        var height: Int = 512,
-        var steps: Int = 20,
-        var cfg: Float = 7.0f,
-        var backendType: String = "sd15npu",
-        var port: Int = 8081,
-    ) : ProviderSetting() {
-        override fun addModel(model: Model): ProviderSetting = copy(models = models + model)
-
-        override fun editModel(model: Model): ProviderSetting =
-            copy(models = models.map { if (it.id == model.id) model.copy() else it })
-
-        override fun delModel(model: Model): ProviderSetting =
-            copy(models = models.filter { it.id != model.id })
-
-        override fun moveMove(from: Int, to: Int): ProviderSetting =
-            copy(models = models.toMutableList().apply { add(to, removeAt(from)) })
-
-        override fun copyProvider(
-            id: Uuid,
-            enabled: Boolean,
-            name: String,
-            models: List<Model>,
-            balanceOption: BalanceOption,
-            builtIn: Boolean,
-            description: @Composable (() -> Unit),
-            shortDescription: @Composable (() -> Unit),
-        ): ProviderSetting = copy(
-            id = id, enabled = enabled, name = name, models = models,
-            builtIn = builtIn, description = description, shortDescription = shortDescription,
-            balanceOption = balanceOption,
-        )
-    }
-
     companion object {
         // Types presented to the user when adding / converting a provider. AICore is
         // intentionally NOT in this list: it is a singleton built-in (one per device,
@@ -588,7 +542,6 @@ enum class AICoreReleaseStage { STABLE, PREVIEW }
 // conversations referencing them survive app re-installs and provider re-seeds.
 val AICORE_PROVIDER_ID: Uuid = Uuid.parse("a1c0a1c0-1234-4111-a000-000000000001")
 val LITERT_PROVIDER_ID: Uuid = Uuid.parse("11111111-aaaa-bbbb-cccc-000000000002")
-val LOCAL_DREAM_PROVIDER_ID: Uuid = Uuid.parse("11111111-aaaa-bbbb-cccc-000000000003")
 val STABLE_DIFFUSION_PROVIDER_ID: Uuid = Uuid.parse("11111111-aaaa-bbbb-cccc-000000000004")
 private val AICORE_NANO_FAST_ID: Uuid = Uuid.parse("a1c0a1c0-1234-4111-a000-000000000002")
 private val AICORE_NANO_FULL_ID: Uuid = Uuid.parse("a1c0a1c0-1234-4111-a000-000000000003")

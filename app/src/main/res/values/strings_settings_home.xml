@@ -65,24 +65,4 @@
     <string name="setting_plugin_metadata_commands"> • /%1$s:* commands</string>
     <string name="setting_plugin_metadata_tools"> • MCP tools</string>
 
-    <string name="setting_local_dream_page_title">Local Dream</string>
-    <string name="setting_local_dream_model">Model</string>
-    <string name="setting_local_dream_model_id">Model ID</string>
-    <string name="setting_local_dream_parameters">Parameters</string>
-    <string name="setting_local_dream_width">Width</string>
-    <string name="setting_local_dream_height">Height</string>
-    <string name="setting_local_dream_steps">Steps</string>
-    <string name="setting_local_dream_cfg_scale">CFG Scale</string>
-    <string name="setting_local_dream_backend_type">Backend Type</string>
-    <string name="setting_local_dream_port">Port</string>
-    <string name="setting_local_dream_download_title">Model Download</string>
-    <string name="setting_local_dream_browse_models">Browse all models on HuggingFace</string>
-    <string name="setting_local_dream_loading">Loading…</string>
-    <string name="setting_local_dream_load_failed">Failed to load model list</string>
-    <string name="setting_local_dream_search">Search models</string>
-    <string name="setting_local_dream_use">Use</string>
-    <string name="setting_local_dream_retry">Retry</string>
-    <string name="setting_local_dream_download">Download</string>
-    <string name="setting_local_dream_starting">Starting…</string>
-    <string name="setting_local_dream_extracting">Extracting…</string>
 </resources>

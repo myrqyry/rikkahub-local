@@ -36,8 +36,8 @@ class SettingPageTest {
                 title = "AI & Models",
                 items = listOf(
                     SettingsHomeItem(
-                        id = "localDream",
-                        title = "Local Dream",
+                        id = "imageStudio",
+                        title = "Image Studio",
                         description = "Generate images with an on-device model",
                         icon = testIcon,
                     ),
@@ -63,7 +63,7 @@ class SettingPageTest {
         assertEquals(listOf("workspaces"), filtered.single().items.map { it.id })
         assertTrue(filtered.single().items.single().matches("project"))
 
-        val localDream = sections[1].items.single()
-        assertTrue(localDream.matches("image"))
+        val imageStudio = sections[1].items.single()
+        assertTrue(imageStudio.matches("image"))
     }
 }

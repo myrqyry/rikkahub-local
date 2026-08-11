@@ -427,7 +427,6 @@ class SettingsStore(
                             models = provider.models.distinctBy { model -> model.id }
                         )
 
-                        is ProviderSetting.LocalDream -> provider
                         is ProviderSetting.StableDiffusion -> provider.copy(
                             models = provider.models.distinctBy { model -> model.id }
                         )

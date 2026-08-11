@@ -140,7 +140,6 @@ fun ProviderConfigure(
 
             is ProviderSetting.Codex -> Unit
             is ProviderSetting.Grok -> Unit
-            is ProviderSetting.LocalDream -> Unit
             is ProviderSetting.StableDiffusion -> {
                 ProviderConfigureStableDiffusion(provider, onEdit)
             }
@@ -163,7 +162,6 @@ fun ProviderSetting.convertTo(type: KClass<out ProviderSetting>): ProviderSettin
         is ProviderSetting.LiteRtLocal -> "" // on-device, no API key
         is ProviderSetting.Codex -> "" // OAuth, no API key
         is ProviderSetting.Grok -> "" // OAuth, no API key
-        is ProviderSetting.LocalDream -> "" // on-device, no API key
         is ProviderSetting.StableDiffusion -> "" // on-device, no API key
         is ProviderSetting.TaskOcrLocal -> "" // on-device, no API key
     }
@@ -175,7 +173,6 @@ fun ProviderSetting.convertTo(type: KClass<out ProviderSetting>): ProviderSettin
         is ProviderSetting.LiteRtLocal -> "" // on-device, no base URL
         is ProviderSetting.Codex -> "" // OAuth, no base URL
         is ProviderSetting.Grok -> "" // OAuth, no base URL
-        is ProviderSetting.LocalDream -> "" // on-device, no base URL
         is ProviderSetting.StableDiffusion -> "" // on-device, no base URL
         is ProviderSetting.TaskOcrLocal -> "" // on-device, no base URL
     }
@@ -234,7 +231,6 @@ internal fun ProviderSetting.defaultBaseUrlForReset(): String {
             is ProviderSetting.LiteRtLocal -> return "" // on-device, no base URL
             is ProviderSetting.Codex -> return "" // OAuth, no base URL
             is ProviderSetting.Grok -> return "" // OAuth, no base URL
-            is ProviderSetting.LocalDream -> return "" // on-device, no base URL
             is ProviderSetting.StableDiffusion -> return "" // on-device, no base URL
             is ProviderSetting.TaskOcrLocal -> return "" // on-device, no base URL
         }
@@ -247,7 +243,6 @@ internal fun ProviderSetting.defaultBaseUrlForReset(): String {
         is ProviderSetting.LiteRtLocal -> ""
         is ProviderSetting.Codex -> ""
         is ProviderSetting.Grok -> ""
-        is ProviderSetting.LocalDream -> ""
         is ProviderSetting.StableDiffusion -> ""
         is ProviderSetting.TaskOcrLocal -> ""
     }
@@ -263,7 +258,6 @@ internal fun ProviderSetting.resetBaseUrlToDefault(): ProviderSetting {
         is ProviderSetting.LiteRtLocal -> this // no base URL to reset
         is ProviderSetting.Codex -> this // no base URL to reset
         is ProviderSetting.Grok -> this // no base URL to reset
-        is ProviderSetting.LocalDream -> this // no base URL to reset
         is ProviderSetting.StableDiffusion -> this // no base URL to reset
         is ProviderSetting.TaskOcrLocal -> this // no base URL to reset
     }
@@ -278,7 +272,6 @@ internal fun ProviderSetting.isUsingDefaultBaseUrl(): Boolean {
         is ProviderSetting.LiteRtLocal -> return true // no base URL concept
         is ProviderSetting.Codex -> return true // no base URL concept
         is ProviderSetting.Grok -> return true // no base URL concept
-        is ProviderSetting.LocalDream -> return true // no base URL concept
         is ProviderSetting.StableDiffusion -> return true // no base URL concept
         is ProviderSetting.TaskOcrLocal -> return true // no base URL concept
     }

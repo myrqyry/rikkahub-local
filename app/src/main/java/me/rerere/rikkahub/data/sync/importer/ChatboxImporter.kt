@@ -574,7 +574,6 @@ object ChatboxImporter {
         is ProviderSetting.LiteRtLocal -> "litert"
         is ProviderSetting.Codex -> "codex"
         is ProviderSetting.Grok -> "grok"
-        is ProviderSetting.LocalDream -> "local_dream"
         is ProviderSetting.StableDiffusion -> "stable_diffusion"
         is ProviderSetting.TaskOcrLocal -> "task_ocr_local"
     }
