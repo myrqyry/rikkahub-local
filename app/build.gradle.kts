@@ -34,6 +34,20 @@ android {
                 arguments += listOf("-DCMAKE_CXX_STANDARD=20")
                 if (providers.gradleProperty("sd.vulkan").orNull == "true") {
                     arguments += "-DSD_VULKAN=ON"
+                    // NDK shader-tools glslc so find_package(Vulkan COMPONENTS glslc) resolves
+                    // on hosts without system Vulkan shader tooling.
+                    providers.gradleProperty("sd.vulkanGlslcDir").orNull?.let {
+                        arguments += "-DCMAKE_PROGRAM_PATH=$it"
+                    }
+                    // Header-only SPIRV-Headers CONFIG package (built into a user prefix).
+                    providers.gradleProperty("sd.spirvHeadersDir").orNull?.let {
+                        arguments += "-DSPIRV-Headers_DIR=$it"
+                    }
+                    // Merged include dir with NDK C headers + Vulkan-Hpp C++ wrappers so
+                    // ggml-vulkan.cpp can include <vulkan/vulkan.hpp>.
+                    providers.gradleProperty("sd.vulkanIncludeDir").orNull?.let {
+                        arguments += "-DVulkan_INCLUDE_DIR=$it"
+                    }
                 }
             }
         }
