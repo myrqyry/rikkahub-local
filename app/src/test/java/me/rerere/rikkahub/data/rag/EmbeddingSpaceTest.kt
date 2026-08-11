@@ -3,6 +3,7 @@ package me.rerere.rikkahub.data.rag
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -77,6 +78,27 @@ class EmbeddingSpaceTest {
 
         assertEquals(0, status.documentCount)
         assertTrue(status.stale)
+    }
+
+    @Test
+    fun sameIdReindexReplacesVectorInMemoryAndAfterReload() = runBlocking {
+        val dao = SpaceVectorDao()
+        val backend = FixedBackend("provider:a:model", floatArrayOf(1f, 0f))
+        val repository = EmbeddingRepository({ backend }, dao, Json {})
+        repository.indexDocument("x", "docA", buildJsonObject { put("text", "docA") })
+        repository.indexDocument("x", "docB", buildJsonObject { put("text", "docB") })
+
+        val matches = repository.searchSimilar("query")
+        assertEquals(1, matches.size)
+        assertEquals("x", matches[0].id)
+        assertEquals("docB", matches[0].metadata["text"]?.jsonPrimitive?.content)
+
+        val rebuilt = EmbeddingRepository({ backend }, dao, Json {})
+        rebuilt.loadFromDatabase()
+        val reloaded = rebuilt.searchSimilar("query")
+        assertEquals(1, reloaded.size)
+        assertEquals("x", reloaded[0].id)
+        assertEquals("docB", reloaded[0].metadata["text"]?.jsonPrimitive?.content)
     }
 
     private fun metadata() = buildJsonObject { put("text", "doc") }

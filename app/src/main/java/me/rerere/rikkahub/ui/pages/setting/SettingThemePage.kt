@@ -82,6 +82,7 @@ import me.rerere.rikkahub.ui.theme.CustomTheme
 import me.rerere.rikkahub.ui.theme.LocalDarkMode
 import me.rerere.rikkahub.ui.theme.findThemeFamily
 import me.rerere.rikkahub.ui.theme.nextThemeAccent
+import me.rerere.rikkahub.ui.theme.nextThemeVariation
 import me.rerere.rikkahub.utils.plus
 import org.koin.androidx.compose.koinViewModel
 import kotlin.math.roundToInt
@@ -211,16 +212,25 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
                                     themeId = settings.themeId,
                                     modifier = Modifier.fillMaxWidth(),
                                     onChangeTheme = {
-                                        val family = findThemeFamily(it)
-                                        vm.updateSettings(
-                                            settings.copy(
-                                                themeId = it,
-                                                themeVariation = family?.defaultVariation?.id
-                                                    ?: settings.themeVariation,
-                                                themeAccent = family?.defaultAccent?.id
-                                                    ?: settings.themeAccent,
+                                        val family = findThemeFamily(it) ?: return@PresetThemeButtonGroup
+                                        if (it == settings.themeId) {
+                                            vm.updateSettings(
+                                                settings.copy(
+                                                    themeVariation = nextThemeVariation(
+                                                        family,
+                                                        settings.themeVariation,
+                                                    )
+                                                )
                                             )
-                                        )
+                                        } else {
+                                            vm.updateSettings(
+                                                settings.copy(
+                                                    themeId = it,
+                                                    themeVariation = family.defaultVariation.id,
+                                                    themeAccent = family.defaultAccent.id,
+                                                )
+                                            )
+                                        }
                                     },
                                     onLongPressTheme = {
                                         findThemeFamily(settings.themeId)?.let { family ->

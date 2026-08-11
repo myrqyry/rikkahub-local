@@ -30,6 +30,7 @@ class LocalVectorSearchEngine {
         embeddingSpaceId: String,
         embeddingDimension: Int,
     ) {
+        vectors.removeAll { it.id == id }
         vectors.add(IndexEntry(id, embedding, metadata, embeddingSpaceId, embeddingDimension))
     }
 
