@@ -54,8 +54,8 @@ object ImportedDatabaseReconciler {
      * and MODERN_COLUMN_SENTINELS if newer conversation columns were added) or this
      * reconciliation will silently stop matching.
      */
-    private const val EXPECTED_VERSION = 27
-    private const val EXPECTED_IDENTITY_HASH = "47dc97ce825856b039f96c2769103dd1"
+    private const val EXPECTED_VERSION = 29
+    private const val EXPECTED_IDENTITY_HASH = "0ee4867468b36d499dfab5e23d14df20"
 
     /**
      * Columns that a restored file must already have for its shared schema to be considered

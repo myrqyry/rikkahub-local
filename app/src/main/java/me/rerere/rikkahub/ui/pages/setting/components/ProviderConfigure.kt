@@ -79,7 +79,12 @@ import me.rerere.rikkahub.data.datastore.DEFAULT_PROVIDERS
 import me.rerere.hugeicons.stroke.View
 import me.rerere.hugeicons.stroke.ViewOff
 import me.rerere.rikkahub.ui.context.LocalToaster
+import me.rerere.rikkahub.Screen
+import me.rerere.rikkahub.data.ai.StableDiffusionBridge
+import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.pages.setting.locallm.SettingLocalLlmViewModel
+import me.rerere.hugeicons.stroke.ArrowRight01
+import androidx.compose.foundation.shape.RoundedCornerShape
 import me.rerere.rikkahub.ui.theme.JetbrainsMono
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlinx.serialization.json.Json
@@ -1286,20 +1291,10 @@ private fun ColumnScope.ProviderConfigureStableDiffusion(
     provider: ProviderSetting.StableDiffusion,
     onEdit: (ProviderSetting.StableDiffusion) -> Unit,
 ) {
-    val vm = koinViewModel<SettingLocalLlmViewModel>(
-        key = "configure-${LocalRuntime.StableDiffusion.displayName}",
-        parameters = { parametersOf(LocalRuntime.StableDiffusion) },
+    val navController = LocalNavController.current
+    val vulkanAvailable = StableDiffusionBridge.nativeSupportsBackend(
+        StableDiffusionBridge.Backend.VULKAN.value,
     )
-    val downloadProgress by vm.downloadProgress.collectAsStateWithLifecycle()
-    val errorMessage by vm.errorMessage.collectAsStateWithLifecycle()
-    val installedModelFiles by vm.installedModelFiles.collectAsStateWithLifecycle()
-
-    val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        uri ?: return@rememberLauncherForActivityResult
-        vm.importModelFromUri(uri)
-    }
 
     provider.description()
 
@@ -1370,142 +1365,44 @@ private fun ColumnScope.ProviderConfigureStableDiffusion(
         modifier = Modifier.fillMaxWidth(),
         maxLines = 3,
     )
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            stringResource(R.string.provider_sd_use_vulkan_label),
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Switch(
-            checked = provider.useVulkan,
-            onCheckedChange = { onEdit(provider.copy(useVulkan = it)) },
-        )
-    }
-
-    Text(
-        text = stringResource(R.string.local_llm_installed_models_count, provider.models.size),
-        style = MaterialTheme.typography.bodySmall,
-    )
-
-    // URL install field — paste an HF GGUF URL, hit Install.
-    var manualUrl by remember { mutableStateOf("") }
-    OutlinedTextField(
-        value = manualUrl,
-        onValueChange = { manualUrl = it },
-        label = { Text(stringResource(R.string.local_llm_install_url_label)) },
-        supportingText = { Text(stringResource(R.string.local_llm_install_url_hint)) },
-        modifier = Modifier.fillMaxWidth(),
-    )
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Button(
-            onClick = {
-                vm.startManualDownload(manualUrl)
-                manualUrl = ""
-            },
-            enabled = manualUrl.isNotBlank() && downloadProgress == null,
-        ) {
-            Text(stringResource(R.string.local_llm_install_url_action))
-        }
-        OutlinedButton(
-            onClick = { vm.startDefaultDownload() },
-            enabled = downloadProgress == null,
-        ) {
-            Text(stringResource(R.string.local_llm_download_default))
-        }
-    }
-
-    // Manage installed files — rename or delete each downloaded GGUF.
-    if (provider.models.isNotEmpty()) {
-        Text(
-            stringResource(R.string.local_llm_manage_files_title),
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-        provider.models.forEach { model ->
-            InstalledModelRow(
-                model = model,
-                visionUnavailable = false,
-                allowVisionRetry = false,
-                perfSample = null,
-                onRename = { newName -> vm.renameModel(model.modelId, newName) },
-                onDelete = { vm.deleteModel(model.modelId) },
-                onRetryVision = {},
+    if (vulkanAvailable) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.provider_sd_use_vulkan_label),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Switch(
+                checked = provider.useVulkan,
+                onCheckedChange = { onEdit(provider.copy(useVulkan = it)) },
             )
         }
-    }
-
-    // Curated Stable Diffusion GGUF picker. Cards link to each model's HuggingFace page —
-    // the file is obtained there and imported via the URL-paste field or filesystem picker.
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+    } else {
         Text(
-            stringResource(R.string.local_llm_catalog_title),
-            style = MaterialTheme.typography.titleSmall,
-        )
-        Text(
-            stringResource(R.string.model_manager_sd_catalog_subtitle),
+            text = stringResource(R.string.provider_sd_backend_cpu_only),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        val sdContext = LocalContext.current
-        SdCatalog.ENTRIES.forEach { entry ->
-            SdCatalogEntryCard(
-                entry = entry,
-                installed = entry.modelFile in installedModelFiles,
-                onOpenSource = { openModelSourceUrl(sdContext, entry.sourceUrl) },
-            )
-        }
-
-        OutlinedButton(
-            onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
-            enabled = downloadProgress == null,
-            modifier = Modifier.padding(top = 4.dp),
-        ) {
-            Text(stringResource(R.string.local_llm_import_filesystem))
-        }
     }
 
-    // Download progress indicator.
-    downloadProgress?.let { progress ->
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (progress.totalBytes != null && progress.totalBytes > 0) {
-                LinearProgressIndicator(
-                    progress = { progress.percent / 100f },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            } else {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
-            Text(
-                text = stringResource(R.string.local_llm_download_progress, progress.percent),
-                style = MaterialTheme.typography.labelSmall,
-            )
-        }
-    }
-
-    errorMessage?.let { msg ->
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { navController.navigate(Screen.SettingModelManager) }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
-            text = stringResource(R.string.local_llm_status_error_format, msg),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
+            text = stringResource(R.string.local_llm_manage_files_title),
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleSmall,
         )
-        if (provider.models.isNotEmpty()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                provider.models.forEach { model ->
-                    OutlinedButton(onClick = { vm.deleteModel(model.modelId) }) {
-                        Text(
-                            text = stringResource(R.string.local_llm_delete_model) +
-                                if (provider.models.size > 1) " ${model.modelId}" else "",
-                        )
-                    }
-                }
-            }
-        }
+        Text(
+            text = stringResource(R.string.local_llm_installed_models_count, provider.models.size),
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Icon(HugeIcons.ArrowRight01, contentDescription = null)
     }
 }
 

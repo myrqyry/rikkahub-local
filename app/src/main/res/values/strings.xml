@@ -2003,4 +2003,5 @@
   <string name="setting_page_response_notifications_desc">"Notifications for completed/generated responses"</string>
   <string name="setting_page_notification_access">"Notification access"</string>
   <string name="setting_page_notification_access_desc">"Read device notifications for tools, workflows and routing"</string>
+  <string name="provider_sd_backend_cpu_only">Only the CPU backend is compiled into this build.</string>
 </resources>
