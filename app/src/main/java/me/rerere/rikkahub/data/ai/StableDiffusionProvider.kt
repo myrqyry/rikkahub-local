@@ -23,10 +23,13 @@ import me.rerere.ai.provider.TextGenerationParams
 import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.ai.ui.MessageChunk
 import me.rerere.ai.ui.UIMessage
+import me.rerere.locallm.LocalRuntime
+import me.rerere.locallm.LocalRuntimePreferences
 import java.io.ByteArrayOutputStream
 import java.io.File
 
 class StableDiffusionProvider(
+    private val runtimePreferences: LocalRuntimePreferences,
     private val bridge: StableDiffusionBridge = StableDiffusionBridge,
 ) : Provider<ProviderSetting.StableDiffusion> {
 
@@ -61,10 +64,10 @@ class StableDiffusionProvider(
             "Expected StableDiffusion provider setting"
         }
 
-        val modelPath = providerSetting.currentModelPath
-        if (modelPath == null || !File(modelPath).isFile) {
-            throw IllegalStateException("Model file not found: $modelPath")
-        }
+        // The model passed by the normal Provider API is the source of truth. Resolve its file
+        // through the same LocalRuntimePreferences inventory that Model Manager writes instead of
+        // relying on a second, independently-mutated currentModelPath field.
+        val modelPath = resolveInstalledModelPath(providerSetting, params.model)
         stableDiffusionRequestError(
             width = providerSetting.width,
             height = providerSetting.height,
@@ -152,6 +155,34 @@ class StableDiffusionProvider(
                 }
             }
         }
+    }
+
+    private suspend fun resolveInstalledModelPath(
+        providerSetting: ProviderSetting.StableDiffusion,
+        model: Model,
+    ): String {
+        val installed = runtimePreferences.installedModels(LocalRuntime.StableDiffusion)
+        val inventoryPath = installed[model.modelId]
+        if (inventoryPath != null && File(inventoryPath).isFile) {
+            return inventoryPath
+        }
+
+        // Compatibility for installs created before the runtime inventory became authoritative.
+        // Only accept the legacy path when its basename matches the selected model, so choosing
+        // model B can never silently run model A just because currentModelPath is stale.
+        val legacyPath = providerSetting.currentModelPath
+        if (
+            legacyPath != null &&
+            File(legacyPath).isFile &&
+            File(legacyPath).name == model.modelId
+        ) {
+            return legacyPath
+        }
+
+        throw IllegalStateException(
+            "Selected local image model '${model.displayName.ifBlank { model.modelId }}' is not installed. " +
+                "Re-import it in Model Manager or select another image model."
+        )
     }
 
     private suspend fun generateNativeWithCancellation(
