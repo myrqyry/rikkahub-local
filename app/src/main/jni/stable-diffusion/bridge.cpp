@@ -36,6 +36,16 @@ std::mutex g_generation_mutex;
 std::mutex g_context_mutex;
 sd_ctx_t* g_ctx = nullptr;
 
+// JNI relay targets for the global sd_progress_cb_t callback. Set once from nativeInit after the
+// first successful context load; the callback itself fires on the generating thread, so the
+// (jclass, jmethodID) pair is published before any generation can start.
+JavaVM* g_vm = nullptr;
+jclass g_bridge_class = nullptr;
+jmethodID g_on_progress = nullptr;
+
+static constexpr const char* BRIDGE_CLASS = "me/rerere/rikkahub/data/ai/StableDiffusionBridge";
+static constexpr const char* ON_PROGRESS_SIGNATURE = "(IIF)V";
+
 bool backend_supported(jint backend) {
     switch (backend) {
         case BACKEND_CPU:
@@ -161,6 +171,39 @@ jbyteArray image_to_rgba(JNIEnv* env, const sd_image_t& image, jint requested_wi
     );
     return env->ExceptionCheck() ? nullptr : result;
 }
+
+// sd.cpp calls this on the generating thread with elapsed seconds. Relay it to the Kotlin bridge
+// as (step, steps, seconds); the JVM method writes into a StateFlow that the image-gen screen
+// observes. Attach the thread only when sd.cpp's sampler thread is not already attached.
+void progress_callback(int step, int steps, float time, void*) {
+    if (g_vm == nullptr || g_bridge_class == nullptr || g_on_progress == nullptr) {
+        return;
+    }
+    JNIEnv* env = nullptr;
+    jint attached = g_vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6);
+    bool detach = false;
+    if (attached == JNI_EDETACHED) {
+        if (g_vm->AttachCurrentThread(&env, nullptr) != JNI_OK) {
+            return;
+        }
+        detach = true;
+    } else if (attached != JNI_OK || env == nullptr) {
+        return;
+    }
+    env->CallStaticVoidMethod(
+        g_bridge_class,
+        g_on_progress,
+        static_cast<jint>(step),
+        static_cast<jint>(steps),
+        static_cast<jfloat>(time)
+    );
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+    }
+    if (detach) {
+        g_vm->DetachCurrentThread();
+    }
+}
 }  // namespace
 
 extern "C" JNIEXPORT jboolean JNICALL
@@ -213,6 +256,28 @@ Java_me_rerere_rikkahub_data_ai_StableDiffusionBridge_nativeInit(
         std::lock_guard<std::mutex> context_lock(g_context_mutex);
         g_ctx = new_ctx;
     }
+
+    // Publish the JNI relay targets and register the global progress callback once per init.
+    // Registering every init is idempotent: there is a single process-global context and the
+    // callback target never changes.
+    if (g_vm == nullptr) {
+        env->GetJavaVM(&g_vm);
+    }
+    if (g_bridge_class == nullptr) {
+        jclass local = env->FindClass(BRIDGE_CLASS);
+        if (local != nullptr) {
+            g_bridge_class = static_cast<jclass>(env->NewGlobalRef(local));
+            env->DeleteLocalRef(local);
+        }
+    }
+    if (g_bridge_class != nullptr && g_on_progress == nullptr) {
+        g_on_progress = env->GetStaticMethodID(g_bridge_class, "nativeOnProgress", ON_PROGRESS_SIGNATURE);
+    }
+    if (g_on_progress != nullptr) {
+        sd_set_progress_callback(progress_callback, nullptr);
+        LOGI("progress callback registered");
+    }
+
     LOGI("nativeInit OK");
     return JNI_TRUE;
 }

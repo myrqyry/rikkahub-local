@@ -85,6 +85,9 @@ class StableDiffusionProvider(
             "Expected StableDiffusion provider setting"
         }
 
+        // Clear any stale progress from a previous run before this generation starts.
+        bridge.resetProgress()
+
         // The model passed by the normal Provider API is the source of truth. Resolve its file
         // through the same LocalRuntimePreferences inventory that Model Manager writes instead of
         // relying on a second, independently-mutated currentModelPath field.

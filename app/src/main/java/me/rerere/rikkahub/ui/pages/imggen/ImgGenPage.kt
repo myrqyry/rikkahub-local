@@ -41,6 +41,7 @@ import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
@@ -246,6 +247,7 @@ private fun ImageGenScreen(
     val numberOfImages by vm.numberOfImages.collectAsStateWithLifecycle()
     val aspectRatio by vm.aspectRatio.collectAsStateWithLifecycle()
     val isGenerating by vm.isGenerating.collectAsStateWithLifecycle()
+    val progress by vm.generationProgress.collectAsStateWithLifecycle()
     val currentGeneratedImages by vm.currentGeneratedImages.collectAsStateWithLifecycle()
     val referenceImages by vm.referenceImages.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
@@ -305,6 +307,34 @@ private fun ImageGenScreen(
                 ContainedLoadingIndicator(
                     modifier = Modifier.align(Alignment.Center)
                 )
+            }
+            progress?.let { p ->
+                val formattedElapsed = "%.1f s".format(p.elapsedMs / 1000f)
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = stringResource(
+                            R.string.imggen_page_generation_progress,
+                            p.step,
+                            p.totalSteps,
+                            formattedElapsed,
+                        ),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    if (p.totalSteps > 0) {
+                        LinearProgressIndicator(
+                            progress = { p.step.toFloat() / p.totalSteps },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp),
+                        )
+                    }
+                }
             }
         }
         InputBar(

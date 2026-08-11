@@ -28,6 +28,8 @@ import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.datastore.findModelById
 import me.rerere.rikkahub.data.datastore.findProvider
 import me.rerere.rikkahub.data.datastore.getCurrentAssistant
+import me.rerere.rikkahub.data.ai.GenerationProgress
+import me.rerere.rikkahub.data.ai.StableDiffusionBridge
 import me.rerere.rikkahub.data.ai.tools.image.ImageOperation
 import me.rerere.rikkahub.data.db.entity.GenMediaEntity
 import me.rerere.rikkahub.data.files.FilesManager
@@ -100,6 +102,8 @@ class ImgGenVM(
     private val _referenceImages = MutableStateFlow<List<String>>(emptyList())
     val referenceImages: StateFlow<List<String>> = _referenceImages
 
+    val generationProgress: StateFlow<GenerationProgress?> = StableDiffusionBridge.progress
+
     val pager = Pager(
         config = PagingConfig(pageSize = 20, enablePlaceholders = false),
         pagingSourceFactory = { genMediaRepository.getAllMedia() }
@@ -157,6 +161,7 @@ class ImgGenVM(
                 _isGenerating.value = true
                 _error.value = null
                 _currentGeneratedImages.value = emptyList()
+                StableDiffusionBridge.resetProgress()
 
                 val settings = settingsStore.settingsFlow.first()
                 val model = resolveModel(settings, ModelRole.IMAGE_GENERATION)

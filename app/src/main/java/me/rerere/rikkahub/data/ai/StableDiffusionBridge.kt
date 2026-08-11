@@ -1,5 +1,15 @@
 package me.rerere.rikkahub.data.ai
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+data class GenerationProgress(
+    val step: Int,
+    val totalSteps: Int,
+    val elapsedMs: Long,
+)
+
 object StableDiffusionBridge {
     private val nativeLibraryLoaded = lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         System.loadLibrary("stablediffusion_jni")
@@ -46,5 +56,22 @@ object StableDiffusionBridge {
     fun invalidateSession() {
         warmSession = null
         nativeRelease()
+    }
+
+    private val _progress = MutableStateFlow<GenerationProgress?>(null)
+
+    val progress: StateFlow<GenerationProgress?> = _progress.asStateFlow()
+
+    fun resetProgress() {
+        _progress.value = null
+    }
+
+    @JvmStatic
+    fun nativeOnProgress(step: Int, totalSteps: Int, time: Float) {
+        _progress.value = GenerationProgress(
+            step = step,
+            totalSteps = totalSteps,
+            elapsedMs = (time * 1000).toLong(),
+        )
     }
 }
