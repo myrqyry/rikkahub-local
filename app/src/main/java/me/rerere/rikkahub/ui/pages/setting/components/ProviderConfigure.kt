@@ -1292,9 +1292,12 @@ private fun ColumnScope.ProviderConfigureStableDiffusion(
     onEdit: (ProviderSetting.StableDiffusion) -> Unit,
 ) {
     val navController = LocalNavController.current
-    val vulkanAvailable = StableDiffusionBridge.nativeSupportsBackend(
-        StableDiffusionBridge.Backend.VULKAN.value,
-    )
+    val vulkanAvailable = runCatching {
+        StableDiffusionBridge.ensureLoaded()
+        StableDiffusionBridge.nativeSupportsBackend(
+            StableDiffusionBridge.Backend.VULKAN.value,
+        )
+    }.getOrDefault(false)
 
     provider.description()
 

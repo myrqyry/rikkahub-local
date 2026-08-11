@@ -261,7 +261,6 @@ private fun ImageGenScreen(
     LaunchedEffect(error) {
         error?.let { errorMessage ->
             toaster.show(message = errorMessage, type = ToastType.Error)
-            vm.clearError()
         }
     }
 
@@ -335,6 +334,17 @@ private fun ImageGenScreen(
                         )
                     }
                 }
+            }
+            error?.let { errorMessage ->
+                Text(
+                    text = errorMessage,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                )
             }
         }
         InputBar(
