@@ -196,7 +196,7 @@ fun SettingPluginPage() {
                                     if (plugin.hasTools) {
                                         add(stringResource(R.string.setting_plugin_metadata_tools))
                                     }
-                                }.joinToString(),
+                                }.joinToString(separator = ""),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
