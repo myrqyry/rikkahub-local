@@ -37,16 +37,53 @@ import java.nio.ByteOrder
 private const val TAG = "WhisperLiteRT"
 
 /**
+ * Tensor layout of the loaded Whisper model, read from its signatures.
+ *
+ * Whisper base and tiny use different hidden widths (512 vs 384), so buffer sizes must
+ * come from the actual model rather than a hardcoded base layout.
+ */
+internal data class WhisperShapes(
+    val encOutputSize: Int,
+    val maxTokens: Int,
+    val vocabSize: Int,
+    val kvFloats: Int,
+)
+
+/**
+ * Derive [WhisperShapes] from raw tensor metadata. [decodeOutputs] lists each decode
+ * signature output as (shape, bytes). The logits output is the one shaped `[maxTokens,
+ * vocab]` — its trailing dimension is the vocabulary, far wider than any KV-cache width.
+ */
+internal fun deriveWhisperShapes(
+    encOutputSize: Int,
+    decodeOutputs: List<Pair<IntArray, Int>>,
+): WhisperShapes {
+    require(decodeOutputs.size >= 2) { "Whisper decode signature must have logits and KV outputs" }
+    val logits = decodeOutputs.first { (shape, _) ->
+        shape.isNotEmpty() && shape.last() > 4096
+    }
+    val kv = decodeOutputs.first { it != logits }
+    return WhisperShapes(
+        encOutputSize = encOutputSize,
+        maxTokens = logits.first[0],
+        vocabSize = logits.first[1],
+        kvFloats = kv.second / 4,
+    )
+}
+
+/**
  * On-device Whisper ASR via LiteRT/TFLite with named signatures.
  *
- * Uses the [litert-community/whisper-base](https://huggingface.co/litert-community/whisper-base)
- * model (single `whisper_base_30s_f32.tflite` file). The model exposes two signatures:
+ * Supports the [litert-community](https://huggingface.co/litert-community) Whisper base
+ * and tiny families (f32/quantized/device variants) plus custom `.tflite` imports. Models
+ * expose two signatures:
  *
- * - **encode**: Mel spectrogram `[1,80,3000]` → encoder states `[1,1500,512]`
- * - **decode**: encoder states, token IDs `[1,N]`, KV cache `[1,1,N,128]` → logits `[1,N,51865]`
+ * - **encode**: Mel spectrogram `[1,80,3000]` → encoder states (512-wide for base, 384-wide for tiny)
+ * - **decode**: encoder states, token IDs, KV cache → logits `[N,vocab]` and KV cache out
  *
- * Setup: drop `whisper_base_30s_f32.tflite` into `models/whisper-litert/` in app storage
- * (download from HuggingFace, 480 MB). The controller auto-loads via SignatureRunner.
+ * Tensor shapes are read from the loaded model at runtime so any variant works.
+ *
+ * Setup: drop a `whisper_*_30s_*.tflite` file into `models/whisper-litert/` in app storage.
  *
  * Tokeniser: looks for `vocab.json` (GPT-2 vocabulary, 50257 base + special tokens) next to
  * the model file. Falls back to byte-decoding of token-string-lookup.
@@ -140,10 +177,28 @@ class WhisperLiteRTASRController(
 
             val signatureKeys = runCatching { interp.getSignatureKeys() }.getOrNull()
             Log.i(TAG, "Model signatures: ${signatureKeys?.joinToString()}")
+
+            // Read the model's real tensor shapes instead of assuming the Whisper base
+            // layout — Whisper tiny (and quantized/device variants) use a 384-wide hidden
+            // state, and hardcoding 512 here feeds overrun buffers to the native runtime
+            // and crashes the process.
+            val shapes = runCatching { readWhisperShapes(interp) }.getOrElse { e ->
+                Log.e(TAG, "Unsupported Whisper model layout", e)
+                setError("Unsupported Whisper model: ${e.message}")
+                return@launch
+            }
+            Log.i(
+                TAG,
+                "Whisper shapes: enc=$shapes.encOutputSize " +
+                    "tokens=${shapes.maxTokens} vocab=${shapes.vocabSize} kv=${shapes.kvFloats}"
+            )
+
             // Warm up encoder
             runCatching {
-                val dummyMel = ByteBuffer.allocateDirect(1 * 80 * 3000 * 4).order(ByteOrder.nativeOrder())
-                val dummyEnc = ByteBuffer.allocateDirect(1 * 1500 * 512 * 4).order(ByteOrder.nativeOrder())
+                val melInputs = interp.getSignatureInputs("encode")
+                val melFloats = interp.getInputTensorFromSignature("encode", melInputs.first()).numBytes() / 4
+                val dummyMel = ByteBuffer.allocateDirect(melFloats * 4).order(ByteOrder.nativeOrder())
+                val dummyEnc = ByteBuffer.allocateDirect(shapes.encOutputSize * 4).order(ByteOrder.nativeOrder())
                 val encInputs = arrayOf(dummyMel)
                 runSignature(interp, "encode", encInputs, arrayOf(dummyEnc))
             }.onFailure { Log.w(TAG, "Encoder warm-up failed (non-fatal)", it) }
@@ -196,7 +251,7 @@ class WhisperLiteRTASRController(
                         // Whisper requires a 30-second input; pad the initial window and
                         // then keep the latest 30 seconds for interactive updates.
                         if (filled > 0 && samplesSinceTranscription >= transcriptionStride) {
-                            val result = transcribe(interp, pcmRing.copyOf(), vocab)
+                            val result = transcribe(interp, pcmRing.copyOf(), vocab, shapes)
                             if (result.isNotBlank()) {
                                 _state.update { it.copy(transcript = result, errorMessage = null) }
                                 onTranscriptChange?.invoke(result)
@@ -217,26 +272,31 @@ class WhisperLiteRTASRController(
     }
 
     /** Run encode → decode loop on [pcm] (480k mono float samples, 30s @ 16kHz). */
-    private fun transcribe(interp: Interpreter, pcm: FloatArray, vocab: Map<Int, ByteArray>?): String {
+    private fun transcribe(
+        interp: Interpreter,
+        pcm: FloatArray,
+        vocab: Map<Int, ByteArray>?,
+        shapes: WhisperShapes,
+    ): String {
         val logMel = WhisperMel.compute(pcm) // [80 * 3000] = 240_000 floats
         val melBuffer = ByteBuffer.allocateDirect(logMel.size * 4).order(ByteOrder.nativeOrder())
         melBuffer.asFloatBuffer().put(logMel)
 
-        val encOutputSize = 1 * 1500 * 512
-        val encBuffer = ByteBuffer.allocateDirect(encOutputSize * 4).order(ByteOrder.nativeOrder())
+        val encBuffer = ByteBuffer.allocateDirect(shapes.encOutputSize * 4)
+            .order(ByteOrder.nativeOrder())
 
         val encodeOutput = runCatching {
             val encInputs = arrayOf(melBuffer)
             runSignature(interp, "encode", encInputs, arrayOf(encBuffer))
             encBuffer.rewind()
-            val encFloats = FloatArray(encOutputSize) { encBuffer.float }
+            val encFloats = FloatArray(shapes.encOutputSize) { encBuffer.float }
             encFloats
         }.getOrElse { e ->
             Log.e(TAG, "Encoder failed", e)
             return ""
         }
 
-        return decodeTokens(interp, encodeOutput, vocab)
+        return decodeTokens(interp, encodeOutput, vocab, shapes)
     }
 
     // --- tokenizer ---
@@ -267,11 +327,11 @@ class WhisperLiteRTASRController(
         interp: Interpreter,
         encoderOutput: FloatArray,
         vocab: Map<Int, ByteArray>?,
+        shapes: WhisperShapes,
     ): String {
         return runCatching {
-            val maxTokens = 128
-            val vocabSize = 51865
-            val kvDim = 128
+            val maxTokens = shapes.maxTokens
+            val vocabSize = shapes.vocabSize
             val langToken = langTokens[provider.language] ?: langTokens["en"]!!
             val prompt = intArrayOf(startOfTranscript, langToken, transcribeToken, noTimestamps)
             val tokens = IntArray(maxTokens) { 0 }
@@ -288,10 +348,9 @@ class WhisperLiteRTASRController(
             val logits = FloatArray(maxTokens * vocabSize)
 
             // KV cache ping-pong: step N output → step N+1 input
-            val kv0 = ByteBuffer.allocateDirect(1 * 1 * maxTokens * kvDim * 4)
-                .order(ByteOrder.nativeOrder())
-            val kv1 = ByteBuffer.allocateDirect(1 * 1 * maxTokens * kvDim * 4)
-                .order(ByteOrder.nativeOrder())
+            val kvBytes = shapes.kvFloats * 4
+            val kv0 = ByteBuffer.allocateDirect(kvBytes).order(ByteOrder.nativeOrder())
+            val kv1 = ByteBuffer.allocateDirect(kvBytes).order(ByteOrder.nativeOrder())
             var kvIn = kv0
             var kvOut = kv1
 
@@ -404,6 +463,17 @@ class WhisperLiteRTASRController(
         // These can't be decoded from ID alone without the full BPE merge table.
         // The vocab.json is needed for full decoding.
         return map
+    }
+
+    private fun readWhisperShapes(interp: Interpreter): WhisperShapes {
+        val encOutName = interp.getSignatureOutputs("encode").first()
+        val encOut = interp.getOutputTensorFromSignature("encode", encOutName)
+
+        val decodeOutputs = interp.getSignatureOutputs("decode").map { name ->
+            val tensor = interp.getOutputTensorFromSignature("decode", name)
+            tensor.shape() to tensor.numBytes()
+        }
+        return deriveWhisperShapes(encOut.numBytes() / 4, decodeOutputs)
     }
 
     private fun runSignature(
