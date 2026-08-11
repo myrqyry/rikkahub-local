@@ -8,6 +8,7 @@ Task 2 is committed at `71c9cad3969745bfda3120f66e594064a9ef43e4`, with review f
 
 - Existing Task 2 commit: `71c9cad3969745bfda3120f66e594064a9ef43e4` (`feat: localize settings pages`). Native shell execution is denied except for the task-management status/complete commands, so the review fixes could not be amended into it.
 - Review-fix commit: `8a7c173dfd254c56df049b04f3c588c491362038` (`fix: address task 2 review findings`).
+- Remaining indentation review fix: `79e56ec4795c3b663833d7fc84f5ff4859ac216c` (`fix: finish task 2 indentation`).
 
 ## Changed files
 
@@ -51,6 +52,7 @@ The locale CLI add/translation workflow was not rerun because the keys already e
 - Resource searches confirmed the RAG, Plugin, and Local Dream key groups exist in `values-zh`, `values-zh-rTW`, `values-ja`, `values-ko-rKR`, `values-ru`, and `values-ar`.
 - No component under `ui/pages/setting/components` was changed because relevant Qwen UI copy already used `stringResource`.
 - `git diff --check`: passed; no whitespace errors.
+- Remaining review fix verification: `./gradlew :app:compileDebugKotlin --no-daemon --console=plain` passed; `git diff --check` passed.
 - `uv run --directory locale-tui pytest`: failed, 6/6 tests, all blocked by missing API key (`openai.AuthenticationError`, HTTP 401).
 - `./gradlew :app:compileDebugKotlin --no-daemon --console=plain`: passed; `BUILD SUCCESSFUL in 26s`, 105 actionable tasks (9 executed, 96 up-to-date). One pre-existing/deprecation warning remains for `menuAnchor()` in `SettingLocalDreamPage.kt:240`.
 - `./gradlew :app:compileDebugKotlin --no-daemon --console=plain`: passed; `BUILD SUCCESSFUL in 17s`, 105 actionable tasks (9 executed, 96 up-to-date).
