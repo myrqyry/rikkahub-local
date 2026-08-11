@@ -1,27 +1,26 @@
 package me.rerere.rikkahub.data.rag
 
+import java.nio.ByteBuffer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
-import me.rerere.ai.provider.Model
-import me.rerere.ai.provider.ProviderSetting
-import java.nio.ByteBuffer
 
+/**
+ * RAG vector store. The embedding strategy is injected as a [EmbeddingBackend] provider
+ * resolved per call, so switching between a local Qwen model and a cloud provider model
+ * takes effect without callers carrying [me.rerere.ai.provider.ProviderSetting]/[me.rerere.ai.provider.Model]
+ * through the pipeline.
+ */
 class EmbeddingRepository(
-    private val textEmbedder: TextEmbedder,
+    private val backendProvider: suspend () -> EmbeddingBackend?,
     private val vectorDao: VectorDao,
     private val json: Json,
 ) {
     private val searchEngine = LocalVectorSearchEngine()
 
-    suspend fun indexDocument(
-        id: String,
-        text: String,
-        metadata: JsonObject,
-        providerSetting: ProviderSetting,
-        model: Model,
-    ): Boolean {
-        val result = textEmbedder.embed(text, providerSetting, model) ?: return false
+    suspend fun indexDocument(id: String, text: String, metadata: JsonObject): Boolean {
+        val backend = backendProvider() ?: return false
+        val result = backend.embed(text) ?: return false
         searchEngine.addVector(id, result.embedding, metadata)
         val entity = VectorEntity(
             id = id,
@@ -32,13 +31,9 @@ class EmbeddingRepository(
         return true
     }
 
-    suspend fun searchSimilar(
-        query: String,
-        topK: Int = 10,
-        providerSetting: ProviderSetting,
-        model: Model,
-    ): List<LocalVectorSearchEngine.ScoredMatch> {
-        val result = textEmbedder.embed(query, providerSetting, model) ?: return emptyList()
+    suspend fun searchSimilar(query: String, topK: Int = 10): List<LocalVectorSearchEngine.ScoredMatch> {
+        val backend = backendProvider() ?: return emptyList()
+        val result = backend.embed(query) ?: return emptyList()
         return searchEngine.search(result.embedding, topK)
     }
 
@@ -49,13 +44,11 @@ class EmbeddingRepository(
 
     suspend fun loadFromDatabase() {
         searchEngine.clear()
-        val entities = vectorDao.getAll()
-        for (entity in entities) {
-            val metadata = json.parseToJsonElement(entity.metadata).jsonObject
+        for (entity in vectorDao.getAll()) {
             searchEngine.addVector(
                 id = entity.id,
                 embedding = bytesToFloatArray(entity.embedding),
-                metadata = metadata,
+                metadata = json.parseToJsonElement(entity.metadata).jsonObject,
             )
         }
     }

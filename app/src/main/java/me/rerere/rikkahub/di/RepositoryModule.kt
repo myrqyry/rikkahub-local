@@ -1,11 +1,18 @@
 package me.rerere.rikkahub.di
 
 import android.content.Context
-import me.rerere.rikkahub.data.rag.EmbeddingRepository
-import me.rerere.rikkahub.data.rag.TextEmbedder
+import java.io.File
+import kotlinx.coroutines.flow.first
+import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.files.FileFolders
 import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.data.files.SkillManager
+import me.rerere.rikkahub.data.rag.EmbeddingBackend
+import me.rerere.rikkahub.data.rag.EmbeddingRepository
+import me.rerere.rikkahub.data.rag.ProviderEmbeddingBackend
+import me.rerere.rikkahub.data.rag.QwenEmbeddingBackend
+import me.rerere.rikkahub.data.rag.RagEmbeddingSource
+import me.rerere.rikkahub.data.rag.resolveRagEmbeddingSource
 import me.rerere.rikkahub.data.repository.ConversationRepository
 import me.rerere.rikkahub.data.repository.FavoriteRepository
 import me.rerere.rikkahub.data.repository.FolderRepository
@@ -13,12 +20,12 @@ import me.rerere.rikkahub.data.repository.FilesRepository
 import me.rerere.rikkahub.data.repository.GenMediaRepository
 import me.rerere.rikkahub.data.repository.MemoryRepository
 import me.rerere.rikkahub.data.repository.WorkspaceRepository
+import me.rerere.rikkahub.ui.pages.setting.components.QwenSemanticModelManager
 import me.rerere.workspace.ProotShellRunner
 import me.rerere.workspace.RootfsInstaller
 import me.rerere.workspace.WorkspaceBindMount
 import me.rerere.workspace.WorkspaceManager
 import org.koin.dsl.module
-import java.io.File
 
 val repositoryModule = module {
     single {
@@ -86,8 +93,23 @@ val repositoryModule = module {
     }
 
     single {
+        val context: Context = get()
+        val settingsStore: SettingsStore = get()
+        val embedderDir = File(context.filesDir, "models/embedder")
         EmbeddingRepository(
-            textEmbedder = get(),
+            backendProvider = {
+                val settings = settingsStore.settingsFlow.first()
+                val localReady = QwenSemanticModelManager.validate(
+                    embedderDir,
+                    QwenSemanticModelManager.ModelKind.Embedder,
+                ) is QwenSemanticModelManager.ModelStatus.Ready
+                when (val source = resolveRagEmbeddingSource(settings, embedderDir, localReady)) {
+                    is RagEmbeddingSource.LocalQwen -> QwenEmbeddingBackend(source.modelDir)
+                    is RagEmbeddingSource.Provider ->
+                        ProviderEmbeddingBackend(get(), source.providerSetting, source.model)
+                    null -> null
+                }
+            },
             vectorDao = get(),
             json = get(),
         )

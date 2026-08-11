@@ -7,8 +7,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import me.rerere.ai.provider.Model
-import me.rerere.ai.provider.ProviderSetting
 import java.io.File
 
 data class IngestionProgress(
@@ -25,8 +23,6 @@ class MarkdownIngestionPipeline(
 ) {
     suspend fun ingestFromFile(
         filePath: String,
-        providerSetting: ProviderSetting,
-        model: Model,
         metadata: JsonObject = buildJsonObject {},
     ): Flow<IngestionProgress> = flow {
         val file = File(filePath)
@@ -43,14 +39,12 @@ class MarkdownIngestionPipeline(
         }
         val text = file.readText()
         val docId = file.nameWithoutExtension
-        emitAll(ingestFromText(text, docId, providerSetting, model, metadata))
+        emitAll(ingestFromText(text, docId, metadata))
     }
 
     suspend fun ingestFromText(
         text: String,
         docId: String,
-        providerSetting: ProviderSetting,
-        model: Model,
         metadata: JsonObject = buildJsonObject {},
     ): Flow<IngestionProgress> = flow {
         val chunks = chunker.chunk(text, docId)
@@ -87,8 +81,6 @@ class MarkdownIngestionPipeline(
                     id = chunk.id,
                     text = chunk.text,
                     metadata = chunkMetadata,
-                    providerSetting = providerSetting,
-                    model = model,
                 )
             } catch (e: Exception) {
                 errors.add("Failed to process chunk ${chunk.id}: ${e.message}")

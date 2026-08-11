@@ -25,19 +25,35 @@ internal fun updateQwenModelDirectory(
     settings: Settings,
     kind: QwenSemanticModelManager.ModelKind,
     directory: File,
-): Settings = settings.copy(
-    searchServices = settings.searchServices.map { option ->
+): Settings {
+    var updated = false
+    val mapped = settings.searchServices.map { option ->
         when {
             kind == QwenSemanticModelManager.ModelKind.Embedder &&
-                option is SearchServiceOptions.QwenEmbedderOptions ->
+                option is SearchServiceOptions.QwenEmbedderOptions -> {
+                updated = true
                 option.copy(modelDir = directory.absolutePath)
+            }
             kind == QwenSemanticModelManager.ModelKind.Reranker &&
-                option is SearchServiceOptions.QwenRerankerOptions ->
+                option is SearchServiceOptions.QwenRerankerOptions -> {
+                updated = true
                 option.copy(modelDir = directory.absolutePath)
+            }
             else -> option
         }
-    },
-)
+    }
+    return if (updated) {
+        settings.copy(searchServices = mapped)
+    } else {
+        val option = when (kind) {
+            QwenSemanticModelManager.ModelKind.Embedder ->
+                SearchServiceOptions.QwenEmbedderOptions(modelDir = directory.absolutePath)
+            QwenSemanticModelManager.ModelKind.Reranker ->
+                SearchServiceOptions.QwenRerankerOptions(modelDir = directory.absolutePath)
+        }
+        settings.copy(searchServices = mapped + option)
+    }
+}
 
 class QwenSemanticModelSetupViewModel(
     private val context: Context,

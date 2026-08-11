@@ -46,7 +46,6 @@ import me.rerere.rikkahub.data.agentrun.AgentRunBootRecovery
 import me.rerere.rikkahub.data.agentrun.AgentRunRepository
 import me.rerere.rikkahub.data.rag.TextEmbedder
 import me.rerere.rikkahub.data.rag.VectorDao
-import me.rerere.reranker.QwenEngineRegistry
 import me.rerere.rikkahub.data.sync.webdav.WebDavSync
 import me.rerere.search.SearchService
 import me.rerere.rikkahub.data.sync.S3Sync
@@ -165,11 +164,6 @@ val dataSourceModule = module {
         TextEmbedder(
             providerManager = get(),
             json = get(),
-            localEmbedder = {
-                QwenEngineRegistry.embedder(
-                    java.io.File(get<android.content.Context>().filesDir, "models/embedder")
-                )
-            },
         )
     }
 
