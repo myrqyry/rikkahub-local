@@ -10,6 +10,15 @@ data class GenerationProgress(
     val elapsedMs: Long,
 )
 
+enum class GenerationPhase {
+    IDLE,
+    LOADING_MODEL,
+    GENERATING,
+    COMPLETED,
+    CANCELLED,
+    FAILED,
+}
+
 object StableDiffusionBridge {
     private val nativeLibraryLoaded = lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         System.loadLibrary("stablediffusion_jni")
@@ -66,6 +75,14 @@ object StableDiffusionBridge {
 
     fun resetProgress() {
         _progress.value = null
+    }
+
+    private val _phase = MutableStateFlow(GenerationPhase.IDLE)
+
+    val phase: StateFlow<GenerationPhase> = _phase.asStateFlow()
+
+    fun setPhase(phase: GenerationPhase) {
+        _phase.value = phase
     }
 
     @JvmStatic

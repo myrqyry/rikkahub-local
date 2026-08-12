@@ -3,48 +3,36 @@ package me.rerere.rikkahub.debug
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.util.Base64
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import me.rerere.ai.provider.ImageGenerationParams
+import me.rerere.ai.provider.Modality
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelType
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
+import me.rerere.locallm.ModelInstall
+import me.rerere.locallm.SdCatalog
 import me.rerere.rikkahub.BuildConfig
 import me.rerere.rikkahub.data.ai.StableDiffusionBridge
 import me.rerere.rikkahub.data.ai.StableDiffusionProvider
+import okhttp3.OkHttpClient
 import java.io.File
 
-/**
- * Debug-only on-device generation verification hook (BuildConfig.DEBUG).
- * Drives StableDiffusionProvider.generateImage directly from adb so the 14-point
- * Vulkan acceptance matrix does not depend on the ImageGenScreen layout.
- *
- * Usage:
- *   adb shell am broadcast -n excp.rikkahub.local.debug/me.rerere.rikkahub.debug.SdGenTestHook \
- *     -a rikkahub.intent.action.SD_GEN_TEST \
- *     --ez vulkan true --ei steps 1 --ei width 512 --ei height 512 \
- *     --ei repeat 3 --ei cancelAfterMs 8000
- *
- * Output: PNG files written to the app external files dir (adb pull-able), timings
- * and SD-JNI/nativeGenerate lines to logcat (tag "SdGenTestHook").
- */
 class SdGenTestHook : BroadcastReceiver() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onReceive(context: Context, intent: Intent) {
         if (!BuildConfig.DEBUG) {
-            Log.w(TAG, "SdGenTestHook is debug-only; ignoring broadcast in a non-debug build")
+            Log.w(TAG, "SdGenTestHook is debug-only; ignoring broadcast in non-debug builds")
             return
         }
         val vulkan = intent.getBooleanExtra(EXTRA_VULKAN, true)
@@ -55,7 +43,6 @@ class SdGenTestHook : BroadcastReceiver() {
         val repeat = intent.getIntExtra(EXTRA_REPEAT, 1).coerceAtLeast(1)
         val cancelAfterMs = intent.getLongExtra(EXTRA_CANCEL_AFTER_MS, 0L)
         val prompt = intent.getStringExtra(EXTRA_PROMPT) ?: "a red apple on a wooden table"
-
         scope.launch {
             try {
                 runHook(context, vulkan, steps, width, height, seed, repeat, cancelAfterMs, prompt)
@@ -80,17 +67,49 @@ class SdGenTestHook : BroadcastReceiver() {
             context = context.applicationContext,
             runtimePreferences = LocalRuntimePreferences(context.applicationContext),
         )
+
         val modelDir = File(context.applicationContext.filesDir, "local-models/stable-diffusion")
-        val modelFile = modelDir.listFiles()
+        var modelFile = modelDir.listFiles()
             ?.filter { it.extension.equals("gguf", ignoreCase = true) }
             ?.maxByOrNull { it.length() }
-            ?: error("No Stable Diffusion GGUF installed; install one via Model Manager first")
+
+        if (modelFile == null) {
+            val entry = SdCatalog.ENTRIES[0]
+            val target = ModelInstall.targetFile(
+                ModelInstall.localModelsDir(context),
+                LocalRuntime.StableDiffusion,
+                entry.modelFile,
+            )
+            Log.i(TAG, "model missing — downloading ${entry.modelFile}")
+val downloadClient = OkHttpClient.Builder()
+    .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+    .readTimeout(5, java.util.concurrent.TimeUnit.MINUTES)
+    .writeTimeout(5, java.util.concurrent.TimeUnit.MINUTES)
+    .protocols(listOf(okhttp3.Protocol.HTTP_1_1))
+    .build()
+            ModelInstall.download(downloadClient, entry.resolveUrl(), target).collect { progress ->
+                when (progress) {
+                    is ModelInstall.Progress.Tick ->
+                        Log.i(TAG, "download ${progress.bytesRead}/${progress.totalBytes ?: "?"}")
+                    is ModelInstall.Progress.Done ->
+                        Log.i(TAG, "download complete: ${progress.file.name}")
+                    is ModelInstall.Progress.Failed ->
+                        Log.e(TAG, "download failed", progress.cause)
+                    is ModelInstall.Progress.Started -> Unit
+                }
+            }
+            if (!target.isFile || target.length() < 2_000_000_000L) {
+                error("download did not complete: ${target.absolutePath}")
+            }
+            modelFile = target
+        }
+
         val model = Model(
             modelId = modelFile.name,
             displayName = modelFile.name,
             type = ModelType.IMAGE,
-            inputModalities = listOf(me.rerere.ai.provider.Modality.TEXT),
-            outputModalities = listOf(me.rerere.ai.provider.Modality.IMAGE),
+            inputModalities = listOf(Modality.TEXT),
+            outputModalities = listOf(Modality.IMAGE),
         )
         val providerSetting = ProviderSetting.StableDiffusion(
             enabled = true,
@@ -103,37 +122,47 @@ class SdGenTestHook : BroadcastReceiver() {
             currentModelPath = modelFile.absolutePath,
         )
         val outDir = File(context.getExternalFilesDir(null) ?: context.filesDir, "sd-test").apply { mkdirs() }
-
-        Log.i(TAG, "hook start backend=${if (vulkan) "vulkan" else "cpu"} steps=$steps ${width}x$height seed=$seed repeat=$repeat cancelAfterMs=$cancelAfterMs model=${modelFile.name}")
+        Log.i(
+            TAG,
+            "hook start backend=${if (vulkan) "vulkan" else "cpu"} steps=$steps ${width}x$height " +
+                "seed=$seed repeat=$repeat cancelAfterMs=$cancelAfterMs model=${modelFile.name}",
+        )
 
         repeat(repeat) { i ->
             StableDiffusionBridge.resetProgress()
             val runStart = System.currentTimeMillis()
             val first = i == 0
-            var coldLoadMs = 0L
-            var genMs = 0L
+            var coldLoadMs: Long = 0
+            var genMs: Long = 0
             var progressCount = 0
             var imageSaved = false
             var cancelled = false
 
             val runJob = scope.launch {
-                provider.generateImage(providerSetting, ImageGenerationParams(model = model, prompt = prompt, numOfImages = 1))
-                    .onEach { item: ImageGenerationItem ->
-                        if (item.partial) {
-                            progressCount++
-                            Log.i(TAG, "hook run $i partial image index=${item.partialImageIndex}")
-                        } else {
-                            val now = System.currentTimeMillis()
-                            if (first) coldLoadMs = now - runStart
-                            genMs = now - runStart
-                            val bytes = Base64.decode(item.data, Base64.NO_WRAP)
-                            val file = File(outDir, "gen_${i}_${if (vulkan) "vulkan" else "cpu"}_${width}x${height}_s${steps}.png")
-                            file.writeBytes(bytes)
-                            imageSaved = true
-                            Log.i(TAG, "hook run $i IMAGE saved ${file.absolutePath} bytes=${bytes.size}")
-                        }
+                provider.generateImage(
+                    providerSetting,
+                    ImageGenerationParams(model = model, prompt = prompt, numOfImages = 1),
+                ).onEach { item: ImageGenerationItem ->
+                    if (item.partial) {
+                        progressCount++
+                        Log.i(TAG, "hook run $i partial image index=${item.partialImageIndex}")
+                    } else {
+                        val now = System.currentTimeMillis()
+                        if (first) coldLoadMs = now - runStart
+                        genMs = now - runStart
+                        val bytes = Base64.decode(item.data, Base64.NO_WRAP)
+                        val file = File(
+                            outDir,
+                            "gen_${i}_${if (vulkan) "vulkan" else "cpu"}_${width}x${height}_s${steps}.png",
+                        )
+                        file.writeBytes(bytes)
+                        imageSaved = true
+                        Log.i(TAG, "hook run $i IMAGE saved ${file.absolutePath} bytes=${bytes.size}")
                     }
-                    .collect()
+                }.collect()
+            }
+            runJob.invokeOnCompletion { t ->
+                if (t != null) Log.e(TAG, "runJob $i failed", t)
             }
 
             val cancelJob = if (cancelAfterMs > 0L) {
@@ -145,12 +174,14 @@ class SdGenTestHook : BroadcastReceiver() {
             } else {
                 null
             }
+
             runJob.join()
             cancelled = runJob.isCancelled
             cancelJob?.cancel()
             Log.i(
                 TAG,
-                "hook run $i done first=$first coldLoadMs=$coldLoadMs genMs=$genMs progressCount=$progressCount imageSaved=$imageSaved cancelled=$cancelled",
+                "hook run $i done first=$first coldLoadMs=$coldLoadMs genMs=$genMs " +
+                    "progressCount=$progressCount imageSaved=$imageSaved cancelled=$cancelled",
             )
         }
         Log.i(TAG, "hook complete")

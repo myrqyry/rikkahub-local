@@ -143,10 +143,29 @@ class StableDiffusionProvider(
                 )
             }
 
-            initialized = withContext(nativeDispatcher) {
-                bridge.ensureSession(modelPath, backend)
+            // Phase 1 — LOADING_MODEL. SD.cpp does not honor cancellation while the GGUF is
+            // being loaded, so the load phase deliberately gets NO GENERATION_TIMEOUT_MS.
+            // If the caller cancels during the load, let nativeInit unwind naturally, release
+            // the freshly-built context, and return cancellation without ever entering
+            // generation (rather than calling nativeCancel() and blocking forever).
+            bridge.setPhase(GenerationPhase.LOADING_MODEL)
+            initialized = coroutineScope {
+                val loadCall = async(nativeDispatcher) {
+                    bridge.ensureSession(modelPath, backend)
+                }
+                try {
+                    loadCall.await()
+                } catch (e: CancellationException) {
+                    withContext(NonCancellable) {
+                        loadCall.join()
+                    }
+                    bridge.invalidateSession()
+                    bridge.setPhase(GenerationPhase.CANCELLED)
+                    throw e
+                }
             }
             if (!initialized) {
+                bridge.setPhase(GenerationPhase.FAILED)
                 throw IllegalStateException(
                     if (providerSetting.useVulkan) {
                         "Failed to initialize the Vulkan image backend."
@@ -156,6 +175,9 @@ class StableDiffusionProvider(
                 )
             }
 
+            // Phase 2 — GENERATING. The 120s deadline applies to sampling only, after the
+            // model is loaded and the warm session is reusable.
+            bridge.setPhase(GenerationPhase.GENERATING)
             val rgba = generateNativeWithCancellation(
                 prompt = params.prompt,
                 negativePrompt = providerSetting.negativePrompt,
@@ -178,12 +200,15 @@ class StableDiffusionProvider(
             val pngBytes = rgbaToPng(rgba, effective.width, effective.height)
             val b64 = Base64.encodeToString(pngBytes, Base64.NO_WRAP)
             emit(ImageGenerationItem(data = b64, mimeType = "image/png"))
+            bridge.setPhase(GenerationPhase.COMPLETED)
         } catch (e: UnsatisfiedLinkError) {
+            bridge.setPhase(GenerationPhase.FAILED)
             throw IllegalStateException(
                 "Image generation is not available on this device (arm64 native runtime required)",
                 e,
             )
         } catch (e: TimeoutCancellationException) {
+            bridge.setPhase(GenerationPhase.FAILED)
             throw IllegalStateException(
                 "Generation timed out and was cancelled. Try fewer steps or a smaller image/model.",
                 e,
@@ -191,10 +216,13 @@ class StableDiffusionProvider(
         } catch (e: CancellationException) {
             // User/app cancellation is normal coroutine control flow. Never turn it into a fake
             // generation failure; generateNativeWithCancellation already tells sd.cpp to stop.
+            bridge.setPhase(GenerationPhase.CANCELLED)
             throw e
         } catch (e: IllegalStateException) {
+            bridge.setPhase(GenerationPhase.FAILED)
             throw e
         } catch (e: Exception) {
+            bridge.setPhase(GenerationPhase.FAILED)
             throw IllegalStateException("Generation error: ${e.message ?: e::class.simpleName}", e)
         }
     }
