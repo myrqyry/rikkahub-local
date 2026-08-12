@@ -29,6 +29,7 @@ fun ModelInventorySection(
     onModelEnabledChange: (ModelDescriptor, Boolean) -> Unit,
     onLocalModelClick: (ModelDescriptor) -> Unit = {},
     onCloudModelClick: (ModelDescriptor) -> Unit = {},
+    onProviderConfigure: (String) -> Unit = {},
 ) {
     val local = models.filter { it.source is ModelSource.Local }
     val cloud = models.filter { it.source is ModelSource.Cloud }
@@ -55,6 +56,7 @@ fun ModelInventorySection(
         if (cloud.isNotEmpty()) {
             CardGroup(title = { Text(stringResource(R.string.unified_models_cloud)) }) {
                 cloudGroups.forEach { (providerId, providerModels) ->
+                    val provider = providers.firstOrNull { it.id == providerId }
                     item(
                         onClick = {
                             expandedProviders = if (providerId in expandedProviders) {
@@ -63,11 +65,20 @@ fun ModelInventorySection(
                                 expandedProviders + providerId
                             }
                         },
-                        overlineContent = { Text(providerId) },
-                        headlineContent = { Text(stringResource(R.string.unified_models_provider)) },
+                        overlineContent = { Text(provider?.displayName ?: providerId) },
+                        headlineContent = {
+                            Text(
+                                stringResource(
+                                    R.string.unified_models_provider_count,
+                                    providerModels.size,
+                                ),
+                            )
+                        },
                         trailingContent = {
-                            val provider = providers.firstOrNull { it.id == providerId }
                             Row {
+                                TextButton(onClick = { onProviderConfigure(providerId) }) {
+                                    Text(stringResource(R.string.unified_models_configure))
+                                }
                                 TextButton(onClick = { onRefreshProvider(providerId) }) {
                                     Text(stringResource(R.string.unified_models_refresh))
                                 }

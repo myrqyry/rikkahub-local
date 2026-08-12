@@ -2019,5 +2019,7 @@
   <string name="model_manager_add_section_catalog">Browse catalog</string>
   <string name="model_manager_add_section_url">Import from Hugging Face URL</string>
   <string name="model_manager_add_section_file">Import from local file</string>
+  <string name="unified_models_configure">Configure</string>
+  <string name="unified_models_provider_count">{count} models</string>
 </resources>
 

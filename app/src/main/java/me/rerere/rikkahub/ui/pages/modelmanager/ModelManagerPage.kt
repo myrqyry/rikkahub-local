@@ -173,6 +173,9 @@ fun ModelManagerPage(
                                     navController.navigate(Screen.SettingProviderDetail(providerId))
                                 }
                             },
+                            onProviderConfigure = { providerId ->
+                                navController.navigate(Screen.SettingProviderDetail(providerId))
+                            },
                         )
                     }
                 }
