@@ -143,25 +143,32 @@ class StableDiffusionProvider(
                 )
             }
 
-            // Phase 1 — LOADING_MODEL. SD.cpp does not honor cancellation while the GGUF is
-            // being loaded, so the load phase deliberately gets NO GENERATION_TIMEOUT_MS.
-            // If the caller cancels during the load, let nativeInit unwind naturally, release
-            // the freshly-built context, and return cancellation without ever entering
-            // generation (rather than calling nativeCancel() and blocking forever).
-            bridge.setPhase(GenerationPhase.LOADING_MODEL)
-            initialized = coroutineScope {
-                val loadCall = async(nativeDispatcher) {
-                    bridge.ensureSession(modelPath, backend)
-                }
-                try {
-                    loadCall.await()
-                } catch (e: CancellationException) {
-                    withContext(NonCancellable) {
-                        loadCall.join()
+            // Phase 1 — LOADING_MODEL, skipped entirely when a warm (model, backend) session
+            // already exists. ensureSession would short-circuit to the same result, but going
+            // straight to GENERATING avoids a redundant load phase (and lets the UI show the
+            // reusable-session path). SD.cpp does not honor cancellation while the GGUF is being
+            // loaded, so the load phase deliberately gets NO GENERATION_TIMEOUT_MS. If the caller
+            // cancels during the load, let nativeInit unwind naturally, release the freshly-built
+            // context, and return cancellation without ever entering generation (rather than calling
+            // nativeCancel() and blocking forever).
+            if (bridge.isSessionWarm(modelPath, backend)) {
+                initialized = true
+            } else {
+                bridge.setPhase(GenerationPhase.LOADING_MODEL)
+                initialized = coroutineScope {
+                    val loadCall = async(nativeDispatcher) {
+                        bridge.ensureSession(modelPath, backend)
                     }
-                    bridge.invalidateSession()
-                    bridge.setPhase(GenerationPhase.CANCELLED)
-                    throw e
+                    try {
+                        loadCall.await()
+                    } catch (e: CancellationException) {
+                        withContext(NonCancellable) {
+                            loadCall.join()
+                        }
+                        bridge.invalidateSession()
+                        bridge.setPhase(GenerationPhase.CANCELLED)
+                        throw e
+                    }
                 }
             }
             if (!initialized) {

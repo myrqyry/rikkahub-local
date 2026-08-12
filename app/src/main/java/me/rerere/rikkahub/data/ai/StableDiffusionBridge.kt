@@ -54,6 +54,10 @@ object StableDiffusionBridge {
     val warmModelPath: String?
         get() = warmSession?.first
 
+    fun isSessionWarm(modelPath: String, backend: Backend): Boolean {
+        return warmSession == (modelPath to backend.value)
+    }
+
     fun ensureSession(modelPath: String, backend: Backend): Boolean {
         if (warmSession == (modelPath to backend.value)) return true
         warmSession = null
