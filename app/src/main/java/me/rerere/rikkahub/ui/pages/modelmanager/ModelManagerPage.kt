@@ -28,10 +28,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Tab
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -127,7 +126,7 @@ fun ModelManagerPage(
     ) { padding ->
         Column(Modifier.padding(padding)) {
             if (showAddModel) {
-                AddModelTabs(viewModel, filePickerLauncher, downloadProgress, errorMessage)
+                AddModelOptions(viewModel, filePickerLauncher, downloadProgress, errorMessage)
             } else {
                 PrimaryTabRow(selectedTabIndex = selectedTab.ordinal.coerceAtMost(MANAGER_TABS.lastIndex)) {
                     MANAGER_TABS.forEach { tab ->
@@ -183,42 +182,72 @@ fun ModelManagerPage(
 }
 
 @Composable
-private fun ColumnScope.AddModelTabs(
+private fun ColumnScope.AddModelOptions(
     viewModel: ModelManagerViewModel,
     filePickerLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>,
     downloadProgress: Progress?,
     errorMessage: String?,
 ) {
-    var tab by remember { mutableStateOf(0) }
-    TabRow(selectedTabIndex = tab) {
-        Tab(
-            selected = tab == 0,
-            onClick = { tab = 0 },
-            text = { Text(stringResource(R.string.model_manager_tab_installed)) },
-        )
-        Tab(
-            selected = tab == 1,
-            onClick = { tab = 1 },
-            text = { Text(stringResource(R.string.model_manager_tab_catalog)) },
-        )
-        Tab(
-            selected = tab == 2,
-            onClick = { tab = 2 },
-            text = { Text(stringResource(R.string.model_manager_tab_hf_url)) },
-        )
-        Tab(
-            selected = tab == 3,
-            onClick = { tab = 3 },
-            text = { Text(stringResource(R.string.model_manager_tab_local_import)) },
-        )
-    }
+    val installedModels by viewModel.provider.collectAsStateWithLifecycle()
+    val installedFiles = installedModels?.models?.map { it.modelId }?.toSet() ?: emptySet()
 
-    val sdProvider = viewModel.provider.collectAsStateWithLifecycle().value
-    when (tab) {
-        0 -> InstalledTab(sdProvider?.models ?: emptyList(), viewModel)
-        1 -> CatalogTab(viewModel, downloadProgress != null)
-        2 -> HfUrlTab(viewModel, downloadProgress != null)
-        3 -> LocalImportTab(filePickerLauncher, downloadProgress != null)
+    LazyColumn(
+        modifier = Modifier.weight(1f),
+        contentPadding = PaddingValues(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item {
+            AddModelSectionHeader(stringResource(R.string.model_manager_add_section_installed))
+        }
+        val installed = installedModels?.models ?: emptyList()
+        if (installed.isEmpty()) {
+            item {
+                Text(
+                    text = stringResource(R.string.model_manager_no_models),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(16.dp),
+                )
+            }
+        } else {
+            items(installed, key = { it.modelId }) { model ->
+                InstalledModelRow(
+                    model = model,
+                    onRename = { newName -> viewModel.renameModel(model.modelId, newName) },
+                    onDelete = { viewModel.deleteModel(model.modelId) },
+                )
+            }
+        }
+
+        item {
+            AddModelSectionHeader(
+                title = stringResource(R.string.model_manager_add_section_catalog),
+                subtitle = stringResource(R.string.model_manager_sd_catalog_subtitle),
+            )
+        }
+        items(viewModel.catalogEntries, key = { it.modelFile }) { entry ->
+            val context = LocalContext.current
+            SdCatalogEntryCard(
+                entry = entry,
+                installed = entry.modelFile in installedFiles,
+                onOpenSource = {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, entry.sourceUrl.toUri()))
+                },
+            )
+        }
+
+        item {
+            AddModelSectionHeader(stringResource(R.string.model_manager_add_section_url))
+        }
+        item {
+            HfUrlTab(viewModel, downloadProgress != null)
+        }
+
+        item {
+            AddModelSectionHeader(stringResource(R.string.model_manager_add_section_file))
+        }
+        item {
+            LocalImportTab(filePickerLauncher, downloadProgress != null)
+        }
     }
 
     downloadProgress?.let { progress ->
@@ -252,59 +281,17 @@ private fun ColumnScope.AddModelTabs(
 }
 
 @Composable
-private fun ColumnScope.InstalledTab(
-    models: List<me.rerere.ai.provider.Model>,
-    viewModel: ModelManagerViewModel,
+private fun AddModelSectionHeader(
+    title: String,
+    subtitle: String? = null,
 ) {
-    if (models.isEmpty()) {
-        Text(
-            text = stringResource(R.string.model_manager_no_models),
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(16.dp),
-        )
-        return
-    }
-    LazyColumn(modifier = Modifier.weight(1f)) {
-        items(models, key = { it.modelId }) { model ->
-            InstalledModelRow(
-                model = model,
-                onRename = { newName -> viewModel.renameModel(model.modelId, newName) },
-                onDelete = { viewModel.deleteModel(model.modelId) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun ColumnScope.CatalogTab(
-    viewModel: ModelManagerViewModel,
-    downloadInProgress: Boolean,
-) {
-    val installedModels by viewModel.provider.collectAsStateWithLifecycle()
-    val installedFiles = installedModels?.models?.map { it.modelId }?.toSet() ?: emptySet()
-
-    LazyColumn(modifier = Modifier.weight(1f)) {
-        item {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    stringResource(R.string.local_llm_catalog_title),
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                Text(
-                    stringResource(R.string.model_manager_sd_catalog_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        items(viewModel.catalogEntries, key = { it.modelFile }) { entry ->
-            val context = LocalContext.current
-            SdCatalogEntryCard(
-                entry = entry,
-                installed = entry.modelFile in installedFiles,
-                onOpenSource = {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, entry.sourceUrl.toUri()))
-                },
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text(title, style = MaterialTheme.typography.titleSmall)
+        if (subtitle != null) {
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
