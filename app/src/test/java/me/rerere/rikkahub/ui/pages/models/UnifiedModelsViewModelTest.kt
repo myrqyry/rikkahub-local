@@ -177,6 +177,48 @@ class UnifiedModelsViewModelTest {
         assertNull(legacy.titleModelId.value)
     }
 
+    @Test
+    fun otherTabHostsEmbeddingsAndSpeechTabHostsSpeechCapabilities() = runBlocking {
+        val embeddings = model("embed", "Embed", ModelCapability.EMBEDDINGS)
+        val reranker = model("rerank", "Rerank", ModelCapability.RERANKING)
+        val tts = model("tts", "TTS", ModelCapability.TEXT_TO_SPEECH)
+        val stt = model("stt", "STT", ModelCapability.SPEECH_TO_TEXT)
+        val audio = model("audio", "Audio", ModelCapability.AUDIO_UNDERSTANDING)
+        val vm = viewModelWith(listOf(embeddings, reranker, tts, stt, audio))
+
+        vm.setTab(ModelTab.OTHER)
+        assertEquals(listOf(reranker), vm.visibleModels.first())
+
+        vm.setTab(ModelTab.SPEECH)
+        assertEquals(setOf(tts.id, stt.id, audio.id), vm.visibleModels.first().map { it.id }.toSet())
+    }
+
+    @Test
+    fun managerKeepsDisabledModelsAndDisabledProvidersVisibleForReEnable() = runBlocking {
+        val disabledCapability = model("off", "Capability Off", ModelCapability.CHAT)
+            .copy(enabledCapabilities = emptySet())
+        val disabledProvider = model("provider-off", "Provider Off", ModelCapability.CHAT)
+            .copy(providerEnabled = false)
+        val vm = viewModelWith(
+            models = listOf(disabledCapability, disabledProvider),
+            providers = listOf(ModelProviderDescriptor("provider", "Provider", enabled = false, modelIds = listOf("provider-off"))),
+        )
+
+        vm.setTab(ModelTab.CHAT)
+        assertEquals(setOf("off", "provider-off"), vm.managerVisibleModels.first().map { it.id }.toSet())
+        assertEquals(emptyList<ModelDescriptor>(), vm.visibleModels.first())
+    }
+
+    @Test
+    fun managerOtherTabHostsEmbeddingsWhileVisibleOtherExcludesThem() = runBlocking {
+        val embeddings = model("embed", "Embed", ModelCapability.EMBEDDINGS)
+        val vm = viewModelWith(listOf(embeddings))
+
+        vm.setTab(ModelTab.OTHER)
+        assertEquals(listOf(embeddings), vm.managerVisibleModels.first())
+        assertEquals(emptyList<ModelDescriptor>(), vm.visibleModels.first())
+    }
+
     private fun viewModelWith(
         models: List<ModelDescriptor>,
         assignments: ModelAssignments = ModelAssignments(),

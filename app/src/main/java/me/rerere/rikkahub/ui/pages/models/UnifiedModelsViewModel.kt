@@ -100,6 +100,22 @@ class UnifiedModelsViewModel(
         }
     }.stateIn(ownerScope, SharingStarted.Eagerly, emptyList())
 
+    // Model Manager view: every registered model discoverable, grouped by source/provider.
+    // Unlike visibleModels (assignment candidates) this does NOT drop disabled models or
+    // models under disabled providers, so users can re-enable them from the inventory.
+    // Tab matching uses full capabilities (what the model CAN do), not enabledCapabilities.
+    val managerVisibleModels: StateFlow<List<ModelDescriptor>> = combine(
+        registry.models,
+        combine(tab, search) { selectedTab, query -> ManagerFilter(selectedTab, query) },
+    ) { models, filter ->
+        val normalizedQuery = filter.query.trim().lowercase()
+        models.filter { model -> managerMatchesTab(model, filter.tab) }
+            .filter { model ->
+                normalizedQuery.isEmpty() || model.displayName.lowercase().contains(normalizedQuery) ||
+                    model.id.lowercase().contains(normalizedQuery)
+            }
+    }.stateIn(ownerScope, SharingStarted.Eagerly, emptyList())
+
     val assignments: StateFlow<ModelAssignments> = registry.assignments
     val legacyAssignments: StateFlow<LegacyAssignments> = combine(
         legacyAdapter.titleModelId, legacyAdapter.translationModelId,
@@ -232,10 +248,38 @@ class UnifiedModelsViewModel(
     private fun usableFor(model: ModelDescriptor, role: ModelRole): Boolean =
         modelUsable(model, role.capability())
 
+    private fun managerMatchesTab(model: ModelDescriptor, tab: ModelTab): Boolean =
+        when (tab) {
+            ModelTab.ALL -> true
+            ModelTab.CHAT -> model.capabilities.contains(ModelCapability.CHAT)
+            ModelTab.IMAGE -> model.capabilities.contains(ModelCapability.IMAGE_GENERATION)
+            ModelTab.VISION -> model.capabilities.contains(ModelCapability.VISION) ||
+                model.capabilities.contains(ModelCapability.OCR)
+            ModelTab.SPEECH -> model.capabilities.any {
+                it == ModelCapability.TEXT_TO_SPEECH ||
+                    it == ModelCapability.SPEECH_TO_TEXT ||
+                    it == ModelCapability.AUDIO_UNDERSTANDING
+            }
+            ModelTab.EMBEDDINGS -> model.capabilities.contains(ModelCapability.EMBEDDINGS)
+            ModelTab.OTHER -> model.capabilities.none {
+                it == ModelCapability.CHAT ||
+                    it == ModelCapability.VISION ||
+                    it == ModelCapability.IMAGE_GENERATION ||
+                    it == ModelCapability.TEXT_TO_SPEECH ||
+                    it == ModelCapability.SPEECH_TO_TEXT ||
+                    it == ModelCapability.AUDIO_UNDERSTANDING
+            }
+        }
+
     private data class FilterState(
         val tab: ModelTab,
         val query: String,
         val source: ModelSourceFilter,
         val providerId: String?,
+    )
+
+    private data class ManagerFilter(
+        val tab: ModelTab,
+        val query: String,
     )
 }

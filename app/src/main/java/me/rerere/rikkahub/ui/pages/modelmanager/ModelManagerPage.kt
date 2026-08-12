@@ -1,5 +1,6 @@
 package me.rerere.rikkahub.ui.pages.modelmanager
 
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -17,20 +18,21 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,7 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import android.content.Intent
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -49,7 +51,19 @@ import me.rerere.hugeicons.stroke.Delete01
 import me.rerere.hugeicons.stroke.Edit01
 import me.rerere.locallm.SdCatalogEntry
 import me.rerere.rikkahub.R
+import me.rerere.rikkahub.Screen
+import me.rerere.rikkahub.data.modelregistry.ModelSource
+import me.rerere.rikkahub.ui.components.nav.BackButton
+import me.rerere.rikkahub.ui.context.LocalNavController
+import me.rerere.rikkahub.ui.pages.models.ModelTab
+import me.rerere.rikkahub.ui.pages.models.UnifiedModelsViewModel
+import me.rerere.rikkahub.ui.pages.models.components.ModelInventorySection
+import me.rerere.rikkahub.ui.pages.setting.SettingVM
+import me.rerere.rikkahub.ui.theme.CustomColors
 import org.koin.androidx.compose.koinViewModel
+import kotlin.uuid.Uuid
+
+private val MANAGER_TABS = ModelTab.entries.filter { it != ModelTab.EMBEDDINGS }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,8 +73,13 @@ fun ModelManagerPage(
     // the page crashed on open. The explicit type parameter picks the parameterised one.
     viewModel: ModelManagerViewModel = koinViewModel<ModelManagerViewModel>(),
 ) {
-    var tab by remember { mutableStateOf(0) }
-    val provider by viewModel.provider.collectAsStateWithLifecycle()
+    val settingsVm: SettingVM = koinViewModel()
+    val assignmentsVm: UnifiedModelsViewModel = koinViewModel()
+    val settings by settingsVm.settings.collectAsStateWithLifecycle()
+    val visibleModels by assignmentsVm.managerVisibleModels.collectAsStateWithLifecycle()
+    val providers by assignmentsVm.registryProviders.collectAsStateWithLifecycle()
+    val selectedTab by assignmentsVm.selectedTab.collectAsStateWithLifecycle()
+    val search by assignmentsVm.searchText.collectAsStateWithLifecycle()
     val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -69,71 +88,166 @@ fun ModelManagerPage(
         uri ?: return@rememberLauncherForActivityResult
         viewModel.importModelFromUri(uri)
     }
+    var showAddModel by remember { mutableStateOf(false) }
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val navController = LocalNavController.current
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.model_manager_title)) }) },
-    ) { padding ->
-        Column(Modifier.padding(padding)) {
-            TabRow(selectedTabIndex = tab) {
-                Tab(
-                    selected = tab == 0,
-                    onClick = { tab = 0 },
-                    text = { Text(stringResource(R.string.model_manager_tab_installed)) },
-                )
-                Tab(
-                    selected = tab == 1,
-                    onClick = { tab = 1 },
-                    text = { Text(stringResource(R.string.model_manager_tab_catalog)) },
-                )
-                Tab(
-                    selected = tab == 2,
-                    onClick = { tab = 2 },
-                    text = { Text(stringResource(R.string.model_manager_tab_hf_url)) },
-                )
-                Tab(
-                    selected = tab == 3,
-                    onClick = { tab = 3 },
-                    text = { Text(stringResource(R.string.model_manager_tab_local_import)) },
-                )
-            }
-
-            val sdProvider = provider
-            when (tab) {
-                0 -> InstalledTab(sdProvider?.models ?: emptyList(), viewModel)
-                1 -> CatalogTab(viewModel, downloadProgress != null)
-                2 -> HfUrlTab(viewModel, downloadProgress != null)
-                3 -> LocalImportTab(filePickerLauncher, downloadProgress != null)
-            }
-
-            downloadProgress?.let { progress ->
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        containerColor = CustomColors.topBarColors.containerColor,
+        topBar = {
+            LargeFlexibleTopAppBar(
+                title = { Text(stringResource(R.string.model_manager_title)) },
+                navigationIcon = { BackButton() },
+                scrollBehavior = scrollBehavior,
+                colors = CustomColors.topBarColors,
+            )
+        },
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        bottomBar = {
+            if (showAddModel) {
+                OutlinedButton(
+                    onClick = { showAddModel = false },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                 ) {
-                    if (progress.totalBytes != null && progress.totalBytes > 0) {
-                        LinearProgressIndicator(
-                            progress = { progress.percent / 100f },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    } else {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    }
-                    Text(
-                        text = stringResource(R.string.local_llm_download_progress, progress.percent),
-                        style = MaterialTheme.typography.labelSmall,
-                    )
+                    Text(stringResource(R.string.model_manager_back_to_models))
+                }
+            } else {
+                Button(
+                    onClick = { showAddModel = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    Text(stringResource(R.string.model_manager_add_model))
                 }
             }
-
-            errorMessage?.let { msg ->
-                Text(
-                    text = stringResource(R.string.local_llm_status_error_format, msg),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        },
+    ) { padding ->
+        Column(Modifier.padding(padding)) {
+            if (showAddModel) {
+                AddModelTabs(viewModel, filePickerLauncher, downloadProgress, errorMessage)
+            } else {
+                PrimaryTabRow(selectedTabIndex = selectedTab.ordinal.coerceAtMost(MANAGER_TABS.lastIndex)) {
+                    MANAGER_TABS.forEach { tab ->
+                        Tab(
+                            selected = selectedTab == tab,
+                            onClick = { assignmentsVm.setTab(tab) },
+                            text = { Text(tab.name.lowercase().replaceFirstChar(Char::uppercase)) },
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = search,
+                    onValueChange = assignmentsVm::setSearch,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.unified_models_search)) },
                 )
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    item {
+                        ModelInventorySection(
+                            models = visibleModels,
+                            providers = providers,
+                            onRefreshProvider = assignmentsVm::refreshProvider,
+                            onProviderEnabledChange = { providerId, enabled ->
+                                val providerUuid = runCatching { Uuid.parse(providerId) }.getOrNull()
+                                if (providerUuid != null) {
+                                    settingsVm.updateSettings(settings.copy(
+                                        providers = settings.providers.map { provider ->
+                                            if (provider.id == providerUuid) provider.copyProvider(enabled = enabled) else provider
+                                        },
+                                    ))
+                                }
+                            },
+                            onModelEnabledChange = assignmentsVm::setModelEnabled,
+                            onCloudModelClick = { model ->
+                                val providerId = (model.source as? ModelSource.Cloud)?.providerId
+                                if (providerId != null) {
+                                    navController.navigate(Screen.SettingProviderDetail(providerId))
+                                }
+                            },
+                        )
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun ColumnScope.AddModelTabs(
+    viewModel: ModelManagerViewModel,
+    filePickerLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>,
+    downloadProgress: Progress?,
+    errorMessage: String?,
+) {
+    var tab by remember { mutableStateOf(0) }
+    TabRow(selectedTabIndex = tab) {
+        Tab(
+            selected = tab == 0,
+            onClick = { tab = 0 },
+            text = { Text(stringResource(R.string.model_manager_tab_installed)) },
+        )
+        Tab(
+            selected = tab == 1,
+            onClick = { tab = 1 },
+            text = { Text(stringResource(R.string.model_manager_tab_catalog)) },
+        )
+        Tab(
+            selected = tab == 2,
+            onClick = { tab = 2 },
+            text = { Text(stringResource(R.string.model_manager_tab_hf_url)) },
+        )
+        Tab(
+            selected = tab == 3,
+            onClick = { tab = 3 },
+            text = { Text(stringResource(R.string.model_manager_tab_local_import)) },
+        )
+    }
+
+    val sdProvider = viewModel.provider.collectAsStateWithLifecycle().value
+    when (tab) {
+        0 -> InstalledTab(sdProvider?.models ?: emptyList(), viewModel)
+        1 -> CatalogTab(viewModel, downloadProgress != null)
+        2 -> HfUrlTab(viewModel, downloadProgress != null)
+        3 -> LocalImportTab(filePickerLauncher, downloadProgress != null)
+    }
+
+    downloadProgress?.let { progress ->
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            if (progress.totalBytes != null && progress.totalBytes > 0) {
+                LinearProgressIndicator(
+                    progress = { progress.percent / 100f },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+            Text(
+                text = stringResource(R.string.local_llm_download_progress, progress.percent),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+    }
+
+    errorMessage?.let { msg ->
+        Text(
+            text = stringResource(R.string.local_llm_status_error_format, msg),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
     }
 }
 

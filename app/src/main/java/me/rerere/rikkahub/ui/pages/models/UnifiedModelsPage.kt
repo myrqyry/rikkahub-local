@@ -35,9 +35,9 @@ import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
 import me.rerere.rikkahub.data.modelregistry.ModelProviderDescriptor
 import me.rerere.rikkahub.data.modelregistry.ModelSource
 import me.rerere.rikkahub.ui.components.nav.BackButton
-import me.rerere.rikkahub.ui.components.ui.CardGroup
 import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.pages.models.components.ModelAssignmentsSection
+import me.rerere.rikkahub.ui.pages.models.components.ModelInventorySection
 import me.rerere.rikkahub.ui.pages.setting.SettingVM
 import me.rerere.rikkahub.ui.theme.CustomColors
 import me.rerere.rikkahub.utils.plus
@@ -144,6 +144,7 @@ private fun ModelSettingsPage(
             )
         }
         item {
+            val navController = LocalNavController.current
             ModelInventorySection(
                 models = visibleModels,
                 providers = providers,
@@ -159,92 +160,15 @@ private fun ModelSettingsPage(
                     }
                 },
                 onModelEnabledChange = assignmentsVm::setModelEnabled,
+                onLocalModelClick = { navController.navigate(Screen.SettingModelManager) },
+                onCloudModelClick = { model ->
+                    val providerId = (model.source as? ModelSource.Cloud)?.providerId
+                    if (providerId != null) {
+                        navController.navigate(Screen.SettingProviderDetail(providerId))
+                    }
+                },
             )
         }
     }
 }
 
-@Composable
-private fun ModelInventorySection(
-    models: List<ModelDescriptor>,
-    providers: List<ModelProviderDescriptor>,
-    onRefreshProvider: (String) -> Unit,
-    onProviderEnabledChange: (String, Boolean) -> Unit,
-    onModelEnabledChange: (ModelDescriptor, Boolean) -> Unit,
-) {
-    val navController = LocalNavController.current
-    val local = models.filter { it.source is ModelSource.Local }
-    val cloud = models.filter { it.source is ModelSource.Cloud }
-    val cloudGroups = cloud.groupBy { (it.source as ModelSource.Cloud).providerId }
-    var expandedProviders by remember(cloudGroups.keys) { mutableStateOf(cloudGroups.keys.toSet()) }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (local.isNotEmpty()) {
-            CardGroup(title = { Text(stringResource(R.string.unified_models_local)) }) {
-                local.forEach { model ->
-                    item(
-                        onClick = { navController.navigate(Screen.SettingModelManager) },
-                        headlineContent = { Text(model.displayName) },
-                        supportingContent = { Text(model.capabilities.joinToString { it.name.lowercase() }) },
-                        trailingContent = {
-                            Switch(
-                                checked = model.enabledCapabilities.isNotEmpty(),
-                                onCheckedChange = { onModelEnabledChange(model, it) },
-                            )
-                        },
-                    )
-                }
-            }
-        }
-        if (cloud.isNotEmpty()) {
-            CardGroup(title = { Text(stringResource(R.string.unified_models_cloud)) }) {
-                cloudGroups.forEach { (providerId, providerModels) ->
-                        item(
-                            onClick = {
-                                expandedProviders = if (providerId in expandedProviders) {
-                                    expandedProviders - providerId
-                                } else {
-                                    expandedProviders + providerId
-                                }
-                            },
-                            overlineContent = { Text(providerId) },
-                            headlineContent = { Text(stringResource(R.string.unified_models_provider)) },
-                            trailingContent = {
-                                val provider = providers.firstOrNull { it.id == providerId }
-                                Row {
-                                    TextButton(onClick = { onRefreshProvider(providerId) }) {
-                                        Text(stringResource(R.string.unified_models_refresh))
-                                    }
-                                    if (provider != null) {
-                                        Switch(
-                                            checked = provider.enabled,
-                                            onCheckedChange = { onProviderEnabledChange(providerId, it) },
-                                        )
-                                    }
-                                }
-                            },
-                        )
-                        if (providerId in expandedProviders) {
-                            providerModels.forEach { model ->
-                                item(
-                                    onClick = {
-                                        navController.navigate(Screen.SettingProviderDetail(providerId))
-                                    },
-                                    headlineContent = { Text(model.displayName) },
-                                    supportingContent = { Text(model.capabilities.joinToString { it.name.lowercase() }) },
-                                    trailingContent = {
-                                        Switch(
-                                            checked = model.enabledCapabilities.isNotEmpty(),
-                                            onCheckedChange = { onModelEnabledChange(model, it) },
-                                        )
-                                    },
-                                )
-                            }
-                        }
-            }
-            }
-        }
-        if (local.isEmpty() && cloud.isEmpty()) {
-            Text(stringResource(R.string.unified_models_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}

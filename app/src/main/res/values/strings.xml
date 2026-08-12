@@ -2013,5 +2013,7 @@
   <string name="model_assignment_disabled">Disabled or unavailable</string>
   <string name="model_assignment_select_replacement">Select replacement</string>
   <string name="setting_default_models_title">Default Models</string>
+  <string name="model_manager_add_model">Add Model</string>
+  <string name="model_manager_back_to_models">Back to models</string>
 </resources>
 
