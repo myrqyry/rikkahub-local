@@ -522,9 +522,6 @@ class RouteActivity : ComponentActivity() {
                             entry<Screen.SettingModels> { key ->
                                 UnifiedModelsPage(request = key.request)
                             }
-                            entry<Screen.SettingModelManager> {
-                                ModelManagerPage()
-                            }
                             entry<Screen.SettingAgent> {
                                 SettingAgentPage()
                             }
