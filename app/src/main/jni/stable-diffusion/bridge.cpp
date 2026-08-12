@@ -43,6 +43,26 @@ JavaVM* g_vm = nullptr;
 jclass g_bridge_class = nullptr;
 jmethodID g_on_progress = nullptr;
 
+const char* sd_log_level_name(sd_log_level_t level) {
+    switch (level) {
+        case SD_LOG_DEBUG: return "DEBUG";
+        case SD_LOG_INFO: return "INFO";
+        case SD_LOG_WARN: return "WARN";
+        case SD_LOG_ERROR: return "ERROR";
+        default: return "LOG";
+    }
+}
+
+void android_sd_log(sd_log_level_t level, const char* text, void*) {
+    __android_log_print(
+        level == SD_LOG_ERROR ? ANDROID_LOG_ERROR : ANDROID_LOG_INFO,
+        LOG_TAG,
+        "sd.cpp[%s] %s",
+        sd_log_level_name(level),
+        text ? text : ""
+    );
+}
+
 static constexpr const char* BRIDGE_CLASS = "me/rerere/rikkahub/data/ai/StableDiffusionBridge";
 static constexpr const char* ON_PROGRESS_SIGNATURE = "(IIF)V";
 
@@ -230,6 +250,7 @@ Java_me_rerere_rikkahub_data_ai_StableDiffusionBridge_nativeInit(
     release_context_locked();
 
     LOGI("nativeInit: %s backend=%s", path.c_str(), backend_name(backend));
+    const auto init_start = std::chrono::steady_clock::now();
     sd_ctx_params_t params;
     sd_ctx_params_init(&params);
     params.model_path = path.c_str();
@@ -241,7 +262,13 @@ Java_me_rerere_rikkahub_data_ai_StableDiffusionBridge_nativeInit(
     params.backend = backend_name(backend);
     params.params_backend = "cpu";
 
+    sd_set_log_callback(android_sd_log, nullptr);
+    LOGI("nativeInit: entering new_sd_ctx");
     sd_ctx_t* new_ctx = new_sd_ctx(&params);
+    const auto init_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - init_start
+    ).count();
+    LOGI("nativeInit: exited new_sd_ctx after %lld ms", static_cast<long long>(init_ms));
     if (new_ctx == nullptr) {
         LOGE("new_sd_ctx failed");
         return JNI_FALSE;

@@ -25,6 +25,44 @@
 
 ---
 
+## Session: 2026-08-12 — Model Manager Unification
+
+### Active Work
+- Approved design and implementation plan written to:
+  `docs/superpowers/specs/2026-08-12-model-manager-unification-design.md`
+  and `docs/superpowers/plans/2026-08-12-model-manager-unification.md`.
+- Current checkout is a clean normal checkout on `master`, not an isolated
+  worktree. Implementation is paused pending consent to create an isolated
+  worktree, per the execution workflow.
+
+### Decisions
+- Consolidate local model import/install and connected-provider catalogs into
+  one Model Manager with Chat, Image, Speech, Vision, and Other tabs.
+- Preserve Chinese/custom providers, persisted model IDs, local files, and
+  default assignments.
+- Keep Default models separate from prompt editing; expose prompt settings in
+  Agent settings while preserving existing persistence keys.
+
+### Correction
+- 2026-08-12: User rejected the delivered implementation and installation as incorrect.
+- User clarified the missed requirement was the settings menu reorganization. Correct scope:
+  reorganize the menu so Model Manager is the single model-management entry, Default Models
+  remains separate, and Agent Settings contains prompt settings. Do not reinstall without request.
+- 2026-08-12: Do not describe pre-existing hook findings as false positives merely because they
+  are unrelated to the current commit. Report them as pre-existing blockers unless independently
+  verified harmless; `--no-verify` requires explicit, evidence-based justification.
+- 2026-08-12: SD/Vulkan diagnostic boundary: the complete SD-Turbo Q8_0 GGUF reaches `nativeInit()`
+  on CPU and Vulkan, but both stall inside `new_sd_ctx()`; Vulkan allocates about 1.45 GiB first.
+  Stop Vulkan roadmap work. Next diagnostic is a small known-good SD.cpp GGUF, timestamped markers
+  around `new_sd_ctx()`, and retained native loading logs before resuming lifecycle measurements.
+- 2026-08-12: Added Android SD.cpp log forwarding and timing around `new_sd_ctx()`. On Pixel 10 Pro
+  CPU with `/data/local/tmp/sd-turbo-q8.gguf`, initialization reaches model metadata validation,
+  lazy weight preparation, mmap, 686/1306 tensor loading, and `unet compute buffer size: 2.04 MB`
+  at 03:46:35.670, then remains inside `new_sd_ctx()` through the 15-second cancellation at
+  03:46:43.652; no exit marker appears. No smaller known-good GGUF is currently on either device.
+
+---
+
 ## Session: 2026-07-28 — Initial Setup
 
 **Current Task:** Setting up proactive agent architecture (AGENTS.md, SESSION-STATE.md, SOUL.md, USER.md, MEMORY.md, working-buffer.md)
