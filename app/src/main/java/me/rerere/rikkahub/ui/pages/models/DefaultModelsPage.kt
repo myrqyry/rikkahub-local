@@ -47,7 +47,7 @@ fun DefaultModelsPage(
         containerColor = CustomColors.topBarColors.containerColor,
         topBar = {
             LargeFlexibleTopAppBar(
-                title = { Text(stringResource(R.string.setting_model_page_title)) },
+                title = { Text(stringResource(R.string.setting_default_models_title)) },
                 navigationIcon = { BackButton() },
                 scrollBehavior = scrollBehavior,
                 colors = CustomColors.topBarColors,

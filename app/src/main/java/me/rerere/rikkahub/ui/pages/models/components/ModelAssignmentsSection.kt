@@ -46,6 +46,7 @@ import me.rerere.rikkahub.data.modelregistry.ModelRole
 import me.rerere.rikkahub.data.modelregistry.ModelSource
 import me.rerere.rikkahub.data.modelregistry.capability
 import me.rerere.rikkahub.ui.components.ui.CardGroup
+import me.rerere.rikkahub.ui.components.ui.CardGroupScope
 import me.rerere.rikkahub.ui.pages.models.LegacyAssignments
 import me.rerere.rikkahub.ui.pages.models.RepairState
 
@@ -77,73 +78,80 @@ fun ModelAssignmentsSection(
     modifier: Modifier = Modifier,
 ) {
     val rowStateHolder = rememberAssignmentRowState()
-    val rows = listOf(
-        AssignmentRow("Chat", ModelRole.CHAT, assignments.defaults[ModelRole.CHAT], false, { onAssign(ModelRole.CHAT, it) }, "Conversation"),
-        AssignmentRow("Vision", ModelRole.VISION, assignments.defaults[ModelRole.VISION], false, { onAssign(ModelRole.VISION, it) }),
-        AssignmentRow("OCR", ModelRole.OCR, assignments.defaults[ModelRole.OCR], false, { onAssign(ModelRole.OCR, it) }),
-        AssignmentRow("Image generation", ModelRole.IMAGE_GENERATION, assignments.defaults[ModelRole.IMAGE_GENERATION], false, { onAssign(ModelRole.IMAGE_GENERATION, it) }, "Media"),
-        AssignmentRow("Embeddings", ModelRole.EMBEDDINGS, assignments.defaults[ModelRole.EMBEDDINGS], false, { onAssign(ModelRole.EMBEDDINGS, it) }, "Knowledge"),
-        AssignmentRow("Title generation", null, legacyAssignments.titleModelId, true, onAssignTitle, "Utility models"),
-        AssignmentRow("Translation", null, legacyAssignments.translationModelId, false, onAssignTranslation),
-        AssignmentRow("Fast model", null, fastModelId, false, { id -> id?.let(onFastModelSelected) }),
-        AssignmentRow("Compression model", null, compressModelId, false, { id -> id?.let(onCompressModelSelected) }),
+
+    val groups = listOf(
+        AssignmentGroup(
+            title = R.string.setting_model_group_conversation,
+            rows = listOf(
+                AssignmentRow("Chat", ModelRole.CHAT, assignments.defaults[ModelRole.CHAT], false, { onAssign(ModelRole.CHAT, it) }),
+                AssignmentRow("Fast model", null, fastModelId, false, { id -> id?.let(onFastModelSelected) }),
+            ),
+        ),
+        AssignmentGroup(
+            title = R.string.setting_model_group_vision,
+            rows = listOf(
+                AssignmentRow("Vision", ModelRole.VISION, assignments.defaults[ModelRole.VISION], false, { onAssign(ModelRole.VISION, it) }),
+                AssignmentRow("OCR", ModelRole.OCR, assignments.defaults[ModelRole.OCR], false, { onAssign(ModelRole.OCR, it) }),
+            ),
+        ),
+        AssignmentGroup(
+            title = R.string.setting_model_group_media,
+            rows = listOf(
+                AssignmentRow("Image generation", ModelRole.IMAGE_GENERATION, assignments.defaults[ModelRole.IMAGE_GENERATION], false, { onAssign(ModelRole.IMAGE_GENERATION, it) }),
+            ),
+        ),
+        AssignmentGroup(
+            title = R.string.setting_model_group_knowledge,
+            rows = listOf(
+                AssignmentRow("Embeddings", ModelRole.EMBEDDINGS, assignments.defaults[ModelRole.EMBEDDINGS], false, { onAssign(ModelRole.EMBEDDINGS, it) }),
+            ),
+        ),
+        AssignmentGroup(
+            title = R.string.setting_model_group_utility,
+            rows = listOf(
+                AssignmentRow("Title generation", null, legacyAssignments.titleModelId, true, onAssignTitle),
+                AssignmentRow("Translation", null, legacyAssignments.translationModelId, false, onAssignTranslation),
+                AssignmentRow("Compression model", null, compressModelId, false, { id -> id?.let(onCompressModelSelected) }),
+            ),
+        ),
     )
 
-    CardGroup(
-        modifier = modifier,
-        title = { Text("Model assignments") },
-    ) {
-        item(
-            headlineContent = { Text("Enable suggestions") },
-            trailingContent = {
-                Switch(
-                    checked = enableSuggestion,
-                    onCheckedChange = onSuggestionEnabledChange,
-                )
-            },
-        )
-        rows.forEach { row ->
-            val candidates = compatibleAssignments(row.role ?: ModelRole.CHAT, models)
-            val selected = candidates.firstOrNull { it.id == row.modelId }
-            val unavailable = row.modelId != null && (
-                selected == null || repairStateMatches(repairState, row)
-            )
-            item(
-                onClick = { rowStateHolder.open(row, candidates) },
-                overlineContent = row.overline?.let { { Text(it) } },
-                headlineContent = { Text(row.label) },
-                supportingContent = if (unavailable) {
-                    { Text("Unavailable: ${row.modelId}", color = MaterialTheme.colorScheme.error) }
-                } else null,
-                trailingContent = {
-                    AssignmentValue(
-                        model = selected,
-                        allowClear = row.allowClear,
-                        onClear = { row.onSelected(null) },
-                        onOpen = { rowStateHolder.open(row, candidates) },
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        groups.forEach { group ->
+            CardGroup(title = { Text(stringResource(group.title)) }) {
+                if (group.title == R.string.setting_model_group_conversation) {
+                    item(
+                        headlineContent = { Text(stringResource(R.string.setting_model_page_enable_suggestion)) },
+                        trailingContent = {
+                            Switch(
+                                checked = enableSuggestion,
+                                onCheckedChange = onSuggestionEnabledChange,
+                            )
+                        },
                     )
-                },
-            )
-        }
-        if (enableSuggestion) {
-            val row = AssignmentRow("Suggestion model", null, suggestionModelId, true, onSuggestionModelSelected)
-            val candidates = compatibleAssignments(ModelRole.CHAT, models)
-            val selected = candidates.firstOrNull { it.id == row.modelId }
-            item(
-                onClick = { rowStateHolder.open(row, candidates) },
-                headlineContent = { Text(row.label) },
-                supportingContent = if (row.modelId != null && selected == null) {
-                    { Text("Unavailable: ${row.modelId}", color = MaterialTheme.colorScheme.error) }
-                } else null,
-                trailingContent = {
-                    AssignmentValue(
-                        model = selected,
-                        allowClear = true,
-                        onClear = { row.onSelected(null) },
-                        onOpen = { rowStateHolder.open(row, candidates) },
+                    if (enableSuggestion) {
+                        val row = AssignmentRow("Suggestion model", null, suggestionModelId, true, onSuggestionModelSelected)
+                        val candidates = compatibleAssignments(ModelRole.CHAT, models)
+                        AssignmentItem(
+                            row = row,
+                            candidates = candidates,
+                            allModels = models,
+                            repairState = repairState,
+                            rowStateHolder = rowStateHolder,
+                        )
+                    }
+                }
+                group.rows.forEach { row ->
+                    val candidates = compatibleAssignments(row.role ?: ModelRole.CHAT, models)
+                    AssignmentItem(
+                        row = row,
+                        candidates = candidates,
+                        allModels = models,
+                        repairState = repairState,
+                        rowStateHolder = rowStateHolder,
                     )
-                },
-            )
+                }
+            }
         }
     }
 
@@ -158,14 +166,53 @@ fun ModelAssignmentsSection(
     }
 }
 
+private data class AssignmentGroup(
+    @androidx.annotation.StringRes val title: Int,
+    val rows: List<AssignmentRow>,
+)
+
 private data class AssignmentRow(
     val label: String,
     val role: ModelRole?,
     val modelId: String?,
     val allowClear: Boolean,
     val onSelected: (String?) -> Unit,
-    val overline: String? = null,
 )
+
+private fun CardGroupScope.AssignmentItem(
+    row: AssignmentRow,
+    candidates: List<ModelDescriptor>,
+    allModels: List<ModelDescriptor>,
+    repairState: RepairState?,
+    rowStateHolder: AssignmentRowState,
+) {
+    val selected = candidates.firstOrNull { it.id == row.modelId }
+    val unavailable = row.modelId != null && (
+        selected == null || repairStateMatches(repairState, row)
+    )
+    val chosen = selected ?: allModels.firstOrNull { it.id == row.modelId }
+    item(
+        onClick = { rowStateHolder.open(row, candidates) },
+        headlineContent = { Text(row.label) },
+        supportingContent = if (unavailable) {
+            {
+                Text(
+                    "⚠ " + stringResource(R.string.model_assignment_disabled),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        } else null,
+        trailingContent = {
+            AssignmentValue(
+                model = chosen,
+                unavailable = unavailable,
+                allowClear = row.allowClear,
+                onClear = { row.onSelected(null) },
+                onOpen = { rowStateHolder.open(row, candidates) },
+            )
+        },
+    )
+}
 
 private class AssignmentRowState {
     var sheet by mutableStateOf<Pair<AssignmentRow, List<ModelDescriptor>>?>(null)
@@ -181,6 +228,7 @@ private fun rememberAssignmentRowState(): AssignmentRowState = remember { Assign
 @Composable
 private fun AssignmentValue(
     model: ModelDescriptor?,
+    unavailable: Boolean,
     allowClear: Boolean,
     onClear: () -> Unit,
     onOpen: () -> Unit,
@@ -188,10 +236,15 @@ private fun AssignmentValue(
     Row(verticalAlignment = Alignment.CenterVertically) {
         TextButton(onClick = onOpen) {
             Text(
-                text = model?.displayName ?: stringResource(R.string.model_list_select_model),
+                text = when {
+                    model != null -> model.displayName
+                    unavailable -> stringResource(R.string.model_assignment_select_replacement)
+                    else -> stringResource(R.string.model_list_select_model)
+                },
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (unavailable && model == null) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         if (allowClear && model != null) {

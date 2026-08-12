@@ -2005,4 +2005,13 @@
   <string name="setting_page_notification_access_desc">"Read device notifications for tools, workflows and routing"</string>
   <string name="provider_sd_backend_cpu_only">Only the CPU backend is compiled into this build.</string>
   <string name="imggen_page_generation_progress">Step %1$d / %2$d · %3$s elapsed</string>
+  <string name="setting_model_group_conversation">Conversation</string>
+  <string name="setting_model_group_vision">Vision</string>
+  <string name="setting_model_group_media">Media</string>
+  <string name="setting_model_group_knowledge">Knowledge</string>
+  <string name="setting_model_group_utility">Utility</string>
+  <string name="model_assignment_disabled">Disabled or unavailable</string>
+  <string name="model_assignment_select_replacement">Select replacement</string>
+  <string name="setting_default_models_title">Default Models</string>
 </resources>
+
