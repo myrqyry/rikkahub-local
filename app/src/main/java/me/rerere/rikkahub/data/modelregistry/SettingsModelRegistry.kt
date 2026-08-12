@@ -22,7 +22,6 @@ class SettingsModelRegistry(
     scope: CoroutineScope,
     private val providerManager: ProviderManager,
 ) : ModelRegistry {
-    private val capabilityOverrides = MutableStateFlow<Map<String, Set<ModelCapability>>>(emptyMap())
     private val _models = MutableStateFlow<List<ModelDescriptor>>(emptyList())
     private val _providers = MutableStateFlow<List<ModelProviderDescriptor>>(emptyList())
     private val _assignments = MutableStateFlow(ModelAssignments())
@@ -37,8 +36,7 @@ class SettingsModelRegistry(
                 settingsStore.settingsFlow,
                 localPreferences.installedModelsFlow(LocalRuntime.LiteRT),
                 localPreferences.installedModelsFlow(LocalRuntime.StableDiffusion),
-                capabilityOverrides,
-            ) { settings, liteRt, stableDiffusion, overrides ->
+            ) { settings, liteRt, stableDiffusion ->
                 val localFiles = mapOf(
                     LocalRuntime.LiteRT to liteRt,
                     LocalRuntime.StableDiffusion to stableDiffusion,
@@ -53,7 +51,7 @@ class SettingsModelRegistry(
                 }
                 val providerDescriptors = settings.providers.flatMap { provider ->
                     provider.models.map { model ->
-                        descriptor(provider, model, localFiles, overrides[modelId(model)])
+                        descriptor(provider, model, localFiles, settings.disabledModelCapabilities[modelId(model)].orEmpty())
                     }
                 }
                 val knownLocalFiles = providerDescriptors
@@ -110,11 +108,13 @@ class SettingsModelRegistry(
     ) {
         val model = _models.value.firstOrNull { it.id == modelId } ?: return
         require(capability in model.capabilities) { "Model $modelId does not advertise $capability" }
-        val current = capabilityOverrides.value.toMutableMap()
-        val enabledSet = (current[modelId] ?: model.enabledCapabilities).toMutableSet()
-        if (enabled) enabledSet.add(capability) else enabledSet.remove(capability)
-        current[modelId] = enabledSet
-        capabilityOverrides.value = current
+        settingsStore.update { settings ->
+            val disabled = settings.disabledModelCapabilities.toMutableMap()
+            val capabilities = (disabled[modelId].orEmpty()).toMutableSet()
+            if (enabled) capabilities.remove(capability) else capabilities.add(capability)
+            if (capabilities.isEmpty()) disabled.remove(modelId) else disabled[modelId] = capabilities
+            settings.copy(disabledModelCapabilities = disabled)
+        }
     }
 
     override suspend fun assign(role: ModelRole, modelId: String?) {
@@ -168,7 +168,7 @@ class SettingsModelRegistry(
         provider: ProviderSetting,
         model: Model,
         localFiles: Map<LocalRuntime, Map<String, String>>,
-        overrideCapabilities: Set<ModelCapability>?,
+        disabledCapabilities: Set<ModelCapability>,
     ): ModelDescriptor {
         val runtime = when (provider) {
             is ProviderSetting.LiteRtLocal -> LocalRuntime.LiteRT
@@ -185,7 +185,7 @@ class SettingsModelRegistry(
             source = runtime?.let { ModelSource.Local(it, files) }
                 ?: ModelSource.Cloud(provider.id.toString(), model.modelId),
             capabilities = capabilities,
-            enabledCapabilities = overrideCapabilities ?: capabilities,
+            enabledCapabilities = capabilities - disabledCapabilities,
             lifecycle = if (runtime != null) {
                 if (installed && files.all { file -> localFiles[runtime]?.get(file)?.let(::File)?.exists() == true }) {
                     ModelLifecycle.READY

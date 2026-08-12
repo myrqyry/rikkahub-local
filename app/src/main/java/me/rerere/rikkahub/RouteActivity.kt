@@ -128,6 +128,7 @@ import me.rerere.rikkahub.ui.pages.models.UnifiedModelsPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPage
 import me.rerere.rikkahub.ui.pages.setting.SettingProviderDetailPage
 import me.rerere.rikkahub.ui.pages.setting.SettingProviderPage
+import me.rerere.rikkahub.ui.pages.setting.SettingAgentPage
 import me.rerere.rikkahub.ui.pages.setting.SettingSearchDetailPage
 import me.rerere.rikkahub.ui.pages.setting.SettingSearchPage
 
@@ -520,6 +521,9 @@ class RouteActivity : ComponentActivity() {
                             entry<Screen.SettingModels> { key ->
                                 UnifiedModelsPage(request = key.request)
                             }
+                            entry<Screen.SettingAgent> {
+                                SettingAgentPage()
+                            }
 
                             entry<Screen.SettingAbout> {
                                 SettingAboutPage()
@@ -803,6 +807,9 @@ sealed interface Screen : NavKey {
     data class SettingModels(
         val request: me.rerere.rikkahub.ui.pages.models.ModelsPageRequest = me.rerere.rikkahub.ui.pages.models.ModelsPageRequest(),
     ) : Screen
+
+    @Serializable
+    data object SettingAgent : Screen
 
     @Serializable
     data object SettingAbout : Screen

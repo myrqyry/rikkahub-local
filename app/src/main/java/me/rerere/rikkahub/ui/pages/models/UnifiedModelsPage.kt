@@ -6,17 +6,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material3.BottomAppBar
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
@@ -30,17 +23,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.launch
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.AiBrain01
-import me.rerere.hugeicons.stroke.AiEditing
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
@@ -50,7 +38,6 @@ import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.CardGroup
 import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.pages.models.components.ModelAssignmentsSection
-import me.rerere.rikkahub.ui.pages.setting.PromptSettingsPage
 import me.rerere.rikkahub.ui.pages.setting.SettingVM
 import me.rerere.rikkahub.ui.theme.CustomColors
 import me.rerere.rikkahub.utils.plus
@@ -71,8 +58,6 @@ fun UnifiedModelsPage(
         assignmentsVm.setProviderFilter(request.providerId)
     }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val pagerState = rememberPagerState { 2 }
-    val scope = rememberCoroutineScope()
 
     Scaffold(
         containerColor = CustomColors.topBarColors.containerColor,
@@ -84,41 +69,9 @@ fun UnifiedModelsPage(
                 colors = CustomColors.topBarColors,
             )
         },
-        bottomBar = {
-            BottomAppBar(
-                containerColor = CustomColors.cardColorsOnSurfaceContainer.containerColor
-            ) {
-                NavigationBarItem(
-                    selected = pagerState.currentPage == 0,
-                    onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
-                    icon = { Icon(HugeIcons.AiBrain01, null) },
-                    label = { Text(stringResource(R.string.setting_model_page_tab_model)) }
-                )
-                NavigationBarItem(
-                    selected = pagerState.currentPage == 1,
-                    onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
-                    icon = { Icon(HugeIcons.AiEditing, null) },
-                    label = { Text(stringResource(R.string.setting_model_page_tab_prompt)) }
-                )
-            }
-        },
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { contentPadding ->
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize(),
-        ) { page ->
-            when (page) {
-                0 -> ModelSettingsPage(
-                    settings = settings,
-                    vm = vm,
-                    assignmentsVm = assignmentsVm,
-                    request = request,
-                    contentPadding = contentPadding,
-                )
-                1 -> PromptSettingsPage(settings = settings, vm = vm, contentPadding = contentPadding)
-            }
-        }
+        ModelSettingsPage(settings, vm, assignmentsVm, request, contentPadding)
     }
 }
 
@@ -205,6 +158,7 @@ private fun ModelSettingsPage(
                         ))
                     }
                 },
+                onModelEnabledChange = assignmentsVm::setModelEnabled,
             )
         }
     }
@@ -216,6 +170,7 @@ private fun ModelInventorySection(
     providers: List<ModelProviderDescriptor>,
     onRefreshProvider: (String) -> Unit,
     onProviderEnabledChange: (String, Boolean) -> Unit,
+    onModelEnabledChange: (ModelDescriptor, Boolean) -> Unit,
 ) {
     val navController = LocalNavController.current
     val local = models.filter { it.source is ModelSource.Local }
@@ -230,6 +185,12 @@ private fun ModelInventorySection(
                         onClick = { navController.navigate(Screen.SettingModelManager) },
                         headlineContent = { Text(model.displayName) },
                         supportingContent = { Text(model.capabilities.joinToString { it.name.lowercase() }) },
+                        trailingContent = {
+                            Switch(
+                                checked = model.enabledCapabilities.isNotEmpty(),
+                                onCheckedChange = { onModelEnabledChange(model, it) },
+                            )
+                        },
                     )
                 }
             }
@@ -270,6 +231,12 @@ private fun ModelInventorySection(
                                     },
                                     headlineContent = { Text(model.displayName) },
                                     supportingContent = { Text(model.capabilities.joinToString { it.name.lowercase() }) },
+                                    trailingContent = {
+                                        Switch(
+                                            checked = model.enabledCapabilities.isNotEmpty(),
+                                            onCheckedChange = { onModelEnabledChange(model, it) },
+                                        )
+                                    },
                                 )
                             }
                         }

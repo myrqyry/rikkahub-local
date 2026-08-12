@@ -18,6 +18,8 @@ object ModelCapabilityInference {
         providerUnverifiedCapabilities: Set<ModelCapability> = emptySet(),
     ): InferredCapabilities {
         val verified = buildSet {
+            val modelName = model.modelId.lowercase()
+            if ("whisper" in modelName) add(ModelCapability.SPEECH_TO_TEXT)
             if (model.type == ModelType.CHAT) add(ModelCapability.CHAT)
             if (model.type == ModelType.EMBEDDING) add(ModelCapability.EMBEDDINGS)
             if (model.abilities.contains(ModelAbility.REASONING)) add(ModelCapability.REASONING)

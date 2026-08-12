@@ -46,7 +46,9 @@ import me.rerere.hugeicons.stroke.Code
 import me.rerere.hugeicons.stroke.Connect
 import me.rerere.hugeicons.stroke.Console
 import me.rerere.hugeicons.stroke.Cpu
+import me.rerere.hugeicons.stroke.ChatGpt
 import me.rerere.hugeicons.stroke.Database02
+import me.rerere.hugeicons.stroke.Deepseek
 import me.rerere.hugeicons.stroke.Developer
 import me.rerere.hugeicons.stroke.Download01
 import me.rerere.hugeicons.stroke.Earth
@@ -144,7 +146,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     id = "providers",
                     title = stringResource(R.string.setting_page_providers),
                     description = stringResource(R.string.setting_page_providers_desc),
-                    icon = HugeIcons.Brain02,
+                    icon = HugeIcons.ChatGpt,
                     keywords = listOf("api", "credentials", "cloud", "endpoint"),
                     onClick = { navController.navigate(Screen.SettingProvider) },
                 ),
@@ -157,12 +159,20 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     onClick = { navController.navigate(Screen.SettingModels()) },
                 ),
                 SettingsHomeItem(
-                    id = "onDeviceModels",
+                    id = "modelManager",
                     title = stringResource(R.string.setting_home_model_manager),
                     description = stringResource(R.string.setting_home_model_manager_desc),
-                    icon = HugeIcons.Cpu,
+                    icon = HugeIcons.Deepseek,
                     keywords = listOf("offline", "litert", "download", "local model"),
-                    onClick = { navController.navigate(Screen.SettingModelManager) },
+                    onClick = { navController.navigate(Screen.SettingModels()) },
+                ),
+                SettingsHomeItem(
+                    id = "agentSettings",
+                    title = "Agent Settings",
+                    description = "Prompts and agent behavior",
+                    icon = HugeIcons.LookTop,
+                    keywords = listOf("agent", "prompt", "reasoning"),
+                    onClick = { navController.navigate(Screen.SettingAgent) },
                 ),
                 SettingsHomeItem(
                     id = "assistants",

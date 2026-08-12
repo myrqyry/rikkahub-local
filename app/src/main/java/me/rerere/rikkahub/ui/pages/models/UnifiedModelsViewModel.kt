@@ -83,6 +83,15 @@ class UnifiedModelsViewModel(
                 ModelTab.SPEECH -> model.supports(ModelCapability.TEXT_TO_SPEECH) ||
                     model.supports(ModelCapability.SPEECH_TO_TEXT) ||
                     model.supports(ModelCapability.AUDIO_UNDERSTANDING)
+                ModelTab.OTHER -> model.enabledCapabilities.none { it in setOf(
+                    ModelCapability.CHAT,
+                    ModelCapability.VISION,
+                    ModelCapability.IMAGE_GENERATION,
+                    ModelCapability.TEXT_TO_SPEECH,
+                    ModelCapability.SPEECH_TO_TEXT,
+                    ModelCapability.AUDIO_UNDERSTANDING,
+                    ModelCapability.EMBEDDINGS,
+                ) }
                 else -> true
             }
         }.filter { model ->
@@ -125,6 +134,19 @@ class UnifiedModelsViewModel(
     fun setProviderFilter(value: String?) { providerId.value = value }
     fun clearProviderFilter() { providerId.value = null }
     fun clearOperationError() { _operationError.value = null }
+
+    fun setModelEnabled(model: ModelDescriptor, enabled: Boolean) = ownerScope.launch {
+        _operationError.value = null
+        try {
+            model.capabilities.forEach { capability ->
+                registry.setCapabilityEnabled(model.id, capability, enabled)
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            _operationError.value = error.message ?: error::class.simpleName
+        }
+    }
 
     fun refreshProvider(providerId: String) = ownerScope.launch {
         _operationError.value = null
