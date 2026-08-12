@@ -124,6 +124,7 @@ import me.rerere.rikkahub.ui.pages.setting.SettingThemePage
 import me.rerere.rikkahub.ui.pages.setting.SettingDonatePage
 import me.rerere.rikkahub.ui.pages.setting.SettingFilesPage
 import me.rerere.rikkahub.ui.pages.setting.SettingMcpPage
+import me.rerere.rikkahub.ui.pages.models.DefaultModelsPage
 import me.rerere.rikkahub.ui.pages.models.UnifiedModelsPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPage
 import me.rerere.rikkahub.ui.pages.setting.SettingProviderDetailPage
@@ -521,8 +522,15 @@ class RouteActivity : ComponentActivity() {
                             entry<Screen.SettingModels> { key ->
                                 UnifiedModelsPage(request = key.request)
                             }
+                            entry<Screen.SettingModelManager> {
+                                ModelManagerPage()
+                            }
                             entry<Screen.SettingAgent> {
                                 SettingAgentPage()
+                            }
+
+                            entry<Screen.SettingDefaultModels> {
+                                DefaultModelsPage()
                             }
 
                             entry<Screen.SettingAbout> {
@@ -819,6 +827,9 @@ sealed interface Screen : NavKey {
 
     @Serializable
     data object SettingRAG : Screen
+
+    @Serializable
+    data object SettingDefaultModels : Screen
 
     @Serializable
     data object SettingModelManager : Screen

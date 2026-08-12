@@ -156,7 +156,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     description = stringResource(R.string.setting_page_default_model_desc),
                     icon = HugeIcons.AiMagic,
                     keywords = listOf("chat model", "title model", "translation model"),
-                    onClick = { navController.navigate(Screen.SettingModels()) },
+                    onClick = { navController.navigate(Screen.SettingDefaultModels) },
                 ),
                 SettingsHomeItem(
                     id = "modelManager",
@@ -164,7 +164,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     description = stringResource(R.string.setting_home_model_manager_desc),
                     icon = HugeIcons.Deepseek,
                     keywords = listOf("offline", "litert", "download", "local model"),
-                    onClick = { navController.navigate(Screen.SettingModels()) },
+                    onClick = { navController.navigate(Screen.SettingModelManager) },
                 ),
                 SettingsHomeItem(
                     id = "agentSettings",
