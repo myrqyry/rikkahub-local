@@ -43,9 +43,10 @@ class SdGenTestHook : BroadcastReceiver() {
         val repeat = intent.getIntExtra(EXTRA_REPEAT, 1).coerceAtLeast(1)
         val cancelAfterMs = intent.getLongExtra(EXTRA_CANCEL_AFTER_MS, 0L)
         val prompt = intent.getStringExtra(EXTRA_PROMPT) ?: "a red apple on a wooden table"
+        val modelPath = intent.getStringExtra(EXTRA_MODEL_PATH)
         scope.launch {
             try {
-                runHook(context, vulkan, steps, width, height, seed, repeat, cancelAfterMs, prompt)
+                runHook(context, vulkan, steps, width, height, seed, repeat, cancelAfterMs, prompt, modelPath)
             } catch (t: Throwable) {
                 Log.e(TAG, "hook failed", t)
             }
@@ -62,16 +63,21 @@ class SdGenTestHook : BroadcastReceiver() {
         repeat: Int,
         cancelAfterMs: Long,
         prompt: String,
+        modelPath: String? = null,
     ) {
         val provider = StableDiffusionProvider(
             context = context.applicationContext,
             runtimePreferences = LocalRuntimePreferences(context.applicationContext),
         )
 
-        val modelDir = File(context.applicationContext.filesDir, "local-models/stable-diffusion")
-        var modelFile = modelDir.listFiles()
-            ?.filter { it.extension.equals("gguf", ignoreCase = true) }
-            ?.maxByOrNull { it.length() }
+        var modelFile = if (!modelPath.isNullOrBlank()) {
+            File(modelPath).takeIf { it.isFile }
+        } else {
+            val modelDir = File(context.applicationContext.filesDir, "local-models/stable-diffusion")
+            modelDir.listFiles()
+                ?.filter { it.extension.equals("gguf", ignoreCase = true) }
+                ?.maxByOrNull { it.length() }
+        }
 
         if (modelFile == null) {
             val entry = SdCatalog.ENTRIES[0]
@@ -125,7 +131,7 @@ val downloadClient = OkHttpClient.Builder()
         Log.i(
             TAG,
             "hook start backend=${if (vulkan) "vulkan" else "cpu"} steps=$steps ${width}x$height " +
-                "seed=$seed repeat=$repeat cancelAfterMs=$cancelAfterMs model=${modelFile.name}",
+                "seed=$seed repeat=$repeat cancelAfterMs=$cancelAfterMs model=${modelFile.name} path=${modelFile.absolutePath}",
         )
 
         repeat(repeat) { i ->
@@ -197,6 +203,7 @@ val downloadClient = OkHttpClient.Builder()
         const val EXTRA_REPEAT = "repeat"
         const val EXTRA_CANCEL_AFTER_MS = "cancelAfterMs"
         const val EXTRA_PROMPT = "prompt"
+        const val EXTRA_MODEL_PATH = "modelPath"
         private const val TAG = "SdGenTestHook"
     }
 }

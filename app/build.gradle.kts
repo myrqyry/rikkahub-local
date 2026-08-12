@@ -38,6 +38,7 @@ android {
                     // on hosts without system Vulkan shader tooling.
                     providers.gradleProperty("sd.vulkanGlslcDir").orNull?.let {
                         arguments += "-DCMAKE_PROGRAM_PATH=$it"
+                        arguments += "-DVulkan_GLSLC_EXECUTABLE=$it/glslc"
                     }
                     // Header-only SPIRV-Headers CONFIG package (built into a user prefix).
                     providers.gradleProperty("sd.spirvHeadersDir").orNull?.let {
@@ -46,7 +47,7 @@ android {
                     // Merged include dir with NDK C headers + Vulkan-Hpp C++ wrappers so
                     // ggml-vulkan.cpp can include <vulkan/vulkan.hpp>.
                     providers.gradleProperty("sd.vulkanIncludeDir").orNull?.let {
-                        arguments += "-DVulkan_INCLUDE_DIR=$it"
+                        arguments += "-DGGML_VULKAN_INCLUDE_DIR=$it"
                     }
                 }
             }

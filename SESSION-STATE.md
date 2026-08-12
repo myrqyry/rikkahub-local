@@ -2,6 +2,27 @@
 
 **WAL Target** — Write to this file before responding when corrections, decisions, or key details appear.
 
+## Session: 2026-08-11 — Vulkan Build Delivery
+
+### Completed
+- Added ADB model-path support to the debug-only `SdGenTestHook`, allowing a
+  large GGUF to be pushed to `/data/local/tmp` instead of downloaded by the
+  background receiver.
+- Made the Android Vulkan build self-contained: SPIRV-Headers FetchContent
+  fallback, explicit NDK `glslc` override, and merged Vulkan-Hpp include-path
+  support.
+- Verified `./gradlew :app:assembleDebug -Psd.vulkan=true` with both
+  `arm64-v8a` and `x86_64` using the NDK shader tools and merged headers.
+
+### Validation Boundary
+- The pushed SD-Turbo Q8_0 GGUF is complete (2,322,705,024 bytes) and readable.
+- CPU and Vulkan hooks both enter `nativeInit` and remain inside `new_sd_ctx`;
+  no image or completion record is produced. Vulkan allocates about 1.45 GiB
+  of GL-mtracked memory before the stall. Matrix points 4-14 remain blocked at
+  model initialization, before warm-generation measurements.
+- Do not report warm-session or lifecycle matrix timings until a compatible
+  model artifact completes native initialization.
+
 ---
 
 ## Session: 2026-07-28 — Initial Setup
