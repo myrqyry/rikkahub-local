@@ -44,6 +44,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.theme.CustomColors
+import me.rerere.rikkahub.ui.theme.emphasizedHeadlineSmall
 import me.rerere.rikkahub.utils.plus
 import org.koin.androidx.compose.koinViewModel
 import java.time.DayOfWeek
@@ -350,7 +351,7 @@ private fun StatCard(
             )
             Text(
                 text = value,
-                style = MaterialTheme.typography.headlineSmall,
+                style = emphasizedHeadlineSmall,
             )
             Text(
                 text = label,
