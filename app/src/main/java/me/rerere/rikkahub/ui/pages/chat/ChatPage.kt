@@ -5,8 +5,10 @@ import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -302,7 +304,27 @@ private fun ChatPageContent(
 
     Surface(
         color = MaterialTheme.colorScheme.background,
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(drawerState) {
+                var edge = false
+                var dx = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = { offset -> edge = offset.x < 48.dp.toPx() },
+                    onHorizontalDrag = { _, amount -> if (edge) dx += amount },
+                    onDragEnd = {
+                        if (edge && dx > 64f && !drawerState.isOpen) {
+                            scope.launch { drawerState.open() }
+                        }
+                        edge = false
+                        dx = 0f
+                    },
+                    onDragCancel = {
+                        edge = false
+                        dx = 0f
+                    },
+                )
+            }
     ) {
         AssistantBackground(setting = setting, modifier = Modifier.hazeSource(hazeState))
         Scaffold(
