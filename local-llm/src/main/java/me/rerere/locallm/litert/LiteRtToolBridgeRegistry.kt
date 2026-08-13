@@ -31,6 +31,9 @@ object LiteRtToolBridgeRegistry {
     /** Snapshot of every tool name registered for the current request. */
     fun currentToolNames(): Set<String> = tools.keys.toSet()
 
+    /** Snapshot of every tool registered for the current request. */
+    fun snapshot(): List<Tool> = tools.values.toList()
+
     /** Empty the registry. Call from a `finally` after every inference. */
     fun clear() {
         tools.clear()
