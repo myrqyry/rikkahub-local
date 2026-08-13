@@ -264,6 +264,7 @@
       android:exported="false"
       android:launchMode="singleInstance"
       android:excludeFromRecents="true"
+      android:windowSoftInputMode="adjustResize"
       android:theme="@style/Theme.Rikkahub" />
 
     <!-- Phase 13: External Automation Intent API. Exported activity that accepts
