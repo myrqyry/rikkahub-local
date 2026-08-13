@@ -1,7 +1,11 @@
 package me.rerere.rikkahub.ui.bubble
 
 import android.content.ClipData
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
+import android.view.accessibility.AccessibilityNodeInfo
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -33,15 +37,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.ai.GenerationHandler
+import me.rerere.rikkahub.data.ai.tools.local.AccessibilityServiceHandle
 import me.rerere.rikkahub.data.datastore.SettingsStore
+import me.rerere.rikkahub.service.RikkaAccessibilityService
 import me.rerere.rikkahub.ui.theme.RikkahubTheme
 import org.koin.android.ext.android.inject
 import java.util.Locale
@@ -84,9 +95,15 @@ private fun TranslateBubbleScreen(
     var translating by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var languageMenuOpen by remember { mutableStateOf(false) }
+    var screenStatus by remember { mutableStateOf<String?>(null) }
+    var live by remember { mutableStateOf(false) }
+    var liveJob by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
+    val context = LocalContext.current
     val genericErrorText = stringResource(R.string.translator_error_generic)
+    val screenEmptyText = stringResource(R.string.translate_bubble_screen_empty)
+    val a11yRequiredText = stringResource(R.string.translate_bubble_a11y_required)
 
     fun doTranslate() {
         if (source.isBlank() || translating) return
@@ -102,6 +119,66 @@ private fun TranslateBubbleScreen(
                 error = e.message ?: genericErrorText
             } finally {
                 translating = false
+            }
+        }
+    }
+
+    suspend fun readScreenText(): String = withContext(Dispatchers.IO) {
+        val svc = RikkaAccessibilityService.instance ?: return@withContext ""
+        val ourPkg = context.packageName
+        val root = svc.windows
+            .mapNotNull { it.root }
+            .filter { it.packageName?.toString() != ourPkg }
+            .lastOrNull() ?: svc.rootInActiveWindow
+        if (root == null || root.packageName?.toString() == ourPkg) return@withContext ""
+        val lines = mutableListOf<String>()
+        svc.traverseTree(
+            root = root,
+            filter = { n, _ ->
+                n.isVisibleToUser &&
+                    (n.text?.toString().orEmpty().isNotBlank() ||
+                        n.contentDescription?.toString().orEmpty().isNotBlank())
+            },
+            cap = 1000,
+        ) { n, _, _ ->
+            n.text?.toString()?.takeIf { it.isNotBlank() }?.let { lines += it.trim() }
+            n.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let { lines += it.trim() }
+        }
+        lines.distinct().joinToString("\n")
+    }
+
+    fun translateScreen() {
+        if (translating) return
+        screenStatus = null
+        scope.launch {
+            val text = readScreenText()
+            if (text.isBlank()) {
+                screenStatus = screenEmptyText
+                return@launch
+            }
+            source = text
+            doTranslate()
+        }
+    }
+
+    fun toggleLive() {
+        if (liveJob != null) {
+            liveJob?.cancel()
+            liveJob = null
+            live = false
+            return
+        }
+        live = true
+        liveJob = scope.launch {
+            var last = ""
+            while (true) {
+                val text = readScreenText()
+                if (text.isNotBlank() && text != last) {
+                    last = text
+                    source = text
+                    doTranslate()
+                }
+                delay(3000)
             }
         }
     }
@@ -146,6 +223,48 @@ private fun TranslateBubbleScreen(
                         }
                     }
                 }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = { translateScreen() },
+                    enabled = !translating,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(stringResource(R.string.translate_bubble_screen))
+                }
+                OutlinedButton(
+                    onClick = { toggleLive() },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        if (live) stringResource(R.string.translate_bubble_live) + " ·"
+                        else stringResource(R.string.translate_bubble_live)
+                    )
+                }
+            }
+
+            if (!AccessibilityServiceHandle.isRunning()) {
+                Text(
+                    text = a11yRequiredText,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                TextButton(onClick = {
+                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                }) {
+                    Text(stringResource(R.string.translate_bubble_open_a11y))
+                }
+            } else if (screenStatus != null) {
+                Text(
+                    text = screenStatus.orEmpty(),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
 
             OutlinedTextField(

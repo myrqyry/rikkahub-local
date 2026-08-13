@@ -2024,5 +2024,10 @@
   <string name="translate_bubble_result_placeholder">Translation appears here</string>
   <string name="setting_page_translate_bubble">Floating translate bubble</string>
   <string name="setting_page_translate_bubble_desc">A floating bubble that translates text over any app</string>
+  <string name="translate_bubble_live">"Live"</string>
+  <string name="translate_bubble_screen">Translate screen</string>
+  <string name="translate_bubble_screen_empty">No readable text on screen</string>
+  <string name="translate_bubble_a11y_required">Enable accessibility to read the screen</string>
+  <string name="translate_bubble_open_a11y">Open accessibility settings</string>
 </resources>
 
