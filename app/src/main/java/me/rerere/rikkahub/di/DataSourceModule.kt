@@ -319,6 +319,7 @@ val dataSourceModule = module {
                     settingsUpdater = { transform ->
                         settingsStore.update { old -> old.copy(providers = transform(old.providers)) }
                     },
+                    zeroWorkflowExecutor = get(),
                 ),
             )
             pm.registerProvider(

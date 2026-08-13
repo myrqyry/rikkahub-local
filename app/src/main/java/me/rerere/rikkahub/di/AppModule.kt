@@ -219,6 +219,11 @@ val appModule = module {
             get<me.rerere.rikkahub.workflow.repository.WorkflowRepository>().bindEngine(engine)
         }
     }
+    single<me.rerere.locallm.litert.ZeroWorkflowExecutor> {
+        me.rerere.rikkahub.workflow.execution.WorkflowEngineZeroWorkflowExecutor(
+            engine = get(),
+        )
+    }
     single {
         me.rerere.rikkahub.workflow.trigger.TriggerRegistry(
             context = get(),

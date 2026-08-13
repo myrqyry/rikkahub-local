@@ -78,11 +78,12 @@ class LiteRtProvider(
     private val runtime: LiteRtRuntime,
     private val prefs: LocalRuntimePreferences,
     private val settingsUpdater: suspend (transform: (List<ProviderSetting>) -> List<ProviderSetting>) -> Unit,
+    zeroWorkflowExecutor: ZeroWorkflowExecutor? = null,
 ) : Provider<ProviderSetting.LiteRtLocal> {
 
     /** Singleton bridge — one ToolSet for the lifetime of this provider. Its @Tool
      *  method reads the per-request tool list from [LiteRtToolBridgeRegistry]. */
-    private val toolBridge = LiteRtToolBridge()
+    private val toolBridge = LiteRtToolBridge(zeroWorkflowExecutor)
     private val toolProvider: ToolProvider = litertTool(toolBridge)
 
     /**

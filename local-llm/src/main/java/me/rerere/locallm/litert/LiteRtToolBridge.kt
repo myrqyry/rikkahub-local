@@ -45,7 +45,11 @@ private const val TAG = "LiteRtToolBridge"
  * Each [LiteRtProvider.streamText] call updates the snapshot via
  * [LiteRtToolBridgeRegistry] before invoking the SDK; the @Tool method reads from there.
  */
-class LiteRtToolBridge : ToolSet {
+class LiteRtToolBridge(
+    zeroWorkflowExecutor: ZeroWorkflowExecutor? = null,
+) : ToolSet {
+
+    private val executor = ActionPlanExecutor(zeroWorkflowExecutor = zeroWorkflowExecutor)
 
     @Tool(
         description = "Invoke a Rikka local tool by its registered name. Returns the tool's " +
@@ -77,16 +81,33 @@ class LiteRtToolBridge : ToolSet {
             )
         }
 
+        val grantedCapabilities = LiteRtToolBridgeRegistry.currentToolNames().toList()
+        val plan = ActionPlan.ToolCall(
+            toolName = name,
+            args = args,
+            grant = CapabilityGrant(
+                requestedCapabilities = listOf(name),
+                grantedCapabilities = grantedCapabilities,
+                rejectedCapabilities = emptyList(),
+            ),
+        )
+
         return runBlocking {
-            runCatching {
-                val parts = tool.execute(args)
-                val textOnly = parts
-                    .filterIsInstance<UIMessagePart.Text>()
-                    .joinToString("") { it.text }
-                textOnly.ifBlank { "(tool returned no text output)" }
-            }.getOrElse { t ->
-                Log.w(TAG, "runTool($name) threw", t)
-                errorEnvelope("tool_threw", t.message ?: t::class.java.simpleName)
+            when (val result = executor.execute(plan)) {
+                is ActionPlanResult.Success -> {
+                    val textOnly = result.output
+                        .filterIsInstance<UIMessagePart.Text>()
+                        .joinToString("") { it.text }
+                    textOnly.ifBlank { "(tool returned no text output)" }
+                }
+                is ActionPlanResult.Failed -> {
+                    Log.w(TAG, "runTool($name) failed: ${result.errorMessage}")
+                    errorEnvelope("tool_failed", result.errorMessage)
+                }
+                is ActionPlanResult.CapabilityRejected -> {
+                    Log.w(TAG, "runTool($name) capability rejected: ${result.capability}")
+                    errorEnvelope("capability_rejected", result.reason)
+                }
             }
         }
     }
