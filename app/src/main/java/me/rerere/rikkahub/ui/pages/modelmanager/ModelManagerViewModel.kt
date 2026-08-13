@@ -122,31 +122,6 @@ class ModelManagerViewModel(
         }
     }
 
-    fun deleteModel(fileName: String) = viewModelScope.launch {
-        val path = prefs.installedModels(runtime)[fileName]
-        if (path != null) {
-            File(path).delete()
-            File("$path.partial").delete()
-            prefs.removeInstalledModel(runtime, fileName)
-        }
-        updateMyProvider { p ->
-            val sd = p as? ProviderSetting.StableDiffusion ?: return@updateMyProvider p
-            sd.copy(
-                models = sd.models.filterNot { it.modelId == fileName },
-                currentModelPath = sd.currentModelPath?.takeUnless { it == path },
-            )
-        }
-        me.rerere.rikkahub.data.ai.StableDiffusionBridge.invalidateSession()
-    }
-
-    fun renameModel(modelId: String, newDisplayName: String) = viewModelScope.launch {
-        if (newDisplayName.isBlank()) return@launch
-        updateMyProvider { p ->
-            val cur = p.models.firstOrNull { it.modelId == modelId } ?: return@updateMyProvider p
-            p.editModel(cur.copy(displayName = newDisplayName.trim()))
-        }
-    }
-
     fun clearError() {
         _errorMessage.value = null
     }

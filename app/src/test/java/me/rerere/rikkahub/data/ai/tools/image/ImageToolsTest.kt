@@ -184,6 +184,7 @@ class ImageToolsTest {
         override suspend fun assign(role: ModelRole, modelId: String?) = Unit
         override suspend fun install(modelId: String) = Unit
         override suspend fun remove(modelId: String) = Unit
+        override suspend fun rename(modelId: String, newDisplayName: String) = Unit
     }
 
     private class SettingsStub {

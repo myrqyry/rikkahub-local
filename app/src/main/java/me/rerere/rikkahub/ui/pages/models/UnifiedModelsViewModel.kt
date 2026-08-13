@@ -180,6 +180,28 @@ class UnifiedModelsViewModel(
         }
     }
 
+    fun renameLocalModel(modelId: String, newName: String) = ownerScope.launch {
+        _operationError.value = null
+        try {
+            registry.rename(modelId, newName)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            _operationError.value = error.message ?: error::class.simpleName
+        }
+    }
+
+    fun deleteLocalModel(modelId: String) = ownerScope.launch {
+        _operationError.value = null
+        try {
+            registry.remove(modelId)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            _operationError.value = error.message ?: error::class.simpleName
+        }
+    }
+
     fun assign(role: ModelRole, modelId: String?) = ownerScope.launch {
         _operationError.value = null
         try {

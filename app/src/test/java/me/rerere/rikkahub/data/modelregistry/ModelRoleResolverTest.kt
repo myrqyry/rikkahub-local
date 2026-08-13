@@ -98,5 +98,6 @@ class ModelRoleResolverTest {
         override suspend fun assign(role: ModelRole, modelId: String?) = error("not used")
         override suspend fun install(modelId: String) = error("not used")
         override suspend fun remove(modelId: String) = error("not used")
+        override suspend fun rename(modelId: String, newDisplayName: String) = Unit
     }
 }

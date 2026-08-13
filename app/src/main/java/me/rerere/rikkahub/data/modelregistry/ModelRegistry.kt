@@ -11,5 +11,6 @@ interface ModelRegistry {
     suspend fun setCapabilityEnabled(modelId: String, capability: ModelCapability, enabled: Boolean)
     suspend fun assign(role: ModelRole, modelId: String?)
     suspend fun install(modelId: String)
+    suspend fun rename(modelId: String, newDisplayName: String)
     suspend fun remove(modelId: String)
 }

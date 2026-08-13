@@ -156,12 +156,46 @@ class SettingsModelRegistry(
         error("Model installation remains owned by ModelManager")
     }
 
+    override suspend fun rename(modelId: String, newDisplayName: String) {
+        val name = newDisplayName.trim()
+        if (name.isEmpty() || name.isBlank()) return
+        settingsStore.update { settings ->
+            settings.copy(
+                providers = settings.providers.map { provider ->
+                    val backing = provider.models.firstOrNull { it.id.toString() == modelId }
+                        ?: return@map provider
+                    provider.editModel(backing.copy(displayName = name))
+                },
+            )
+        }
+    }
+
     override suspend fun remove(modelId: String) {
         val model = _models.value.firstOrNull { it.id == modelId }
             ?: error("Unknown model: $modelId")
         val source = model.source as? ModelSource.Local
             ?: error("Cloud models cannot be removed from the local registry")
+        val removedPaths = source.files.mapNotNull { localPreferences.installedModels(source.runtime)[it] }
         source.files.forEach { localPreferences.removeInstalledModel(source.runtime, it) }
+        settingsStore.update { settings ->
+            settings.copy(
+                providers = settings.providers.map { provider ->
+                    val backing = provider.models.firstOrNull { it.id.toString() == modelId }
+                        ?: return@map provider
+                    when (provider) {
+                        is ProviderSetting.StableDiffusion -> provider.copy(
+                            models = provider.models.filterNot { it.id.toString() == modelId },
+                            currentModelPath = provider.currentModelPath
+                                ?.takeUnless { path -> removedPaths.any { it == path } },
+                        )
+                        else -> provider.delModel(backing)
+                    }
+                },
+            )
+        }
+        if (source.runtime == LocalRuntime.StableDiffusion) {
+            me.rerere.rikkahub.data.ai.StableDiffusionBridge.invalidateSession()
+        }
     }
 
     private fun descriptor(

@@ -256,6 +256,7 @@ class UnifiedModelsViewModelTest {
         override suspend fun assign(role: ModelRole, modelId: String?) { assignCalls++ }
         override suspend fun install(modelId: String) { installCalls++ }
         override suspend fun remove(modelId: String) = Unit
+        override suspend fun rename(modelId: String, newDisplayName: String) = Unit
     }
 
     private class FakeLegacy(title: String? = null, translation: String? = null) : LegacyModelAssignmentAdapter {

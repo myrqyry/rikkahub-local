@@ -185,6 +185,8 @@ fun ModelManagerPage(
                             onProviderConfigure = { providerId ->
                                 navController.navigate(Screen.SettingProviderDetail(providerId))
                             },
+                            onLocalModelRename = { model, name -> assignmentsVm.renameLocalModel(model.id, name) },
+                            onLocalModelDelete = { model -> assignmentsVm.deleteLocalModel(model.id) },
                         )
                     }
                 }
