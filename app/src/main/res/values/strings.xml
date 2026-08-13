@@ -2021,5 +2021,7 @@
   <string name="model_manager_add_section_file">Import from local file</string>
   <string name="unified_models_configure">Configure</string>
   <string name="unified_models_provider_count">{count} models</string>
+  <string name="setting_page_agent">Agent Settings</string>
+  <string name="setting_page_agent_desc">Prompts and agent behavior</string>
 </resources>
 

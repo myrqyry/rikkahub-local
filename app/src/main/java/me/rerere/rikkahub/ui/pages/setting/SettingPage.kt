@@ -168,10 +168,10 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                 ),
                 SettingsHomeItem(
                     id = "agentSettings",
-                    title = "Agent Settings",
-                    description = "Prompts and agent behavior",
+                    title = stringResource(R.string.setting_page_agent),
+                    description = stringResource(R.string.setting_page_agent_desc),
                     icon = HugeIcons.LookTop,
-                    keywords = listOf("agent", "prompt", "reasoning"),
+                    keywords = listOf("agent", "prompt", "system prompt", "reasoning", "thinking"),
                     onClick = { navController.navigate(Screen.SettingAgent) },
                 ),
                 SettingsHomeItem(
