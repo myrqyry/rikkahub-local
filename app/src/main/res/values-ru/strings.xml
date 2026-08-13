@@ -757,11 +757,9 @@
   <string name="setting_model_page_suggestion_model">Модель предложений чата</string>
   <string name="setting_model_page_suggestion_model_desc">Модель для генерации предложений в чате. Если не задана, используется быстрая модель</string>
   <string name="setting_model_page_suggestion_prompt_vars">Переменные: Содержание разговора: {content}, Язык: {locale}</string>
-  <string name="setting_model_page_title">Настройки модели</string>
   <string name="unified_models_search">Поиск моделей</string>
   <string name="unified_models_local">Локальные модели</string>
   <string name="unified_models_cloud">Облачные модели</string>
-  <string name="unified_models_provider">Модели провайдера</string>
   <string name="unified_models_refresh">Обновить</string>
   <string name="unified_models_empty">Нет совместимых моделей</string>
   <string name="setting_model_page_title_model">Модель сводки заголовков</string>
@@ -794,7 +792,6 @@
   <string name="setting_page_data_backup">Резервное копирование данных</string>
   <string name="setting_page_data_backup_desc">Резервное копирование и восстановление данных приложения</string>
   <string name="setting_page_data_settings">Настройки данных</string>
-  <string name="setting_page_default_model">Модель и промпт по умолчанию</string>
   <string name="setting_page_default_model_desc">Установить модели по умолчанию для каждой функции</string>
   <string name="setting_page_display_setting">Настройки отображения</string>
   <string name="setting_page_display_setting_desc">Управление настройками отображения</string>
@@ -1118,8 +1115,6 @@
   <string name="setting_page_preferences_ui_desc">Отображение сообщений, шрифты, блоки кода</string>
   <string name="skills_page_import_from_file">Импортировать из файла</string>
   <string name="skills_page_add_manually">Добавить вручную</string>
-  <string name="setting_model_page_tab_model">Модель</string>
-  <string name="setting_model_page_tab_prompt">Промпты</string>
   <string name="setting_model_page_prompt_translation">Перевод</string>
   <string name="setting_model_page_prompt_title">Генерация заголовка</string>
   <string name="setting_model_page_prompt_suggestion">Подсказки ответов в чате</string>

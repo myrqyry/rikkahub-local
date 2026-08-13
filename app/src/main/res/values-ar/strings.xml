@@ -775,11 +775,9 @@
   <string name="setting_model_page_suggestion_model">نموذج اقتراحات الدردشة</string>
   <string name="setting_model_page_suggestion_model_desc">النموذج المُستخدم لتوليد اقتراحات المحادثة، يُنصح باستخدام نماذج سريعة وغير مكلفة</string>
   <string name="setting_model_page_suggestion_prompt_vars">المتغيرات: محتوى المحادثة: {content}، اللغة: {locale}</string>
-  <string name="setting_model_page_title">إعدادات النموذج</string>
   <string name="unified_models_search">البحث عن النماذج</string>
   <string name="unified_models_local">النماذج المحلية</string>
   <string name="unified_models_cloud">النماذج السحابية</string>
-  <string name="unified_models_provider">نماذج المزوّد</string>
   <string name="unified_models_refresh">تحديث</string>
   <string name="unified_models_empty">لا توجد نماذج متوافقة</string>
   <string name="setting_model_page_title_model">نموذج تلخيص العنوان</string>
@@ -812,7 +810,6 @@
   <string name="setting_page_data_backup">النسخ الاحتياطي للبيانات</string>
   <string name="setting_page_data_backup_desc">النسخ الاحتياطي لبيانات التطبيق واستعادتها</string>
   <string name="setting_page_data_settings">إعدادات البيانات</string>
-  <string name="setting_page_default_model">النموذج والتوجيه الافتراضيان</string>
   <string name="setting_page_default_model_desc">تعيين نماذج افتراضية لكل ميزة</string>
   <string name="setting_page_display_setting">إعدادات العرض</string>
   <string name="setting_page_display_setting_desc">إدارة إعدادات العرض</string>

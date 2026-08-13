@@ -125,7 +125,6 @@ import me.rerere.rikkahub.ui.pages.setting.SettingDonatePage
 import me.rerere.rikkahub.ui.pages.setting.SettingFilesPage
 import me.rerere.rikkahub.ui.pages.setting.SettingMcpPage
 import me.rerere.rikkahub.ui.pages.models.DefaultModelsPage
-import me.rerere.rikkahub.ui.pages.models.UnifiedModelsPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPage
 import me.rerere.rikkahub.ui.pages.setting.SettingProviderDetailPage
 import me.rerere.rikkahub.ui.pages.setting.SettingProviderPage
@@ -519,9 +518,6 @@ class RouteActivity : ComponentActivity() {
                                 SettingProviderDetailPage(id = id)
                             }
 
-                            entry<Screen.SettingModels> { key ->
-                                UnifiedModelsPage(request = key.request)
-                            }
                             entry<Screen.SettingAgent> {
                                 SettingAgentPage()
                             }
@@ -807,11 +803,6 @@ sealed interface Screen : NavKey {
 
     @Serializable
     data class SettingProviderDetail(val providerId: String) : Screen
-
-    @Serializable
-    data class SettingModels(
-        val request: me.rerere.rikkahub.ui.pages.models.ModelsPageRequest = me.rerere.rikkahub.ui.pages.models.ModelsPageRequest(),
-    ) : Screen
 
     @Serializable
     data object SettingAgent : Screen

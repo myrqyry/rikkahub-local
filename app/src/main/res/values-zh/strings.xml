@@ -790,11 +790,9 @@
   <string name="setting_model_page_suggestion_model">聊天建议模型</string>
   <string name="setting_model_page_suggestion_model_desc">用于生成聊天建议的模型。未设置时使用快速模型</string>
   <string name="setting_model_page_suggestion_prompt_vars">变量: 对话内容: {content}, 语言: {locale}</string>
-  <string name="setting_model_page_title">模型设置</string>
   <string name="unified_models_search">搜索模型</string>
   <string name="unified_models_local">本地模型</string>
   <string name="unified_models_cloud">云端模型</string>
-  <string name="unified_models_provider">提供商模型</string>
   <string name="unified_models_refresh">刷新</string>
   <string name="unified_models_empty">没有兼容的模型</string>
   <string name="setting_model_page_title_model">标题总结模型</string>
@@ -827,7 +825,6 @@
   <string name="setting_page_data_backup">数据备份</string>
   <string name="setting_page_data_backup_desc">备份和恢复应用数据</string>
   <string name="setting_page_data_settings">数据设置</string>
-  <string name="setting_page_default_model">默认模型和提示词</string>
   <string name="setting_page_default_model_desc">设置各个功能的默认模型</string>
   <string name="setting_page_display_setting">显示设置</string>
   <string name="setting_page_display_setting_desc">管理显示设置</string>
@@ -1147,8 +1144,6 @@ mDNS 地址：使用 .local 主机名，同一网络中的其他设备可通过�
   <string name="setting_page_preferences_ui_desc">消息显示、字体、代码块</string>
   <string name="skills_page_import_from_file">从文件导入</string>
   <string name="skills_page_add_manually">手动添加</string>
-  <string name="setting_model_page_tab_model">模型</string>
-  <string name="setting_model_page_tab_prompt">提示词</string>
   <string name="setting_model_page_prompt_translation">翻译</string>
   <string name="setting_model_page_prompt_title">标题生成</string>
   <string name="setting_model_page_prompt_suggestion">聊天回复建议</string>

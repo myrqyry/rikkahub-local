@@ -757,11 +757,9 @@
   <string name="setting_model_page_suggestion_model">채팅 제안 모델</string>
   <string name="setting_model_page_suggestion_model_desc">대화 제안을 생성하는 모델. 설정되지 않으면 빠른 모델을 사용합니다</string>
   <string name="setting_model_page_suggestion_prompt_vars">변수: 대화 내용: {content}, 언어: {locale}</string>
-  <string name="setting_model_page_title">모델 설정</string>
   <string name="unified_models_search">모델 검색</string>
   <string name="unified_models_local">로컬 모델</string>
   <string name="unified_models_cloud">클라우드 모델</string>
-  <string name="unified_models_provider">제공자 모델</string>
   <string name="unified_models_refresh">새로고침</string>
   <string name="unified_models_empty">호환되는 모델이 없습니다</string>
   <string name="setting_model_page_title_model">제목 요약 모델</string>
@@ -794,7 +792,6 @@
   <string name="setting_page_data_backup">데이터 백업</string>
   <string name="setting_page_data_backup_desc">앱 데이터 백업 및 복원</string>
   <string name="setting_page_data_settings">데이터 설정</string>
-  <string name="setting_page_default_model">기본 모델 및 프롬프트</string>
   <string name="setting_page_default_model_desc">각 기능의 기본 모델 설정</string>
   <string name="setting_page_display_setting">디스플레이 설정</string>
   <string name="setting_page_display_setting_desc">디스플레이 설정 관리</string>
@@ -1118,8 +1115,6 @@ mDNS 주소: .local 호스트네임을 사용하며, IP를 몰라도 같은 네�
   <string name="setting_page_preferences_ui_desc">메시지 표시, 글꼴, 코드 블록</string>
   <string name="skills_page_import_from_file">파일에서 가져오기</string>
   <string name="skills_page_add_manually">수동으로 추가</string>
-  <string name="setting_model_page_tab_model">모델</string>
-  <string name="setting_model_page_tab_prompt">프롬프트</string>
   <string name="setting_model_page_prompt_translation">번역</string>
   <string name="setting_model_page_prompt_title">제목 생성</string>
   <string name="setting_model_page_prompt_suggestion">채팅 답변 제안</string>

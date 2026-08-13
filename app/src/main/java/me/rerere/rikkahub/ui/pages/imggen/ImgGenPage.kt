@@ -115,8 +115,6 @@ import me.rerere.rikkahub.ui.context.LocalToaster
 import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.pages.models.ModelManagerRequest
 import me.rerere.rikkahub.ui.pages.models.ModelTab
-import me.rerere.rikkahub.ui.pages.models.ModelsFocus
-import me.rerere.rikkahub.ui.pages.models.ModelsPageRequest
 import me.rerere.rikkahub.utils.ImageUtils
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject

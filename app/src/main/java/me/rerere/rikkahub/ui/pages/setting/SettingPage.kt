@@ -152,7 +152,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                 ),
                 SettingsHomeItem(
                     id = "defaultModels",
-                    title = stringResource(R.string.setting_page_default_model),
+                    title = stringResource(R.string.setting_default_models_title),
                     description = stringResource(R.string.setting_page_default_model_desc),
                     icon = HugeIcons.AiMagic,
                     keywords = listOf("chat model", "title model", "translation model"),
