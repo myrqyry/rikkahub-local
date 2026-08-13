@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 import me.rerere.rikkahub.data.modelregistry.ModelCapability
 
 @Serializable
-enum class ModelTab { ALL, CHAT, VISION, IMAGE, SPEECH, EMBEDDINGS, OTHER }
+enum class ModelTab { ALL, CHAT, VISION, IMAGE, SPEECH, EMBEDDINGS, OTHER, TASK }
 
 @Serializable
 enum class ModelSourceFilter { ALL, LOCAL, CLOUD }
@@ -24,4 +24,5 @@ fun ModelTab.capability(): ModelCapability? = when (this) {
     ModelTab.SPEECH -> null
     ModelTab.EMBEDDINGS -> ModelCapability.EMBEDDINGS
     ModelTab.OTHER -> null
+    ModelTab.TASK -> null
 }

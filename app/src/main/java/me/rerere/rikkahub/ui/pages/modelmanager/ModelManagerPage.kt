@@ -64,7 +64,13 @@ import me.rerere.rikkahub.ui.theme.CustomColors
 import org.koin.androidx.compose.koinViewModel
 import kotlin.uuid.Uuid
 
-private val MANAGER_TABS = ModelTab.entries.filter { it != ModelTab.EMBEDDINGS }
+private val MANAGER_TABS = listOf(
+    ModelTab.ALL,
+    ModelTab.CHAT,
+    ModelTab.EMBEDDINGS,
+    ModelTab.TASK,
+    ModelTab.IMAGE,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,7 +92,12 @@ fun ModelManagerPage(
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
 
     LaunchedEffect(request) {
-        assignmentsVm.setTab(if (request.tab == ModelTab.EMBEDDINGS) ModelTab.OTHER else request.tab)
+        assignmentsVm.setTab(
+            when (request.tab) {
+                ModelTab.VISION, ModelTab.SPEECH, ModelTab.OTHER -> ModelTab.TASK
+                else -> request.tab
+            }
+        )
         assignmentsVm.setSearch(request.search)
         assignmentsVm.setProviderFilter(request.providerId)
     }
@@ -137,12 +148,24 @@ fun ModelManagerPage(
             if (showAddModel) {
                 AddModelOptions(viewModel, filePickerLauncher, downloadProgress, errorMessage)
             } else {
-                PrimaryTabRow(selectedTabIndex = selectedTab.ordinal.coerceAtMost(MANAGER_TABS.lastIndex)) {
+                PrimaryTabRow(selectedTabIndex = MANAGER_TABS.indexOf(selectedTab).coerceAtLeast(0)) {
                     MANAGER_TABS.forEach { tab ->
                         Tab(
                             selected = selectedTab == tab,
                             onClick = { assignmentsVm.setTab(tab) },
-                            text = { Text(tab.name.lowercase().replaceFirstChar(Char::uppercase)) },
+                            text = {
+                                Text(
+                                    stringResource(
+                                        when (tab) {
+                                            ModelTab.ALL -> R.string.unified_models_tab_all
+                                            ModelTab.CHAT -> R.string.unified_models_tab_chat
+                                            ModelTab.EMBEDDINGS -> R.string.unified_models_tab_embeddings
+                                            ModelTab.TASK -> R.string.unified_models_tab_task
+                                            else -> R.string.unified_models_tab_image
+                                        }
+                                    )
+                                )
+                            },
                         )
                     }
                 }

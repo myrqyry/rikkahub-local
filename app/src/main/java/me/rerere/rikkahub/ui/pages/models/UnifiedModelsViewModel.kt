@@ -279,7 +279,18 @@ class UnifiedModelsViewModel(
         when (tab) {
             ModelTab.ALL -> true
             ModelTab.CHAT -> model.capabilities.contains(ModelCapability.CHAT)
-            ModelTab.IMAGE -> model.capabilities.contains(ModelCapability.IMAGE_GENERATION)
+            ModelTab.IMAGE -> model.capabilities.contains(ModelCapability.IMAGE_GENERATION) ||
+                model.capabilities.contains(ModelCapability.IMAGE_EDITING)
+            ModelTab.EMBEDDINGS -> model.capabilities.contains(ModelCapability.EMBEDDINGS)
+            ModelTab.TASK -> model.capabilities.any {
+                it == ModelCapability.VISION ||
+                    it == ModelCapability.OCR ||
+                    it == ModelCapability.DOCUMENT_ANALYSIS ||
+                    it == ModelCapability.TEXT_TO_SPEECH ||
+                    it == ModelCapability.SPEECH_TO_TEXT ||
+                    it == ModelCapability.AUDIO_UNDERSTANDING ||
+                    it == ModelCapability.RERANKING
+            }
             ModelTab.VISION -> model.capabilities.contains(ModelCapability.VISION) ||
                 model.capabilities.contains(ModelCapability.OCR)
             ModelTab.SPEECH -> model.capabilities.any {
@@ -287,7 +298,6 @@ class UnifiedModelsViewModel(
                     it == ModelCapability.SPEECH_TO_TEXT ||
                     it == ModelCapability.AUDIO_UNDERSTANDING
             }
-            ModelTab.EMBEDDINGS -> model.capabilities.contains(ModelCapability.EMBEDDINGS)
             ModelTab.OTHER -> model.capabilities.none {
                 it == ModelCapability.CHAT ||
                     it == ModelCapability.VISION ||

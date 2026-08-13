@@ -2029,5 +2029,10 @@
   <string name="translate_bubble_screen_empty">No readable text on screen</string>
   <string name="translate_bubble_a11y_required">Enable accessibility to read the screen</string>
   <string name="translate_bubble_open_a11y">Open accessibility settings</string>
+  <string name="unified_models_tab_all">All</string>
+  <string name="unified_models_tab_chat">Chat</string>
+  <string name="unified_models_tab_embeddings">Embeddings</string>
+  <string name="unified_models_tab_task">Task models</string>
+  <string name="unified_models_tab_image">Image</string>
 </resources>
 
