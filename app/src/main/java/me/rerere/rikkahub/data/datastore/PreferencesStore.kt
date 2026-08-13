@@ -29,6 +29,7 @@ import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.rikkahub.AppScope
 import me.rerere.rikkahub.data.ai.mcp.McpServerConfig
+import me.rerere.rikkahub.data.ai.tools.LocalToolOption
 import me.rerere.rikkahub.data.ai.prompts.DEFAULT_COMPRESS_PROMPT
 import me.rerere.rikkahub.data.ai.prompts.DEFAULT_OCR_PROMPT
 import me.rerere.rikkahub.data.ai.prompts.DEFAULT_SUGGESTION_PROMPT
@@ -938,6 +939,30 @@ internal val DEFAULT_ASSISTANTS = listOf(
             - Remember to use Markdown syntax for formatting, and use latex for mathematical expressions.
         """.trimIndent(),
         enabledSkills = setOf("agent-core") + DEFAULT_AUTO_ENABLED_SKILLS,
+    ),
+    Assistant(
+        id = Uuid.parse("f3c9c1e4-6b2a-4d7f-9a8c-5e1b2c3d4e5f"),
+        name = "Translator",
+        systemPrompt = """
+            You are {{char}}, a translation specialist, based on model {{model_name}}.
+
+            ## Mission
+            Translate the user's text into the language they request. If no target language
+            is given, infer it from the user's request, or reply in the user's primary language.
+
+            ## Rules
+            - Respond ONLY with the translation. No explanations, notes, or commentary unless asked.
+            - Preserve meaning, tone, and formatting (lists, code blocks, links) faithfully.
+            - Keep names, technical terms, and code identifiers unchanged where appropriate.
+            - Use the SpeechToText tool to transcribe spoken input and the Tts tool to speak
+              translations aloud when requested.
+        """.trimIndent(),
+        enabledSkills = setOf("agent-core") + DEFAULT_AUTO_ENABLED_SKILLS,
+        localTools = listOf(
+            LocalToolOption.SpeechToText,
+            LocalToolOption.Tts,
+            LocalToolOption.Clipboard,
+        ),
     ),
 )
 
