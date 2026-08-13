@@ -10,19 +10,6 @@ enum class ModelTab { ALL, CHAT, VISION, IMAGE, SPEECH, EMBEDDINGS, OTHER }
 enum class ModelSourceFilter { ALL, LOCAL, CLOUD }
 
 @Serializable
-enum class ModelsFocus { ASSIGNMENTS, MODELS }
-
-@Serializable
-data class ModelsPageRequest(
-    val tab: ModelTab = ModelTab.ALL,
-    val search: String = "",
-    val source: ModelSourceFilter = ModelSourceFilter.ALL,
-    val providerId: String? = null,
-    val focus: ModelsFocus? = null,
-    val modelId: String? = null,
-)
-
-@Serializable
 data class ModelManagerRequest(
     val tab: ModelTab = ModelTab.ALL,
     val providerId: String? = null,

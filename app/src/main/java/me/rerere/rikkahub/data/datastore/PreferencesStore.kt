@@ -679,6 +679,7 @@ data class Settings(
     val fastModelId: Uuid = Uuid.random(),
     val titleModelId: Uuid? = null,
     val imageGenerationModelId: Uuid = Uuid.random(),
+    val imageEditingModelId: Uuid? = null,
     val titlePrompt: String = DEFAULT_TITLE_PROMPT,
     val translateModeId: Uuid = Uuid.random(),
     val translatePrompt: String = DEFAULT_TRANSLATION_PROMPT,

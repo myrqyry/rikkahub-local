@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import me.rerere.rikkahub.data.modelregistry.ModelCapability
 import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
+import me.rerere.rikkahub.data.modelregistry.isSelectableFor
 
 @Composable
 fun RegistryModelSelector(
@@ -44,7 +45,7 @@ fun RegistryModelSelector(
                         modifier = Modifier.padding(16.dp),
                     )
                 }
-                items(models.filter { it.canExplicitlySelect(capability) }) { model ->
+                items(models.filter { it.isSelectableFor(capability) }) { model ->
                     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                         Text(model.displayName, style = MaterialTheme.typography.titleSmall)
                         Text(

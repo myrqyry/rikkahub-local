@@ -106,6 +106,7 @@ import me.rerere.rikkahub.data.files.FileUtils
 import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.modelregistry.ModelCapability
+import me.rerere.rikkahub.data.modelregistry.isSelectableFor
 import me.rerere.rikkahub.ui.components.ai.RegistryModelSelector
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.FormItem
@@ -350,7 +351,9 @@ private fun ImageGenScreen(
                 )
             }
         }
-        val hasImageModels = registryModels.any { it.supports(ModelCapability.IMAGE_GENERATION) }
+        val hasImageModels = registryModels.any {
+            it.isSelectableFor(ModelCapability.IMAGE_GENERATION) || it.isSelectableFor(ModelCapability.IMAGE_EDITING)
+        }
         if (hasImageModels) {
             InputBar(
                 prompt = prompt,
@@ -480,15 +483,27 @@ private fun InputBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             RegistryModelSelector(
-                value = settings.imageGenerationModelId.toString(),
+                value = if (referenceImages.isEmpty()) {
+                    settings.imageGenerationModelId.toString()
+                } else {
+                    settings.imageEditingModelId?.toString()
+                },
                 models = registryModels,
-                capability = ModelCapability.IMAGE_GENERATION,
+                capability = if (referenceImages.isEmpty()) {
+                    ModelCapability.IMAGE_GENERATION
+                } else {
+                    ModelCapability.IMAGE_EDITING
+                },
                 label = stringResource(R.string.imggen_page_model_selection),
                 onSelect = { descriptor ->
                     scope.launch {
                         runCatching { Uuid.parse(descriptor.id) }.getOrNull()?.let { id ->
                             vm.settingsStore.update { oldSettings ->
-                                oldSettings.copy(imageGenerationModelId = id)
+                                if (referenceImages.isEmpty()) {
+                                    oldSettings.copy(imageGenerationModelId = id)
+                                } else {
+                                    oldSettings.copy(imageEditingModelId = id)
+                                }
                             }
                         }
                     }

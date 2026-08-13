@@ -159,7 +159,7 @@ fun ChatDrawerContent(
     var folderToDelete by remember { mutableStateOf<Folder?>(null) }
 
     // Menu popup 状态
-    var showMenuPopup by remember { mutableStateOf(false) }
+    var showMorePopup by remember { mutableStateOf(false) }
 
     ModalDrawerSheet(
         modifier = Modifier.width(300.dp)
@@ -340,33 +340,6 @@ fun ChatDrawerContent(
                     },
                 )
 
-                Box {
-                    DrawerAction(
-                        icon = {
-                            Icon(HugeIcons.Sparkles, "Menu")
-                        },
-                        label = {
-                            Text(stringResource(R.string.menu))
-                        },
-                        onClick = {
-                            showMenuPopup = true
-                        },
-                    )
-                    DropdownMenu(
-                        expanded = showMenuPopup,
-                        onDismissRequest = { showMenuPopup = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.chat_page_menu_ai_translator)) },
-                            leadingIcon = { Icon(HugeIcons.LanguageCircle, null) },
-                            onClick = {
-                                showMenuPopup = false
-                                navController.navigate(Screen.Translator)
-                            }
-                        )
-                    }
-                }
-
                 DrawerAction(
                     icon = {
                         Icon(HugeIcons.InLove, stringResource(R.string.favorite_page_title))
@@ -381,20 +354,6 @@ fun ChatDrawerContent(
 
                 DrawerAction(
                     icon = {
-                        Icon(HugeIcons.ChartColumn, stringResource(R.string.chat_drawer_statistics))
-                    },
-                    label = {
-                        Text(stringResource(R.string.chat_drawer_statistics))
-                    },
-                    onClick = {
-                        navController.navigate(Screen.Stats)
-                    },
-                )
-
-                Spacer(Modifier.weight(1f))
-
-                DrawerAction(
-                    icon = {
                         Icon(HugeIcons.Settings03, null)
                     },
                     label = { Text(stringResource(R.string.settings)) },
@@ -402,6 +361,41 @@ fun ChatDrawerContent(
                         navController.navigate(Screen.Setting)
                     },
                 )
+
+                Box {
+                    DrawerAction(
+                        icon = {
+                            Icon(HugeIcons.Sparkles, stringResource(R.string.chat_drawer_more))
+                        },
+                        label = {
+                            Text(stringResource(R.string.chat_drawer_more))
+                        },
+                        onClick = {
+                            showMorePopup = true
+                        },
+                    )
+                    DropdownMenu(
+                        expanded = showMorePopup,
+                        onDismissRequest = { showMorePopup = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.chat_page_menu_ai_translator)) },
+                            leadingIcon = { Icon(HugeIcons.LanguageCircle, null) },
+                            onClick = {
+                                showMorePopup = false
+                                navController.navigate(Screen.Translator)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.chat_drawer_statistics)) },
+                            leadingIcon = { Icon(HugeIcons.ChartColumn, null) },
+                            onClick = {
+                                showMorePopup = false
+                                navController.navigate(Screen.Stats)
+                            }
+                        )
+                    }
+                }
             }
         }
     }

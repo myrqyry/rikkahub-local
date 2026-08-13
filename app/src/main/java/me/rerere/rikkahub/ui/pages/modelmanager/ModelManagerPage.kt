@@ -86,8 +86,9 @@ fun ModelManagerPage(
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
 
     LaunchedEffect(request) {
-        assignmentsVm.setTab(request.tab)
-        if (request.search.isNotEmpty()) assignmentsVm.setSearch(request.search)
+        assignmentsVm.setTab(if (request.tab == ModelTab.EMBEDDINGS) ModelTab.OTHER else request.tab)
+        assignmentsVm.setSearch(request.search)
+        assignmentsVm.setProviderFilter(request.providerId)
     }
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -207,28 +208,6 @@ private fun ColumnScope.AddModelOptions(
         contentPadding = PaddingValues(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item {
-            AddModelSectionHeader(stringResource(R.string.model_manager_add_section_installed))
-        }
-        val installed = installedModels?.models ?: emptyList()
-        if (installed.isEmpty()) {
-            item {
-                Text(
-                    text = stringResource(R.string.model_manager_no_models),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(16.dp),
-                )
-            }
-        } else {
-            items(installed, key = { it.modelId }) { model ->
-                InstalledModelRow(
-                    model = model,
-                    onRename = { newName -> viewModel.renameModel(model.modelId, newName) },
-                    onDelete = { viewModel.deleteModel(model.modelId) },
-                )
-            }
-        }
-
         item {
             AddModelSectionHeader(
                 title = stringResource(R.string.model_manager_add_section_catalog),
@@ -443,90 +422,3 @@ private fun SdCatalogEntryCard(
     }
 }
 
-@Composable
-private fun InstalledModelRow(
-    model: me.rerere.ai.provider.Model,
-    onRename: (String) -> Unit,
-    onDelete: () -> Unit,
-) {
-    var renaming by remember { mutableStateOf(false) }
-    var renameText by remember(model.id) { mutableStateOf(model.displayName) }
-    var confirmDelete by remember { mutableStateOf(false) }
-
-    if (renaming) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(16.dp),
-        ) {
-            OutlinedTextField(
-                value = renameText,
-                onValueChange = { renameText = it },
-                label = { Text(stringResource(R.string.local_llm_rename_label)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                TextButton(onClick = { renaming = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-                Spacer(Modifier.weight(1f))
-                Button(
-                    onClick = {
-                        onRename(renameText)
-                        renaming = false
-                    },
-                    enabled = renameText.isNotBlank() && renameText != model.displayName,
-                ) {
-                    Text(stringResource(R.string.local_llm_rename_save))
-                }
-            }
-        }
-    } else {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(model.displayName, style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    model.modelId,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            IconButton(onClick = { renaming = true }) {
-                Icon(HugeIcons.Edit01, stringResource(R.string.local_llm_rename))
-            }
-            IconButton(onClick = { confirmDelete = true }) {
-                Icon(HugeIcons.Delete01, stringResource(R.string.local_llm_delete))
-            }
-        }
-    }
-
-    if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text(stringResource(R.string.local_llm_delete_confirm_title)) },
-            text = { Text(stringResource(R.string.local_llm_delete_confirm_message, model.displayName)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmDelete = false
-                    onDelete()
-                }) {
-                    Text(stringResource(R.string.local_llm_delete))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            },
-        )
-    }
-}

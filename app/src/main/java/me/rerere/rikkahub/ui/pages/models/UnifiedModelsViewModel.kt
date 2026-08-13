@@ -37,14 +37,13 @@ enum class LegacyAssignmentKey { TITLE, TRANSLATION }
 class UnifiedModelsViewModel(
     private val registry: ModelRegistry,
     private val legacyAdapter: LegacyModelAssignmentAdapter,
-    request: ModelsPageRequest = ModelsPageRequest(),
     scope: CoroutineScope? = null,
 ) : ViewModel() {
     private val ownerScope = scope ?: viewModelScope
-    private val tab = MutableStateFlow(request.tab)
-    private val search = MutableStateFlow(request.search)
-    private val source = MutableStateFlow(request.source)
-    private val providerId = MutableStateFlow(request.providerId)
+    private val tab = MutableStateFlow(ModelTab.ALL)
+    private val search = MutableStateFlow("")
+    private val source = MutableStateFlow(ModelSourceFilter.ALL)
+    private val providerId = MutableStateFlow<String?>(null)
 
     val selectedTab: StateFlow<ModelTab> = tab.asStateFlow()
     val searchText: StateFlow<String> = search.asStateFlow()
@@ -106,10 +105,16 @@ class UnifiedModelsViewModel(
     // Tab matching uses full capabilities (what the model CAN do), not enabledCapabilities.
     val managerVisibleModels: StateFlow<List<ModelDescriptor>> = combine(
         registry.models,
-        combine(tab, search) { selectedTab, query -> ManagerFilter(selectedTab, query) },
+        combine(tab, search, providerId) { selectedTab, query, selectedProvider ->
+            ManagerFilter(selectedTab, query, selectedProvider)
+        },
     ) { models, filter ->
         val normalizedQuery = filter.query.trim().lowercase()
         models.filter { model -> managerMatchesTab(model, filter.tab) }
+            .filter { model ->
+                filter.providerId == null ||
+                    (model.source as? ModelSource.Cloud)?.providerId == filter.providerId
+            }
             .filter { model ->
                 normalizedQuery.isEmpty() || model.displayName.lowercase().contains(normalizedQuery) ||
                     model.id.lowercase().contains(normalizedQuery)
@@ -281,5 +286,6 @@ class UnifiedModelsViewModel(
     private data class ManagerFilter(
         val tab: ModelTab,
         val query: String,
+        val providerId: String?,
     )
 }

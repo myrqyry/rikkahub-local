@@ -143,12 +143,12 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
             keywords = listOf("ai", "model", "provider", "assistant", "prompt"),
             items = listOf(
                 SettingsHomeItem(
-                    id = "providers",
-                    title = stringResource(R.string.setting_page_providers),
-                    description = stringResource(R.string.setting_page_providers_desc),
-                    icon = HugeIcons.ChatGpt,
-                    keywords = listOf("api", "credentials", "cloud", "endpoint"),
-                    onClick = { navController.navigate(Screen.SettingProvider) },
+                    id = "modelManager",
+                    title = stringResource(R.string.setting_home_model_manager),
+                    description = stringResource(R.string.setting_home_model_manager_desc),
+                    icon = HugeIcons.Deepseek,
+                    keywords = listOf("offline", "litert", "download", "local model"),
+                    onClick = { navController.navigate(Screen.SettingModelManager()) },
                 ),
                 SettingsHomeItem(
                     id = "defaultModels",
@@ -157,14 +157,6 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     icon = HugeIcons.AiMagic,
                     keywords = listOf("chat model", "title model", "translation model"),
                     onClick = { navController.navigate(Screen.SettingDefaultModels) },
-                ),
-                SettingsHomeItem(
-                    id = "modelManager",
-                    title = stringResource(R.string.setting_home_model_manager),
-                    description = stringResource(R.string.setting_home_model_manager_desc),
-                    icon = HugeIcons.Deepseek,
-                    keywords = listOf("offline", "litert", "download", "local model"),
-                    onClick = { navController.navigate(Screen.SettingModelManager()) },
                 ),
                 SettingsHomeItem(
                     id = "agentSettings",
@@ -181,6 +173,14 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     icon = HugeIcons.LookTop,
                     keywords = listOf("agent", "persona", "prompt"),
                     onClick = { navController.navigate(Screen.Assistant) },
+                ),
+                SettingsHomeItem(
+                    id = "providers",
+                    title = stringResource(R.string.setting_page_providers),
+                    description = stringResource(R.string.setting_page_providers_desc),
+                    icon = HugeIcons.ChatGpt,
+                    keywords = listOf("api", "credentials", "cloud", "endpoint"),
+                    onClick = { navController.navigate(Screen.SettingProvider) },
                 ),
                 SettingsHomeItem(
                     id = "promptLibrary",

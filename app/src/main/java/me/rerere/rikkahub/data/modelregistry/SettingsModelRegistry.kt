@@ -141,7 +141,7 @@ class SettingsModelRegistry(
                     ?: error("OCR assignment cannot be cleared")
                 ModelRole.IMAGE_GENERATION -> modelUuid?.let { settings.copy(imageGenerationModelId = it) }
                     ?: error("IMAGE_GENERATION assignment cannot be cleared")
-                ModelRole.IMAGE_EDITING -> error("IMAGE_EDITING assignment is not persisted by existing settings")
+                ModelRole.IMAGE_EDITING -> settings.copy(imageEditingModelId = modelUuid)
                 ModelRole.EMBEDDINGS -> settings.copy(
                     ragEmbeddingModel = (model?.source as? ModelSource.Cloud)?.remoteModelId
                         ?: error("EMBEDDINGS requires a cloud model")
@@ -210,6 +210,7 @@ class SettingsModelRegistry(
             ModelRole.VISION to settings.visionModelId?.toString(),
             ModelRole.OCR to settings.ocrModelId.toString(),
             ModelRole.IMAGE_GENERATION to settings.imageGenerationModelId.toString(),
+            ModelRole.IMAGE_EDITING to settings.imageEditingModelId?.toString(),
             ModelRole.EMBEDDINGS to settings.ragEmbeddingModel,
         ),
         legacyDefaults = mapOf(

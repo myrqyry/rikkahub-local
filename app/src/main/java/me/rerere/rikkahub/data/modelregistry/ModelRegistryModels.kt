@@ -92,6 +92,15 @@ data class ModelDescriptor(
         supports(capability)
 }
 
+/**
+ * Whether the app may actually offer this model for a capability in a selector:
+ * provider enabled, capability present+enabled, and a local model must be ready.
+ */
+fun ModelDescriptor.isSelectableFor(capability: ModelCapability): Boolean =
+    providerEnabled &&
+        supports(capability) &&
+        (source !is ModelSource.Local || lifecycle == ModelLifecycle.READY)
+
 data class ModelAssignments(
     val defaults: Map<ModelRole, String?> = emptyMap(),
     /** Existing settings assignments that have no corresponding ModelRole yet. */

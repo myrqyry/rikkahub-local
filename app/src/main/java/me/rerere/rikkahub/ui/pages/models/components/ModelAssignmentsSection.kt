@@ -98,6 +98,7 @@ fun ModelAssignmentsSection(
             title = R.string.setting_model_group_media,
             rows = listOf(
                 AssignmentRow("Image generation", ModelRole.IMAGE_GENERATION, assignments.defaults[ModelRole.IMAGE_GENERATION], false, { onAssign(ModelRole.IMAGE_GENERATION, it) }),
+                AssignmentRow("Image editing", ModelRole.IMAGE_EDITING, assignments.defaults[ModelRole.IMAGE_EDITING], true, { onAssign(ModelRole.IMAGE_EDITING, it) }),
             ),
         ),
         AssignmentGroup(

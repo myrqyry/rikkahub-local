@@ -1721,7 +1721,6 @@
   <string name="local_llm_import_filesystem">Load from filesystem</string>
   <string name="model_manager_title">Model Manager</string>
   <string name="model_manager_sd_catalog_subtitle">Stable Diffusion GGUF models from Hugging Face.</string>
-  <string name="model_manager_no_models">No models installed yet</string>
   <string name="local_tts_model_dir_label">Model directory</string>
   <string name="local_tts_model_dir_desc">Folder containing the model files. Browse to pick a folder, or download below.</string>
   <string name="local_tts_model_dir_placeholder_pocket">/storage/emulated/0/Download/pocket-tts</string>
@@ -2006,7 +2005,6 @@
   <string name="setting_default_models_title">Default Models</string>
   <string name="model_manager_add_model">Add Model</string>
   <string name="model_manager_back_to_models">Back to models</string>
-  <string name="model_manager_add_section_installed">Installed models</string>
   <string name="model_manager_add_section_catalog">Browse catalog</string>
   <string name="model_manager_add_section_url">Import from Hugging Face URL</string>
   <string name="model_manager_add_section_file">Import from local file</string>
@@ -2020,5 +2018,6 @@
   <string name="imggen_page_manage_models">Manage Image Models</string>
   <string name="imggen_page_reference">Reference</string>
   <string name="imggen_page_options">Options</string>
+  <string name="chat_drawer_more">More</string>
 </resources>
 
