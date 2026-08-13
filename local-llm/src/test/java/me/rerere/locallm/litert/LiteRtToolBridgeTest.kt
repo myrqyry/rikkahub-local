@@ -63,6 +63,58 @@ class LiteRtToolBridgeTest {
     }
 
     @Test
+    fun `grant source restricting the tool rejects it without executing`() {
+        val executed = AtomicBoolean(false)
+        LiteRtToolBridgeRegistry.setForRequest(
+            listOf(
+                Tool(
+                    name = "safe_read",
+                    description = "test",
+                    needsApproval = { false },
+                    execute = {
+                        executed.set(true)
+                        listOf(UIMessagePart.Text("ok"))
+                    },
+                )
+            )
+        )
+        val bridge = LiteRtToolBridge(
+            capabilityGrantSource = CapabilityGrantSource { _ -> emptySet() },
+        )
+
+        val result = bridge.runTool("safe_read", "{}")
+
+        assertFalse(executed.get())
+        assertTrue(result.contains("\"error\":\"capability_rejected\""))
+    }
+
+    @Test
+    fun `grant source allowing the tool still executes it`() {
+        val executed = AtomicBoolean(false)
+        LiteRtToolBridgeRegistry.setForRequest(
+            listOf(
+                Tool(
+                    name = "safe_read",
+                    description = "test",
+                    needsApproval = { false },
+                    execute = {
+                        executed.set(true)
+                        listOf(UIMessagePart.Text("ok"))
+                    },
+                )
+            )
+        )
+        val bridge = LiteRtToolBridge(
+            capabilityGrantSource = CapabilityGrantSource { registered -> registered },
+        )
+
+        val result = bridge.runTool("safe_read", "{}")
+
+        assertTrue(executed.get())
+        assertTrue(result == "ok")
+    }
+
+    @Test
     fun `approval predicate failure fails closed`() {
         val executed = AtomicBoolean(false)
         LiteRtToolBridgeRegistry.setForRequest(

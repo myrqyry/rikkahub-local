@@ -48,12 +48,14 @@ private const val TAG = "LiteRtToolBridge"
 class LiteRtToolBridge(
     zeroWorkflowExecutor: ZeroWorkflowExecutor? = null,
     receiptSink: WorkflowReceiptSink? = null,
+    capabilityGrantSource: CapabilityGrantSource? = null,
 ) : ToolSet {
 
     private val executor = ActionPlanExecutor(
         zeroWorkflowExecutor = zeroWorkflowExecutor,
         receiptSink = receiptSink,
     )
+    private val grantSource = capabilityGrantSource
 
     @Tool(
         description = "Invoke a Rikka local tool by its registered name. Returns the tool's " +
@@ -85,14 +87,20 @@ class LiteRtToolBridge(
             )
         }
 
-        val grantedCapabilities = LiteRtToolBridgeRegistry.currentToolNames().toList()
+        val registered = LiteRtToolBridgeRegistry.currentToolNames()
+        val granted = if (grantSource != null) {
+            runBlocking { grantSource.grantedToolNames(registered) }
+        } else {
+            registered
+        }
+        val rejected = (registered - granted).toList()
         val plan = ActionPlan.ToolCall(
             toolName = name,
             args = args,
             grant = CapabilityGrant(
                 requestedCapabilities = listOf(name),
-                grantedCapabilities = grantedCapabilities,
-                rejectedCapabilities = emptyList(),
+                grantedCapabilities = granted.toList(),
+                rejectedCapabilities = rejected,
             ),
         )
 

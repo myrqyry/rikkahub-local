@@ -321,6 +321,7 @@ val dataSourceModule = module {
                     },
                     zeroWorkflowExecutor = get(),
                     receiptSink = get(),
+                    capabilityGrantSource = get(),
                 ),
             )
             pm.registerProvider(

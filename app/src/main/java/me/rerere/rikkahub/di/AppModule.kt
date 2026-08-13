@@ -229,6 +229,11 @@ val appModule = module {
             repository = get(),
         )
     }
+    single<me.rerere.locallm.litert.CapabilityGrantSource> {
+        me.rerere.rikkahub.data.preferences.ToolApprovalCapabilityGrantSource(
+            prefs = get(),
+        )
+    }
     single {
         me.rerere.rikkahub.workflow.trigger.TriggerRegistry(
             context = get(),

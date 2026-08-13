@@ -80,11 +80,12 @@ class LiteRtProvider(
     private val settingsUpdater: suspend (transform: (List<ProviderSetting>) -> List<ProviderSetting>) -> Unit,
     zeroWorkflowExecutor: ZeroWorkflowExecutor? = null,
     receiptSink: WorkflowReceiptSink? = null,
+    capabilityGrantSource: CapabilityGrantSource? = null,
 ) : Provider<ProviderSetting.LiteRtLocal> {
 
     /** Singleton bridge — one ToolSet for the lifetime of this provider. Its @Tool
      *  method reads the per-request tool list from [LiteRtToolBridgeRegistry]. */
-    private val toolBridge = LiteRtToolBridge(zeroWorkflowExecutor, receiptSink)
+    private val toolBridge = LiteRtToolBridge(zeroWorkflowExecutor, receiptSink, capabilityGrantSource)
     private val toolProvider: ToolProvider = litertTool(toolBridge)
 
     /**
