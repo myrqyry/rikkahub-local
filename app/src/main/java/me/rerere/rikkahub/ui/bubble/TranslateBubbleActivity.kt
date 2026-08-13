@@ -28,6 +28,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +39,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
@@ -98,12 +102,24 @@ private fun TranslateBubbleScreen(
     var screenStatus by remember { mutableStateOf<String?>(null) }
     var live by remember { mutableStateOf(false) }
     var liveJob by remember { mutableStateOf<Job?>(null) }
+    var a11yRunning by remember { mutableStateOf(AccessibilityServiceHandle.isRunning()) }
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
     val context = LocalContext.current
     val genericErrorText = stringResource(R.string.translator_error_generic)
     val screenEmptyText = stringResource(R.string.translate_bubble_screen_empty)
     val a11yRequiredText = stringResource(R.string.translate_bubble_a11y_required)
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                a11yRunning = AccessibilityServiceHandle.isRunning()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     fun doTranslate() {
         if (source.isBlank() || translating) return
@@ -129,7 +145,7 @@ private fun TranslateBubbleScreen(
         val root = svc.windows
             .mapNotNull { it.root }
             .filter { it.packageName?.toString() != ourPkg }
-            .lastOrNull() ?: svc.rootInActiveWindow
+            .firstOrNull() ?: svc.rootInActiveWindow
         if (root == null || root.packageName?.toString() == ourPkg) return@withContext ""
         val lines = mutableListOf<String>()
         svc.traverseTree(
@@ -172,8 +188,15 @@ private fun TranslateBubbleScreen(
         liveJob = scope.launch {
             var last = ""
             while (true) {
+                if (RikkaAccessibilityService.instance == null) {
+                    live = false
+                    liveJob = null
+                    a11yRunning = false
+                    screenStatus = a11yRequiredText
+                    break
+                }
                 val text = readScreenText()
-                if (text.isNotBlank() && text != last) {
+                if (text.isNotBlank() && text != last && !translating) {
                     last = text
                     source = text
                     doTranslate()
@@ -248,7 +271,7 @@ private fun TranslateBubbleScreen(
                 }
             }
 
-            if (!AccessibilityServiceHandle.isRunning()) {
+            if (!a11yRunning) {
                 Text(
                     text = a11yRequiredText,
                     color = MaterialTheme.colorScheme.error,
