@@ -328,6 +328,18 @@ fun ChatDrawerContent(
                     },
                 )
 
+                DrawerAction(
+                    icon = {
+                        Icon(HugeIcons.Image02, stringResource(R.string.chat_page_menu_image_generation))
+                    },
+                    label = {
+                        Text(stringResource(R.string.chat_page_menu_image_generation))
+                    },
+                    onClick = {
+                        navController.navigate(Screen.ImageGen)
+                    },
+                )
+
                 Box {
                     DrawerAction(
                         icon = {
@@ -350,14 +362,6 @@ fun ChatDrawerContent(
                             onClick = {
                                 showMenuPopup = false
                                 navController.navigate(Screen.Translator)
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.chat_page_menu_image_generation)) },
-                            leadingIcon = { Icon(HugeIcons.Image02, null) },
-                            onClick = {
-                                showMenuPopup = false
-                                navController.navigate(Screen.ImageGen)
                             }
                         )
                     }

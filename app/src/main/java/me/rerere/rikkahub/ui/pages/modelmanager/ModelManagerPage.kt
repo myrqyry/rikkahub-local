@@ -33,6 +33,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +55,7 @@ import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.modelregistry.ModelSource
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.context.LocalNavController
+import me.rerere.rikkahub.ui.pages.models.ModelManagerRequest
 import me.rerere.rikkahub.ui.pages.models.ModelTab
 import me.rerere.rikkahub.ui.pages.models.UnifiedModelsViewModel
 import me.rerere.rikkahub.ui.pages.models.components.ModelInventorySection
@@ -71,6 +73,7 @@ fun ModelManagerPage(
     // parameters, so the type-less koinViewModel() overload can't match a definition and
     // the page crashed on open. The explicit type parameter picks the parameterised one.
     viewModel: ModelManagerViewModel = koinViewModel<ModelManagerViewModel>(),
+    request: ModelManagerRequest = ModelManagerRequest(),
 ) {
     val settingsVm: SettingVM = koinViewModel()
     val assignmentsVm: UnifiedModelsViewModel = koinViewModel()
@@ -81,6 +84,11 @@ fun ModelManagerPage(
     val search by assignmentsVm.searchText.collectAsStateWithLifecycle()
     val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+
+    LaunchedEffect(request) {
+        assignmentsVm.setTab(request.tab)
+        if (request.search.isNotEmpty()) assignmentsVm.setSearch(request.search)
+    }
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->

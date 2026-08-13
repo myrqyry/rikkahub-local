@@ -22,6 +22,13 @@ data class ModelsPageRequest(
     val modelId: String? = null,
 )
 
+@Serializable
+data class ModelManagerRequest(
+    val tab: ModelTab = ModelTab.ALL,
+    val providerId: String? = null,
+    val search: String = "",
+)
+
 fun ModelTab.capability(): ModelCapability? = when (this) {
     ModelTab.ALL -> null
     ModelTab.CHAT -> ModelCapability.CHAT

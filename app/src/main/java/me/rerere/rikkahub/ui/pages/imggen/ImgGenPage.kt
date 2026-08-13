@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ContainedLoadingIndicator
@@ -46,6 +47,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetState
@@ -96,6 +98,7 @@ import me.rerere.hugeicons.stroke.Copy01
 import me.rerere.hugeicons.stroke.Delete01
 import me.rerere.hugeicons.stroke.FloppyDisk
 import me.rerere.hugeicons.stroke.Image03
+import me.rerere.hugeicons.stroke.Sparkles
 import me.rerere.hugeicons.stroke.Tools
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.Settings
@@ -110,6 +113,7 @@ import me.rerere.rikkahub.ui.components.ui.ImagePreviewDialog
 import me.rerere.rikkahub.ui.components.ui.OutlinedNumberInput
 import me.rerere.rikkahub.ui.context.LocalToaster
 import me.rerere.rikkahub.ui.context.LocalNavController
+import me.rerere.rikkahub.ui.pages.models.ModelManagerRequest
 import me.rerere.rikkahub.ui.pages.models.ModelTab
 import me.rerere.rikkahub.ui.pages.models.ModelsFocus
 import me.rerere.rikkahub.ui.pages.models.ModelsPageRequest
@@ -257,6 +261,7 @@ private fun ImageGenScreen(
     val toaster = LocalToaster.current
     var showSettingsSheet by remember { mutableStateOf(false) }
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
+    val navController = LocalNavController.current
 
     LaunchedEffect(error) {
         error?.let { errorMessage ->
@@ -347,16 +352,54 @@ private fun ImageGenScreen(
                 )
             }
         }
-        InputBar(
-            prompt = prompt,
-            vm = vm,
-            isGenerating = isGenerating,
-            referenceImages = referenceImages,
-            settings = settings,
-            registryModels = registryModels,
-            onShowSettings = { showSettingsSheet = true },
-            modifier = Modifier
-        )
+        val hasImageModels = registryModels.any { it.supports(ModelCapability.IMAGE_GENERATION) }
+        if (hasImageModels) {
+            InputBar(
+                prompt = prompt,
+                vm = vm,
+                isGenerating = isGenerating,
+                referenceImages = referenceImages,
+                settings = settings,
+                registryModels = registryModels,
+                onShowSettings = { showSettingsSheet = true },
+                modifier = Modifier
+            )
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Icon(
+                    imageVector = HugeIcons.Image03,
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(R.string.imggen_page_no_models_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = stringResource(R.string.imggen_page_no_models_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+                Button(
+                    onClick = {
+                        navController.navigate(
+                            Screen.SettingModelManager(
+                                request = ModelManagerRequest(tab = ModelTab.IMAGE),
+                            )
+                        )
+                    },
+                ) {
+                    Text(stringResource(R.string.imggen_page_manage_models))
+                }
+            }
+        }
     }
 
     if (showSettingsSheet) {
@@ -453,68 +496,60 @@ private fun InputBar(
                     }
                 },
                 onManage = {
-                    navController.navigate(Screen.SettingModels(ModelsPageRequest(
-                        tab = ModelTab.IMAGE,
-                        focus = ModelsFocus.MODELS,
-                    )))
+                    navController.navigate(
+                        Screen.SettingModelManager(
+                            request = ModelManagerRequest(tab = ModelTab.IMAGE),
+                        )
+                    )
                 },
             )
 
-            IconButton(
-                onClick = onShowSettings
+            OutlinedButton(
+                onClick = { imagePickerLauncher.launch("image/*") },
             ) {
-                Icon(HugeIcons.Tools, null)
+                Icon(HugeIcons.Add01, null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(stringResource(R.string.imggen_page_reference))
             }
 
-            IconButton(
-                onClick = { imagePickerLauncher.launch("image/*") }
+            OutlinedButton(
+                onClick = onShowSettings,
             ) {
-                Icon(
-                    imageVector = HugeIcons.Add01,
-                    contentDescription = "Add reference image"
-                )
+                Icon(HugeIcons.Tools, null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(stringResource(R.string.imggen_page_options))
             }
+        }
 
-            Spacer(modifier = Modifier.weight(1f))
-
-            val canSend = prompt.isNotBlank()
-            Surface(
-                onClick = {
-                    if (!isGenerating) {
-                        if (referenceImages.isEmpty()) {
-                            vm.generateImage()
-                        } else {
-                            vm.editImage()
-                        }
-                    } else {
-                        vm.cancelGeneration()
-                    }
-                },
-                enabled = isGenerating || canSend,
-                modifier = Modifier.size(40.dp),
-                shape = CircleShape,
-                color = when {
-                    isGenerating -> MaterialTheme.colorScheme.errorContainer
-                    !canSend -> MaterialTheme.colorScheme.surfaceContainerHigh
-                    else -> MaterialTheme.colorScheme.primary
-                },
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = if (isGenerating) HugeIcons.Cancel01 else HugeIcons.ArrowUp02,
-                        contentDescription = stringResource(R.string.imggen_page_generate_image),
-                        tint = when {
-                            isGenerating -> MaterialTheme.colorScheme.onErrorContainer
-                            !canSend -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                            else -> MaterialTheme.colorScheme.onPrimary
-                        },
-                        modifier = Modifier.size(20.dp)
-                    )
+        val canSend = prompt.isNotBlank()
+        Button(
+            onClick = {
+                if (isGenerating) {
+                    vm.cancelGeneration()
+                } else if (referenceImages.isEmpty()) {
+                    vm.generateImage()
+                } else {
+                    vm.editImage()
                 }
-            }
+            },
+            enabled = isGenerating || canSend,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(
+                imageVector = if (isGenerating) HugeIcons.Cancel01 else HugeIcons.Sparkles,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(
+                    when {
+                        isGenerating -> R.string.imggen_page_cancel_generation_title
+                        referenceImages.isNotEmpty() -> R.string.imggen_page_edit_image
+                        else -> R.string.imggen_page_generate_image
+                    }
+                )
+            )
         }
     }
 }
@@ -767,33 +802,6 @@ private fun SettingsBottomSheet(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
-
-            FormItem(
-                label = { Text(stringResource(R.string.imggen_page_model_selection)) },
-                description = { Text(stringResource(R.string.imggen_page_model_selection_desc)) }
-            ) {
-                RegistryModelSelector(
-                    value = settings.imageGenerationModelId.toString(),
-                    models = registryModels,
-                    capability = ModelCapability.IMAGE_GENERATION,
-                    label = stringResource(R.string.imggen_page_model_selection),
-                    onSelect = { descriptor ->
-                        scope.launch {
-                            runCatching { Uuid.parse(descriptor.id) }.getOrNull()?.let { id ->
-                                vm.settingsStore.update { oldSettings ->
-                                    oldSettings.copy(imageGenerationModelId = id)
-                                }
-                            }
-                        }
-                    },
-                    onManage = {
-                        navController.navigate(Screen.SettingModels(ModelsPageRequest(
-                            tab = ModelTab.IMAGE,
-                            focus = ModelsFocus.MODELS,
-                        )))
-                    },
-                )
-            }
 
             FormItem(
                 label = { Text(stringResource(R.string.imggen_page_generation_count)) },

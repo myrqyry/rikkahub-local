@@ -160,7 +160,7 @@ private fun ModelSettingsPage(
                     }
                 },
                 onModelEnabledChange = assignmentsVm::setModelEnabled,
-                onLocalModelClick = { navController.navigate(Screen.SettingModelManager) },
+                onLocalModelClick = { navController.navigate(Screen.SettingModelManager()) },
                 onCloudModelClick = { model ->
                     val providerId = (model.source as? ModelSource.Cloud)?.providerId
                     if (providerId != null) {

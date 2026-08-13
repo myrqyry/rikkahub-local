@@ -164,7 +164,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     description = stringResource(R.string.setting_home_model_manager_desc),
                     icon = HugeIcons.Deepseek,
                     keywords = listOf("offline", "litert", "download", "local model"),
-                    onClick = { navController.navigate(Screen.SettingModelManager) },
+                    onClick = { navController.navigate(Screen.SettingModelManager()) },
                 ),
                 SettingsHomeItem(
                     id = "agentSettings",
