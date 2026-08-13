@@ -68,6 +68,8 @@ private val MANAGER_TABS = listOf(
     ModelTab.ALL,
     ModelTab.CHAT,
     ModelTab.EMBEDDINGS,
+    ModelTab.VISION,
+    ModelTab.SPEECH,
     ModelTab.TASK,
     ModelTab.IMAGE,
 )
@@ -94,7 +96,7 @@ fun ModelManagerPage(
     LaunchedEffect(request) {
         assignmentsVm.setTab(
             when (request.tab) {
-                ModelTab.VISION, ModelTab.SPEECH, ModelTab.OTHER -> ModelTab.TASK
+                ModelTab.OTHER -> ModelTab.TASK
                 else -> request.tab
             }
         )
@@ -160,6 +162,8 @@ fun ModelManagerPage(
                                             ModelTab.ALL -> R.string.unified_models_tab_all
                                             ModelTab.CHAT -> R.string.unified_models_tab_chat
                                             ModelTab.EMBEDDINGS -> R.string.unified_models_tab_embeddings
+                                            ModelTab.VISION -> R.string.unified_models_tab_vision
+                                            ModelTab.SPEECH -> R.string.unified_models_tab_speech
                                             ModelTab.TASK -> R.string.unified_models_tab_task
                                             else -> R.string.unified_models_tab_image
                                         }

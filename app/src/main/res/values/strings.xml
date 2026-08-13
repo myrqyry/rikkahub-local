@@ -2034,5 +2034,7 @@
   <string name="unified_models_tab_embeddings">Embeddings</string>
   <string name="unified_models_tab_task">Task models</string>
   <string name="unified_models_tab_image">Image</string>
+  <string name="unified_models_tab_vision">Vision</string>
+  <string name="unified_models_tab_speech">Speech</string>
 </resources>
 
