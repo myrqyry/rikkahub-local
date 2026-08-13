@@ -171,7 +171,21 @@ internal fun AssistantBasicContent(
                         ))
                     },
                     onManage = {
-                        navController.navigate(Screen.SettingModels())
+                        navController.navigate(
+                            Screen.SettingModelManager(
+                                request = me.rerere.rikkahub.ui.pages.models.ModelManagerRequest(
+                                    tab = when (capability) {
+                                        ModelCapability.IMAGE_GENERATION,
+                                        ModelCapability.IMAGE_EDITING,
+                                        -> me.rerere.rikkahub.ui.pages.models.ModelTab.IMAGE
+                                        ModelCapability.VISION,
+                                        ModelCapability.OCR,
+                                        -> me.rerere.rikkahub.ui.pages.models.ModelTab.VISION
+                                        else -> me.rerere.rikkahub.ui.pages.models.ModelTab.ALL
+                                    }
+                                )
+                            )
+                        )
                     },
                 )
             }
