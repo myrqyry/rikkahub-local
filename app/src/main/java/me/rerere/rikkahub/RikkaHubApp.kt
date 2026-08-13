@@ -47,6 +47,7 @@ private const val TAG = "RikkaHubApp"
 const val CHAT_COMPLETED_NOTIFICATION_CHANNEL_ID = "chat_completed"
 const val CHAT_LIVE_UPDATE_NOTIFICATION_CHANNEL_ID = "chat_live_update"
 const val WEB_SERVER_NOTIFICATION_CHANNEL_ID = "web_server"
+const val TRANSLATE_BUBBLE_NOTIFICATION_CHANNEL_ID = "translate_bubble"
 
 class RikkaHubApp : Application() {
     override fun onCreate() {
@@ -494,6 +495,13 @@ class RikkaHubApp : Application() {
             .setShowBadge(false)
             .build()
         notificationManager.createNotificationChannel(webServerChannel)
+
+        val translateBubbleChannel = NotificationChannelCompat
+            .Builder(TRANSLATE_BUBBLE_NOTIFICATION_CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_HIGH)
+            .setName(getString(R.string.translate_bubble_channel_name))
+            .setVibrationEnabled(false)
+            .build()
+        notificationManager.createNotificationChannel(translateBubbleChannel)
     }
 
     override fun onTerminate() {

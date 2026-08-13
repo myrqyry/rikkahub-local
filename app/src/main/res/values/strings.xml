@@ -2014,5 +2014,15 @@
   <string name="imggen_page_reference">Reference</string>
   <string name="imggen_page_options">Options</string>
   <string name="chat_drawer_more">More</string>
+  <string name="translate_bubble_channel_name">Translate bubble</string>
+  <string name="translate_bubble_notification_title">Translate bubble</string>
+  <string name="translate_bubble_input_placeholder">Text to translate…</string>
+  <string name="translate_bubble_translate">Translate</string>
+  <string name="translate_bubble_copy">Copy</string>
+  <string name="translate_bubble_dismiss">Dismiss</string>
+  <string name="translate_bubble_target_language">Target language</string>
+  <string name="translate_bubble_result_placeholder">Translation appears here</string>
+  <string name="setting_page_translate_bubble">Floating translate bubble</string>
+  <string name="setting_page_translate_bubble_desc">A floating bubble that translates text over any app</string>
 </resources>
 

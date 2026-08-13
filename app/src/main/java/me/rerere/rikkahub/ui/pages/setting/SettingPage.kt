@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -67,6 +68,7 @@ import me.rerere.hugeicons.stroke.SmartPhone01
 import me.rerere.hugeicons.stroke.Sun01
 import me.rerere.hugeicons.stroke.Telegram
 import me.rerere.hugeicons.stroke.Tick01
+import me.rerere.hugeicons.stroke.Translate
 import me.rerere.hugeicons.stroke.WavingHand01
 import me.rerere.hugeicons.stroke.Wrench01
 import me.rerere.rikkahub.R
@@ -78,6 +80,7 @@ import me.rerere.rikkahub.ui.components.ui.CardGroup
 import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.context.Navigator
 import me.rerere.rikkahub.ui.theme.CustomColors
+import me.rerere.rikkahub.ui.bubble.TranslateBubble
 import me.rerere.rikkahub.utils.plus
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -103,6 +106,7 @@ internal data class SettingsHomeSection(
 fun SettingPage(vm: SettingVM = koinViewModel()) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val navController = LocalNavController.current
+    val context = LocalContext.current
     val settings by vm.settings.collectAsStateWithLifecycle()
     val filesManager: FilesManager = koinInject()
     val storageState by produceState(-1 to 0L, filesManager) {
@@ -189,6 +193,14 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     icon = HugeIcons.Book03,
                     keywords = listOf("prompt", "quick message", "template", "instruction"),
                     onClick = { navController.navigate(Screen.Prompts) },
+                ),
+                SettingsHomeItem(
+                    id = "translateBubble",
+                    title = stringResource(R.string.setting_page_translate_bubble),
+                    description = stringResource(R.string.setting_page_translate_bubble_desc),
+                    icon = HugeIcons.Translate,
+                    keywords = listOf("translate", "bubble", "overlay", "agent"),
+                    onClick = { TranslateBubble.show(context) },
                 ),
             ),
         ),
