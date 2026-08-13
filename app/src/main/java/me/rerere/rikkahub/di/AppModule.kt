@@ -224,6 +224,11 @@ val appModule = module {
             engine = get(),
         )
     }
+    single<me.rerere.locallm.litert.WorkflowReceiptSink> {
+        me.rerere.rikkahub.data.agentrun.AgentRunWorkflowReceiptSink(
+            repository = get(),
+        )
+    }
     single {
         me.rerere.rikkahub.workflow.trigger.TriggerRegistry(
             context = get(),

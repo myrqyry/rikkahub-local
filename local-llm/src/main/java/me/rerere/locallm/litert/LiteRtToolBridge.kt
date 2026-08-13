@@ -47,9 +47,13 @@ private const val TAG = "LiteRtToolBridge"
  */
 class LiteRtToolBridge(
     zeroWorkflowExecutor: ZeroWorkflowExecutor? = null,
+    receiptSink: WorkflowReceiptSink? = null,
 ) : ToolSet {
 
-    private val executor = ActionPlanExecutor(zeroWorkflowExecutor = zeroWorkflowExecutor)
+    private val executor = ActionPlanExecutor(
+        zeroWorkflowExecutor = zeroWorkflowExecutor,
+        receiptSink = receiptSink,
+    )
 
     @Tool(
         description = "Invoke a Rikka local tool by its registered name. Returns the tool's " +

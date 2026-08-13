@@ -320,6 +320,7 @@ val dataSourceModule = module {
                         settingsStore.update { old -> old.copy(providers = transform(old.providers)) }
                     },
                     zeroWorkflowExecutor = get(),
+                    receiptSink = get(),
                 ),
             )
             pm.registerProvider(
