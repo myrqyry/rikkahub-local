@@ -1073,11 +1073,6 @@ mDNSアドレス: .localホスト名を使用し、IPを知らなくても同じ
   <string name="translation_clear">翻訳をクリア</string>
   <string name="translation_language_selection_title">翻訳言語を選択</string>
   <string name="translation_text">訳文</string>
-  <string name="translator_page_cancel">キャンセル</string>
-  <string name="translator_page_input_placeholder">翻訳するテキストを入力してください...</string>
-  <string name="translator_page_result_placeholder">翻訳結果がここに表示されます</string>
-  <string name="translator_page_title">翻訳</string>
-  <string name="translator_page_translate">翻訳</string>
   <string name="tts">音声</string>
   <string name="unpin_chat">チャットのピン留めを解除</string>
   <string name="update_card_check_failed">更新チェックに失敗しました</string>

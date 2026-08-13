@@ -379,14 +379,6 @@ fun ChatDrawerContent(
                         onDismissRequest = { showMorePopup = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.chat_page_menu_ai_translator)) },
-                            leadingIcon = { Icon(HugeIcons.LanguageCircle, null) },
-                            onClick = {
-                                showMorePopup = false
-                                navController.navigate(Screen.Translator)
-                            }
-                        )
-                        DropdownMenuItem(
                             text = { Text(stringResource(R.string.chat_drawer_statistics)) },
                             leadingIcon = { Icon(HugeIcons.ChartColumn, null) },
                             onClick = {

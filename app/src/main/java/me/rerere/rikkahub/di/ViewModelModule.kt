@@ -26,7 +26,6 @@ import me.rerere.rikkahub.ui.pages.setting.locallm.SettingLocalLlmViewModel
 import me.rerere.rikkahub.ui.pages.setting.components.QwenSemanticModelSetupViewModel
 import me.rerere.rikkahub.ui.pages.modelmanager.ModelManagerViewModel
 import me.rerere.rikkahub.ui.pages.share.handler.ShareHandlerVM
-import me.rerere.rikkahub.ui.pages.translator.TranslatorVM
 import me.rerere.rikkahub.ui.pages.setting.doctor.DoctorViewModel
 import me.rerere.rikkahub.ui.pages.setting.scheduledjobs.ScheduledJobsViewModel
 import me.rerere.rikkahub.workflow.ui.WorkflowsViewModel
@@ -67,7 +66,6 @@ val viewModelModule = module {
             workspaceRepository = get(),
         )
     }
-    viewModelOf(::TranslatorVM)
     viewModel<ShareHandlerVM> {
         ShareHandlerVM(
             text = it.get(),

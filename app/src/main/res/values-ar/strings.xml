@@ -1078,11 +1078,6 @@
   <string name="translation_clear">مسح الترجمة</string>
   <string name="translation_language_selection_title">اختيار لغة الترجمة</string>
   <string name="translation_text">الترجمة</string>
-  <string name="translator_page_cancel">إلغاء</string>
-  <string name="translator_page_input_placeholder">أدخل نصًا للترجمة...</string>
-  <string name="translator_page_result_placeholder">ستظهر نتيجة الترجمة هنا</string>
-  <string name="translator_page_title">المترجم</string>
-  <string name="translator_page_translate">ترجمة</string>
   <string name="tts">تحويل النص إلى كلام</string>
   <string name="unpin_chat">إلغاء تثبيت الدردشة</string>
   <string name="update_card_check_failed">فشل التحقق من التحديث</string>
