@@ -632,6 +632,10 @@ private fun MessagePartsBlock(
                         }
                     }
 
+                    is UIMessagePart.GeneratedUi -> {
+                        RikkaUiRenderer(ui = part.ui)
+                    }
+
                     else -> {
                         // Skip unknown part types (e.g., deprecated ToolCall, ToolResult, Search)
                     }

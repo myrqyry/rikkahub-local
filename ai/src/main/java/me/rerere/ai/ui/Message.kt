@@ -398,6 +398,13 @@ sealed class UIMessagePart {
         override var metadata: JsonObject? = null
     ) : UIMessagePart()
 
+    @Serializable
+    @SerialName("generated_ui")
+    data class GeneratedUi(
+        val ui: RikkaUi,
+        override var metadata: JsonObject? = null
+    ) : UIMessagePart()
+
     @Deprecated("Deprecated")
     @Serializable
     @SerialName("search")
@@ -526,6 +533,7 @@ fun List<UIMessagePart>.toSortedMessageParts(): List<UIMessagePart> {
             is UIMessagePart.ToolCall -> 0
             is UIMessagePart.ToolResult -> 0
             is UIMessagePart.Search -> 0
+            is UIMessagePart.GeneratedUi -> 0
             is UIMessagePart.Image -> 1
             is UIMessagePart.Video -> 1
             is UIMessagePart.Audio -> 1
