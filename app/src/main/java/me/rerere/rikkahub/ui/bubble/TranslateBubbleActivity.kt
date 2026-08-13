@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -58,6 +59,7 @@ import me.rerere.rikkahub.data.ai.tools.local.AccessibilityServiceHandle
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.service.RikkaAccessibilityService
 import me.rerere.rikkahub.ui.theme.RikkahubTheme
+import me.rerere.rikkahub.ui.theme.WaveShape
 import org.koin.android.ext.android.inject
 import java.util.Locale
 
@@ -206,6 +208,11 @@ private fun TranslateBubbleScreen(
         }
     }
 
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        shape = WaveShape(),
+        color = MaterialTheme.colorScheme.surface,
+    ) {
     Scaffold { padding ->
         Column(
             modifier = Modifier
@@ -349,6 +356,7 @@ private fun TranslateBubbleScreen(
                 }
             }
         }
+    }
     }
 }
 
