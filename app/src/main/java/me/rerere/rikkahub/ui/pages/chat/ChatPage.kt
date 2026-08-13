@@ -120,13 +120,6 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val softwareKeyboardController = LocalSoftwareKeyboardController.current
 
-    // Handle back press when drawer is open
-    BackHandler(enabled = drawerState.isOpen) {
-        scope.launch {
-            drawerState.close()
-        }
-    }
-
     // Hide keyboard when drawer is open
     LaunchedEffect(drawerState.isOpen) {
         if (drawerState.isOpen) {
@@ -144,6 +137,18 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
     LaunchedEffect(isBigScreen) {
         if (isBigScreen && drawerState.isOpen) {
             drawerState.close()
+        }
+    }
+
+    // Back/edge-swipe: close the drawer if open, otherwise open it when at the root
+    // screen so the system back gesture never minimizes the app from chat.
+    BackHandler(enabled = drawerState.isOpen || (navController.isAtRoot && !isBigScreen)) {
+        scope.launch {
+            if (drawerState.isOpen) {
+                drawerState.close()
+            } else {
+                drawerState.open()
+            }
         }
     }
 
@@ -253,9 +258,6 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
                     onDismissError = { vm.dismissError(it) },
                     onClearAllErrors = { vm.clearAllErrors() },
                 )
-            }
-            BackHandler(drawerState.isOpen) {
-                scope.launch { drawerState.close() }
             }
         }
     }
