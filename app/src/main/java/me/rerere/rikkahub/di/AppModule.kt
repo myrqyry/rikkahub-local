@@ -227,6 +227,12 @@ val appModule = module {
     single<me.rerere.locallm.litert.WorkflowReceiptSink> {
         me.rerere.rikkahub.data.agentrun.AgentRunWorkflowReceiptSink(
             repository = get(),
+            miningFeed = get(),
+        )
+    }
+    single {
+        me.rerere.rikkahub.data.agentrun.ProcedureMiningFeed(
+            repository = get(),
         )
     }
     single<me.rerere.locallm.litert.CapabilityGrantSource> {

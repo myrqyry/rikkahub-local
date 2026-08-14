@@ -51,6 +51,29 @@ class ZeroProcedureRepository(
         dao.upsert(entity)
     }
 
+    /**
+     * Roadmap B7/B8 — persist a mined procedure as a *candidate*: source MINED,
+     * disabled by default (never auto-activated), with the support count carried
+     * from the miner. Re-mining the same sequence bumps support and revises the
+     * stored procedure while preserving the MINED/disabled disposition.
+     */
+    suspend fun putMined(procedure: ZeroProcedure, support: Int) {
+        val now = System.currentTimeMillis()
+        val existing = dao.getById(procedure.id)
+        val entity = ZeroProcedureEntity(
+            id = procedure.id,
+            source = ProcedureSource.MINED.wire,
+            enabled = false,
+            revision = (existing?.revision ?: 0L) + 1,
+            validationStatus = existing?.validationStatus ?: ProcedureValidationStatus.PENDING.wire,
+            supportCount = support,
+            procedureJson = json.encodeToString(ZeroProcedure.serializer(), procedure),
+            createdAtMs = existing?.createdAtMs ?: now,
+            updatedAtMs = now,
+        )
+        dao.upsert(entity)
+    }
+
     override suspend fun get(id: String): ZeroProcedure? {
         val row = dao.getById(id) ?: return null
         return runCatching { json.decodeFromString(ZeroProcedure.serializer(), row.procedureJson) }.getOrNull()

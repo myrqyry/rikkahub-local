@@ -26,9 +26,13 @@ import me.rerere.locallm.litert.WorkflowReceiptSink
  */
 class AgentRunWorkflowReceiptSink(
     private val repository: AgentRunRepository,
+    private val miningFeed: ProcedureMiningFeed? = null,
 ) : WorkflowReceiptSink {
 
     override suspend fun record(receipt: WorkflowReceipt) {
+        // Roadmap B7 — feed successful tool executions into procedure mining.
+        miningFeed?.record(receipt)
+
         val kind = if (receipt.kind == "workflow") AgentRunKind.Workflow else AgentRunKind.ExternalAutomation
         val status = if (receipt.status == "succeeded") AgentRunStatus.succeeded else AgentRunStatus.failed
         val metadata: JsonObject = buildJsonObject {

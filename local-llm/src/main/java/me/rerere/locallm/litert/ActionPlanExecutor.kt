@@ -20,6 +20,10 @@ import java.util.UUID
  * Phase 4 — every execution (including compile-invalid and capability-rejected ones) emits
  * a [WorkflowReceipt] through [receiptSink] for the app-side audit trail. A null sink is
  * safe: only observability is lost, never execution.
+ *
+ * Phase C2 — when [shadowPlanner] is supplied, the primary plan is proposed as a candidate
+ * set and the *winner* is dispatched instead of the raw input (best-of, never merely the
+ * first). When it is null, the single-plan compile gate below is used unchanged.
  */
 class ActionPlanExecutor(
     private val compiler: ActionPlanCompiler = DefaultActionPlanCompiler(),
@@ -27,12 +31,38 @@ class ActionPlanExecutor(
     private val zeroWorkflowExecutor: ZeroWorkflowExecutor? = null,
     private val zeroProcedureExecutor: ZeroProcedureExecutor? = null,
     private val receiptSink: WorkflowReceiptSink? = null,
+    private val shadowPlanner: ShadowPlanner? = null,
 ) {
     suspend fun execute(plan: ActionPlan): ActionPlanResult {
         val requestedAtMs = System.currentTimeMillis()
         val context = CompilationContext(
             toolCatalog = LiteRtToolBridgeRegistry.snapshot().associateBy { it.name },
         )
+
+        // Shadow selection path (Phase C2): propose variants, rank, dispatch the winner.
+        if (shadowPlanner != null) {
+            val selected = shadowPlanner.select(plan, context)
+            val (dispatchPlan, compiled) = when (selected) {
+                is ShadowPlanner.Selection.Selected -> {
+                    val c = compiler.compile(selected.plan, context)
+                    selected.plan to c
+                }
+                is ShadowPlanner.Selection.AllInvalid ->
+                    plan to CompilationResult.Invalid(
+                        diagnostics = selected.diagnostics.map { Diagnostic(code = "SHADOW_000", step = "plan", message = it) },
+                    )
+            }
+            val result = when (compiled) {
+                is CompilationResult.Valid -> dispatch(dispatchPlan)
+                is CompilationResult.Repaired -> dispatch(compiled.repairedPlan)
+                is CompilationResult.Invalid -> ActionPlanResult.Failed(
+                    compiled.diagnostics.joinToString("; ") { "${it.code}(${it.step}): ${it.message}" },
+                )
+            }
+            receiptSink?.record(buildReceipt(plan, compiled, result, requestedAtMs))
+            return result
+        }
+
         val compiled = compiler.compile(plan, context)
         val result = when (compiled) {
             is CompilationResult.Valid -> dispatch(compiled.plan)
