@@ -3,6 +3,7 @@ package me.rerere.locallm.litert.workspace
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -11,6 +12,7 @@ import java.nio.charset.StandardCharsets
 class ShadowWorkspaceTest {
 
     private val realFiles = HashMap<String, ByteArray>()
+    private val ref = WorkspaceRef("ws-1", "/root/ws-1")
 
     private fun backend(): WorkspaceBackend = WorkspaceBackend { op ->
         when (op.kind) {
@@ -34,40 +36,41 @@ class ShadowWorkspaceTest {
         }
     }
 
+    private fun shadow(): ShadowWorkspace = ShadowWorkspace(ref, backend())
+
     @Test
     fun `read-through returns real file when not overlaid`() = runBlocking {
         realFiles["a.txt"] = "hello".toByteArray()
-        val shadow = ShadowWorkspace(backend())
-        assertEquals("hello", shadow.readText("a.txt"))
+        assertEquals("hello", shadow().readText("a.txt"))
     }
 
     @Test
     fun `write overlays without touching the real workspace`() = runBlocking {
         realFiles["a.txt"] = "hello".toByteArray()
-        val shadow = ShadowWorkspace(backend())
-        shadow.writeText("a.txt", "shadowed")
-        assertEquals("shadowed", shadow.readText("a.txt"))
+        val s = shadow()
+        s.writeText("a.txt", "shadowed")
+        assertEquals("shadowed", s.readText("a.txt"))
         assertEquals("hello", String(realFiles["a.txt"]!!, StandardCharsets.UTF_8))
     }
 
     @Test
     fun `delete becomes a tombstone and is not forwarded to real workspace`() = runBlocking {
         realFiles["a.txt"] = "hello".toByteArray()
-        val shadow = ShadowWorkspace(backend())
-        shadow.delete("a.txt")
-        assertNull(shadow.readText("a.txt"))
-        assertFalse(shadow.exists("a.txt"))
+        val s = shadow()
+        s.delete("a.txt")
+        assertNull(s.readText("a.txt"))
+        assertFalse(s.exists("a.txt"))
         assertTrue(realFiles.containsKey("a.txt"))
     }
 
     @Test
     fun `diff is deterministic and sorted`() = runBlocking {
         realFiles["keep.txt"] = "x".toByteArray()
-        val shadow = ShadowWorkspace(backend())
-        shadow.writeText("b.txt", "new")
-        shadow.delete("keep.txt")
-        shadow.writeText("a.txt", "first")
-        val diff = shadow.diff()
+        val s = shadow()
+        s.writeText("b.txt", "new")
+        s.delete("keep.txt")
+        s.writeText("a.txt", "first")
+        val diff = s.diff()
         val paths = diff.entries.map { it.path }
         // deleted (keep.txt) sorts before added; adds sorted by path
         assertEquals(listOf("keep.txt", "a.txt", "b.txt"), paths)
@@ -76,19 +79,110 @@ class ShadowWorkspaceTest {
 
     @Test
     fun `apply materializes operations without executing them`() = runBlocking {
-        val shadow = ShadowWorkspace(backend())
-        shadow.writeText("x.txt", "X")
-        shadow.delete("y.txt")
-        val (ops, summary) = shadow.apply()
+        val s = shadow()
+        s.writeText("x.txt", "X")
+        s.delete("y.txt")
+        val (ops, summary) = s.apply()
         assertEquals(2, ops.size)
         assertTrue(ops.any { it.kind == WorkspaceOperationKind.WRITE && it.file!!.path == "x.txt" })
         assertTrue(ops.any { it.kind == WorkspaceOperationKind.DELETE && it.file!!.path == "y.txt" })
         assertTrue(summary.contains("x.txt"))
         assertFalse(realFiles.containsKey("x.txt"))
     }
+
+    // --- F0: real workspace ref integrity ---
+
+    @Test
+    fun `passthrough read carries the real workspace ref`() = runBlocking {
+        val seen = mutableListOf<WorkspaceFileRef?>()
+        val b = WorkspaceBackend { op ->
+            seen += op.file
+            if (op.kind == WorkspaceOperationKind.READ) WorkspaceResult.Read("data".toByteArray()) else WorkspaceResult.Failed("n/a")
+        }
+        val s = ShadowWorkspace(ref, b)
+        s.read("a.txt")
+        assertEquals(ref, seen.single()!!.workspace)
+    }
+
+    @Test
+    fun `apply operations carry the real workspace ref not blank`() = runBlocking {
+        val s = shadow()
+        s.writeText("x.txt", "X")
+        s.delete("y.txt")
+        val (ops, _) = s.apply()
+        assertTrue(ops.all { it.file!!.workspace == ref })
+        assertTrue(ops.none { it.file!!.workspace.workspaceId.isEmpty() || it.file!!.workspace.root.isEmpty() })
+    }
+
+    @Test
+    fun `distinct shadow workspaces never bleed refs across each other`() = runBlocking {
+        val refA = WorkspaceRef("ws-a", "/a")
+        val refB = WorkspaceRef("ws-b", "/b")
+        val a = ShadowWorkspace(refA, backend())
+        val b = ShadowWorkspace(refB, backend())
+        a.writeText("shared.txt", "from-a")
+        val (opsA, _) = a.apply()
+        val (opsB, _) = b.apply()
+        assertTrue(opsA.all { it.file!!.workspace == refA })
+        assertEquals(0, opsB.size)
+    }
+
+    // --- F0: ADDED vs MODIFIED base-presence distinction ---
+
+    @Test
+    fun `overlay of a base file is MODIFIED not ADDED`() = runBlocking {
+        realFiles["base.txt"] = "original".toByteArray()
+        val s = shadow()
+        s.writeText("base.txt", "edited")
+        val kinds = s.diff().entries.associate { it.path to it.kind }
+        assertEquals(DiffKind.MODIFIED, kinds["base.txt"])
+    }
+
+    @Test
+    fun `overlay of a new file is ADDED`() = runBlocking {
+        val s = shadow()
+        s.writeText("new.txt", "brand new")
+        val kinds = s.diff().entries.associate { it.path to it.kind }
+        assertEquals(DiffKind.ADDED, kinds["new.txt"])
+    }
+
+    @Test
+    fun `delete of a base file is DELETED and never misclassified`() = runBlocking {
+        realFiles["base.txt"] = "x".toByteArray()
+        val s = shadow()
+        s.delete("base.txt")
+        val kinds = s.diff().entries.associate { it.path to it.kind }
+        assertEquals(DiffKind.DELETED, kinds["base.txt"])
+    }
+
+    @Test
+    fun `write then delete of a base file collapses to DELETED not MODIFIED`() = runBlocking {
+        realFiles["base.txt"] = "x".toByteArray()
+        val s = shadow()
+        s.writeText("base.txt", "y")
+        s.delete("base.txt")
+        val kinds = s.diff().entries.associate { it.path to it.kind }
+        assertEquals(DiffKind.DELETED, kinds["base.txt"])
+    }
+
+    @Test
+    fun `added and modified files sort deterministically with deleted first`() = runBlocking {
+        realFiles["mod.txt"] = "x".toByteArray()
+        val s = shadow()
+        s.writeText("add.txt", "new")
+        s.writeText("mod.txt", "edited")
+        val paths = s.diff().entries.map { it.path }
+        assertEquals(listOf("add.txt", "mod.txt"), paths)
+        assertNotEquals(
+            s.diff().entries.associate { it.path to it.kind },
+            mapOf("add.txt" to DiffKind.MODIFIED, "mod.txt" to DiffKind.ADDED),
+        )
+    }
 }
 
 class SimulatedShellExecutorTest {
+
+    private val ref = WorkspaceRef("ws-1", "/root/ws-1")
 
     private fun workspace(): ShadowWorkspace {
         val real = HashMap<String, ByteArray>()
@@ -112,7 +206,7 @@ class SimulatedShellExecutorTest {
                 else -> WorkspaceResult.Failed("unimplemented")
             }
         }
-        val shadow = ShadowWorkspace(backend)
+        val shadow = ShadowWorkspace(ref, backend)
         runBlocking { shadow.writeText("note.txt", "alpha beta gamma") }
         return shadow
     }
@@ -183,8 +277,38 @@ class CommandEffectAnalyzerTest {
     }
 
     @Test
-    fun `git is native but not network`() {
+    fun `git status is native and not network`() {
         val fx = CommandEffectAnalyzer.analyze(listOf("git", "status"))
+        assertTrue(fx.nativeExecution)
+        assertFalse(fx.network)
+    }
+
+    // --- F0: network-capable command preflight ---
+
+    @Test
+    fun `git remote fetch is native and network`() {
+        val fx = CommandEffectAnalyzer.analyze(listOf("git", "fetch", "origin"))
+        assertTrue(fx.nativeExecution)
+        assertTrue(fx.network)
+    }
+
+    @Test
+    fun `git clone with url is native and network`() {
+        val fx = CommandEffectAnalyzer.analyze(listOf("git", "clone", "git@github.com:org/repo.git"))
+        assertTrue(fx.nativeExecution)
+        assertTrue(fx.network)
+    }
+
+    @Test
+    fun `ssh to a host is native and network`() {
+        val fx = CommandEffectAnalyzer.analyze(listOf("ssh", "user@host", "ls"))
+        assertTrue(fx.nativeExecution)
+        assertTrue(fx.network)
+    }
+
+    @Test
+    fun `git diff is native but not network`() {
+        val fx = CommandEffectAnalyzer.analyze(listOf("git", "diff", "HEAD~1"))
         assertTrue(fx.nativeExecution)
         assertFalse(fx.network)
     }

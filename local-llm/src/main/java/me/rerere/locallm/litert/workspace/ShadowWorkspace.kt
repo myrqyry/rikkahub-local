@@ -30,19 +30,39 @@ data class WorkspaceDiff(
 }
 
 /**
- * Copy-on-write shadow workspace (roadmap E3).
+ * Copy-on-write shadow workspace (roadmap E3 / F0).
  *
  * Reads pass through to the real backend unless overlaid; writes are captured in an
  * in-memory overlay only (never applied to the real workspace); deletes become
- * tombstones. [diff] produces a deterministic, sorted summary. [apply] materializes
- * the diff as concrete backend operations so a caller can request a real-write
- * capability and only then touch the environment.
+ * tombstones. [diff] produces a deterministic, sorted summary that distinguishes an
+ * [DiffKind.ADDED] overlay (path did not exist in the base) from a [DiffKind.MODIFIED]
+ * overlay (path existed in the base). [apply] materializes the diff as concrete backend
+ * operations so a caller can request a real-write capability and only then touch the
+ * environment.
  *
- * The shadow never mutates the underlying workspace.
+ * The shadow never mutates the underlying workspace. Every generated
+ * [WorkspaceFileRef] carries the real [WorkspaceRef] this shadow belongs to — blank or
+ * mismatched refs are impossible by construction.
  */
-class ShadowWorkspace(private val backend: WorkspaceBackend) {
+class ShadowWorkspace(
+    private val workspace: WorkspaceRef,
+    private val backend: WorkspaceBackend,
+) {
 
     private val overlay = LinkedHashMap<String, ShadowNode>()
+
+    /** Presence of a path in the base workspace, captured at first mutation. */
+    private val basePresence = HashMap<String, Boolean>()
+
+    private fun fileRef(path: String): WorkspaceFileRef = WorkspaceFileRef(workspace, path)
+
+    /** Raw backend read that bypasses the overlay (used for base-presence tracking). */
+    private suspend fun baseRead(path: String): ByteArray? = when (val r = backend.execute(
+        WorkspaceOperation(kind = WorkspaceOperationKind.READ, file = fileRef(path)),
+    )) {
+        is WorkspaceResult.Read -> r.content
+        else -> null
+    }
 
     suspend fun read(path: String): ByteArray? {
         when (val node = overlay[path]) {
@@ -50,18 +70,16 @@ class ShadowWorkspace(private val backend: WorkspaceBackend) {
             is ShadowNode.Overlay -> return node.content
             null -> {}
         }
-        return when (val r = backend.execute(
-            WorkspaceOperation(kind = WorkspaceOperationKind.READ, file = WorkspaceFileRef(WorkspaceRef("", ""), path)),
-        )) {
-            is WorkspaceResult.Read -> r.content
-            else -> null
-        }
+        return baseRead(path)
     }
 
     suspend fun readText(path: String): String? =
         read(path)?.toString(StandardCharsets.UTF_8)
 
     suspend fun write(path: String, content: ByteArray) {
+        if (path !in overlay) {
+            basePresence[path] = baseRead(path) != null
+        }
         overlay[path] = ShadowNode.Overlay(content)
     }
 
@@ -70,6 +88,9 @@ class ShadowWorkspace(private val backend: WorkspaceBackend) {
     }
 
     suspend fun delete(path: String) {
+        if (path !in overlay) {
+            basePresence[path] = baseRead(path) != null
+        }
         overlay[path] = ShadowNode.Tombstone
     }
 
@@ -79,7 +100,7 @@ class ShadowWorkspace(private val backend: WorkspaceBackend) {
         null -> read(path) != null
     }
 
-    /** Deterministic diff: tombstones (deletes) first, then adds sorted by path. */
+    /** Deterministic diff: tombstones (deletes) first, then adds/modifies sorted by path. */
     fun diff(): WorkspaceDiff {
         fun rank(kind: DiffKind): Int = when (kind) {
             DiffKind.DELETED -> 0
@@ -88,7 +109,9 @@ class ShadowWorkspace(private val backend: WorkspaceBackend) {
         val entries = overlay.entries.map { (path, node) ->
             when (node) {
                 is ShadowNode.Tombstone -> DiffEntry(path, DiffKind.DELETED)
-                else -> DiffEntry(path, DiffKind.ADDED)
+                is ShadowNode.Overlay ->
+                    // A path that existed in the base workspace is an edit, not a new file.
+                    DiffEntry(path, if (basePresence[path] == true) DiffKind.MODIFIED else DiffKind.ADDED)
             }
         }.sortedWith(compareBy({ rank(it.kind) }, { it.path }))
         return WorkspaceDiff(entries)
@@ -106,14 +129,14 @@ class ShadowWorkspace(private val backend: WorkspaceBackend) {
                 DiffKind.DELETED ->
                     ops += WorkspaceOperation(
                         kind = WorkspaceOperationKind.DELETE,
-                        file = WorkspaceFileRef(WorkspaceRef("", ""), entry.path),
+                        file = fileRef(entry.path),
                     )
 
                 else -> {
                     val content = (overlay[entry.path] as? ShadowNode.Overlay)?.content ?: byteArrayOf()
                     ops += WorkspaceOperation(
                         kind = WorkspaceOperationKind.WRITE,
-                        file = WorkspaceFileRef(WorkspaceRef("", ""), entry.path),
+                        file = fileRef(entry.path),
                         content = content,
                     )
                 }
