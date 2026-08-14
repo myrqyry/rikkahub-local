@@ -25,6 +25,7 @@ class ActionPlanExecutor(
     private val compiler: ActionPlanCompiler = DefaultActionPlanCompiler(),
     private val directExecutor: DirectToolExecutor = DirectToolExecutor(),
     private val zeroWorkflowExecutor: ZeroWorkflowExecutor? = null,
+    private val zeroProcedureExecutor: ZeroProcedureExecutor? = null,
     private val receiptSink: WorkflowReceiptSink? = null,
 ) {
     suspend fun execute(plan: ActionPlan): ActionPlanResult {
@@ -49,6 +50,8 @@ class ActionPlanExecutor(
             is ActionPlan.ToolCall -> directExecutor.execute(plan)
             is ActionPlan.WorkflowCall -> zeroWorkflowExecutor?.execute(plan)
                 ?: ActionPlanResult.Failed("workflow_execution_not_implemented")
+            is ActionPlan.ProcedureCall -> zeroProcedureExecutor?.execute(plan)
+                ?: ActionPlanResult.Failed("procedure_execution_not_implemented")
         }
     }
 
@@ -78,10 +81,15 @@ class ActionPlanExecutor(
         }
         return WorkflowReceipt(
             receiptId = UUID.randomUUID().toString(),
-            kind = if (plan is ActionPlan.ToolCall) "tool" else "workflow",
+            kind = when (plan) {
+                is ActionPlan.ToolCall -> "tool"
+                is ActionPlan.WorkflowCall -> "workflow"
+                is ActionPlan.ProcedureCall -> "procedure"
+            },
             domainId = when (plan) {
                 is ActionPlan.ToolCall -> plan.toolName
                 is ActionPlan.WorkflowCall -> plan.workflowId
+                is ActionPlan.ProcedureCall -> plan.procedureId
             },
             requestedAtMs = requestedAtMs,
             compileOutcome = compileOutcome,

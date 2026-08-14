@@ -37,6 +37,7 @@ import me.rerere.rikkahub.data.db.fts.SimpleDictManager
 import me.rerere.rikkahub.data.db.migrations.Migration_27_28
 import me.rerere.rikkahub.data.db.migrations.Migration_28_29
 import me.rerere.rikkahub.data.db.migrations.Migration_29_30
+import me.rerere.rikkahub.data.db.migrations.Migration_30_31
 import me.rerere.rikkahub.data.db.migrations.Migration_6_7
 import me.rerere.rikkahub.data.db.migrations.Migration_11_12
 import me.rerere.rikkahub.data.db.migrations.Migration_13_14
@@ -47,10 +48,13 @@ import me.rerere.rikkahub.data.ai.mcp.McpManager
 import me.rerere.rikkahub.data.agentrun.AgentRunBootRecovery
 import me.rerere.rikkahub.data.agentrun.AgentRunRepository
 import me.rerere.rikkahub.data.agentrun.AgentRunTraceRepository
+import me.rerere.rikkahub.data.agentrun.ZeroProcedureExecutorAdapter
+import me.rerere.rikkahub.data.agentrun.ZeroProcedureRepository
 import me.rerere.rikkahub.data.ai.revision.ConversationRepositoryRevisionSource
 import me.rerere.rikkahub.data.ai.revision.ConversationRevisionGuard
 import me.rerere.rikkahub.data.ai.revision.ConversationRevisionSource
 import me.rerere.rikkahub.data.ai.tools.safety.ToolSafetyPreflight
+import me.rerere.locallm.litert.zero.ZeroProcedureEngine
 import me.rerere.rikkahub.data.rag.TextEmbedder
 import me.rerere.rikkahub.data.rag.VectorDao
 import me.rerere.rikkahub.data.sync.webdav.WebDavSync
@@ -77,7 +81,7 @@ val dataSourceModule = module {
         val context: Context = get()
         Room.databaseBuilder(context, AppDatabase::class.java, "rikka_hub")
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
-            .addMigrations(Migration_6_7, Migration_11_12, Migration_13_14, Migration_14_15, Migration_15_16, Migration_23_24, Migration_27_28, Migration_28_29, Migration_29_30)
+            .addMigrations(Migration_6_7, Migration_11_12, Migration_13_14, Migration_14_15, Migration_15_16, Migration_23_24, Migration_27_28, Migration_28_29, Migration_29_30, Migration_30_31)
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onOpen(db: SupportSQLiteDatabase) {
                     val dictDir = SimpleDictManager.extractDict(context)
@@ -187,6 +191,19 @@ val dataSourceModule = module {
     single<ConversationRevisionSource> { ConversationRepositoryRevisionSource(repository = get()) }
     single { ConversationRevisionGuard(source = get()) }
     single { ToolSafetyPreflight() }
+
+    // Zero procedure persistence + executor (roadmap B3/B5). ProcedureCache seam implemented
+    // by ZeroProcedureRepository; adapter routes ActionPlan.ProcedureCall through the engine.
+    single { get<AppDatabase>().zeroProcedureDao() }
+    single { ZeroProcedureRepository(get()) }
+    single { ZeroProcedureEngine() }
+    single<me.rerere.locallm.litert.ZeroProcedureExecutor> {
+        ZeroProcedureExecutorAdapter(
+            repository = get(),
+            engine = get(),
+            toolCatalog = me.rerere.locallm.litert.LiteRtToolBridgeRegistry.snapshot().associateBy { it.name },
+        )
+    }
 
     single { McpManager(context = get(), settingsStore = get(), appScope = get(), filesManager = get(), appEventBus = get()) }
 

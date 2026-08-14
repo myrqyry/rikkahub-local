@@ -35,6 +35,8 @@ import me.rerere.rikkahub.data.db.entity.ScheduledJobRunEntity
 import me.rerere.rikkahub.data.db.entity.SshHostEntity
 import me.rerere.rikkahub.data.db.entity.TelegramChatEntity
 import me.rerere.rikkahub.data.db.entity.WorkspaceEntity
+import me.rerere.rikkahub.data.db.entity.ZeroProcedureDao
+import me.rerere.rikkahub.data.db.entity.ZeroProcedureEntity
 import me.rerere.rikkahub.data.db.migrations.Migration_16_17
 import me.rerere.rikkahub.data.rag.VectorEntity
 import me.rerere.rikkahub.data.db.migrations.Migration_20_21
@@ -42,6 +44,7 @@ import me.rerere.rikkahub.data.db.migrations.Migration_21_22
 import me.rerere.rikkahub.data.db.migrations.Migration_22_23
 import me.rerere.rikkahub.data.db.migrations.Migration_27_28
 import me.rerere.rikkahub.data.db.migrations.Migration_29_30
+import me.rerere.rikkahub.data.db.migrations.Migration_30_31
 import me.rerere.rikkahub.data.db.migrations.Migration_8_9
 import me.rerere.rikkahub.utils.JsonInstant
 import me.rerere.rikkahub.workflow.db.WorkflowDao
@@ -68,8 +71,9 @@ import me.rerere.rikkahub.workflow.db.WorkflowRunEntity
         WorkspaceEntity::class,
         FolderEntity::class,
         VectorEntity::class,
+        ZeroProcedureEntity::class,
     ],
-    version = 30,
+    version = 31,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
@@ -137,6 +141,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun folderDao(): FolderDAO
 
     abstract fun vectorDao(): VectorDao
+
+    abstract fun zeroProcedureDao(): ZeroProcedureDao
 }
 
 object TokenUsageConverter {

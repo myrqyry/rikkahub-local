@@ -17,6 +17,18 @@ sealed interface ActionPlan {
         val inputs: JsonObject,
         override val grant: CapabilityGrant,
     ) : ActionPlan
+
+    /**
+     * Phase Zero (canonical roadmap B4) — invoke a stored [me.rerere.locallm.litert.zero.ZeroProcedure]
+     * by id. Kept distinct from [WorkflowCall]: Rikka workflows stay on [WorkflowEngine] via
+     * [ZeroWorkflowExecutor], while procedure calls route through the deterministic
+     * ZeroProcedureEngine via [ZeroProcedureExecutor].
+     */
+    data class ProcedureCall(
+        val procedureId: String,
+        val inputs: JsonObject,
+        override val grant: CapabilityGrant,
+    ) : ActionPlan
 }
 
 data class CapabilityGrant(

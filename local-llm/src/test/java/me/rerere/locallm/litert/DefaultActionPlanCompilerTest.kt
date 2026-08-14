@@ -161,4 +161,27 @@ class DefaultActionPlanCompilerTest {
         val result = compiler.compile(plan, context)
         assertTrue(result is CompilationResult.Valid)
     }
+
+    @Test
+    fun `blank procedure id is Invalid`() = runBlocking {
+        val plan = ActionPlan.ProcedureCall(
+            procedureId = "  ",
+            inputs = buildJsonObject { },
+            grant = CapabilityGrant(emptyList(), emptyList(), emptyList()),
+        )
+        val result = compiler.compile(plan, context)
+        assertTrue(result is CompilationResult.Invalid)
+        assertEquals("PLAN_PROC_001", (result as CompilationResult.Invalid).diagnostics.first().code)
+    }
+
+    @Test
+    fun `valid procedure compiles to Valid`() = runBlocking {
+        val plan = ActionPlan.ProcedureCall(
+            procedureId = "p-1",
+            inputs = buildJsonObject { },
+            grant = CapabilityGrant(emptyList(), emptyList(), emptyList()),
+        )
+        val result = compiler.compile(plan, context)
+        assertTrue(result is CompilationResult.Valid)
+    }
 }

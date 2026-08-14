@@ -224,4 +224,39 @@ class ActionPlanExecutorTest {
         assertEquals("failed", receipt.status)
         assertTrue(receipt.diagnostics.isNotEmpty())
     }
+
+    @Test
+    fun `ProcedureCall without zero procedure executor fails loudly`() = runBlocking {
+        val plan = ActionPlan.ProcedureCall(
+            procedureId = "p1",
+            inputs = buildJsonObject { },
+            grant = CapabilityGrant(emptyList(), emptyList(), emptyList()),
+        )
+
+        val result = ActionPlanExecutor().execute(plan)
+
+        assertTrue(result is ActionPlanResult.Failed)
+        assertTrue((result as ActionPlanResult.Failed).errorMessage.contains("procedure_execution_not_implemented"))
+    }
+
+    @Test
+    fun `ProcedureCall with zero procedure executor delegates to it`() = runBlocking {
+        var delegated: String? = null
+        val executor = ActionPlanExecutor(
+            zeroProcedureExecutor = ZeroProcedureExecutor { plan ->
+                delegated = plan.procedureId
+                ActionPlanResult.Success(listOf(UIMessagePart.Text("procedure done")))
+            },
+        )
+        val plan = ActionPlan.ProcedureCall(
+            procedureId = "p2",
+            inputs = buildJsonObject { },
+            grant = CapabilityGrant(emptyList(), emptyList(), emptyList()),
+        )
+
+        val result = executor.execute(plan)
+
+        assertEquals("p2", delegated)
+        assertEquals(listOf(UIMessagePart.Text("procedure done")), (result as ActionPlanResult.Success).output)
+    }
 }

@@ -40,6 +40,7 @@ class DefaultActionPlanCompiler : ActionPlanCompiler {
         return when (plan) {
             is ActionPlan.ToolCall -> compileToolCall(plan, context)
             is ActionPlan.WorkflowCall -> compileWorkflowCall(plan)
+            is ActionPlan.ProcedureCall -> compileProcedureCall(plan)
         }
     }
 
@@ -241,9 +242,25 @@ class DefaultActionPlanCompiler : ActionPlanCompiler {
         return CompilationResult.Valid(plan)
     }
 
+    private fun compileProcedureCall(plan: ActionPlan.ProcedureCall): CompilationResult {
+        if (plan.procedureId.isBlank()) {
+            return CompilationResult.Invalid(
+                diagnostics = listOf(
+                    Diagnostic(
+                        code = "PLAN_PROC_001",
+                        step = step(plan),
+                        message = "Procedure call has a blank procedure id.",
+                    )
+                ),
+            )
+        }
+        return CompilationResult.Valid(plan)
+    }
+
     private fun step(plan: ActionPlan): String = when (plan) {
         is ActionPlan.ToolCall -> "tool:${plan.toolName}"
         is ActionPlan.WorkflowCall -> "workflow:${plan.workflowId}"
+        is ActionPlan.ProcedureCall -> "procedure:${plan.procedureId}"
     }
 
     companion object {
