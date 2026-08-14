@@ -36,6 +36,7 @@ import me.rerere.rikkahub.data.db.fts.MessageFtsManager
 import me.rerere.rikkahub.data.db.fts.SimpleDictManager
 import me.rerere.rikkahub.data.db.migrations.Migration_27_28
 import me.rerere.rikkahub.data.db.migrations.Migration_28_29
+import me.rerere.rikkahub.data.db.migrations.Migration_29_30
 import me.rerere.rikkahub.data.db.migrations.Migration_6_7
 import me.rerere.rikkahub.data.db.migrations.Migration_11_12
 import me.rerere.rikkahub.data.db.migrations.Migration_13_14
@@ -45,6 +46,11 @@ import me.rerere.rikkahub.data.db.migrations.Migration_23_24
 import me.rerere.rikkahub.data.ai.mcp.McpManager
 import me.rerere.rikkahub.data.agentrun.AgentRunBootRecovery
 import me.rerere.rikkahub.data.agentrun.AgentRunRepository
+import me.rerere.rikkahub.data.agentrun.AgentRunTraceRepository
+import me.rerere.rikkahub.data.ai.revision.ConversationRepositoryRevisionSource
+import me.rerere.rikkahub.data.ai.revision.ConversationRevisionGuard
+import me.rerere.rikkahub.data.ai.revision.ConversationRevisionSource
+import me.rerere.rikkahub.data.ai.tools.safety.ToolSafetyPreflight
 import me.rerere.rikkahub.data.rag.TextEmbedder
 import me.rerere.rikkahub.data.rag.VectorDao
 import me.rerere.rikkahub.data.sync.webdav.WebDavSync
@@ -71,7 +77,7 @@ val dataSourceModule = module {
         val context: Context = get()
         Room.databaseBuilder(context, AppDatabase::class.java, "rikka_hub")
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
-            .addMigrations(Migration_6_7, Migration_11_12, Migration_13_14, Migration_14_15, Migration_15_16, Migration_23_24, Migration_27_28, Migration_28_29)
+            .addMigrations(Migration_6_7, Migration_11_12, Migration_13_14, Migration_14_15, Migration_15_16, Migration_23_24, Migration_27_28, Migration_28_29, Migration_29_30)
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onOpen(db: SupportSQLiteDatabase) {
                     val dictDir = SimpleDictManager.extractDict(context)
@@ -174,6 +180,13 @@ val dataSourceModule = module {
     single { get<AppDatabase>().agentRunDao() }
     single { AgentRunRepository(get()) }
     single { AgentRunBootRecovery(context = get(), repository = get()) }
+
+    // Trust/observability (harvested from PR #2): append-only event trace, revision guard,
+    // and effect-aware safety preflight. No DI-cycle risk (trace repo depends only on DB).
+    single { AgentRunTraceRepository(get()) }
+    single<ConversationRevisionSource> { ConversationRepositoryRevisionSource(repository = get()) }
+    single { ConversationRevisionGuard(source = get()) }
+    single { ToolSafetyPreflight() }
 
     single { McpManager(context = get(), settingsStore = get(), appScope = get(), filesManager = get(), appEventBus = get()) }
 

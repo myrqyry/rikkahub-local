@@ -23,6 +23,7 @@ data class CapabilityGrant(
     val requestedCapabilities: List<String>,
     val grantedCapabilities: List<String>,
     val rejectedCapabilities: List<String>,
+    val scopes: CapabilityScopes = CapabilityScopes(),
 ) {
     fun isAllowed(capability: String): Boolean = capability in grantedCapabilities
 }

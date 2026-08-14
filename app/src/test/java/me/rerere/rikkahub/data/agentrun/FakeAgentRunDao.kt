@@ -39,6 +39,9 @@ class FakeAgentRunDao : AgentRunDao {
 
     override suspend fun getById(id: String): AgentRun? = rows[id]
 
+    override fun observeById(id: String): Flow<AgentRun?> =
+        recentFlow.map { list -> list.firstOrNull { it.id == id } }
+
     override suspend fun findStranded(beforeMs: Long): List<AgentRun> =
         rows.values.filter {
             AgentRunStatus.fromName(it.status) in AgentRunStatus.IN_FLIGHT && it.updatedAtMs < beforeMs

@@ -295,8 +295,13 @@ class ConversationRepository(
 
     suspend fun updateConversation(conversation: Conversation) {
         database.withTransaction {
+            // The caller may hold an old in-memory snapshot. The database row is
+            // authoritative for the monotonic revision.
+            val current = conversationDAO.getConversationById(conversation.id.toString())
+                ?: return@withTransaction
             conversationDAO.update(
                 conversationToConversationEntity(conversation)
+                    .copy(revision = current.revision + 1)
             )
             // 删除旧的节点，插入新的节点
             messageNodeDAO.deleteByConversation(conversation.id.toString())
@@ -382,6 +387,7 @@ class ConversationRepository(
             lorebookIds = JsonInstant.encodeToString(conversation.lorebookIds),
             workspaceCwd = conversation.workspaceCwd ?: "",
             folderId = conversation.folderId?.toString() ?: "",
+            revision = conversation.revision,
         )
     }
 
@@ -403,6 +409,7 @@ class ConversationRepository(
             lorebookIds = JsonInstant.decodeFromString(conversationEntity.lorebookIds),
             workspaceCwd = conversationEntity.workspaceCwd.ifEmpty { null },
             folderId = conversationEntity.folderId.ifEmpty { null }?.let { Uuid.parse(it) },
+            revision = conversationEntity.revision,
         )
     }
 
