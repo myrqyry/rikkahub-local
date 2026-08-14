@@ -119,8 +119,12 @@ class PostconditionVerifier {
 }
 
 /** Verdict of a postcondition check. */
+@Serializable
 sealed interface PostconditionResult {
+    @Serializable
     data object Passed : PostconditionResult
+
+    @Serializable
     data class Failed(val code: String, val detail: String) : PostconditionResult
 }
 

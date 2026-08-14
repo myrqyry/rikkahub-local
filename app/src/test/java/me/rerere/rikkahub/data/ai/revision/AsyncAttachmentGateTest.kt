@@ -76,4 +76,20 @@ class AsyncAttachmentGateTest {
         assertTrue(d is AsyncAttachmentGate.Decision.Reject)
         assertTrue((d as AsyncAttachmentGate.Decision.Reject).reason.contains("no longer exists"))
     }
+
+    @Test
+    fun completedOrchestrationRecordedButStaleRevisionAttachmentRejected() = runBlocking {
+        // The orchestration completed at the current revision (5) and its result was recorded.
+        val recordedResults = mutableListOf("orchestration-completed")
+        val gate = AsyncAttachmentGate(guard(ConversationSnapshot("c1", "b1", 5L)))
+
+        // But the work captured a snapshot at revision 9, and by completion the conversation
+        // has regressed to 5 -> the result IS recorded but must NOT be attached.
+        val capturedAtStart = ConversationSnapshot("c1", "b1", 9L)
+        val d = gate.decide(capturedAtStart)
+
+        assertEquals(listOf("orchestration-completed"), recordedResults)
+        assertTrue(d is AsyncAttachmentGate.Decision.Reject)
+        assertTrue((d as AsyncAttachmentGate.Decision.Reject).reason.contains("regressed"))
+    }
 }

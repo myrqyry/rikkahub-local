@@ -56,6 +56,9 @@ import me.rerere.rikkahub.data.ai.revision.ConversationRepositoryRevisionSource
 import me.rerere.rikkahub.data.ai.revision.ConversationRevisionGuard
 import me.rerere.rikkahub.data.ai.revision.ConversationRevisionSource
 import me.rerere.rikkahub.data.ai.tools.safety.ToolSafetyPreflight
+import me.rerere.rikkahub.data.agentrun.AgentRunMicroAgentEventSink
+import me.rerere.locallm.litert.mesh.MicroAgentEventMesh
+import me.rerere.locallm.litert.mesh.MicroAgentEventSink
 import me.rerere.locallm.litert.zero.ZeroProcedureEngine
 import me.rerere.rikkahub.data.rag.TextEmbedder
 import me.rerere.rikkahub.data.rag.VectorDao
@@ -209,6 +212,19 @@ val dataSourceModule = module {
             engine = get(),
             toolCatalog = me.rerere.locallm.litert.LiteRtToolBridgeRegistry.snapshot().associateBy { it.name },
             receiptSink = get(),
+        )
+    }
+
+    // Phase D (micro-agent orchestration): event mesh into the AgentRun evidence ledger.
+    // The mesh coordinates roles only; it carries no execution authority. Sink opens a
+    // Workflow-kind AgentRun per correlation and appends sanitized AGENT_EVENT_* traces.
+    single<MicroAgentEventSink> {
+        AgentRunMicroAgentEventSink(repository = get(), trace = get())
+    }
+    single {
+        MicroAgentEventMesh(
+            scope = get<me.rerere.rikkahub.AppScope>(),
+            sink = get(),
         )
     }
 
