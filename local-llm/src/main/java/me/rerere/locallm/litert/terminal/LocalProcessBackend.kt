@@ -16,7 +16,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * Phase F (roadmap F7). Thin seam over the OS process primitives. [RealProcessUnderlay] wraps
- * [ProcessBuilder]; tests inject a fake underlay so no real binaries run in unit tests.
+ * [ProcessBuilder]; tests inject a deterministic underlay so no real binaries run in unit tests.
  *
  * The underlay deliberately exposes only what a process backend needs and is kept synchronous
  * (blocking) so it stays a trivial adapter over [java.lang.Process].
@@ -56,7 +56,7 @@ class RealProcessUnderlay : ProcessUnderlay {
         val proc = builder.start()
         return object : ProcessUnderlay.UnderlayProcess {
             // ponytail: java.lang.Process.pid() is Java 9+, unresolved against the Android minSdk 26
-            // stubs; the pid is only cosmetic for now (tests inject a fake underlay).
+        // Test doubles supply the process details; the pid is only cosmetic for now.
             override val pid: Long get() = 0L
             override fun writeStdin(bytes: ByteArray) {
                 proc.outputStream.write(bytes)

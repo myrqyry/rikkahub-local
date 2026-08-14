@@ -21,4 +21,4 @@ workspace boundaries, and the pure terminal execution/observation substrate.
 ## Dependencies & Side Effects
 
 - Model storage paths impact `workspace/` file management
-- Terminal tests use deterministic fake underlays and JVM `runBlocking`; app-side AgentRun wiring belongs in `app/`.
+- Terminal tests use deterministic test underlays and JVM `runBlocking`; app-side AgentRun wiring belongs in `app/`.

@@ -37,7 +37,7 @@ data class ProcessEffectPlan(
     companion object {
         /**
          * Build a plan, deriving [commandDigest] from the remaining fields. [processRef] is a
-         * provisional placeholder; the authoritative ref is issued only once the backend
+ * provisional ref; the authoritative ref is issued only once the backend
          * accepts the start.
          */
         fun of(
