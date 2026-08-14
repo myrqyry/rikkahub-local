@@ -48,6 +48,8 @@ import me.rerere.rikkahub.data.ai.mcp.McpManager
 import me.rerere.rikkahub.data.agentrun.AgentRunBootRecovery
 import me.rerere.rikkahub.data.agentrun.AgentRunRepository
 import me.rerere.rikkahub.data.agentrun.AgentRunTraceRepository
+import me.rerere.rikkahub.data.agentrun.CandidateEvaluationTraceSink
+import me.rerere.rikkahub.data.agentrun.AgentRunProcedureReceiptSink
 import me.rerere.rikkahub.data.agentrun.ZeroProcedureExecutorAdapter
 import me.rerere.rikkahub.data.agentrun.ZeroProcedureRepository
 import me.rerere.rikkahub.data.ai.revision.ConversationRepositoryRevisionSource
@@ -197,11 +199,16 @@ val dataSourceModule = module {
     single { get<AppDatabase>().zeroProcedureDao() }
     single { ZeroProcedureRepository(get()) }
     single { ZeroProcedureEngine() }
+    single<me.rerere.locallm.litert.zero.ZeroProcedureReceiptSink> {
+        AgentRunProcedureReceiptSink(repository = get(), trace = get())
+    }
+    single { CandidateEvaluationTraceSink(trace = get()) }
     single<me.rerere.locallm.litert.ZeroProcedureExecutor> {
         ZeroProcedureExecutorAdapter(
             repository = get(),
             engine = get(),
             toolCatalog = me.rerere.locallm.litert.LiteRtToolBridgeRegistry.snapshot().associateBy { it.name },
+            receiptSink = get(),
         )
     }
 

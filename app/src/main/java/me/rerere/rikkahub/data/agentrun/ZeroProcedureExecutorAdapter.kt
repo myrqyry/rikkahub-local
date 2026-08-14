@@ -4,9 +4,12 @@ import me.rerere.ai.core.Tool
 import me.rerere.ai.ui.UIMessagePart
 import me.rerere.locallm.litert.ActionPlan
 import me.rerere.locallm.litert.ActionPlanResult
+import me.rerere.locallm.litert.PostconditionResult
+import me.rerere.locallm.litert.PostconditionVerifier
 import me.rerere.locallm.litert.ZeroProcedureExecutor
 import me.rerere.locallm.litert.zero.ZeroProcedureEngine
 import me.rerere.locallm.litert.zero.ZeroCompilationResult
+import me.rerere.locallm.litert.zero.ZeroProcedureReceiptSink
 
 /**
  * App-side [ZeroProcedureExecutor] (roadmap B5). Routes an `ActionPlan.ProcedureCall` through
@@ -24,6 +27,8 @@ class ZeroProcedureExecutorAdapter(
     private val repository: ZeroProcedureRepository,
     private val engine: ZeroProcedureEngine,
     private val toolCatalog: Map<String, Tool>,
+    private val receiptSink: ZeroProcedureReceiptSink? = null,
+    private val verifier: PostconditionVerifier = PostconditionVerifier(),
 ) : ZeroProcedureExecutor {
 
     override suspend fun execute(plan: ActionPlan.ProcedureCall): ActionPlanResult {
@@ -48,13 +53,30 @@ class ZeroProcedureExecutorAdapter(
             }
         }
 
-        val result = engine.execute(procedure, toolCatalog)
+        val (result, receipt) = engine.executeWithReceipts(
+            procedure,
+            toolCatalog,
+            procedureRevision = repository.revisionOf(plan.procedureId),
+        )
+
+        // C4: a successful execution is distinct from a verified success. Execution may
+        // succeed while a postcondition fails; do NOT fall back to another candidate here.
+        var postcondition: PostconditionResult = PostconditionResult.Passed
+        if (result.success && procedure.postconditions.isNotEmpty()) {
+            postcondition = verifier.verify(procedure.postconditions, result.outputs)
+        }
+        runCatching { receiptSink?.record(receipt, postcondition) }
 
         if (!result.success) {
             val detail = result.error ?: result.stepResults
                 .filterNot { it.success }
                 .joinToString("; ") { "${it.stepId}: ${it.error}" }
             return ActionPlanResult.Failed("procedure_failed: $detail")
+        }
+        if (postcondition is PostconditionResult.Failed) {
+            return ActionPlanResult.Failed(
+                "postcondition_failed: ${postcondition.code}: ${postcondition.detail}",
+            )
         }
 
         val summary = procedure.description

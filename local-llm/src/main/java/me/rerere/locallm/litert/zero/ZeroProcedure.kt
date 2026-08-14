@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import me.rerere.locallm.litert.Postcondition
 
 /**
  * Phase 7 — typed compound-procedure model for the Zero deterministic execution substrate.
@@ -28,6 +29,12 @@ data class ZeroProcedure(
     val steps: List<ZeroStep>,
     /** Stop on the first failed step (true) or continue collecting failures (false). */
     val failFast: Boolean = true,
+    /**
+     * Deterministic postconditions (roadmap C4) that must hold after successful execution
+     * for the run to be considered *verified* success. Execution may succeed while a
+     * postcondition fails — a success is distinct from a verified success.
+     */
+    val postconditions: List<Postcondition> = emptyList(),
 )
 
 /**

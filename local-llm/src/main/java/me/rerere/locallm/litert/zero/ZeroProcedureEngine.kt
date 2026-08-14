@@ -216,6 +216,143 @@ class ZeroProcedureEngine(
         )
     }
 
+    /**
+     * Execute like [execute] but also emit a first-class [ZeroProcedureReceipt] with per-step
+     * evidence (timing, input digest, resolved output ref, diagnostic). Deterministic; does not
+     * catch cancellation. Roadmap B6.
+     */
+    suspend fun executeWithReceipts(
+        procedure: ZeroProcedure,
+        toolCatalog: Map<String, Tool>,
+        procedureRevision: Long = 0L,
+        nowMs: () -> Long = System::currentTimeMillis,
+    ): Pair<ZeroExecutionResult, ZeroProcedureReceipt> {
+        val startedAtMs = nowMs()
+        val compiled = compile(procedure, toolCatalog)
+        if (compiled is ZeroCompilationResult.Invalid) {
+            val msg = compiled.diagnostics.joinToString("; ") {
+                "${it.code}(${it.stepId ?: "?"}): ${it.message}"
+            }
+            Log.w(TAG, "zero procedure '${procedure.id}' compile failed: $msg")
+            val diag = ZeroDiagnostic("ZERO_COMPILE_INVALID", null, msg)
+            val stepReceipt = procedure.steps.map {
+                ZeroStepReceipt(
+                    procedureId = procedure.id,
+                    procedureRevision = procedureRevision,
+                    stepId = it.stepId,
+                    toolName = it.tool,
+                    status = StepStatus.SKIPPED,
+                    startedAtMs = startedAtMs,
+                    completedAtMs = startedAtMs,
+                    inputDigest = digest(it.args.toString()),
+                    diagnostic = ZeroDiagnostic("ZERO_COMPILE_INVALID", it.stepId, msg),
+                )
+            }
+            val receipt = ZeroProcedureReceipt(
+                procedureId = procedure.id,
+                revision = procedureRevision,
+                status = ProcedureStatus.FAILED,
+                steps = stepReceipt,
+                startedAtMs = startedAtMs,
+                completedAtMs = nowMs(),
+                error = "compile_invalid: $msg",
+            )
+            return ZeroExecutionResult(false, emptyList(), emptyMap(), "compile_invalid: $msg") to receipt
+        }
+        val order = (compiled as ZeroCompilationResult.Valid).order
+        val byId = procedure.steps.associateBy { it.stepId }
+        val outputs = HashMap<String, JsonElement>()
+        val stepResults = ArrayList<ZeroStepResult>(order.size)
+        val stepReceipts = ArrayList<ZeroStepReceipt>(order.size)
+        var firstError: String? = null
+
+        for (stepId in order) {
+            val step = byId.getValue(stepId)
+            val stepStartMs = nowMs()
+            if (firstError != null && procedure.failFast) {
+                stepResults += ZeroStepResult(stepId, false, error = "skipped: prior step failed")
+                stepReceipts += ZeroStepReceipt(
+                    procedureId = procedure.id, procedureRevision = procedureRevision,
+                    stepId = stepId, toolName = step.tool, status = StepStatus.SKIPPED,
+                    startedAtMs = stepStartMs, completedAtMs = nowMs(),
+                    inputDigest = digest(resolveTemplates(step.args, outputs).toString()),
+                    diagnostic = ZeroDiagnostic("ZERO_SKIPPED", stepId, "skipped: prior step failed"),
+                )
+                continue
+            }
+            val resolved = resolveTemplates(step.args, outputs)
+            val inputDigest = digest(resolved.toString())
+            val tool = toolCatalog[step.tool]
+            if (tool == null) {
+                val err = "step '$stepId': unknown tool '${step.tool}'"
+                stepResults += ZeroStepResult(stepId, false, error = err)
+                stepReceipts += ZeroStepReceipt(
+                    procedureId = procedure.id, procedureRevision = procedureRevision,
+                    stepId = stepId, toolName = step.tool, status = StepStatus.FAILED,
+                    startedAtMs = stepStartMs, completedAtMs = nowMs(), inputDigest = inputDigest,
+                    diagnostic = ZeroDiagnostic("ZERO_UNKNOWN_TOOL", stepId, err),
+                )
+                if (firstError == null) firstError = err
+                continue
+            }
+            val out = try {
+                withTimeoutOrNull(step.timeoutSeconds * 1000L) { tool.execute(resolved) }
+            } catch (c: kotlinx.coroutines.CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                val err = "step '$stepId': ${t::class.simpleName}: ${t.message.orEmpty()}".take(500)
+                Log.w(TAG, err)
+                stepResults += ZeroStepResult(stepId, false, error = err)
+                stepReceipts += ZeroStepReceipt(
+                    procedureId = procedure.id, procedureRevision = procedureRevision,
+                    stepId = stepId, toolName = step.tool, status = StepStatus.FAILED,
+                    startedAtMs = stepStartMs, completedAtMs = nowMs(), inputDigest = inputDigest,
+                    diagnostic = ZeroDiagnostic("ZERO_STEP_FAILED", stepId, err),
+                )
+                if (firstError == null) firstError = err
+                continue
+            }
+            if (out == null) {
+                val err = "step '$stepId': '${step.tool}' exceeded ${step.timeoutSeconds}s"
+                stepResults += ZeroStepResult(stepId, false, error = err)
+                stepReceipts += ZeroStepReceipt(
+                    procedureId = procedure.id, procedureRevision = procedureRevision,
+                    stepId = stepId, toolName = step.tool, status = StepStatus.TIMEOUT,
+                    startedAtMs = stepStartMs, completedAtMs = nowMs(), inputDigest = inputDigest,
+                    diagnostic = ZeroDiagnostic("ZERO_TIMEOUT", stepId, err),
+                )
+                if (firstError == null) firstError = err
+                continue
+            }
+            val output = extractOutput(out)
+            outputs[stepId] = output
+            stepResults += ZeroStepResult(stepId, true, output = output)
+            stepReceipts += ZeroStepReceipt(
+                procedureId = procedure.id, procedureRevision = procedureRevision,
+                stepId = stepId, toolName = step.tool, status = StepStatus.SUCCEEDED,
+                startedAtMs = stepStartMs, completedAtMs = nowMs(), inputDigest = inputDigest,
+                output = StepOutputRef(stepId, OutputPath.Root),
+            )
+        }
+
+        val success = firstError == null
+        val receipt = ZeroProcedureReceipt(
+            procedureId = procedure.id,
+            revision = procedureRevision,
+            status = if (success) ProcedureStatus.SUCCEEDED else ProcedureStatus.FAILED,
+            steps = stepReceipts,
+            startedAtMs = startedAtMs,
+            completedAtMs = nowMs(),
+            error = firstError,
+        )
+        return ZeroExecutionResult(success, stepResults, outputs, firstError) to receipt
+    }
+
+    private fun digest(s: String): String =
+        java.security.MessageDigest.getInstance("SHA-256")
+            .digest(s.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+
     /** Collect every `{{stepId...}}` reference token present anywhere in [args]. */
     private fun collectRefs(args: JsonObject): List<String> {
         val refs = mutableListOf<String>()

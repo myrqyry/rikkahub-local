@@ -18,25 +18,38 @@ class ShadowPlanner(
 
     /** Result of selecting the best candidate for a primary plan. */
     sealed interface Selection {
-        /** [plan] is the winning plan to dispatch; [score] is its ranked score. */
-        data class Selected(val plan: ActionPlan, val score: CandidateScore) : Selection
+        /**
+         * [plan] is the winning plan to dispatch; [score] is its ranked score;
+         * [ranked] is the full deterministic ranking (best-first) of every candidate
+         * so a caller can persist the whole evaluation as trace events (roadmap C3).
+         */
+        data class Selected(
+            val plan: ActionPlan,
+            val score: CandidateScore,
+            val ranked: List<CandidateScore> = listOf(score),
+        ) : Selection
 
-        /** Every candidate was invalid; [diagnostics] explain why. Nothing executes. */
-        data class AllInvalid(val diagnostics: List<String>) : Selection
+        /**
+         * Every candidate was invalid; [diagnostics] explain why. Nothing executes.
+         * [ranked] carries the scored candidates so even the rejected attempt is
+         * auditable (roadmap C3).
+         */
+        data class AllInvalid(val diagnostics: List<String>, val ranked: List<CandidateScore> = emptyList()) : Selection
     }
 
     /**
      * Select the best candidate for [plan]. Always proposes at least the primary;
-     * evaluates all proposed candidates deterministically; returns the winner.
+     * evaluates all proposed candidates deterministically; returns the winner with
+     * the full ranked outcome attached so callers can persist every score.
      */
     suspend fun select(plan: ActionPlan, context: CompilationContext): Selection {
         val candidates = planner.propose(plan, context)
         val outcome = evaluator.evaluate(candidates, context)
-        val winner = outcome.winner ?: return Selection.AllInvalid(emptyList())
+        val winner = outcome.winner ?: return Selection.AllInvalid(emptyList(), outcome.ranked)
         if (winner.compileOutcome == "invalid") {
-            return Selection.AllInvalid(winner.reasons)
+            return Selection.AllInvalid(winner.reasons, outcome.ranked)
         }
         val winningPlan = candidates.firstOrNull { it.id == winner.candidateId }?.plan ?: plan
-        return Selection.Selected(winningPlan, winner)
+        return Selection.Selected(winningPlan, winner, outcome.ranked)
     }
 }

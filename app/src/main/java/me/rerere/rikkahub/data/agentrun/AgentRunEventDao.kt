@@ -19,4 +19,11 @@ interface AgentRunEventDao {
 
     @Query("DELETE FROM agent_run_events WHERE run_id = :runId")
     suspend fun deleteByRun(runId: String)
+
+    @Query(
+        "SELECT * FROM agent_run_events " +
+            "WHERE tool_name IS NOT NULL AND type IN ('TOOL_COMPLETED', 'PROCEDURE_STEP_SUCCEEDED') " +
+            "ORDER BY created_at_ms ASC LIMIT :limit"
+    )
+    suspend fun findSuccessfulToolEvents(limit: Int): List<AgentRunEvent>
 }

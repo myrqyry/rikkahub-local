@@ -150,6 +150,10 @@ class AgentRunTraceRepository(
 
     fun observeEvents(runId: String): Flow<List<AgentRunEvent>> = eventDao.findByRun(runId)
 
+    /** Latest successful tool-execution events across all runs, oldest first (roadmap B7 persisted-history mining). */
+    suspend fun successfulToolHistory(limit: Int = 500): List<AgentRunEvent> =
+        eventDao.findSuccessfulToolEvents(limit)
+
     private fun statusFor(type: AgentRunEventType, current: String): String = when (type) {
         AgentRunEventType.RUN_STARTED -> AgentRunStatus.running.name
         AgentRunEventType.RUN_COMPLETED -> AgentRunStatus.succeeded.name

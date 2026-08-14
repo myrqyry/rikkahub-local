@@ -233,7 +233,13 @@ val appModule = module {
     single {
         me.rerere.rikkahub.data.agentrun.ProcedureMiningFeed(
             repository = get(),
+            persistedHistory = {
+                me.rerere.rikkahub.data.agentrun.ToolExecutionHistoryAdapter(trace = get()).load()
+            },
         )
+    }
+    single {
+        me.rerere.rikkahub.data.agentrun.ToolExecutionHistoryAdapter(trace = get())
     }
     single<me.rerere.locallm.litert.CapabilityGrantSource> {
         me.rerere.rikkahub.data.preferences.ToolApprovalCapabilityGrantSource(

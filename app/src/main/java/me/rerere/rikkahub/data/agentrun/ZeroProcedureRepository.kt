@@ -4,6 +4,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import me.rerere.locallm.litert.zero.ProcedureCache
+import me.rerere.locallm.litert.zero.ProcedureReviewState
 import me.rerere.locallm.litert.zero.ZeroProcedure
 import me.rerere.rikkahub.data.db.entity.ZeroProcedureDao
 import me.rerere.rikkahub.data.db.entity.ZeroProcedureEntity
@@ -96,6 +97,33 @@ class ZeroProcedureRepository(
         return true
     }
 
+    /** Roadmap B8 — the stored row revision (source of truth for B6 receipts). */
+    suspend fun revisionOf(id: String): Long = dao.getById(id)?.revision ?: 0L
+
+    /** Roadmap B8 — current [ProcedureReviewState] for a procedure, defaulting to [ProcedureReviewState.REJECTED] when absent. */
+    suspend fun reviewStateOf(id: String): ProcedureReviewState {
+        val row = dao.getById(id) ?: return ProcedureReviewState.REJECTED
+        return row.toReviewState()
+    }
+
+    /** Roadmap B8 — explicit review-state transition. ENABLED is the only executable state. */
+    suspend fun setReviewState(id: String, state: ProcedureReviewState): Boolean {
+        val row = dao.getById(id) ?: return false
+        dao.update(
+            row.copy(
+                enabled = state.executable,
+                updatedAtMs = System.currentTimeMillis(),
+            )
+        )
+        return true
+    }
+
+    /** Roadmap B8 — list procedures in a given review state. */
+    suspend fun listByReviewState(state: ProcedureReviewState): List<ZeroProcedure> =
+        dao.listAll().filter { it.toReviewState() == state }.mapNotNull { row ->
+            runCatching { json.decodeFromString(ZeroProcedure.serializer(), row.procedureJson) }.getOrNull()
+        }
+
     suspend fun delete(id: String): Boolean = dao.deleteById(id) > 0
 
     suspend fun observeEnabled(ids: List<String>): List<ZeroProcedure> =
@@ -108,4 +136,16 @@ class ZeroProcedureRepository(
         dao.listBySource(source.wire).mapNotNull { row ->
             runCatching { json.decodeFromString(ZeroProcedure.serializer(), row.procedureJson) }.getOrNull()
         }
+}
+
+/**
+ * Roadmap B8 — derive the explicit review state from the stored disposition.
+ * A procedure is ENABLED only when the enabled flag is set; everything else maps to a
+ * non-executable review state (mined/imported candidates are disabled by default, so a
+ * disabled non-mined row is REJECTED and a disabled MINED row is CANDIDATE).
+ */
+private fun ZeroProcedureEntity.toReviewState(): ProcedureReviewState = when {
+    enabled -> ProcedureReviewState.ENABLED
+    source == ProcedureSource.MINED.wire -> ProcedureReviewState.CANDIDATE
+    else -> ProcedureReviewState.REJECTED
 }

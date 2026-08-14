@@ -21,6 +21,7 @@ class ProcedureMiningFeed(
     private val repository: ZeroProcedureRepository,
     private val miner: ProcedureMiner = ProcedureMiner(),
     private val executionsBeforeMine: Int = 20,
+    private val persistedHistory: (suspend () -> List<ToolExecution>)? = null,
 ) {
     private val history = ArrayList<ToolExecution>()
 
@@ -41,6 +42,17 @@ class ProcedureMiningFeed(
             repository.putMined(mined.procedure, mined.support)
         }
         history.clear()
+    }
+
+    /** Seed [ProcedureMiner] with authoritative persisted history, then mine it (roadmap B7). */
+    suspend fun minePersisted() {
+        val loader = persistedHistory ?: return
+        val persisted = loader()
+        if (persisted.isEmpty()) return
+        val result = miner.mine(persisted)
+        for (mined in result.mined) {
+            repository.putMined(mined.procedure, mined.support)
+        }
     }
 
     private fun argsOf(receipt: WorkflowReceipt): JsonObject {
