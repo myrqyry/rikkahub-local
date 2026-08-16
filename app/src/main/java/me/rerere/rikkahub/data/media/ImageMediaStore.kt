@@ -1,5 +1,6 @@
 package me.rerere.rikkahub.data.media
 
+import me.rerere.ai.ui.GeneratedImagePayload
 import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.rikkahub.data.ai.tools.image.ImageOperation
 import me.rerere.rikkahub.data.ai.tools.image.ImageToolCatalog
@@ -53,10 +54,8 @@ class DefaultImageMediaStore(
             type = type,
             sourceArtifacts = sourceArtifacts.map { it.artifactId },
         )
-        val file = filesManager.createImageFileFromBase64(
-            item.data,
-            File(filesManager.getImagesDir(), File(relativePath).name).absolutePath,
-        )
+        val file = File(filesManager.getImagesDir(), File(relativePath).name)
+        writePayloadToFile(item.payload, file)
         if (!file.exists()) error("artifact_save_failed")
         val insertedId = genMediaRepository.insertMedia(entity).toInt()
         if (insertedId <= 0) error("artifact_save_failed")
@@ -67,7 +66,7 @@ class DefaultImageMediaStore(
             path = file.absolutePath,
             uri = "file://${file.absolutePath}",
             galleryId = insertedId,
-            mimeType = item.mimeType,
+            mimeType = item.payload.mimeType,
             width = bounds.outWidth,
             height = bounds.outHeight,
         )
@@ -102,4 +101,21 @@ class DefaultImageMediaStore(
 internal fun buildImageRelativePath(timestamp: Long, modelName: String): String {
     val sanitizedModelName = modelName.replace(Regex("[^A-Za-z0-9_.\\-]"), "_").ifBlank { "image" }
     return "images/${timestamp}_${sanitizedModelName}_${System.nanoTime()}.png"
+}
+
+/**
+ * Writes a [GeneratedImagePayload] to [target], creating parent directories. File
+ * payloads are copied byte-for-byte (no base64 step); base64 payloads are decoded on
+ * write (cloud adapters keep their wire format).
+ */
+internal fun writePayloadToFile(payload: GeneratedImagePayload, target: File) {
+    target.parentFile?.mkdirs()
+    when (payload) {
+        is GeneratedImagePayload.Bytes -> target.writeBytes(payload.bytes)
+        is GeneratedImagePayload.File -> File(payload.path).readBytes().let { target.writeBytes(it) }
+        is GeneratedImagePayload.Base64 -> {
+            val raw = payload.data.substringAfter("base64,", payload.data)
+            target.writeBytes(java.util.Base64.getDecoder().decode(raw))
+        }
+    }
 }

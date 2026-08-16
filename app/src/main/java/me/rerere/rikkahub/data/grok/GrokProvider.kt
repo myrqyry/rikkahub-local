@@ -29,6 +29,7 @@ import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.TextGenerationParams
 import me.rerere.ai.provider.providers.openai.ResponseAPI
 import me.rerere.ai.ui.ImageAspectRatio
+import me.rerere.ai.ui.GeneratedImagePayload
 import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.ai.ui.MessageChunk
 import me.rerere.ai.ui.UIMessage
@@ -295,7 +296,7 @@ class GrokProvider(
             val obj = element.jsonObject
             val b64 = obj["b64_json"]?.jsonPrimitive?.contentOrNull
             if (b64 != null) {
-                ImageGenerationItem(data = b64, mimeType = "image/png")
+                ImageGenerationItem(payload = GeneratedImagePayload.Base64(b64, "image/png"))
             } else {
                 // grok-imagine returns short-lived imgen.x.ai URLs that 404 within minutes, so
                 // materialise the bytes immediately rather than handing the URL downstream.
@@ -315,7 +316,7 @@ class GrokProvider(
             }
             val respBody = response.body
             val mimeType = respBody.contentType()?.toString() ?: "image/png"
-            ImageGenerationItem(data = Base64.encode(respBody.bytes()), mimeType = mimeType)
+            ImageGenerationItem(payload = GeneratedImagePayload.Base64(Base64.encode(respBody.bytes()), mimeType))
         }
 
     private fun Request.Builder.grokHeaders(account: GrokAccount): Request.Builder {

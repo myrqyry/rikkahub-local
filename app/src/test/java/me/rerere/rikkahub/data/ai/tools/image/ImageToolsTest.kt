@@ -12,6 +12,7 @@ import me.rerere.ai.provider.ImageGenerationParams
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.TextGenerationParams
+import me.rerere.ai.ui.GeneratedImagePayload
 import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.ai.ui.MessageChunk
 import me.rerere.ai.ui.UIMessage
@@ -108,13 +109,13 @@ class ImageToolsTest {
             providerSetting: ProviderSetting,
             params: ImageGenerationParams,
         ): Flow<ImageGenerationItem> =
-            flowOf(ImageGenerationItem(data = "base64", mimeType = "image/png", partial = false))
+            flowOf(ImageGenerationItem(payload = GeneratedImagePayload.Base64("base64", "image/png"), partial = false))
 
         override suspend fun editImage(
             providerSetting: ProviderSetting,
             params: ImageEditParams,
         ): Flow<ImageGenerationItem> =
-            flowOf(ImageGenerationItem(data = "base64", mimeType = "image/png", partial = false))
+            flowOf(ImageGenerationItem(payload = GeneratedImagePayload.Base64("base64", "image/png"), partial = false))
 
         override suspend fun generateText(
             providerSetting: ProviderSetting,

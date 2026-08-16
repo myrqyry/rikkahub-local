@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.ui.ImageAspectRatio
+import me.rerere.ai.ui.GeneratedImagePayload
 import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.locallm.SdCatalog
 import me.rerere.locallm.SdGenerationProfile
@@ -186,19 +187,19 @@ class StableDiffusionProviderTest {
     @Test
     fun `numOfImages emits that many items`() = runBlocking {
         val items = generateSerially(count = 3) { index ->
-            ImageGenerationItem(data = "png-$index", mimeType = "image/png")
+            ImageGenerationItem(payload = GeneratedImagePayload.Base64("png-$index", "image/png"))
         }.toList()
         assertEquals(3, items.size)
-        assertEquals(listOf("png-0", "png-1", "png-2"), items.map { it.data })
+        assertEquals(listOf("png-0", "png-1", "png-2"), items.map { (it.payload as GeneratedImagePayload.Base64).data })
     }
 
     @Test
     fun `numOfImages of one emits a single item`() = runBlocking {
         val items = generateSerially(count = 1) {
-            ImageGenerationItem(data = "only", mimeType = "image/png")
+            ImageGenerationItem(payload = GeneratedImagePayload.Base64("only", "image/png"))
         }.toList()
         assertEquals(1, items.size)
-        assertEquals("only", items.single().data)
+        assertEquals("only", (items.single().payload as GeneratedImagePayload.Base64).data)
     }
 
     @Test

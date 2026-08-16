@@ -4,8 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class ImageGenerationItem(
-    val data: String,
-    val mimeType: String,
+    val payload: GeneratedImagePayload,
     val partial: Boolean = false,
     val partialImageIndex: Int? = null,
 )

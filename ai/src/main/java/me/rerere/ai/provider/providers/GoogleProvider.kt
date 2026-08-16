@@ -33,6 +33,7 @@ import me.rerere.ai.core.TokenUsage
 import me.rerere.ai.provider.BuiltInTools
 import me.rerere.ai.provider.ImageGenerationParams
 import me.rerere.ai.ui.ImageAspectRatio
+import me.rerere.ai.ui.GeneratedImagePayload
 import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.ai.provider.Modality
 import me.rerere.ai.provider.Model
@@ -899,8 +900,7 @@ class GoogleProvider(private val client: OkHttpClient, context: Context? = null)
 
                 if (bytesBase64Encoded != null) {
                     ImageGenerationItem(
-                        data = bytesBase64Encoded,
-                        mimeType = "image/png"
+                        payload = GeneratedImagePayload.Base64(bytesBase64Encoded, "image/png")
                     )
                 } else {
                     null

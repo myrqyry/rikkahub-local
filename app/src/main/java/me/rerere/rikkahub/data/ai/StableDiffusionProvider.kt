@@ -26,6 +26,7 @@ import me.rerere.ai.provider.Provider
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.TextGenerationParams
 import me.rerere.ai.ui.ImageAspectRatio
+import me.rerere.ai.ui.GeneratedImagePayload
 import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.ai.ui.MessageChunk
 import me.rerere.ai.ui.UIMessage
@@ -211,10 +212,8 @@ class StableDiffusionProvider(
                     }
 
                     val pngBytes = rgbaToPng(rgba, width, height)
-                    val b64 = Base64.encodeToString(pngBytes, Base64.NO_WRAP)
                     ImageGenerationItem(
-                        data = b64,
-                        mimeType = "image/png",
+                        payload = GeneratedImagePayload.Bytes(pngBytes, "image/png"),
                         partial = false,
                         partialImageIndex = if (params.numOfImages > 1) index else null,
                     )

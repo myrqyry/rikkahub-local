@@ -40,6 +40,7 @@ import me.rerere.rikkahub.data.db.entity.GenMediaEntity
 import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.data.media.ImageMediaStore
 import me.rerere.rikkahub.data.media.MediaArtifactRef
+import me.rerere.rikkahub.data.media.writePayloadToFile
 import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
 import me.rerere.rikkahub.data.modelregistry.ModelRegistry
 import me.rerere.rikkahub.data.modelregistry.ModelResolution
@@ -366,7 +367,8 @@ class ImgGenVM(
     ): File {
         val timestamp = System.currentTimeMillis()
         val imageFile = File(getApplication<Application>().appTempFolder, "imggen_${timestamp}_${modelName}_$index.png")
-        return filesManager.createImageFileFromBase64(item.data, imageFile.absolutePath)
+        writePayloadToFile(item.payload, imageFile)
+        return imageFile
     }
 
     private suspend fun saveImageToStorage(
