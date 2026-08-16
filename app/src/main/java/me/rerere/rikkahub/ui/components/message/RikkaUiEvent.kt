@@ -1,6 +1,7 @@
 package me.rerere.rikkahub.ui.components.message
 
 import kotlinx.serialization.json.Json
+import me.rerere.ai.ui.DEFAULT_NAV_DESTINATIONS
 import me.rerere.ai.ui.UIMessagePart
 
 /**
@@ -33,3 +34,13 @@ fun formSubmitToText(event: RikkaUiEvent.FormSubmit): String {
 /** Wraps a [RikkaUiEvent.FormSubmit] as an ordinary new user turn. */
 fun formSubmitToUserTurn(event: RikkaUiEvent.FormSubmit): List<UIMessagePart> =
     listOf(UIMessagePart.Text(formSubmitToText(event)))
+
+/**
+ * Resolves a model-authored navigation destination against an allowlist.
+ * Returns null when the destination is not allowlisted, so a model can never
+ * drive the [androidx.navigation.NavController] directly.
+ */
+fun resolveNavigationDestination(
+    destination: String,
+    allowlist: Set<String> = DEFAULT_NAV_DESTINATIONS,
+): String? = destination.takeIf { it in allowlist }

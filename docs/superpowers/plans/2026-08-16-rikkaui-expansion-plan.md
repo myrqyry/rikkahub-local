@@ -654,7 +654,7 @@ fun RikkaUiRenderer(
     modifier: Modifier = Modifier,
 ) {
     var values by rememberSaveable(renderId, saver = formValuesSaver) { mutableStateOf(seedFrom(ui)) }
-    ...
+    // Body per node branch: render the 14 RikkaUi node types, reading and writing the root state map.
 }
 ```
 
