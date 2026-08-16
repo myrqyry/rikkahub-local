@@ -49,8 +49,8 @@ app is left stopped unless it was running before the restore.
 
 ## `test-rikkahub-data.sh` — shell validation
 
-Runs the CLI argument and `run-as` failure-path cases against a fake `adb` in
-`PATH` (no device required).
+Runs the CLI argument and `run-as` failure-path cases against a test-double `adb`
+in `PATH` (no device required).
 
 ```bash
 scripts/test-rikkahub-data.sh

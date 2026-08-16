@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Shell-level validation for scripts/rikkahub-data.sh.
-# Uses a fake `adb` in PATH so no device is touched.
+# Uses a test-double `adb` in PATH so no device is touched.
 #
 set -u
 
