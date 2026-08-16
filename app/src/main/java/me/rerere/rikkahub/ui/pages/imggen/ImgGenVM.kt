@@ -12,15 +12,20 @@ import androidx.paging.map
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import me.rerere.ai.provider.ImageCapabilities
 import me.rerere.ai.provider.ImageEditParams
 import me.rerere.ai.provider.ImageGenerationParams
 import me.rerere.ai.provider.ProviderManager
+import me.rerere.ai.provider.ProviderSetting
+import me.rerere.ai.provider.imageCapabilities
 import me.rerere.ai.ui.ImageAspectRatio
 import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.common.android.appTempFolder
@@ -104,6 +109,33 @@ class ImgGenVM(
 
     val generationProgress: StateFlow<GenerationProgress?> = StableDiffusionBridge.progress
 
+    private val _imageCapabilities = MutableStateFlow(ProviderSetting.StableDiffusion().imageCapabilities)
+    val imageCapabilities: StateFlow<ImageCapabilities> = _imageCapabilities
+
+    init {
+        viewModelScope.launch {
+            settingsStore.settingsFlow.collect { settings ->
+                val resolved = modelRoleResolver.resolve(
+                    ModelRole.IMAGE_GENERATION,
+                    settings.getCurrentAssistant(),
+                    settings,
+                    ModelSourcePolicy.ANY,
+                )
+                val providerId = when (resolved) {
+                    is ModelResolution.Resolved -> {
+                        val aiModel = runCatching {
+                            settings.findModelById(Uuid.parse(resolved.model.id))
+                        }.getOrNull()
+                        aiModel?.findProvider(settings.providers)?.id
+                    }
+                    else -> null
+                }
+                val setting = settings.providers.find { it.id == providerId }
+                _imageCapabilities.value = setting?.imageCapabilities ?: ProviderSetting.StableDiffusion().imageCapabilities
+            }
+        }
+    }
+
     val pager = Pager(
         config = PagingConfig(pageSize = 20, enablePlaceholders = false),
         pagingSourceFactory = { genMediaRepository.getAllMedia() }
@@ -119,7 +151,7 @@ class ImgGenVM(
     }
 
     fun updateNumberOfImages(count: Int) {
-        _numberOfImages.value = count.coerceIn(1, 4)
+        _numberOfImages.value = count.coerceIn(1, _imageCapabilities.value.maxOutputs.coerceAtLeast(1))
     }
 
     fun updateAspectRatio(aspectRatio: ImageAspectRatio) {
