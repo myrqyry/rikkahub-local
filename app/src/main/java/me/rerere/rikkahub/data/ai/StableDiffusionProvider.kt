@@ -67,6 +67,13 @@ class StableDiffusionProvider(
         memInfo.totalMem
     }.getOrDefault(0L)
 
+    /** Best-effort currently-available RAM in bytes; 0 when unavailable. */
+    private fun deviceAvailRamBytes(): Long = runCatching {
+        val memInfo = ActivityManager.MemoryInfo()
+        (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.getMemoryInfo(memInfo)
+        memInfo.availMem
+    }.getOrDefault(0L)
+
     override suspend fun listModels(providerSetting: ProviderSetting.StableDiffusion): List<Model> {
         return providerSetting.models
     }
@@ -119,13 +126,20 @@ class StableDiffusionProvider(
         )?.let { throw IllegalStateException(it) }
 
         // Memory policy: refuse clearly-dangerous model-size + resolution combinations BEFORE
-        // paying for a multi-GB context init. The warm session is already released on
-        // TRIM_MEMORY_RUNNING_CRITICAL / onLowMemory via the ComponentCallbacks2 above.
+        // paying for a multi-GB context init. The budget is what the device can actually spare:
+        // available RAM minus the Android reserve minus the app's known working set. The warm
+        // session is already released on TRIM_MEMORY_RUNNING_CRITICAL / onLowMemory via the
+        // ComponentCallbacks2 above.
+        val budget = estimateRuntimeBudget(
+            availMem = deviceAvailRamBytes(),
+            androidReserve = ANDROID_RESERVE_BYTES,
+            knownWorkingSet = Runtime.getRuntime().maxMemory(),
+        )
         sdMemoryPolicyViolation(
             modelSizeBytes = File(modelPath).length(),
             width = width,
             height = height,
-            deviceRamBytes = deviceTotalRamBytes(),
+            deviceRamBytes = budget,
         )?.let { throw IllegalStateException(it) }
 
         var initialized = false
@@ -415,12 +429,17 @@ internal fun resolveEffectiveGenerationParams(
 /** Conservative per-pixel buffer estimate (output RGBA + working latents) used by the memory policy. */
 internal const val SD_MEMORY_BYTES_PER_PIXEL = 4L
 
+/** Fixed Android/system reserve subtracted from available RAM before image admission. */
+internal const val ANDROID_RESERVE_BYTES = 1536L * 1024L * 1024L
+
 /**
  * Memory policy (roadmap #4). Returns a refusal message when a model-size + resolution
- * combination would clearly exceed the device's physical RAM, or null when it is safe to
+ * combination would clearly exceed the runtime budget passed in, or null when it is safe to
  * proceed. Uses the on-disk model size (mmap keeps most pages lazily loaded, but the sampling
- * working set is comparable) plus a per-pixel buffer estimate. The check is intentionally
- * conservative: refusing a combo here is far cheaper than OOM-killing a 2 GB context mid-sampling.
+ * working set is comparable) plus a conservative workspace + output estimate. The check is
+ * intentionally conservative: refusing a combo here is far cheaper than OOM-killing a 2 GB
+ * context mid-sampling. The caller reduces the device's physical RAM to the real budget via
+ * [estimateRuntimeBudget]; passing total RAM here skips the reserve arithmetic (tests do this).
  */
 internal fun sdMemoryPolicyViolation(
     modelSizeBytes: Long,
@@ -429,7 +448,15 @@ internal fun sdMemoryPolicyViolation(
     deviceRamBytes: Long,
 ): String? {
     if (modelSizeBytes <= 0L || width <= 0 || height <= 0 || deviceRamBytes <= 0L) return null
-    val estimatedBytes = modelSizeBytes + width.toLong() * height.toLong() * SD_MEMORY_BYTES_PER_PIXEL
+    // The safety margin lives in the caller's budget (ANDROID_RESERVE_BYTES); keeping it at zero
+    // here preserves the exact boundary the provider tests assert (model + buffers fits device RAM).
+    val profile = RuntimeMemoryProfile(
+        modelResidentEstimate = modelSizeBytes,
+        workspaceEstimate = workspaceEstimateBytes(width, height),
+        outputEstimate = outputEstimateBytes(width, height),
+        safetyMargin = 0L,
+    )
+    val estimatedBytes = profile.requiredBytes
     if (estimatedBytes <= deviceRamBytes) return null
     return "This image model (${formatMemorySize(modelSizeBytes)}) at ${width}x$height needs roughly " +
         "${formatMemorySize(estimatedBytes)} of memory, more than the device's " +
