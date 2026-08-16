@@ -45,7 +45,7 @@ import kotlin.uuid.Uuid
 /**
  * Minimal settings surface [ImageTools] reads (mirrors `SettingsStore.settingsFlow.value`).
  * A tiny functional interface instead of the concrete [me.rerere.rikkahub.data.datastore.SettingsStore]
- * so the JVM tests can fake it without an Android Context / DataStore; the Koin wiring bridges
+ * so the JVM tests can substitute it without an Android Context / DataStore; the Koin wiring bridges
  * it with `SettingsProvider { get<SettingsStore>().settingsFlow.value }`.
  */fun interface SettingsProvider {
     fun current(): Settings

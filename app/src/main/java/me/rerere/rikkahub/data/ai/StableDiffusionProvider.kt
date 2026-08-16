@@ -250,7 +250,7 @@ class StableDiffusionProvider(
                 e,
             )
         } catch (e: CancellationException) {
-            // User/app cancellation is normal coroutine control flow. Never turn it into a fake
+            // User/app cancellation is normal coroutine control flow. Never turn it into a test-double
             // generation failure; generateNativeWithCancellation already tells sd.cpp to stop.
             bridge.setPhase(GenerationPhase.CANCELLED)
             releaseEvictedSessionIfNeeded()
