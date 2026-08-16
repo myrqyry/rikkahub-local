@@ -58,6 +58,20 @@ cd locale-tui && uv run pytest
 cd web-ui && pnpm run typecheck
 ```
 
+## Installed data preservation
+
+During stabilization and upgrade testing, preserve installed app data. Never
+uninstall the app, run `pm clear`, delete its data directory, change
+`applicationId`, reset a database, or replace persistent storage unless the user
+explicitly authorizes a narrowly scoped destructive test on a disposable
+installation. Install development APKs with `adb install -r`. Before any
+migration or storage operation, create a verified backup when the workflow
+supports it.
+
+Implementation reports must list completed work, remaining work, tests executed,
+tests not executed and why, device verification, known risks, and the commit or
+PR containing the work.
+
 ## Core Workflows
 
 ### WAL Protocol (Write-Ahead Logging)

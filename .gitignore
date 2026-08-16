@@ -52,3 +52,7 @@ app/src/main/jni/litert/litert_cc_sdk/
 /MEMORY.md
 /SESSION-STATE.md
 /memory/
+
+# Sensitive developer backup archives — may contain API keys; keep out of the repo
+/var/tmp/rikkahub-local-backups/
+.rikkahub-backup/

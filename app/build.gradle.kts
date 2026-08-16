@@ -153,6 +153,10 @@ android {
         // pattern as redundant; the runtime accepts it. Keep the rules; mute
         // the check.
         disable.add("FullBackupContent")
+        // Pre-existing lint debt captured at P0 stabilization (2026-08-16): 628 errors /
+        // 508 warnings, dominated by MissingTranslation and resource-context calls. The
+        // baseline keeps CI lint green while failing on NEW issues; fix the debt over time.
+        baseline = file("lint-baseline.xml")
     }
     tasks.withType<KotlinCompile>().configureEach {
         compilerOptions.optIn.add("androidx.compose.material3.ExperimentalMaterial3Api")
