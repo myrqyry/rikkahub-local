@@ -144,4 +144,17 @@ class RikkaUiSerializationTest {
         )
         assert(json.encodeToString(RikkaUiAction.serializer(), submit).contains("ui_submit"))
     }
+
+    @Test
+    fun `generated ui round-trips with renderId`() {
+        val part = UIMessagePart.GeneratedUi(renderId = "call_123", ui = RikkaUi.Text(content = "hi"))
+
+        val encoded = json.encodeToString(UIMessagePart.GeneratedUi.serializer(), part)
+        val decoded = json.decodeFromString(UIMessagePart.GeneratedUi.serializer(), encoded)
+
+        assertEquals(part, decoded)
+        assert(encoded.contains("call_123"))
+        val polyEncoded = json.encodeToString(UIMessagePart.serializer(), part)
+        assert(polyEncoded.contains("generated_ui"))
+    }
 }

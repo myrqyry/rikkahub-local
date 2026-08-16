@@ -401,6 +401,7 @@ sealed class UIMessagePart {
     @Serializable
     @SerialName("generated_ui")
     data class GeneratedUi(
+        val renderId: String,
         val ui: RikkaUi,
         override var metadata: JsonObject? = null
     ) : UIMessagePart()
