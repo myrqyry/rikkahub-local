@@ -13,6 +13,7 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -24,6 +25,7 @@ import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.Provider
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.TextGenerationParams
+import me.rerere.ai.ui.ImageAspectRatio
 import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.ai.ui.MessageChunk
 import me.rerere.ai.ui.UIMessage
@@ -102,13 +104,15 @@ class StableDiffusionProvider(
         // through the same LocalRuntimePreferences inventory that Model Manager writes instead of
         // relying on a second, independently-mutated currentModelPath field.
         val modelPath = resolveInstalledModelPath(providerSetting, params.model)
+        val profile = SdCatalog.findByModelFile(params.model.modelId)?.generationProfile
         val effective = resolveEffectiveGenerationParams(
             providerSetting = providerSetting,
-            profile = SdCatalog.findByModelFile(params.model.modelId)?.generationProfile,
+            profile = profile,
         )
+        val (width, height) = resolveAspectDimensions(params.aspectRatio, profile)
         stableDiffusionRequestError(
-            width = effective.width,
-            height = effective.height,
+            width = width,
+            height = height,
             steps = effective.steps,
             cfg = effective.cfgScale,
         )?.let { throw IllegalStateException(it) }
@@ -118,8 +122,8 @@ class StableDiffusionProvider(
         // TRIM_MEMORY_RUNNING_CRITICAL / onLowMemory via the ComponentCallbacks2 above.
         sdMemoryPolicyViolation(
             modelSizeBytes = File(modelPath).length(),
-            width = effective.width,
-            height = effective.height,
+            width = width,
+            height = height,
             deviceRamBytes = deviceTotalRamBytes(),
         )?.let { throw IllegalStateException(it) }
 
@@ -182,31 +186,40 @@ class StableDiffusionProvider(
                 )
             }
 
-            // Phase 2 — GENERATING. The 120s deadline applies to sampling only, after the
-            // model is loaded and the warm session is reusable.
-            bridge.setPhase(GenerationPhase.GENERATING)
-            val rgba = generateNativeWithCancellation(
-                prompt = params.prompt,
-                negativePrompt = providerSetting.negativePrompt,
-                width = effective.width,
-                height = effective.height,
-                steps = effective.steps,
-                cfg = effective.cfgScale,
-                seed = providerSetting.seed,
-            ) ?: throw IllegalStateException(
-                "Generation failed or was cancelled by the native runtime. Check model compatibility and available memory."
+            // Phase 2 — GENERATING. One 120s deadline per image; the warm session is reused
+            // across the serial loop so peak memory stays bounded (no batch_count multiplier).
+            emitAll(
+                generateSerially(count = params.numOfImages) { index ->
+                    bridge.setPhase(GenerationPhase.GENERATING)
+                    val rgba = generateNativeWithCancellation(
+                        prompt = params.prompt,
+                        negativePrompt = providerSetting.negativePrompt,
+                        width = width,
+                        height = height,
+                        steps = effective.steps,
+                        cfg = effective.cfgScale,
+                        seed = providerSetting.seed,
+                    ) ?: throw IllegalStateException(
+                        "Generation failed or was cancelled by the native runtime. Check model compatibility and available memory."
+                    )
+
+                    val expectedBytes = width.toLong() * height.toLong() * 4L
+                    if (expectedBytes > Int.MAX_VALUE || rgba.size != expectedBytes.toInt()) {
+                        throw IllegalStateException(
+                            "Native image output had ${rgba.size} bytes; expected $expectedBytes RGBA bytes."
+                        )
+                    }
+
+                    val pngBytes = rgbaToPng(rgba, width, height)
+                    val b64 = Base64.encodeToString(pngBytes, Base64.NO_WRAP)
+                    ImageGenerationItem(
+                        data = b64,
+                        mimeType = "image/png",
+                        partial = false,
+                        partialImageIndex = if (params.numOfImages > 1) index else null,
+                    )
+                },
             )
-
-            val expectedBytes = effective.width.toLong() * effective.height.toLong() * 4L
-            if (expectedBytes > Int.MAX_VALUE || rgba.size != expectedBytes.toInt()) {
-                throw IllegalStateException(
-                    "Native image output had ${rgba.size} bytes; expected $expectedBytes RGBA bytes."
-                )
-            }
-
-            val pngBytes = rgbaToPng(rgba, effective.width, effective.height)
-            val b64 = Base64.encodeToString(pngBytes, Base64.NO_WRAP)
-            emit(ImageGenerationItem(data = b64, mimeType = "image/png"))
             bridge.setPhase(GenerationPhase.COMPLETED)
         } catch (e: UnsatisfiedLinkError) {
             bridge.setPhase(GenerationPhase.FAILED)
@@ -334,6 +347,41 @@ internal data class EffectiveGenerationParams(
     val steps: Int,
     val cfgScale: Float,
 )
+
+/**
+ * Resolves the requested [ImageAspectRatio] against a model's [SdGenerationProfile], so a
+ * 512-oriented model gets a modest landscape/portrait pair while an SDXL-scale profile keeps
+ * larger dimensions. The base pair is the profile's default dims (512×512 when absent); the
+ * ratio then orients them instead of a hardcoded universal resolution.
+ */
+internal fun resolveAspectDimensions(
+    aspectRatio: ImageAspectRatio,
+    profile: SdGenerationProfile?,
+): Pair<Int, Int> {
+    val (w, h) = when {
+        profile != null -> profile.defaultWidth to profile.defaultHeight
+        else -> 512 to 512
+    }
+    return when (aspectRatio) {
+        ImageAspectRatio.SQUARE -> w to h
+        ImageAspectRatio.LANDSCAPE -> maxOf(w, h) to minOf(w, h)
+        ImageAspectRatio.PORTRAIT -> minOf(w, h) to maxOf(w, h)
+    }
+}
+
+/**
+ * Emits one item per requested image, generating serially so the warm native session is reused
+ * while peak memory stays bounded (no batch_count multiplier).
+ */
+internal fun generateSerially(
+    count: Int,
+    generateOne: suspend (index: Int) -> ImageGenerationItem,
+): Flow<ImageGenerationItem> = flow {
+    require(count >= 1) { "numOfImages must be at least 1" }
+    repeat(count) { index ->
+        emit(generateOne(index))
+    }
+}
 
 /**
  * Resolves model-aware generation defaults.

@@ -1,6 +1,10 @@
 package me.rerere.rikkahub.data.ai
 
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.runBlocking
 import me.rerere.ai.provider.ProviderSetting
+import me.rerere.ai.ui.ImageAspectRatio
+import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.locallm.SdCatalog
 import me.rerere.locallm.SdGenerationProfile
 import org.junit.Assert.assertEquals
@@ -155,6 +159,46 @@ class StableDiffusionProviderTest {
         assertEquals("1 MB", formatMemorySize(1024L * 1024))
         assertEquals("1.00 GB", formatMemorySize(1024L * 1024 * 1024))
         assertEquals("2.16 GB", formatMemorySize(2_320_000_000L))
+    }
+
+    @Test
+    fun `aspectRatio selects profile-aware dimensions`() {
+        val profile = SdGenerationProfile(
+            defaultWidth = 768,
+            defaultHeight = 512,
+            minSteps = 1,
+            maxSteps = 4,
+            defaultSteps = 1,
+            defaultCfgScale = 0f,
+        )
+        assertEquals(768 to 512, resolveAspectDimensions(ImageAspectRatio.SQUARE, profile))
+        assertEquals(768 to 512, resolveAspectDimensions(ImageAspectRatio.LANDSCAPE, profile))
+        assertEquals(512 to 768, resolveAspectDimensions(ImageAspectRatio.PORTRAIT, profile))
+    }
+
+    @Test
+    fun `aspectRatio falls back to 512 square without a profile`() {
+        assertEquals(512 to 512, resolveAspectDimensions(ImageAspectRatio.SQUARE, null))
+        assertEquals(512 to 512, resolveAspectDimensions(ImageAspectRatio.LANDSCAPE, null))
+        assertEquals(512 to 512, resolveAspectDimensions(ImageAspectRatio.PORTRAIT, null))
+    }
+
+    @Test
+    fun `numOfImages emits that many items`() = runBlocking {
+        val items = generateSerially(count = 3) { index ->
+            ImageGenerationItem(data = "png-$index", mimeType = "image/png")
+        }.toList()
+        assertEquals(3, items.size)
+        assertEquals(listOf("png-0", "png-1", "png-2"), items.map { it.data })
+    }
+
+    @Test
+    fun `numOfImages of one emits a single item`() = runBlocking {
+        val items = generateSerially(count = 1) {
+            ImageGenerationItem(data = "only", mimeType = "image/png")
+        }.toList()
+        assertEquals(1, items.size)
+        assertEquals("only", items.single().data)
     }
 
     @Test
