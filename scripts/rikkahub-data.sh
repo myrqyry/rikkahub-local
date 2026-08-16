@@ -214,7 +214,7 @@ validate_archive() {
 import sys
 for line in sys.stdin:
     p = line.rstrip("\n").rstrip("/")
-    if p == "contents/manifest.json" or p == "contents/metadata.json":
+    if p == "contents" or p == "contents/manifest.json" or p == "contents/metadata.json":
         continue
     if not p.startswith("contents/"):
         sys.exit(f"unsafe entry outside contents/: {p}")
@@ -227,14 +227,16 @@ for line in sys.stdin:
   has_symlink="$(tar -tvzf "$archive" | awk '$1 ~ /^l/ {print $6}' | head -1 || true)"
   [[ -z "$has_symlink" ]] || die "archive rejected: symlink entry: $has_symlink"
 
-  tar -xzf "$archive" -C "$TMP_DIR" contents/manifest.json contents/metadata.json
+  # Full extraction, then verify metadata + checksums against the extracted tree.
+  tar -xzf "$archive" -C "$TMP_DIR"
 
   # Package identity must match.
   local pkg_in_meta
   pkg_in_meta="$(python3 -c "import json;print(json.load(open('$TMP_DIR/contents/metadata.json'))['package_id'])")"
   [[ "$pkg_in_meta" == "$package" ]] || die "archive package mismatch: $pkg_in_meta != $package"
 
-  # Manifest must declare every file we are about to restore, with matching hashes.
+  # Manifest must declare every extracted file, with matching hashes, and every declared
+  # file must actually be present.
   python3 - "$TMP_DIR/contents" <<'EOF'
 import hashlib, json, os, sys
 root = sys.argv[1]
@@ -252,7 +254,17 @@ for p, want in declared.items():
     if got != want:
         sys.exit(f"archive rejected: checksum mismatch for {p}")
 if missing:
-    sys.exit("archive rejected: missing entries: " + ", ".join(missing))
+    sys.exit("archive rejected: missing entries: " + ", ".join(missing[:20]))
+undelclared = []
+for dirpath, _dirnames, filenames in os.walk(root):
+    for fn in filenames:
+        p = os.path.relpath(os.path.join(dirpath, fn), root)
+        if p in ("manifest.json", "metadata.json"):
+            continue
+        if p not in declared:
+            undelclared.append(p)
+if undelclared:
+    sys.exit("archive rejected: undeclared files: " + ", ".join(undelclared[:10]))
 print("archive OK: %d entries" % len(declared))
 EOF
 }
@@ -263,16 +275,13 @@ EOF
 do_restore() {
   local archive="$1" pid running=no
   require_cmd adb require_cmd tar
+  # validate_archive fully extracts and verifies into $TMP_DIR/contents.
   validate_archive "$archive"
+  local extracted="$TMP_DIR"
 
   # Rescue backup before touching anything.
   log "creating rescue backup before restore"
   do_backup "$BACKUP_DIR/$package-rescue-$(date -u +%Y%m%dT%H%M%SZ).tar"
-
-  TMP_DIR="$(mktemp -d)"
-  trap 'rm -rf "$TMP_DIR"' EXIT
-  chmod 700 "$TMP_DIR"
-  tar -xzf "$archive" -C "$TMP_DIR"
 
   pid="$(adb_cmd shell pidof "$package" | tr -d '\r' || true)"
   if [[ -n "$pid" ]]; then
@@ -281,9 +290,13 @@ do_restore() {
     sleep 1
   fi
 
-  # Remove stale WAL/SHM, then restore the DB set together.
+  # Remove stale WAL/SHM, then restore the DB set together. Stream host -> device via exec-in.
+  # The stream must NOT contain a "." root entry: extracting it would reset the package data
+  # dir mode (e.g. to 0775 under the app umask), which blocks run-as afterwards. Subdirectory
+  # modes are irrelevant to run-as; only the root data dir is checked.
   adb_cmd shell run-as "$package" rm -f "$DB_WAL" "$DB_SHM" || true
-  (cd "$TMP_DIR/contents" && tar -cf - .) | adb_cmd exec-out run-as "$package" tar -xf -
+  (cd "$extracted/contents" && find . -mindepth 1 -print0 | tar --null --no-recursion -cf - -T -) |
+    adb_cmd exec-in run-as "$package" tar -xf -
 
   if [[ "$running" == yes ]]; then
     adb_cmd shell monkey -p "$package" 1 >/dev/null 2>&1 || true

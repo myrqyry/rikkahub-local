@@ -55,3 +55,24 @@ Runs the CLI argument and `run-as` failure-path cases against a fake `adb` in
 ```bash
 scripts/test-rikkahub-data.sh
 ```
+
+## `rikkahub-upgrade.sh` — in-place APK upgrade harness
+
+Verifies a genuine `adb install -r` upgrade preserves app state. Checks package
+ID and signing certificate identity, makes a safety backup, seeds state markers,
+installs old in place, installs new in place, and verifies the package UID is
+unchanged and the seeded state survived.
+
+```bash
+scripts/rikkahub-upgrade.sh --serial <SERIAL> --old <old.apk> --new <new.apk> \
+  --package excp.rikkahub.local --backup /var/tmp/rikkahub-local-backups
+```
+
+Old and new APKs must share the exact application ID and signing key. The harness
+never uninstalls and never runs `pm clear`.
+
+> [!IMPORTANT]
+> Never run `./gradlew :app:connectedDebugAndroidTest` against your primary phone:
+> AGP uninstalls the target app package after the instrumentation run, wiping its
+> data. Run connected tests only on a disposable emulator or disposable device.
+> The upgrade harness is the safe way to test in-place upgrades on a real device.
