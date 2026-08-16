@@ -48,14 +48,14 @@ class StableDiffusionProvider(
         context.applicationContext.registerComponentCallbacks(object : ComponentCallbacks2 {
             override fun onTrimMemory(level: Int) {
                 if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
-                    bridge.invalidateSession()
+                    bridge.requestEviction()
                 }
             }
 
             override fun onConfigurationChanged(newConfig: Configuration) = Unit
 
             override fun onLowMemory() {
-                bridge.invalidateSession()
+                bridge.requestEviction()
             }
         })
     }
@@ -234,14 +234,17 @@ class StableDiffusionProvider(
                 },
             )
             bridge.setPhase(GenerationPhase.COMPLETED)
+            releaseEvictedSessionIfNeeded()
         } catch (e: UnsatisfiedLinkError) {
             bridge.setPhase(GenerationPhase.FAILED)
+            releaseEvictedSessionIfNeeded()
             throw IllegalStateException(
                 "Image generation is not available on this device (arm64 native runtime required)",
                 e,
             )
         } catch (e: TimeoutCancellationException) {
             bridge.setPhase(GenerationPhase.FAILED)
+            releaseEvictedSessionIfNeeded()
             throw IllegalStateException(
                 "Generation timed out and was cancelled. Try fewer steps or a smaller image/model.",
                 e,
@@ -250,13 +253,30 @@ class StableDiffusionProvider(
             // User/app cancellation is normal coroutine control flow. Never turn it into a fake
             // generation failure; generateNativeWithCancellation already tells sd.cpp to stop.
             bridge.setPhase(GenerationPhase.CANCELLED)
+            releaseEvictedSessionIfNeeded()
             throw e
         } catch (e: IllegalStateException) {
             bridge.setPhase(GenerationPhase.FAILED)
+            releaseEvictedSessionIfNeeded()
             throw e
         } catch (e: Exception) {
             bridge.setPhase(GenerationPhase.FAILED)
+            releaseEvictedSessionIfNeeded()
             throw IllegalStateException("Generation error: ${e.message ?: e::class.simpleName}", e)
+        }
+    }
+
+    /**
+     * Applies a low-memory eviction that was requested while a native call was in flight. The
+     * release is deferred onto the serialized native dispatcher so it never runs synchronously
+     * from the Android lifecycle callback thread, and never races the in-flight JNI call.
+     */
+    private suspend fun releaseEvictedSessionIfNeeded() {
+        if (bridge.evictionRequested) {
+            withContext(nativeDispatcher) {
+                bridge.invalidateSession()
+            }
+            bridge.evictionRequested = false
         }
     }
 
