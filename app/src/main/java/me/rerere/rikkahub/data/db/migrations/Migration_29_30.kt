@@ -28,6 +28,20 @@ object Migration_29_30 : Migration(29, 30) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_agent_run_events_tool_name` ON `agent_run_events` (`tool_name`)")
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_agent_run_events_operation_id` ON `agent_run_events` (`operation_id`)")
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_agent_run_events_effect_category` ON `agent_run_events` (`effect_category`)")
-        db.execSQL("ALTER TABLE `conversationentity` ADD COLUMN `revision` INTEGER NOT NULL DEFAULT 0")
+        // Idempotent: a reconciled/restored file may already carry `revision` when it was built
+        // from a newer schema before being stamped down. Guard, never drop — non-destructive.
+        var hasRevision = false
+        db.query("PRAGMA table_info(`conversationentity`)").use { c ->
+            val nameIdx = c.getColumnIndex("name")
+            while (c.moveToNext()) {
+                if (c.getString(nameIdx) == "revision") {
+                    hasRevision = true
+                    break
+                }
+            }
+        }
+        if (!hasRevision) {
+            db.execSQL("ALTER TABLE `conversationentity` ADD COLUMN `revision` INTEGER NOT NULL DEFAULT 0")
+        }
     }
 }

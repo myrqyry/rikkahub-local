@@ -7,6 +7,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import me.rerere.rikkahub.data.db.migrations.Migration_27_28
 import me.rerere.rikkahub.data.db.migrations.Migration_28_29
+import me.rerere.rikkahub.data.db.migrations.Migration_29_30
+import me.rerere.rikkahub.data.db.migrations.Migration_30_31
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -47,6 +49,12 @@ class ImportedDatabaseReconcilerTest {
         "workflows", "workflow_runs", "agent_runs",
     )
 
+    // Tables created by the registered migration chain (schema 30 / 31), not present in an
+    // upstream 2.4.1 (fork v27) backup.
+    private val CHAIN_CREATED_TABLES = listOf(
+        "agent_run_events", "zero_procedures",
+    )
+
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
 
     @Before
@@ -65,7 +73,7 @@ class ImportedDatabaseReconcilerTest {
 
         val room = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
             .allowMainThreadQueries()
-            .addMigrations(Migration_27_28, Migration_28_29)
+            .addMigrations(Migration_27_28, Migration_28_29, Migration_29_30, Migration_30_31)
             .build()
         try {
             // Forcing the db open replays the 24 -> 25 auto-migration; this is where the
@@ -92,16 +100,20 @@ class ImportedDatabaseReconcilerTest {
 
         ImportedDatabaseReconciler.reconcileDatabaseFile(context.getDatabasePath(TEST_DB))
 
+        // Reconcile stamps the file at fork v27; opening through the real builder at v31 replays
+        // the full registered chain 27 -> 31. v27 is an intermediate reconciliation target, not
+        // the final schema.
         val room = Room.databaseBuilder(context, AppDatabase::class.java, TEST_DB)
             .allowMainThreadQueries()
-            .addMigrations(Migration_27_28, Migration_28_29)
+            .addMigrations(Migration_27_28, Migration_28_29, Migration_29_30, Migration_30_31)
             .build()
         try {
-            val db = room.openHelper.writableDatabase // opens + validates now; no migration runs
+            val db = room.openHelper.writableDatabase // opens + validates + migrates to 31
 
-            db.query("SELECT title FROM ConversationEntity WHERE id = 'c1'").use { c ->
+            db.query("SELECT title, revision FROM ConversationEntity WHERE id = 'c1'").use { c ->
                 assertTrue("seeded conversation row should survive the restore", c.moveToFirst())
                 assertEquals("hello", c.getString(0))
+                assertEquals("migrated conversation revision should default to 0", 0L, c.getLong(1))
             }
 
             for (table in FORK_ONLY_TABLES) {
@@ -109,6 +121,21 @@ class ImportedDatabaseReconcilerTest {
                     assertTrue("fork-only table $table should exist after reconcile", c.moveToFirst())
                     assertEquals("fork-only table $table should start empty", 0, c.getInt(0))
                 }
+            }
+
+            for (table in CHAIN_CREATED_TABLES) {
+                db.query("SELECT COUNT(*) FROM `$table`").use { c ->
+                    assertTrue("schema-30/31 table $table should exist after full chain", c.moveToFirst())
+                    assertEquals("schema-30/31 table $table should start empty", 0, c.getInt(0))
+                }
+            }
+
+            // schema-30/31 tables are present: agent_run_events FK targets agent_runs.
+            db.query(
+                "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'agent_run_events'",
+            ).use { c ->
+                assertTrue(c.moveToFirst())
+                assertTrue("agent_run_events must reference agent_runs", c.getString(0).contains("REFERENCES"))
             }
         } finally {
             room.close()
