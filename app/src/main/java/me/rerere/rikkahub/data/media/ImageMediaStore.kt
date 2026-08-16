@@ -11,7 +11,9 @@ import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
 import me.rerere.rikkahub.data.repository.GenMediaRepository
 import android.graphics.BitmapFactory
 import java.io.File
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class MediaArtifactRef(
     val artifactId: String,
     val path: String,

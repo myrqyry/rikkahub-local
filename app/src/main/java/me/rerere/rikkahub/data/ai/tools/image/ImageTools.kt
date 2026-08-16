@@ -13,15 +13,18 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+
 import me.rerere.ai.core.InputSchema
 import me.rerere.ai.core.MessageRole
 import me.rerere.ai.core.Tool
 import me.rerere.ai.provider.ImageEditParams
 import me.rerere.ai.provider.ImageGenerationParams
+import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.TextGenerationParams
 import me.rerere.ai.ui.ImageAspectRatio
 import me.rerere.ai.ui.UIMessage
 import me.rerere.ai.ui.UIMessagePart
+import me.rerere.rikkahub.data.ai.GenerationReceipt
 import me.rerere.rikkahub.data.ai.tools.ToolInvocationContext
 import me.rerere.rikkahub.data.datastore.Settings
 import me.rerere.rikkahub.data.datastore.findModelById
@@ -120,6 +123,7 @@ class ImageTools(
             )
             val parts = mutableListOf<UIMessagePart>()
             try {
+                val startedAt = System.nanoTime()
                 val items = imageToolBackend.generateImage(providerSetting, params).toList()
                 val finals = items.filter { !it.partial }
                 if (finals.isEmpty()) return@Tool errorEnvelope("generation_returned_no_images", "generate_image")
@@ -132,6 +136,7 @@ class ImageTools(
                         sourceArtifacts = emptyList(),
                     )
                 }
+                val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
                 artifacts.forEach { parts.add(UIMessagePart.Image(url = it.uri)) }
                 val result = ImageToolResult(
                     success = true,
@@ -140,6 +145,13 @@ class ImageTools(
                     modelId = descriptor.model.id,
                     providerId = providerSetting.id.toString(),
                     executionSource = descriptor.source.toString(),
+                    receipt = buildGenerationReceipt(
+                        artifact = artifacts.first(),
+                        providerSetting = providerSetting,
+                        modelId = descriptor.model.id,
+                        elapsedMs = elapsedMs,
+                        sourceArtifacts = emptyList(),
+                    ),
                 )
                 parts.add(UIMessagePart.Text(json.encodeToString(result)))
                 parts
@@ -190,18 +202,21 @@ class ImageTools(
             )
             val parts = mutableListOf<UIMessagePart>()
             try {
+                val startedAt = System.nanoTime()
                 val items = imageToolBackend.editImage(providerSetting, params).toList()
                 val finals = items.filter { !it.partial }
                 if (finals.isEmpty()) return@Tool errorEnvelope("generation_returned_no_images", "edit_image")
+                val sourceArtifacts = listOf(MediaArtifactRef(media.originalReference, media.stablePath))
                 val artifacts = finals.map { item ->
                     imageMediaStore.saveGenerated(
                         item = item,
                         prompt = prompt,
                         model = descriptor.model,
                         operation = ImageOperation.IMAGE_EDIT,
-                        sourceArtifacts = listOf(MediaArtifactRef(media.originalReference, media.stablePath)),
+                        sourceArtifacts = sourceArtifacts,
                     )
                 }
+                val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
                 artifacts.forEach { parts.add(UIMessagePart.Image(url = it.uri)) }
                 val result = ImageToolResult(
                     success = true,
@@ -210,6 +225,13 @@ class ImageTools(
                     modelId = descriptor.model.id,
                     providerId = providerSetting.id.toString(),
                     executionSource = descriptor.source.toString(),
+                    receipt = buildGenerationReceipt(
+                        artifact = artifacts.first(),
+                        providerSetting = providerSetting,
+                        modelId = descriptor.model.id,
+                        elapsedMs = elapsedMs,
+                        sourceArtifacts = sourceArtifacts,
+                    ),
                 )
                 parts.add(UIMessagePart.Text(json.encodeToString(result)))
                 parts
@@ -330,6 +352,36 @@ class ImageTools(
         "16:9", "3:2", "landscape" -> ImageAspectRatio.LANDSCAPE
         "9:16", "2:3", "portrait" -> ImageAspectRatio.PORTRAIT
         else -> ImageAspectRatio.SQUARE
+    }
+
+    private fun buildGenerationReceipt(
+        artifact: StoredImageArtifact,
+        providerSetting: ProviderSetting,
+        modelId: String,
+        elapsedMs: Long,
+        sourceArtifacts: List<MediaArtifactRef>,
+    ): GenerationReceipt {
+        val sd = providerSetting as? ProviderSetting.StableDiffusion
+        return GenerationReceipt(
+            artifactId = artifact.artifactId,
+            modelId = modelId,
+            modelRevision = null,
+            runtime = if (sd != null) "stable-diffusion.cpp" else "cloud",
+            backend = when {
+                sd == null -> "cloud"
+                sd.useVulkan -> "VULKAN"
+                else -> "CPU"
+            },
+            width = artifact.width,
+            height = artifact.height,
+            seed = sd?.seed?.toLong(),
+            steps = sd?.steps,
+            cfg = sd?.cfgScale,
+            sampler = null,
+            scheduler = null,
+            elapsedMs = elapsedMs,
+            sourceArtifacts = sourceArtifacts,
+        )
     }
 
     private fun errorEnvelope(
