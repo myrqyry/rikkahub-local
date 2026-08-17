@@ -124,18 +124,15 @@ import me.rerere.rikkahub.ui.pages.setting.SettingThemePage
 import me.rerere.rikkahub.ui.pages.setting.SettingDonatePage
 import me.rerere.rikkahub.ui.pages.setting.SettingFilesPage
 import me.rerere.rikkahub.ui.pages.setting.SettingMcpPage
-import me.rerere.rikkahub.ui.pages.models.DefaultModelsPage
 import me.rerere.rikkahub.ui.pages.models.ModelDetailPage
 import me.rerere.rikkahub.ui.pages.models.ModelsPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPage
 import me.rerere.rikkahub.ui.pages.setting.SettingProviderDetailPage
-import me.rerere.rikkahub.ui.pages.setting.SettingProviderPage
 import me.rerere.rikkahub.ui.pages.setting.SettingAgentPage
 import me.rerere.rikkahub.ui.pages.setting.SettingSearchDetailPage
 import me.rerere.rikkahub.ui.pages.setting.SettingSearchPage
 
 import me.rerere.rikkahub.ui.pages.setting.SettingRAGPage
-import me.rerere.rikkahub.ui.pages.modelmanager.ModelManagerPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPluginPage
 import me.rerere.rikkahub.ui.pages.setting.SettingSpeechPage
 import me.rerere.rikkahub.ui.pages.setting.SettingTelegramPage
