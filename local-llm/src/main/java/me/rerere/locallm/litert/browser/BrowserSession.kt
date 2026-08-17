@@ -13,6 +13,10 @@ class BrowserSession private constructor(val ref: BrowserRef, private val gate: 
     @Volatile
     private var currentState: State = State.READY
 
+    internal val ledgerCommands = mutableListOf<String>()
+    internal val ledgerEffects = mutableSetOf<BrowserEffect>()
+    internal val ledgerRefusals = mutableListOf<String>()
+
     val state: State get() = currentState
 
     /** Whether [state] is a terminal state (no further commands are accepted). */
@@ -23,12 +27,23 @@ class BrowserSession private constructor(val ref: BrowserRef, private val gate: 
      * state machine. Refusals are returned as observations and never throw.
      */
     fun dispatch(command: BrowserCommand, granted: CapabilityGrant? = null): List<BrowserObservation> {
-        if (isClosed) return listOf(BrowserObservation.CommandRefused("session closed"))
+        if (isClosed) {
+            val refusal = BrowserObservation.CommandRefused("session closed")
+            ledgerCommands += command::class.simpleName.orEmpty()
+            ledgerRefusals += refusal.reason
+            return listOf(refusal)
+        }
 
         val decision = gate.evaluate(command, granted)
         if (!decision.allowed) {
-            return listOf(BrowserObservation.CommandRefused(decision.reason ?: "command_denied"))
+            val refusal = BrowserObservation.CommandRefused(decision.reason ?: "command_denied")
+            ledgerCommands += command::class.simpleName.orEmpty()
+            ledgerRefusals += refusal.reason
+            return listOf(refusal)
         }
+
+        ledgerCommands += command::class.simpleName.orEmpty()
+        decision.effect?.let { ledgerEffects += it }
 
         return when (command) {
             is BrowserCommand.Navigate -> {
