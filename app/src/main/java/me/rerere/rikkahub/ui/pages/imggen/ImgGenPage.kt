@@ -391,7 +391,7 @@ private fun ImageGenScreen(
                 Button(
                     onClick = {
                         navController.navigate(
-                            Screen.SettingModelManager(
+                            Screen.Models(
                                 request = ModelManagerRequest(tab = ModelTab.IMAGE),
                             )
                         )
@@ -510,7 +510,7 @@ private fun InputBar(
                 },
                 onManage = {
                     navController.navigate(
-                        Screen.SettingModelManager(
+                        Screen.Models(
                             request = ModelManagerRequest(tab = ModelTab.IMAGE),
                         )
                     )

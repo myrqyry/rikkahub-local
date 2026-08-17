@@ -1392,7 +1392,7 @@ private fun ColumnScope.ProviderConfigureStableDiffusion(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .clickable { navController.navigate(Screen.SettingModelManager()) }
+            .clickable { navController.navigate(Screen.Models()) }
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
