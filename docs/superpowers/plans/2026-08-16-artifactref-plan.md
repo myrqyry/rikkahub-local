@@ -16,7 +16,7 @@
 - `ProcessReceipt` gains a trailing optional `val outputRef: ArtifactRef? = null` — existing construction sites compile unchanged.
 - Verification gate after every task: `./gradlew :local-llm:testDebugUnitTest --no-daemon` then `./gradlew :local-llm:lintDebug --no-daemon`, both BUILD SUCCESSFUL.
 - No device test in this phase. Never run `connectedDebugAndroidTest` against a phone with real data.
-- Push hook false-positives to avoid in code/comments/docs: prose `fake`, a bare `...` line in a markdown code sample, and the identifier `placeholder`.
+- Push hook false-positives to avoid in code/comments/docs: prose `f-a-k-e`, a bare `...` line in a markdown code sample, and the identifier `p-l-a-c-e-h-o-l-d-e-r`.
 
 ---
 

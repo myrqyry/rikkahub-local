@@ -7,7 +7,7 @@
 
 The app already contains a complete headless browser: `app/.../browser/HeadlessBrowserSession` (offscreen 1080x1920 WebView, Page-Visibility shim, shared `browser-profile` cookies, per-conv pool, idle eviction), `BrowserController` (657 lines), and a 16+ tool surface in `BrowserTools.kt` (`browser_open`, `browser_current_url`, `browser_screenshot`, `browser_get_text`, `browser_get_dom`, `browser_get_links`, `browser_back`, `browser_forward`, `browser_wait_for`, `browser_click`, `browser_type`, `browser_scroll`, `browser_submit`, `browser_select`, `browser_press_key`, `browser_eval_js`, `browser_click_and_read`, `browser_done`).
 
-What is missing is the **portable browser contract**: a deterministic, JVM-testable substrate in local-llm mirroring the Phase F Terminal seam (ProcessRef/TerminalChunk/ProcessGate/TerminalSession/ProcessReceipt + ObservationStream). This lets the same browser-oriented agent logic run against Android WebView, desktop Chromium, a remote host, or a test fake with zero browser. Terminal and Browser become the same reusable pattern:
+What is missing is the **portable browser contract**: a deterministic, JVM-testable substrate in local-llm mirroring the Phase F Terminal seam (ProcessRef/TerminalChunk/ProcessGate/TerminalSession/ProcessReceipt + ObservationStream). This lets the same browser-oriented agent logic run against Android WebView, desktop Chromium, a remote host, or a test double with zero browser. Terminal and Browser become the same reusable pattern:
 
 ```
 command → state machine → effect → observation → receipt

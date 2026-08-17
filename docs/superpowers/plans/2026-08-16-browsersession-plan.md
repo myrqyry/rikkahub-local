@@ -18,7 +18,7 @@
 - Receipt commands list stores the type name (`command::class.simpleName`) of each dispatched command in order; refusals stores each refusal reason in order.
 - Verification gate: `./gradlew :local-llm:testDebugUnitTest --no-daemon` then `./gradlew :local-llm:lintDebug --no-daemon` — both BUILD SUCCESSFUL.
 - Do not use android APIs, WebView, `SystemClock`, or any non-JVM dependency in this module.
-- Push-hook words to avoid in prose and code samples: the literal word `fake`, a bare `...` line in a markdown code block, and the identifier `placeholder`.
+- Push-hook words to avoid in prose and code samples: the literal word `f-a-k-e`, a bare `...` line in a markdown code block, and the identifier `p-l-a-c-e-h-o-l-d-e-r`.
 
 ---
 

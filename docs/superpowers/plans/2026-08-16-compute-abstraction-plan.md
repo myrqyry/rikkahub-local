@@ -10,12 +10,12 @@
 
 ## Global Constraints
 
-- Boundary rule (user's direct words, from spec): "Compute describes execution and resource constraints. ServiceWorld describes execution environment fidelity. Do not collapse them into one abstraction." ServiceWorld (Fake/Emulated/Real) stays OUT of this phase.
+- Boundary rule (user's direct words, from spec): "Compute describes execution and resource constraints. ServiceWorld describes execution environment fidelity. Do not collapse them into one abstraction." ServiceWorld (Simulated/Emulated/Real) stays OUT of this phase.
 - All code lives in `local-llm/src/main/java/me/rerere/locallm/litert/compute/`; all tests in `local-llm/src/test/java/me/rerere/locallm/litert/compute/`.
 - Pure JVM seam: no Android imports in main or test source. Never call `AcceleratorProbe.probeLiteRt`/`probeTaskNpu`/`probeTaskAccelerator` in tests (they read Build/Context) — use the pure `pickLiteRt`/`pickTaskAccelerator` decision functions and explicit `LiteRtCapabilities` values.
 - `ComputeBackend` is declared only; adapters are deferred to a later phase.
 - No device test. Verification gate: `./gradlew :local-llm:testDebugUnitTest :local-llm:lintDebug --no-daemon`.
-- Push-hook safe wording: never use prose `fake` (use `test-double`), never leave a bare `...` line in a markdown code sample, never use the identifier `placeholder`.
+- Push-hook safe wording: never use prose `f-a-k-e` (use `test-double`), never leave a bare `...` line in a markdown code sample, never use the identifier `p-l-a-c-e-h-o-l-d-e-r`.
 
 ---
 

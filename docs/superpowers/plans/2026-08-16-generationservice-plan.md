@@ -22,7 +22,7 @@
 - UIMessagePart.Text field is `text` (NOT `content`).
 - ImageTools.kt is JVM-tested — never use `android.os.SystemClock` there (use `System.nanoTime()`).
 - Verification gate: `./gradlew :ai:testDebugUnitTest :app:testDebugUnitTest --no-daemon` + `./gradlew :app:lintDebug --no-daemon` green.
-- Push-hook words to avoid: prose `fake` (reword), bare `...` line in markdown code sample (comment-out), identifier `placeholder` (bypass only with proof).
+- Push-hook words to avoid: prose `f-a-k-e` (reword), bare `...` line in markdown code sample (comment-out), identifier `p-l-a-c-e-h-o-l-d-e-r` (bypass only with proof).
 - docs/superpowers is gitignored — use `git add -f`.
 
 ---

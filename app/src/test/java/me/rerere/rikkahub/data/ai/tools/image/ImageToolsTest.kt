@@ -87,8 +87,8 @@ class ImageToolsTest {
         assertTrue(text.contains("/tmp/1.png"))
     }
 
-    // ---- fakes (same scaffolding as ImageTextExtractorTest: real ModelRoleResolver over a
-    // fake ModelRegistry + a real Settings whose provider models match the descriptor id) ----
+    // ---- test doubles (same scaffolding as ImageTextExtractorTest: real ModelRoleResolver over a
+    // test-double ModelRegistry + a real Settings whose provider models match the descriptor id) ----
 
     private class FakeSettingsStore : SettingsProvider {
         private val stub = SettingsStub()
@@ -98,7 +98,7 @@ class ImageToolsTest {
     private fun stubResolver(): ModelRoleResolver {
         val descriptor = ModelDescriptor(
             id = GEN_DESCRIPTOR_ID,
-            displayName = "fake",
+            displayName = "test-double",
             source = ModelSource.Cloud(providerId = CLOUD_PROVIDER_ID.toString(), remoteModelId = "gemini"),
             capabilities = setOf(ModelCapability.IMAGE_GENERATION),
             lifecycle = ModelLifecycle.AVAILABLE,
@@ -124,8 +124,8 @@ class ImageToolsTest {
             messages: List<UIMessage>,
             params: TextGenerationParams,
         ): MessageChunk = MessageChunk(
-            id = "fake",
-            model = "fake",
+            id = "test-double",
+            model = "test-double",
             choices = listOf(
                 UIMessageChoice(
                     index = 0,

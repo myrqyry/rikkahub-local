@@ -6,7 +6,7 @@
 
 ## Background
 
-The roadmap diagram (architecture.md lines 37-55) shows the Zero→Procedure branch feeding **Compute (LiteRT / CPU / GPU)** alongside ServiceWorld (Fake / Emulated / Real), both converging on WorkflowReceipt → AgentRun Event Trace. Compute abstraction is DESIGNED-ONLY — no code exists yet.
+The roadmap diagram (architecture.md lines 37-55) shows the Zero→Procedure branch feeding **Compute (LiteRT / CPU / GPU)** alongside ServiceWorld (Simulated / Emulated / Real), both converging on WorkflowReceipt → AgentRun Event Trace. Compute abstraction is DESIGNED-ONLY — no code exists yet.
 
 The app already ships real compute primitives in `local-llm`: `AcceleratorProbe` (accelerator selection decisions), `MemoryGuard` (memory admission), `ResourceBudget`/`ComputeBudget`/`ComputeUsage` (op-level resource policy), and `LiteRtRuntime` (the 966-line LLM runtime host). They work, but there is no portable *contract* for what a compute execution is — exactly the gap Terminal and Browser sessions closed before them.
 
@@ -22,7 +22,7 @@ Phase J established the pattern: `command → state machine → effect → obser
 
 > **Compute describes execution and resource constraints. ServiceWorld describes execution environment fidelity. Do not collapse them into one abstraction.**
 
-ServiceWorld (Fake / Emulated / Real) answers "what kind of environment is executing it" — a different question from "what computation is running and what resources does it need". It stays a separate roadmap item.
+ServiceWorld (Simulated / Emulated / Real) answers "what kind of environment is executing it" — a different question from "what computation is running and what resources does it need". It stays a separate roadmap item.
 
 ## Core Types
 

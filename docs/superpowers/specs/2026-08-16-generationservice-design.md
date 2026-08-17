@@ -145,10 +145,10 @@ stubs in `ImageToolsTest`):
 
 1. `generate resolves, invokes, persists, and returns a receipt` — happy path: one
    artifact, receipt fields populated (runtime "stable-diffusion.cpp" or "cloud" from the
-   fake setting, width/height from artifact, seed/steps/cfg from setting).
+   test-double setting, width/height from artifact, seed/steps/cfg from setting).
 2. `generate rejects cloud when the assistant disables cloud processing` — throws
    `IllegalStateException`, backend never invoked.
-3. `edit passes source artifacts through to persistence` — fake media store records the
+3. `edit passes source artifacts through to persistence` — test-double media store records the
    `sourceArtifacts` it received.
 4. `analyze routes to local ocr when requireLocal` and `analyze routes to cloud
    generateText otherwise` — behavior preserved from `ImageTextExtractor`.

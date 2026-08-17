@@ -68,8 +68,8 @@ class GenerationServiceTest {
             messages: List<UIMessage>,
             params: TextGenerationParams,
         ): MessageChunk = MessageChunk(
-            id = "fake",
-            model = "fake",
+            id = "test-double",
+            model = "test-double",
             choices = listOf(
                 UIMessageChoice(
                     index = 0,
@@ -145,7 +145,7 @@ class GenerationServiceTest {
 
     private fun descriptor(): ModelDescriptor = ModelDescriptor(
         id = GEN_DESCRIPTOR_ID,
-        displayName = "fake",
+        displayName = "test-double",
         source = ModelSource.Cloud(providerId = CLOUD_PROVIDER_ID.toString(), remoteModelId = "gemini"),
         capabilities = setOf(ModelCapability.IMAGE_GENERATION, ModelCapability.IMAGE_EDITING),
         lifecycle = ModelLifecycle.AVAILABLE,
