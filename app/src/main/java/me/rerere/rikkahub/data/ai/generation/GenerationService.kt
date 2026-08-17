@@ -1,10 +1,11 @@
 package me.rerere.rikkahub.data.ai.generation
 
 import kotlin.uuid.Uuid
-import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.flow.collect
 import me.rerere.ai.provider.ImageEditParams
 import me.rerere.ai.provider.ImageGenerationParams
 import me.rerere.ai.provider.ProviderSetting
+import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.rikkahub.data.ai.GenerationReceipt
 import me.rerere.rikkahub.data.ai.tools.image.ImageOperation
 import me.rerere.rikkahub.data.ai.tools.image.ImageTextExtractionResult
@@ -25,38 +26,61 @@ import me.rerere.rikkahub.data.modelregistry.ModelRoleResolver
 import me.rerere.rikkahub.data.modelregistry.ModelSourcePolicy
 import me.rerere.rikkahub.data.modelregistry.canProcessImageWith
 
+/**
+ * Typed outcome of a generation/edit run. [Success] carries persisted artifacts
+ * plus a receipt; [Empty] means the provider produced no final images (callers
+ * surface their own "no images" messaging instead of the service throwing).
+ */
+sealed interface GenerationResult {
+    val prompt: String
+    val modelName: String
+
+    data class Success(
+        val artifacts: List<StoredImageArtifact>,
+        val receipt: GenerationReceipt,
+        override val prompt: String,
+        override val modelName: String,
+    ) : GenerationResult
+
+    data class Empty(
+        override val prompt: String,
+        override val modelName: String,
+    ) : GenerationResult
+}
+
 class GenerationService(
     private val modelRoleResolver: ModelRoleResolver,
     private val backend: ImageToolBackend,
     private val mediaStore: ImageMediaStore,
 ) {
-    data class GenerationOutcome(
-        val artifacts: List<StoredImageArtifact>,
-        val receipt: GenerationReceipt,
-        val prompt: String,
-        val modelName: String,
-    )
 
     suspend fun generate(
         settings: Settings,
         assistant: Assistant,
         params: ImageGenerationParams,
         sourceArtifacts: List<MediaArtifactRef> = emptyList(),
-    ): GenerationOutcome {
+        onPartial: suspend (ImageGenerationItem) -> Unit = {},
+    ): GenerationResult {
         val descriptor = resolveDescriptor(settings, assistant, ModelRole.IMAGE_GENERATION)
         val providerSetting = resolveProviderSetting(settings, descriptor)
         if (!assistant.canProcessImageWith(providerSetting)) {
             throw IllegalStateException("Cloud image processing is disabled for this assistant")
         }
         val startedAt = System.nanoTime()
-        val items = backend.generateImage(providerSetting, params).toList()
-        val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
-        val finals = items.filter { !it.partial }
-        val artifacts = finals.map {
-            mediaStore.saveGenerated(it, params.prompt, descriptor, ImageOperation.IMAGE_GENERATION, sourceArtifacts)
+        val finals = mutableListOf<ImageGenerationItem>()
+        backend.generateImage(providerSetting, params).collect { item ->
+            if (item.partial) onPartial(item) else finals += item
         }
-        val receipt = buildReceipt(artifacts.first(), providerSetting, descriptor.id, elapsedMs, sourceArtifacts)
-        return GenerationOutcome(artifacts, receipt, params.prompt, descriptor.displayName)
+        val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+        return persistFinals(
+            finals = finals,
+            prompt = params.prompt,
+            descriptor = descriptor,
+            operation = ImageOperation.IMAGE_GENERATION,
+            providerSetting = providerSetting,
+            elapsedMs = elapsedMs,
+            sourceArtifacts = sourceArtifacts,
+        )
     }
 
     suspend fun edit(
@@ -64,21 +88,28 @@ class GenerationService(
         assistant: Assistant,
         params: ImageEditParams,
         sourceArtifacts: List<MediaArtifactRef>,
-    ): GenerationOutcome {
+        onPartial: suspend (ImageGenerationItem) -> Unit = {},
+    ): GenerationResult {
         val descriptor = resolveDescriptor(settings, assistant, ModelRole.IMAGE_EDITING)
         val providerSetting = resolveProviderSetting(settings, descriptor)
         if (!assistant.canProcessImageWith(providerSetting)) {
             throw IllegalStateException("Cloud image processing is disabled for this assistant")
         }
         val startedAt = System.nanoTime()
-        val items = backend.editImage(providerSetting, params).toList()
-        val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
-        val finals = items.filter { !it.partial }
-        val artifacts = finals.map {
-            mediaStore.saveGenerated(it, params.prompt, descriptor, ImageOperation.IMAGE_EDIT, sourceArtifacts)
+        val finals = mutableListOf<ImageGenerationItem>()
+        backend.editImage(providerSetting, params).collect { item ->
+            if (item.partial) onPartial(item) else finals += item
         }
-        val receipt = buildReceipt(artifacts.first(), providerSetting, descriptor.id, elapsedMs, sourceArtifacts)
-        return GenerationOutcome(artifacts, receipt, params.prompt, descriptor.displayName)
+        val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+        return persistFinals(
+            finals = finals,
+            prompt = params.prompt,
+            descriptor = descriptor,
+            operation = ImageOperation.IMAGE_EDIT,
+            providerSetting = providerSetting,
+            elapsedMs = elapsedMs,
+            sourceArtifacts = sourceArtifacts,
+        )
     }
 
     suspend fun analyze(
@@ -91,6 +122,23 @@ class GenerationService(
         backend = backend,
         modelRoleResolver = modelRoleResolver,
     ).extract(media, assistant, settings, requireLocal, timeoutMillis)
+
+    private suspend fun persistFinals(
+        finals: List<ImageGenerationItem>,
+        prompt: String,
+        descriptor: ModelDescriptor,
+        operation: ImageOperation,
+        providerSetting: ProviderSetting,
+        elapsedMs: Long,
+        sourceArtifacts: List<MediaArtifactRef>,
+    ): GenerationResult {
+        if (finals.isEmpty()) return GenerationResult.Empty(prompt, descriptor.displayName)
+        val artifacts = finals.map {
+            mediaStore.saveGenerated(it, prompt, descriptor, operation, sourceArtifacts)
+        }
+        val receipt = buildReceipt(artifacts.first(), providerSetting, descriptor.id, elapsedMs, sourceArtifacts)
+        return GenerationResult.Success(artifacts, receipt, prompt, descriptor.displayName)
+    }
 
     private fun resolveDescriptor(
         settings: Settings,

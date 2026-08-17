@@ -88,7 +88,28 @@ fun RikkaUiRenderer(
     val submit: (RikkaUiAction) -> Unit = { action ->
         handleAction(action, renderId, values, onSubmit, onNavigate, clipboard, context)
     }
+    RenderNode(
+        ui = ui,
+        values = values,
+        update = { values = it },
+        submit = submit,
+        modifier = modifier,
+    )
+}
 
+/**
+ * Recursively renders a [RikkaUi] subtree. The single root form-state map is
+ * created in [RikkaUiRenderer] and threaded down here, so every Input/Toggle/Select
+ * in the tree reads and writes the same map and Submit snapshots live values.
+ */
+@Composable
+private fun RenderNode(
+    ui: RikkaUi,
+    values: Map<String, String>,
+    update: (Map<String, String>) -> Unit,
+    submit: (RikkaUiAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     when (ui) {
         is RikkaUi.Column -> {
             Column(
@@ -101,7 +122,7 @@ fun RikkaUiRenderer(
                 },
             ) {
                 for (child in ui.children) {
-                    RikkaUiRenderer(child, renderId, onSubmit, onNavigate)
+                    RenderNode(child, values, update, submit)
                 }
             }
         }
@@ -117,7 +138,7 @@ fun RikkaUiRenderer(
                 },
             ) {
                 for (child in ui.children) {
-                    RikkaUiRenderer(child, renderId, onSubmit, onNavigate)
+                    RenderNode(child, values, update, submit)
                 }
             }
         }
@@ -133,7 +154,7 @@ fun RikkaUiRenderer(
                 },
             ) {
                 for (child in ui.children) {
-                    RikkaUiRenderer(child, renderId, onSubmit, onNavigate)
+                    RenderNode(child, values, update, submit)
                 }
             }
         }
@@ -195,7 +216,7 @@ fun RikkaUiRenderer(
         is RikkaUi.Input -> {
             OutlinedTextField(
                 value = values[ui.key] ?: "",
-                onValueChange = { new -> values = values + (ui.key to new) },
+                onValueChange = { new -> update(values + (ui.key to new)) },
                 placeholder = ui.placeholder?.let { { Text(it) } },
                 label = ui.label?.let { { Text(it) } },
                 singleLine = true,
@@ -210,7 +231,7 @@ fun RikkaUiRenderer(
             ) {
                 Switch(
                     checked = values[ui.key] == "true",
-                    onCheckedChange = { checked -> values = values + (ui.key to checked.toString()) },
+                    onCheckedChange = { checked -> update(values + (ui.key to checked.toString())) },
                 )
                 Text(ui.label, style = MaterialTheme.typography.bodyMedium)
             }
@@ -222,17 +243,23 @@ fun RikkaUiRenderer(
                 label = ui.label,
                 options = ui.options,
                 selected = values[ui.key],
-                onSelect = { option -> values = values + (ui.key to option) },
+                onSelect = { option -> update(values + (ui.key to option)) },
             )
         }
 
         is RikkaUi.Progress -> {
-            LinearProgressIndicator(
-                progress = { ui.fraction ?: 0f },
-                modifier = modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-            )
+            val progressModifier = modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+            val fraction = ui.fraction
+            if (fraction != null) {
+                LinearProgressIndicator(
+                    progress = { fraction },
+                    modifier = progressModifier,
+                )
+            } else {
+                LinearProgressIndicator(modifier = progressModifier)
+            }
         }
 
         is RikkaUi.Link -> {

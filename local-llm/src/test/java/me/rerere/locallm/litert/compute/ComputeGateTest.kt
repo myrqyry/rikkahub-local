@@ -1,6 +1,5 @@
 package me.rerere.locallm.litert.compute
 
-import me.rerere.locallm.AcceleratorProbe
 import me.rerere.locallm.litert.CapabilityGrant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -13,7 +12,7 @@ class ComputeGateTest {
 
     private val gate = ComputeGate()
 
-    private val caps = AcceleratorProbe.LiteRtCapabilities(
+    private val caps = ComputeCapabilities(
         isQualcomm = true,
         qnnLibrarySupported = true,
         gpuDelegateSupported = true,
@@ -95,8 +94,15 @@ class ComputeGateTest {
 
     @Test
     fun `interactive execute is allowed when no grant is supplied`() {
-        val decision = gate.evaluate(execute(), granted = CapabilityGrant(emptyList(), emptyList(), emptyList()), capabilities = caps, availMemBytes = 0L)
+        val decision = gate.evaluate(execute(), granted = null, capabilities = caps, availMemBytes = 0L)
         assertTrue(decision.allowed)
+    }
+
+    @Test
+    fun `execute is denied when an empty grant is supplied`() {
+        val decision = gate.evaluate(execute(), granted = CapabilityGrant(emptyList(), emptyList(), emptyList()), capabilities = caps, availMemBytes = 0L)
+        assertFalse(decision.allowed)
+        assertEquals("compute_execute_denied", decision.reason)
     }
 
     @Test
@@ -113,8 +119,44 @@ class ComputeGateTest {
     fun `cpu preference resolves without capabilities`() {
         val cpu = execute(AcceleratorPreference.CPU)
         assertEquals("cpu", gate.resolveAccelerator(cpu.requirements, null))
-        val decision = gate.evaluate(cpu, granted = CapabilityGrant(emptyList(), emptyList(), emptyList()), capabilities = null, availMemBytes = 0L)
+        val decision = gate.evaluate(cpu, granted = null, capabilities = null, availMemBytes = 0L)
         assertTrue(decision.allowed)
         assertNotNull(decision.effect)
+    }
+
+    @Test
+    fun `explicit gpu preference falls back when the snapshot lacks gpu`() {
+        val noGpu = ComputeCapabilities(
+            isQualcomm = false,
+            qnnLibrarySupported = false,
+            gpuDelegateSupported = false,
+            nnapiSupported = true,
+        )
+        assertEquals("nnapi", gate.resolveAccelerator(execute(AcceleratorPreference.GPU).requirements, noGpu))
+        // Without a snapshot the request is honoured at face value.
+        assertEquals("gpu", gate.resolveAccelerator(execute(AcceleratorPreference.GPU).requirements, null))
+    }
+
+    @Test
+    fun `explicit npu preference falls back when the snapshot lacks npu`() {
+        val noNpu = ComputeCapabilities(
+            isQualcomm = true,
+            qnnLibrarySupported = true,
+            gpuDelegateSupported = true,
+            nnapiSupported = true,
+            npuSupported = false,
+        )
+        assertEquals("qnn", gate.resolveAccelerator(execute(AcceleratorPreference.NPU).requirements, noNpu))
+    }
+
+    @Test
+    fun `explicit qnn preference falls back when qualcomm qnn is unavailable`() {
+        val noQnn = ComputeCapabilities(
+            isQualcomm = true,
+            qnnLibrarySupported = false,
+            gpuDelegateSupported = true,
+            nnapiSupported = true,
+        )
+        assertEquals("gpu", gate.resolveAccelerator(execute(AcceleratorPreference.QNN).requirements, noQnn))
     }
 }

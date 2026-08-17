@@ -1,6 +1,5 @@
 package me.rerere.locallm.litert.compute
 
-import me.rerere.locallm.AcceleratorProbe
 import me.rerere.locallm.litert.CapabilityGrant
 
 class ComputeSession private constructor(
@@ -22,44 +21,53 @@ class ComputeSession private constructor(
     fun dispatch(
         command: ComputeCommand,
         granted: CapabilityGrant? = null,
-        capabilities: AcceleratorProbe.LiteRtCapabilities? = null,
+        capabilities: ComputeCapabilities? = null,
         availMemBytes: Long = 0L,
     ): List<ComputeObservation> {
+        val commandName = command::class.simpleName ?: "command"
         if (isClosed) {
-            commandsLedger.add(command::class.simpleName ?: "command")
+            commandsLedger.add(commandName)
             refusalsLedger.add("session closed")
             return listOf(ComputeObservation.CommandRefused("session closed"))
         }
         val decision = gate.evaluate(command, granted, capabilities, availMemBytes)
         if (!decision.allowed) {
-            commandsLedger.add(command::class.simpleName ?: "command")
+            commandsLedger.add(commandName)
             refusalsLedger.add(decision.reason ?: "command_denied")
             return listOf(ComputeObservation.CommandRefused(decision.reason ?: "command_denied"))
         }
-        commandsLedger.add(command::class.simpleName ?: "command")
-        decision.effect?.let { effectsLedger.add(it) }
+        fun commit(observation: ComputeObservation): List<ComputeObservation> {
+            commandsLedger.add(commandName)
+            decision.effect?.let { effectsLedger.add(it) }
+            return listOf(observation)
+        }
+        fun refuse(reason: String): List<ComputeObservation> {
+            commandsLedger.add(commandName)
+            refusalsLedger.add(reason)
+            return listOf(ComputeObservation.CommandRefused(reason))
+        }
         return when (command) {
             is ComputeCommand.Load -> if (currentState == State.IDLE) {
                 currentState = State.LOADED
-                listOf(ComputeObservation.Loaded(command.modelId))
+                commit(ComputeObservation.Loaded(command.modelId))
             } else {
-                listOf(ComputeObservation.CommandRefused("load not valid in ${currentState.name}"))
+                refuse("load not valid in ${currentState.name}")
             }
             is ComputeCommand.Execute -> if (currentState == State.LOADED) {
                 currentState = State.BUSY
-                listOf(ComputeObservation.ExecutionStarted(command.modelId, command.operation))
+                commit(ComputeObservation.ExecutionStarted(command.modelId, command.operation))
             } else {
-                listOf(ComputeObservation.CommandRefused("execute not valid in ${currentState.name}"))
+                refuse("execute not valid in ${currentState.name}")
             }
             is ComputeCommand.Release -> if (currentState == State.IDLE || currentState == State.LOADED) {
                 currentState = State.RELEASED
-                listOf(ComputeObservation.Released(command.modelId))
+                commit(ComputeObservation.Released(command.modelId))
             } else {
-                listOf(ComputeObservation.CommandRefused("release not valid in ${currentState.name}"))
+                refuse("release not valid in ${currentState.name}")
             }
             ComputeCommand.Shutdown -> {
                 currentState = State.TERMINATED
-                listOf(ComputeObservation.ShutdownComplete)
+                commit(ComputeObservation.ShutdownComplete)
             }
         }
     }

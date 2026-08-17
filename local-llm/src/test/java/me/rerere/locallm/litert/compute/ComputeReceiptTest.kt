@@ -61,6 +61,21 @@ class ComputeReceiptTest {
     }
 
     @Test
+    fun `state-level refusals are recorded without committing effects`() {
+        val s = ComputeSession.create("c1")
+        s.dispatch(ComputeCommand.Load("model-a", requirements))
+        s.dispatch(ComputeCommand.Execute("model-a", "infer", requirements = requirements))
+        s.dispatch(ComputeCommand.Execute("model-a", "infer", requirements = requirements))
+        s.dispatch(ComputeCommand.Shutdown)
+
+        val receipt = s.buildReceipt(startedAtMs = 1L)
+
+        assertEquals(listOf("Load", "Execute", "Execute", "Shutdown"), receipt.commands)
+        assertEquals(setOf(ComputeEffect.LOAD, ComputeEffect.EXECUTE, ComputeEffect.SHUTDOWN), receipt.effects)
+        assertEquals(listOf("execute not valid in BUSY"), receipt.refusals)
+    }
+
+    @Test
     fun `receipt serializes`() {
         val s = ComputeSession.create("c1")
         s.dispatch(ComputeCommand.Shutdown)

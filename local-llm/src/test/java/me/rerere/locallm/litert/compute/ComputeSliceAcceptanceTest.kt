@@ -1,6 +1,5 @@
 package me.rerere.locallm.litert.compute
 
-import me.rerere.locallm.AcceleratorProbe
 import me.rerere.locallm.litert.CapabilityGrant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -8,7 +7,7 @@ import org.junit.Test
 
 class ComputeSliceAcceptanceTest {
 
-    private val caps = AcceleratorProbe.LiteRtCapabilities(
+    private val caps = ComputeCapabilities(
         isQualcomm = true,
         qnnLibrarySupported = true,
         gpuDelegateSupported = true,

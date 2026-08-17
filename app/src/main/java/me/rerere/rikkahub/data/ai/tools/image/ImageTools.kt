@@ -1,6 +1,5 @@
 package me.rerere.rikkahub.data.ai.tools.image
 
-import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -24,6 +23,7 @@ import me.rerere.ai.provider.TextGenerationParams
 import me.rerere.ai.ui.ImageAspectRatio
 import me.rerere.ai.ui.UIMessage
 import me.rerere.ai.ui.UIMessagePart
+import me.rerere.rikkahub.data.ai.generation.GenerationResult
 import me.rerere.rikkahub.data.ai.generation.GenerationService
 import me.rerere.rikkahub.data.ai.tools.ToolInvocationContext
 import me.rerere.rikkahub.data.datastore.Settings
@@ -125,8 +125,12 @@ class ImageTools(
             val parts = mutableListOf<UIMessagePart>()
             try {
                 val outcome = generationService.generate(settings, assistant, params)
-                if (outcome.artifacts.isEmpty()) return@Tool errorEnvelope("generation_returned_no_images", "generate_image")
-                val artifacts = outcome.artifacts
+                val success = when (outcome) {
+                    is GenerationResult.Empty ->
+                        return@Tool errorEnvelope("generation_returned_no_images", "generate_image")
+                    is GenerationResult.Success -> outcome
+                }
+                val artifacts = success.artifacts
                 artifacts.forEach { parts.add(UIMessagePart.Image(url = it.uri)) }
                 val result = ImageToolResult(
                     success = true,
@@ -135,7 +139,7 @@ class ImageTools(
                     modelId = descriptor.model.id,
                     providerId = providerSetting.id.toString(),
                     executionSource = descriptor.source.toString(),
-                    receipt = outcome.receipt,
+                    receipt = success.receipt,
                 )
                 parts.add(UIMessagePart.Text(json.encodeToString(result)))
                 parts
@@ -188,8 +192,12 @@ class ImageTools(
             try {
                 val sourceArtifacts = listOf(MediaArtifactRef(media.originalReference, media.stablePath))
                 val outcome = generationService.edit(settings, assistant, params, sourceArtifacts)
-                if (outcome.artifacts.isEmpty()) return@Tool errorEnvelope("generation_returned_no_images", "edit_image")
-                val artifacts = outcome.artifacts
+                val success = when (outcome) {
+                    is GenerationResult.Empty ->
+                        return@Tool errorEnvelope("generation_returned_no_images", "edit_image")
+                    is GenerationResult.Success -> outcome
+                }
+                val artifacts = success.artifacts
                 artifacts.forEach { parts.add(UIMessagePart.Image(url = it.uri)) }
                 val result = ImageToolResult(
                     success = true,
@@ -198,7 +206,7 @@ class ImageTools(
                     modelId = descriptor.model.id,
                     providerId = providerSetting.id.toString(),
                     executionSource = descriptor.source.toString(),
-                    receipt = outcome.receipt,
+                    receipt = success.receipt,
                 )
                 parts.add(UIMessagePart.Text(json.encodeToString(result)))
                 parts

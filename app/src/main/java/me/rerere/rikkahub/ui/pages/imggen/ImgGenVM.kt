@@ -26,6 +26,7 @@ import me.rerere.ai.provider.ImageGenerationParams
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.imageCapabilities
 import me.rerere.ai.ui.ImageAspectRatio
+import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.common.android.appTempFolder
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.datastore.findModelById
@@ -33,9 +34,11 @@ import me.rerere.rikkahub.data.datastore.findProvider
 import me.rerere.rikkahub.data.datastore.getCurrentAssistant
 import me.rerere.rikkahub.data.ai.GenerationProgress
 import me.rerere.rikkahub.data.ai.StableDiffusionBridge
+import me.rerere.rikkahub.data.ai.generation.GenerationResult
 import me.rerere.rikkahub.data.db.entity.GenMediaEntity
 import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.data.media.MediaArtifactRef
+import me.rerere.rikkahub.data.media.writePayloadToFile
 import me.rerere.rikkahub.data.modelregistry.ModelRegistry
 import me.rerere.rikkahub.data.modelregistry.ModelResolution
 import me.rerere.rikkahub.data.modelregistry.ModelRole
@@ -201,20 +204,41 @@ class ImgGenVM(
                     customBody = model.customBodies
                 )
 
+                var previewFile: File? = null
                 val outcome = generationService.generate(
                     settings = settings,
                     assistant = settings.getCurrentAssistant(),
                     params = params,
+                    onPartial = { item ->
+                        previewFile?.delete()
+                        val file = saveImagePreview(item, model.displayName, item.partialImageIndex ?: 0)
+                        previewFile = file
+                        _currentGeneratedImages.value = listOf(
+                            GeneratedImage(
+                                id = 0,
+                                prompt = requestPrompt,
+                                filePath = file.absolutePath,
+                                timestamp = System.currentTimeMillis(),
+                                model = model.displayName,
+                            )
+                        )
+                    },
                 )
+                previewFile?.delete()
 
-                _currentGeneratedImages.value = outcome.artifacts.map {
-                    GeneratedImage(
-                        id = it.galleryId,
-                        prompt = outcome.prompt,
-                        filePath = it.path,
-                        timestamp = System.currentTimeMillis(),
-                        model = outcome.modelName,
-                    )
+                when (outcome) {
+                    is GenerationResult.Empty -> _error.value = "Provider returned no images"
+                    is GenerationResult.Success -> {
+                        _currentGeneratedImages.value = outcome.artifacts.map {
+                            GeneratedImage(
+                                id = it.galleryId,
+                                prompt = outcome.prompt,
+                                filePath = it.path,
+                                timestamp = System.currentTimeMillis(),
+                                model = outcome.modelName,
+                            )
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 if(e is CancellationException) return@launch
@@ -251,21 +275,42 @@ class ImgGenVM(
                     customBody = model.customBodies
                 )
 
+                var previewFile: File? = null
                 val outcome = generationService.edit(
                     settings = settings,
                     assistant = settings.getCurrentAssistant(),
                     params = params,
                     sourceArtifacts = sourceImages.map { MediaArtifactRef(artifactId = it, path = it) },
+                    onPartial = { item ->
+                        previewFile?.delete()
+                        val file = saveImagePreview(item, model.displayName, item.partialImageIndex ?: 0)
+                        previewFile = file
+                        _currentGeneratedImages.value = listOf(
+                            GeneratedImage(
+                                id = 0,
+                                prompt = requestPrompt,
+                                filePath = file.absolutePath,
+                                timestamp = System.currentTimeMillis(),
+                                model = model.displayName,
+                            )
+                        )
+                    },
                 )
+                previewFile?.delete()
 
-                _currentGeneratedImages.value = outcome.artifacts.map {
-                    GeneratedImage(
-                        id = it.galleryId,
-                        prompt = outcome.prompt,
-                        filePath = it.path,
-                        timestamp = System.currentTimeMillis(),
-                        model = outcome.modelName,
-                    )
+                when (outcome) {
+                    is GenerationResult.Empty -> _error.value = "Provider returned no images"
+                    is GenerationResult.Success -> {
+                        _currentGeneratedImages.value = outcome.artifacts.map {
+                            GeneratedImage(
+                                id = it.galleryId,
+                                prompt = outcome.prompt,
+                                filePath = it.path,
+                                timestamp = System.currentTimeMillis(),
+                                model = outcome.modelName,
+                            )
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) return@launch
@@ -320,6 +365,17 @@ class ImgGenVM(
                 }
             }
         }
+    }
+
+    /** Writes a partial item to a temp preview file for the progressive-generation UI. */
+    private fun saveImagePreview(item: ImageGenerationItem, modelName: String, index: Int): File {
+        val timestamp = System.currentTimeMillis()
+        val imageFile = File(
+            getApplication<Application>().appTempFolder,
+            "imggen_${timestamp}_${modelName}_$index.png"
+        )
+        writePayloadToFile(item.payload, imageFile)
+        return imageFile
     }
 
     companion object {

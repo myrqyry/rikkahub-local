@@ -25,11 +25,17 @@ class BrowserSession private constructor(val ref: BrowserRef, private val gate: 
     /**
      * Evaluate [command] against the gate and, if allowed, apply it to the
      * state machine. Refusals are returned as observations and never throw.
+     *
+     * Ledger rule: gate → validate current state → commit transition/effect →
+     * record observation; otherwise record a refusal. Effects are only ever
+     * recorded for transitions that are actually accepted, so receipts cannot
+     * claim an effect that the state machine refused.
      */
     fun dispatch(command: BrowserCommand, granted: CapabilityGrant? = null): List<BrowserObservation> {
+        val commandName = command::class.simpleName.orEmpty()
         if (isClosed) {
             val refusal = BrowserObservation.CommandRefused("session closed")
-            ledgerCommands += command::class.simpleName.orEmpty()
+            ledgerCommands += commandName
             ledgerRefusals += refusal.reason
             return listOf(refusal)
         }
@@ -37,44 +43,50 @@ class BrowserSession private constructor(val ref: BrowserRef, private val gate: 
         val decision = gate.evaluate(command, granted)
         if (!decision.allowed) {
             val refusal = BrowserObservation.CommandRefused(decision.reason ?: "command_denied")
-            ledgerCommands += command::class.simpleName.orEmpty()
+            ledgerCommands += commandName
             ledgerRefusals += refusal.reason
             return listOf(refusal)
         }
 
-        ledgerCommands += command::class.simpleName.orEmpty()
-        decision.effect?.let { ledgerEffects += it }
+        fun commit(observation: BrowserObservation): List<BrowserObservation> {
+            ledgerCommands += commandName
+            decision.effect?.let { ledgerEffects += it }
+            return listOf(observation)
+        }
+
+        fun refuse(reason: String): List<BrowserObservation> {
+            ledgerCommands += commandName
+            ledgerRefusals += reason
+            return listOf(BrowserObservation.CommandRefused(reason))
+        }
 
         return when (command) {
             is BrowserCommand.Navigate -> {
                 if (currentState == State.READY || currentState == State.NAVIGATING) {
                     currentState = State.NAVIGATING
-                    listOf(BrowserObservation.NavigationStarted(command.url))
+                    commit(BrowserObservation.NavigationStarted(command.url))
                 } else {
-                    listOf(BrowserObservation.CommandRefused("navigate not valid in ${currentState.name}"))
+                    refuse("navigate not valid in ${currentState.name}")
                 }
             }
             is BrowserCommand.Snapshot -> {
-                if (currentState == State.READY) listOf(BrowserObservation.SnapshotCaptured)
-                else listOf(BrowserObservation.CommandRefused("snapshot not valid in ${currentState.name}"))
+                if (currentState == State.READY) commit(BrowserObservation.SnapshotCaptured)
+                else refuse("snapshot not valid in ${currentState.name}")
             }
             is BrowserCommand.Done -> {
                 currentState = State.DONE
-                listOf(BrowserObservation.ActionAcknowledged)
+                commit(BrowserObservation.ActionAcknowledged)
             }
             is BrowserCommand.WaitFor -> {
                 if (currentState == State.READY || currentState == State.NAVIGATING) {
-                    listOf(BrowserObservation.ActionAcknowledged)
+                    commit(BrowserObservation.ActionAcknowledged)
                 } else {
-                    listOf(BrowserObservation.CommandRefused("wait_for not valid in ${currentState.name}"))
+                    refuse("wait_for not valid in ${currentState.name}")
                 }
             }
             is BrowserCommand.EvalJs -> {
-                if (currentState == State.READY) {
-                    listOf(BrowserObservation.ActionAcknowledged)
-                } else {
-                    listOf(BrowserObservation.CommandRefused("eval_js not valid in ${currentState.name}"))
-                }
+                if (currentState == State.READY) commit(BrowserObservation.ActionAcknowledged)
+                else refuse("eval_js not valid in ${currentState.name}")
             }
             is BrowserCommand.Click,
             is BrowserCommand.Type,
@@ -84,8 +96,11 @@ class BrowserSession private constructor(val ref: BrowserRef, private val gate: 
             is BrowserCommand.Submit,
             is BrowserCommand.Select,
             -> {
-                if (currentState == State.READY) listOf(BrowserObservation.ActionAcknowledged)
-                else listOf(BrowserObservation.CommandRefused("${command::class.simpleName} not valid in ${currentState.name}"))
+                if (currentState == State.READY) {
+                    commit(BrowserObservation.ActionAcknowledged)
+                } else {
+                    refuse("${command::class.simpleName} not valid in ${currentState.name}")
+                }
             }
         }
     }

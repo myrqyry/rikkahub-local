@@ -48,6 +48,20 @@ class BrowserReceiptTest {
     }
 
     @Test
+    fun `state-level refusals are recorded without committing effects`() {
+        val s = BrowserSession.create("s4")
+        s.dispatch(BrowserCommand.Navigate("https://example.com"))
+        s.dispatch(BrowserCommand.Click("#a"))
+        s.dispatch(BrowserCommand.Done)
+
+        val receipt = s.buildReceipt(startedAtMs = 1L)
+
+        assertEquals(listOf("Navigate", "Click", "Done"), receipt.commands)
+        assertEquals(setOf(BrowserEffect.NAVIGATE, BrowserEffect.DONE), receipt.effects)
+        assertEquals(listOf("Click not valid in NAVIGATING"), receipt.refusals)
+    }
+
+    @Test
     fun `receipt round-trips through serialization`() {
         val s = BrowserSession.create("s3")
         s.dispatch(BrowserCommand.Done)

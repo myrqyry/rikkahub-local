@@ -65,4 +65,41 @@ class RikkaUiValidatorTest {
     fun `spacing out of range rejected`() {
         assertTrue(validateRikkaUi(RikkaUi.Column(emptyList(), spacing = 64)).isNotEmpty())
     }
+
+    @Test
+    fun `interactive keys must live inside a form`() {
+        assertTrue(validateRikkaUi(RikkaUi.Input("k")).isNotEmpty())
+        assertTrue(validateRikkaUi(RikkaUi.Toggle("k", "x")).isNotEmpty())
+        assertTrue(validateRikkaUi(RikkaUi.Select("s", "S", listOf("a"))).isNotEmpty())
+        assertEquals(
+            emptyList<String>(),
+            validateRikkaUi(
+                RikkaUi.Form(
+                    "f",
+                    listOf(
+                        RikkaUi.Input("k"),
+                        RikkaUi.Toggle("t", "x"),
+                        RikkaUi.Select("s", "S", listOf("a")),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `submit must reference the tree form`() {
+        val tree = RikkaUi.Form("f", listOf(RikkaUi.Button("Go", RikkaUiAction.Submit("f"))))
+        assertEquals(emptyList<String>(), validateRikkaUi(tree))
+        val mismatch = RikkaUi.Form("f", listOf(RikkaUi.Button("Go", RikkaUiAction.Submit("other"))))
+        assertTrue(validateRikkaUi(mismatch).any { it.contains("submit") })
+        // Submit before the Form node in the tree still resolves the form id.
+        val ordered = RikkaUi.Column(
+            listOf(
+                RikkaUi.Button("Go", RikkaUiAction.Submit("f")),
+                RikkaUi.Form("f", listOf(RikkaUi.Input("k"))),
+            ),
+        )
+        assertEquals(emptyList<String>(), validateRikkaUi(ordered))
+        assertTrue(validateRikkaUi(RikkaUi.Button("Go", RikkaUiAction.Submit("f"))).any { it.contains("without a form") })
+    }
 }

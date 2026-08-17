@@ -44,7 +44,7 @@ private val CLOUD_PROVIDER_ID = Uuid.parse("c10a4d3e-0001-4a4d-8001-000000000003
 
 class GenerationServiceTest {
 
-    private class StubBackend : ImageToolBackend {
+    private open class StubBackend : ImageToolBackend {
         var generateCalls = 0
         var editCalls = 0
         override suspend fun generateImage(
@@ -171,7 +171,7 @@ class GenerationServiceTest {
                 model = settings.providers.first().models.first(),
                 prompt = "a red apple",
             ),
-        )
+        ) as GenerationResult.Success
 
         assertEquals(1, backend.generateCalls)
         assertEquals(1, outcome.artifacts.size)
@@ -179,6 +179,79 @@ class GenerationServiceTest {
         assertEquals("a red apple", outcome.prompt)
         assertEquals("cloud", outcome.receipt.runtime)
         assertEquals("cloud", outcome.receipt.backend)
+    }
+
+    @Test
+    fun `empty outcome is returned when the provider yields only partials`() = runBlocking {
+        val backend = object : StubBackend() {
+            override suspend fun generateImage(
+                providerSetting: ProviderSetting,
+                params: ImageGenerationParams,
+            ): Flow<ImageGenerationItem> {
+                generateCalls++
+                return flowOf(
+                    ImageGenerationItem(
+                        payload = GeneratedImagePayload.Base64("p1", "image/png"),
+                        partial = true,
+                        partialImageIndex = 0,
+                    ),
+                )
+            }
+        }
+        val store = StubStore()
+        val service = service(backend, store)
+        val settings = SettingsStub().settings
+
+        val outcome = service.generate(
+            settings = settings,
+            assistant = settings.getCurrentAssistant(),
+            params = ImageGenerationParams(
+                model = settings.providers.first().models.first(),
+                prompt = "a red apple",
+            ),
+        )
+
+        assertTrue(outcome is GenerationResult.Empty)
+        assertEquals("a red apple", outcome.prompt)
+        assertEquals(1, backend.generateCalls)
+    }
+
+    @Test
+    fun `onPartial receives partial items while finals persist`() = runBlocking {
+        val backend = object : StubBackend() {
+            override suspend fun generateImage(
+                providerSetting: ProviderSetting,
+                params: ImageGenerationParams,
+            ): Flow<ImageGenerationItem> {
+                generateCalls++
+                return flowOf(
+                    ImageGenerationItem(
+                        payload = GeneratedImagePayload.Base64("p1", "image/png"),
+                        partial = true,
+                        partialImageIndex = 0,
+                    ),
+                    ImageGenerationItem(payload = GeneratedImagePayload.Base64("final", "image/png"), partial = false),
+                )
+            }
+        }
+        val store = StubStore()
+        val service = service(backend, store)
+        val settings = SettingsStub().settings
+        val partials = mutableListOf<ImageGenerationItem>()
+
+        val outcome = service.generate(
+            settings = settings,
+            assistant = settings.getCurrentAssistant(),
+            params = ImageGenerationParams(
+                model = settings.providers.first().models.first(),
+                prompt = "a red apple",
+            ),
+            onPartial = { partials += it },
+        ) as GenerationResult.Success
+
+        assertEquals(1, partials.size)
+        assertTrue(partials.single().partial)
+        assertEquals(1, outcome.artifacts.size)
     }
 
     @Test
@@ -199,7 +272,7 @@ class GenerationServiceTest {
                 images = listOf("img_0"),
             ),
             sourceArtifacts = source,
-        )
+        ) as GenerationResult.Success
 
         assertEquals(1, backend.editCalls)
         assertEquals(1, outcome.artifacts.size)
