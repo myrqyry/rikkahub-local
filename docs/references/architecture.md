@@ -156,5 +156,5 @@ the app. App-side implementations adapt them and are wired via DI (Koin):
 | Terminal sessions          | ❌ designed |
 | Browser sessions           | ✅ built (substrate: commands, observations, effect gate, state machine, receipts); app-side adapter deferred |
 | GenerationService          | ❌ designed |
-| Compute abstraction        | ❌ designed |
+| Compute abstraction        | ✅ built (substrate: commands, requirements, observations, effect gate, state machine, receipts); adapters and ServiceWorld deferred |
 | Agent scenario lab         | ❌ designed |
