@@ -150,8 +150,8 @@ the app. App-side implementations adapt them and are wired via DI (Koin):
 | Procedure mining           | 🟡 miner + cache seam, no persistence feed |
 | Micro-agent event mesh     | 🟡 bus exists, app-side sink pending |
 | Effect broker              | 🟡 grants exist, typed effects pending |
-| Append-only traces         | ❌ on master (in PR #2, to be harvested) |
-| Conversation revision guard| ❌ on master (in PR #2, to be harvested) |
+| Append-only traces         | ✅ built (harvested from PR #2; agent_run_events append-only trace, verified + gated) |
+| Conversation revision guard| ✅ built (harvested from PR #2; conversation revision guard, verified + gated) |
 | Shadow workspace           | ❌ designed |
 | Terminal sessions          | ❌ designed |
 | Browser sessions           | ✅ built (substrate: commands, observations, effect gate, state machine, receipts); app-side adapter deferred |
