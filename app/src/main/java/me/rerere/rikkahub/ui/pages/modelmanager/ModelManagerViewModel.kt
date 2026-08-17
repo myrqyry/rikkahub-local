@@ -29,6 +29,7 @@ import me.rerere.locallm.SdCatalogEntry
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.files.FileUtils
 import okhttp3.OkHttpClient
+import kotlin.uuid.Uuid
 
 data class Progress(val percent: Int, val bytesRead: Long, val totalBytes: Long?)
 
@@ -124,6 +125,14 @@ class ModelManagerViewModel(
 
     fun clearError() {
         _errorMessage.value = null
+    }
+
+    fun addProvider(provider: ProviderSetting) = viewModelScope.launch {
+        settingsStore.update { settings ->
+            settings.copy(
+                providers = listOf(provider.copyProvider(Uuid.random())) + settings.providers,
+            )
+        }
     }
 
     private suspend fun updateMyProvider(transform: (ProviderSetting) -> ProviderSetting) {
