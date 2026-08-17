@@ -8,7 +8,7 @@
         errorLine2="              ~~~~~~~~~">
         <location
             file="src/main/java/me/rerere/rikkahub/ui/pages/chat/ChatVM.kt"
-            line="93"
+            line="95"
             column="15"/>
     </issue>
 
@@ -63,7 +63,7 @@
         errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/me/rerere/rikkahub/data/ai/StableDiffusionProvider.kt"
-            line="395"
+            line="484"
             column="29"/>
     </issue>
 
@@ -1438,7 +1438,7 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/me/rerere/rikkahub/ui/pages/chat/ChatList.kt"
-            line="216"
+            line="223"
             column="20"/>
     </issue>
 
@@ -1537,7 +1537,7 @@
         errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/me/rerere/rikkahub/ui/pages/chat/ChatPage.kt"
-            line="368"
+            line="370"
             column="33"/>
     </issue>
 
@@ -1548,7 +1548,7 @@
         errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/me/rerere/rikkahub/ui/pages/chat/ChatPage.kt"
-            line="657"
+            line="672"
             column="37"/>
     </issue>
 
@@ -1559,7 +1559,7 @@
         errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/me/rerere/rikkahub/ui/pages/chat/ChatPage.kt"
-            line="665"
+            line="680"
             column="29"/>
     </issue>
 
@@ -2240,8 +2240,30 @@
         errorLine1="    modifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~">
         <location
+            file="src/main/java/me/rerere/rikkahub/ui/pages/models/components/ModelInventorySection.kt"
+            line="24"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier,"
+        errorLine2="    ~~~~~~~~">
+        <location
             file="src/main/java/me/rerere/rikkahub/ui/pages/setting/components/ProviderConfigure.kt"
             line="1498"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier,"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="src/main/java/me/rerere/rikkahub/ui/components/message/RikkaUiRenderer.kt"
+            line="83"
             column="5"/>
     </issue>
 
@@ -8120,6 +8142,501 @@
 
     <issue
         id="MissingTranslation"
+        message="&quot;models_title&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_title&quot;>Models&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2039"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_add&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_add&quot;>Add to Models&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2040"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_used_by_default&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_used_by_default&quot;>Used by default&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2041"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_show_all_assignments&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_show_all_assignments&quot;>Show all assignments&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2042"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_hide_assignments&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_hide_assignments&quot;>Hide assignments&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2043"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_your_models&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_your_models&quot;>Your models&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2044"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_sources&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_sources&quot;>Sources&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2045"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_manage_sources&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_manage_sources&quot;>Manage sources&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2046"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_on_this_device&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_on_this_device&quot;>On this device&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2047"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_source_configured_count&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_source_configured_count&quot;>Configured · %1$d models&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2048"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_source_disabled&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_source_disabled&quot;>Disabled&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2049"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_source_not_configured&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_source_not_configured&quot;>Not configured&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2050"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_add_on_device&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_add_on_device&quot;>On device&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2051"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_add_on_device_subtitle&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_add_on_device_subtitle&quot;>Import a model file, download from URL, or browse supported models.&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2052"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_add_connect_source&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_add_connect_source&quot;>Connect a source&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2053"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_add_connect_source_subtitle&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_add_connect_source_subtitle&quot;>Add an API provider or a local endpoint.&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2054"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_filter_all&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_filter_all&quot;>All&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2055"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_filter_chat&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_filter_chat&quot;>Chat&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2056"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_filter_vision&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_filter_vision&quot;>Vision&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2057"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_filter_image&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_filter_image&quot;>Image&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2058"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_filter_audio&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_filter_audio&quot;>Audio&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2059"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_filter_retrieval&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_filter_retrieval&quot;>Retrieval&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2060"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_role_chat&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_role_chat&quot;>Chat&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2061"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_role_vision&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_role_vision&quot;>Vision&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2062"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_role_ocr&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_role_ocr&quot;>OCR&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2063"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_role_image_generation&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_role_image_generation&quot;>Image generation&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2064"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_role_image_editing&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_role_image_editing&quot;>Image editing&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2065"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_role_text_to_speech&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_role_text_to_speech&quot;>Text to speech&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2066"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_role_speech_to_text&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_role_speech_to_text&quot;>Speech to text&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2067"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_role_embeddings&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_role_embeddings&quot;>Embeddings&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2068"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_capabilities&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_capabilities&quot;>Capabilities&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2069"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_used_for&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_used_for&quot;>Used for&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2070"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_status&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_status&quot;>Status&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2071"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_source_section&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_source_section&quot;>Source&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2072"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_source_details&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_source_details&quot;>Source details&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2073"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_local_details&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_local_details&quot;>Local details&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2074"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_storage&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_storage&quot;>Storage&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2075"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_runtime&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_runtime&quot;>Runtime&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2076"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_remote_id&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_remote_id&quot;>Remote ID&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2077"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_provider_settings&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_provider_settings&quot;>Provider settings&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2078"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_connection_healthy&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_connection_healthy&quot;>Healthy&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2079"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_connection_unavailable&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_connection_unavailable&quot;>Unavailable&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2080"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;models_advanced&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;models_advanced&quot;>Advanced&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2081"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;setting_home_models&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;setting_home_models&quot;>Models&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2082"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;setting_home_models_desc&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
+        errorLine1="  &lt;string name=&quot;setting_home_models_desc&quot;>Manage available models, default assignments, and sources&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2083"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
         message="&quot;setting_general_group_conversation_input&quot; is not translated in &quot;ar&quot; (Arabic), &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;ja&quot; (Japanese), &quot;zh&quot; (Chinese)"
         errorLine1="    &lt;string name=&quot;setting_general_group_conversation_input&quot;>Conversation &amp;amp; Input&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
@@ -8417,6 +8934,17 @@
 
     <issue
         id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;models&quot;): This should probably be a plural rather than a string"
+        errorLine1="  &lt;string name=&quot;models_source_configured_count&quot;>Configured · %1$d models&lt;/string>"
+        errorLine2="  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2048"
+            column="3"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
         message="Formatting %d followed by words (&quot;documents&quot;): This should probably be a plural rather than a string"
         errorLine1="    &lt;string name=&quot;setting_rag_documents_indexed&quot;>%1$d documents indexed&lt;/string>"
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
@@ -8624,7 +9152,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/me/rerere/rikkahub/ui/pages/modelmanager/ModelManagerViewModel.kt"
-            line="36"
+            line="37"
             column="5"/>
     </issue>
 
@@ -9202,6 +9730,39 @@
 
     <issue
         id="UnusedResources"
+        message="The resource `R.string.unified_models_local` appears to be unused"
+        errorLine1="  &lt;string name=&quot;unified_models_local&quot;>Local models&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="803"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.unified_models_cloud` appears to be unused"
+        errorLine1="  &lt;string name=&quot;unified_models_cloud&quot;>Cloud models&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="804"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.unified_models_refresh` appears to be unused"
+        errorLine1="  &lt;string name=&quot;unified_models_refresh&quot;>Refresh&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="805"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
         message="The resource `R.string.setting_model_page_title_model` appears to be unused"
         errorLine1="  &lt;string name=&quot;setting_model_page_title_model&quot;>Title Summary Model&lt;/string>"
         errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
@@ -9252,6 +9813,17 @@
         <location
             file="src/main/res/values/strings.xml"
             line="836"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.setting_page_default_model_desc` appears to be unused"
+        errorLine1="  &lt;string name=&quot;setting_page_default_model_desc&quot;>Set default models for each feature&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="837"
             column="11"/>
     </issue>
 
@@ -9433,6 +10005,28 @@
 
     <issue
         id="UnusedResources"
+        message="The resource `R.string.setting_page_providers` appears to be unused"
+        errorLine1="  &lt;string name=&quot;setting_page_providers&quot;>Providers&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="865"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.setting_page_providers_desc` appears to be unused"
+        errorLine1="  &lt;string name=&quot;setting_page_providers_desc&quot;>Configure AI providers&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="866"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
         message="The resource `R.string.setting_page_search_delete_provider` appears to be unused"
         errorLine1="  &lt;string name=&quot;setting_page_search_delete_provider&quot;>Delete Provider&lt;/string>"
         errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
@@ -9472,6 +10066,138 @@
         <location
             file="src/main/res/values/strings.xml"
             line="896"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.setting_provider_page_image_qr_decode_failed` appears to be unused"
+        errorLine1="  &lt;string name=&quot;setting_provider_page_image_qr_decode_failed&quot;>Failed to parse QR code from image: %s&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="974"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.setting_provider_page_import_dialog_message` appears to be unused"
+        errorLine1="  &lt;string name=&quot;setting_provider_page_import_dialog_message&quot;>Please select import method:&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="975"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.setting_provider_page_import_dialog_title` appears to be unused"
+        errorLine1="  &lt;string name=&quot;setting_provider_page_import_dialog_title&quot;>Import Provider Configuration&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="976"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.setting_provider_page_import_success` appears to be unused"
+        errorLine1="  &lt;string name=&quot;setting_provider_page_import_success&quot;>Import successful&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="978"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.setting_provider_page_no_permission` appears to be unused"
+        errorLine1="  &lt;string name=&quot;setting_provider_page_no_permission&quot;>No permission&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="991"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.setting_provider_page_no_qr_found` appears to be unused"
+        errorLine1="  &lt;string name=&quot;setting_provider_page_no_qr_found&quot;>No valid QR code found&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="992"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.setting_provider_page_qr_decode_failed` appears to be unused"
+        errorLine1="  &lt;string name=&quot;setting_provider_page_qr_decode_failed&quot;>Failed to parse QR code: %s&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="998"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.setting_provider_page_scan_error` appears to be unused"
+        errorLine1="  &lt;string name=&quot;setting_provider_page_scan_error&quot;>Error: %s&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1004"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.setting_provider_page_scan_qr_code` appears to be unused"
+        errorLine1="  &lt;string name=&quot;setting_provider_page_scan_qr_code&quot;>Scan QR Code&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1005"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.setting_provider_page_recommend` appears to be unused"
+        errorLine1="  &lt;string name=&quot;setting_provider_page_recommend&quot;>Recommended providers&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1007"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.setting_provider_page_select_from_gallery` appears to be unused"
+        errorLine1="  &lt;string name=&quot;setting_provider_page_select_from_gallery&quot;>Select from Gallery&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1009"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.setting_provider_page_title` appears to be unused"
+        errorLine1="  &lt;string name=&quot;setting_provider_page_title&quot;>Providers&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1014"
             column="11"/>
     </issue>
 
@@ -9725,6 +10451,17 @@
         <location
             file="src/main/res/values/strings.xml"
             line="1693"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.model_manager_title` appears to be unused"
+        errorLine1="  &lt;string name=&quot;model_manager_title&quot;>Model Manager&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1717"
             column="11"/>
     </issue>
 
@@ -10038,6 +10775,127 @@
 
     <issue
         id="UnusedResources"
+        message="The resource `R.string.setting_default_models_title` appears to be unused"
+        errorLine1="  &lt;string name=&quot;setting_default_models_title&quot;>Default Models&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2000"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.model_manager_add_model` appears to be unused"
+        errorLine1="  &lt;string name=&quot;model_manager_add_model&quot;>Add Model&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2001"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.model_manager_back_to_models` appears to be unused"
+        errorLine1="  &lt;string name=&quot;model_manager_back_to_models&quot;>Back to models&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2002"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.unified_models_configure` appears to be unused"
+        errorLine1="  &lt;string name=&quot;unified_models_configure&quot;>Configure&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2006"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.unified_models_tab_all` appears to be unused"
+        errorLine1="  &lt;string name=&quot;unified_models_tab_all&quot;>All&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2032"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.unified_models_tab_chat` appears to be unused"
+        errorLine1="  &lt;string name=&quot;unified_models_tab_chat&quot;>Chat&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2033"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.unified_models_tab_embeddings` appears to be unused"
+        errorLine1="  &lt;string name=&quot;unified_models_tab_embeddings&quot;>Embeddings&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2034"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.unified_models_tab_task` appears to be unused"
+        errorLine1="  &lt;string name=&quot;unified_models_tab_task&quot;>Task models&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2035"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.unified_models_tab_image` appears to be unused"
+        errorLine1="  &lt;string name=&quot;unified_models_tab_image&quot;>Image&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2036"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.unified_models_tab_vision` appears to be unused"
+        errorLine1="  &lt;string name=&quot;unified_models_tab_vision&quot;>Vision&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2037"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.unified_models_tab_speech` appears to be unused"
+        errorLine1="  &lt;string name=&quot;unified_models_tab_speech&quot;>Speech&lt;/string>"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="2038"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
         message="The resource `R.string.setting_home_group_chat_voice` appears to be unused"
         errorLine1="    &lt;string name=&quot;setting_home_group_chat_voice&quot;>Chat &amp;amp; Voice&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
@@ -10110,6 +10968,28 @@
         <location
             file="src/main/res/values/strings_settings_home.xml"
             line="15"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.setting_home_model_manager` appears to be unused"
+        errorLine1="    &lt;string name=&quot;setting_home_model_manager&quot;>On-device models&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings_settings_home.xml"
+            line="17"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.setting_home_model_manager_desc` appears to be unused"
+        errorLine1="    &lt;string name=&quot;setting_home_model_manager_desc&quot;>Install and manage on-device models&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings_settings_home.xml"
+            line="18"
             column="13"/>
     </issue>
 
@@ -12334,7 +13214,7 @@
         errorLine2="                                                             ~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/me/rerere/rikkahub/ui/components/message/RikkaUiRenderer.kt"
-            line="123"
+            line="327"
             column="62"/>
     </issue>
 
@@ -12400,7 +13280,7 @@
         errorLine2="                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/me/rerere/rikkahub/data/ai/StableDiffusionProvider.kt"
-            line="407"
+            line="496"
             column="18"/>
     </issue>
 
