@@ -154,7 +154,7 @@ the app. App-side implementations adapt them and are wired via DI (Koin):
 | Conversation revision guard| ❌ on master (in PR #2, to be harvested) |
 | Shadow workspace           | ❌ designed |
 | Terminal sessions          | ❌ designed |
-| Browser sessions           | ❌ designed |
+| Browser sessions           | ✅ built (substrate: commands, observations, effect gate, state machine, receipts); app-side adapter deferred |
 | GenerationService          | ❌ designed |
 | Compute abstraction        | ❌ designed |
 | Agent scenario lab         | ❌ designed |
