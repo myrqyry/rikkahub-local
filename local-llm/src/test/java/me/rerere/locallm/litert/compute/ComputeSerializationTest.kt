@@ -73,4 +73,24 @@ class ComputeSerializationTest {
         assertEquals(ComputeEffect.LOAD, ComputeEffect.valueOf("LOAD"))
         assertEquals(ComputeEffect.SHUTDOWN, ComputeEffect.valueOf("SHUTDOWN"))
     }
+
+    @Test
+    fun `observations round-trip with their discriminators`() {
+        val observations = listOf(
+            ComputeObservation.Loaded("model-a"),
+            ComputeObservation.ExecutionStarted("model-a", "infer"),
+            ComputeObservation.ExecutionCompleted("model-a", "infer", 128L),
+            ComputeObservation.ExecutionFailed("model-a", "infer", "out of memory"),
+            ComputeObservation.Released("model-a"),
+            ComputeObservation.ShutdownComplete,
+            ComputeObservation.Evicted("closed"),
+            ComputeObservation.CommandRefused("compute_memory_denied"),
+        )
+        observations.forEach { observation ->
+            val encoded = json.encodeToString(ComputeObservation.serializer(), observation)
+            val decoded = json.decodeFromString(ComputeObservation.serializer(), encoded)
+            assertEquals(observation, decoded)
+        }
+        assert(json.encodeToString(ComputeObservation.serializer(), observations[7]).contains("compute_command_refused"))
+    }
 }
