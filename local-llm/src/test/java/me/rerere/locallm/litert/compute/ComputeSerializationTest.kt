@@ -42,4 +42,35 @@ class ComputeSerializationTest {
             assertEquals(requirements, decoded)
         }
     }
+
+    private val requirements = ComputeRequirements(AcceleratorPreference.CPU, 1024L, 100L, 0L, 0L)
+
+    @Test
+    fun `commands round-trip with their discriminators`() {
+        val commands: List<ComputeCommand> = listOf(
+            ComputeCommand.Load(modelId = "model-a", requirements = requirements),
+            ComputeCommand.Execute(
+                modelId = "model-a",
+                operation = "infer",
+                input = mapOf("prompt" to "hello"),
+                requirements = requirements,
+            ),
+            ComputeCommand.Release(modelId = "model-a"),
+            ComputeCommand.Shutdown,
+        )
+        commands.forEach { command ->
+            val encoded = json.encodeToString(ComputeCommand.serializer(), command)
+            val decoded = json.decodeFromString(ComputeCommand.serializer(), encoded)
+            assertEquals(command, decoded)
+        }
+        assert(json.encodeToString(ComputeCommand.serializer(), commands[0]).contains("compute_load"))
+        assert(json.encodeToString(ComputeCommand.serializer(), commands[3]).contains("compute_shutdown"))
+    }
+
+    @Test
+    fun `effects have stable names`() {
+        assertEquals(4, ComputeEffect.entries.size)
+        assertEquals(ComputeEffect.LOAD, ComputeEffect.valueOf("LOAD"))
+        assertEquals(ComputeEffect.SHUTDOWN, ComputeEffect.valueOf("SHUTDOWN"))
+    }
 }
