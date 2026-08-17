@@ -15,17 +15,29 @@ class ComputeSession private constructor(
     val state get() = currentState
     val isClosed get() = currentState == State.RELEASED || currentState == State.TERMINATED
 
+    internal val commandsLedger = mutableListOf<String>()
+    internal val effectsLedger = mutableSetOf<ComputeEffect>()
+    internal val refusalsLedger = mutableListOf<String>()
+
     fun dispatch(
         command: ComputeCommand,
         granted: CapabilityGrant? = null,
         capabilities: AcceleratorProbe.LiteRtCapabilities? = null,
         availMemBytes: Long = 0L,
     ): List<ComputeObservation> {
-        if (isClosed) return listOf(ComputeObservation.CommandRefused("session closed"))
+        if (isClosed) {
+            commandsLedger.add(command::class.simpleName ?: "command")
+            refusalsLedger.add("session closed")
+            return listOf(ComputeObservation.CommandRefused("session closed"))
+        }
         val decision = gate.evaluate(command, granted, capabilities, availMemBytes)
         if (!decision.allowed) {
+            commandsLedger.add(command::class.simpleName ?: "command")
+            refusalsLedger.add(decision.reason ?: "command_denied")
             return listOf(ComputeObservation.CommandRefused(decision.reason ?: "command_denied"))
         }
+        commandsLedger.add(command::class.simpleName ?: "command")
+        decision.effect?.let { effectsLedger.add(it) }
         return when (command) {
             is ComputeCommand.Load -> if (currentState == State.IDLE) {
                 currentState = State.LOADED
