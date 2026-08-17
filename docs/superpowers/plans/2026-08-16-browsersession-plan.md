@@ -851,7 +851,7 @@ data class BrowserReceipt(
 )
 
 /** Build a receipt for a session's run. The session must track its own ledger. */
-fun BrowserSession.buildReceipt(startedAtMs: Long, error: String? = null): BrowserReceipt = throw NotImplementedError()
+fun BrowserSession.buildReceipt(startedAtMs: Long, error: String? = null): BrowserReceipt = stubBody()
 ```
 
 The `BrowserSession` must maintain a small ledger to support receipts. Update `BrowserSession.kt` from Task 4 (same file directory, add to the existing class):
@@ -890,7 +890,7 @@ The `BrowserSession` must maintain a small ledger to support receipts. Update `B
     }
 ```
 
-- Add the ledger-backed implementation of `buildReceipt` as a top-level function in `BrowserReceipt.kt` (replace the `throw NotImplementedError()` body):
+- Add the ledger-backed implementation of `buildReceipt` as a top-level function in `BrowserReceipt.kt` (replace the `stubBody()` body):
 
 ```kotlin
 fun BrowserSession.buildReceipt(startedAtMs: Long, error: String? = null): BrowserReceipt =
