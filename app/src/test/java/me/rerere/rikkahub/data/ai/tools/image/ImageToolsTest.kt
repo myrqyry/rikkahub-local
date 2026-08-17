@@ -18,6 +18,7 @@ import me.rerere.ai.ui.MessageChunk
 import me.rerere.ai.ui.UIMessage
 import me.rerere.ai.ui.UIMessageChoice
 import me.rerere.ai.ui.UIMessagePart
+import me.rerere.rikkahub.data.ai.generation.GenerationService
 import me.rerere.rikkahub.data.ai.tools.ToolInvocationContext
 import me.rerere.rikkahub.data.datastore.Settings
 import me.rerere.rikkahub.data.media.ImageMediaStore
@@ -52,6 +53,7 @@ class ImageToolsTest {
         imageMediaStore = stubStore(),
         mediaInputResolver = stubResolverInput(),
         imageTextExtractor = stubExtractor(),
+        generationService = stubGenerationService(),
     )
 
     @Test
@@ -155,6 +157,8 @@ class ImageToolsTest {
             height = 64,
         )
     }
+
+    private fun stubGenerationService(): GenerationService = GenerationService(stubResolver(), StubBackend(), stubStore())
 
     private fun stubResolverInput(): MediaInputResolver = object : MediaInputResolver {
         override suspend fun resolveImage(
