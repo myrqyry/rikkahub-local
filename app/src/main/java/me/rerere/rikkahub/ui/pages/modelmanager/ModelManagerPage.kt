@@ -190,30 +190,13 @@ fun ModelManagerPage(
                     item {
                         ModelInventorySection(
                             models = visibleModels,
-                            providers = providers,
-                            onRefreshProvider = assignmentsVm::refreshProvider,
-                            onProviderEnabledChange = { providerId, enabled ->
-                                val providerUuid = runCatching { Uuid.parse(providerId) }.getOrNull()
-                                if (providerUuid != null) {
-                                    settingsVm.updateSettings(settings.copy(
-                                        providers = settings.providers.map { provider ->
-                                            if (provider.id == providerUuid) provider.copyProvider(enabled = enabled) else provider
-                                        },
-                                    ))
-                                }
-                            },
                             onModelEnabledChange = assignmentsVm::setModelEnabled,
-                            onCloudModelClick = { model ->
+                            onModelClick = { model ->
                                 val providerId = (model.source as? ModelSource.Cloud)?.providerId
                                 if (providerId != null) {
                                     navController.navigate(Screen.SettingProviderDetail(providerId))
                                 }
                             },
-                            onProviderConfigure = { providerId ->
-                                navController.navigate(Screen.SettingProviderDetail(providerId))
-                            },
-                            onLocalModelRename = { model, name -> assignmentsVm.renameLocalModel(model.id, name) },
-                            onLocalModelDelete = { model -> assignmentsVm.deleteLocalModel(model.id) },
                         )
                     }
                 }
