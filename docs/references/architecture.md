@@ -46,7 +46,7 @@ line and is not negotiable.
                   ├──────────────────────────────┐
                   ▼                              ▼
              Compute                         ServiceWorld
-        LiteRT / CPU / GPU               Fake / Emulated / Real
+        LiteRT / CPU / GPU               Simulated / Emulated / Real
                   │                              │
                   └──────────────┬───────────────┘
                                  ▼
