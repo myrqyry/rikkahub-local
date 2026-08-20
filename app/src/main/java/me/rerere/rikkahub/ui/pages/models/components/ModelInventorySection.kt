@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
 import me.rerere.rikkahub.ui.components.ui.CardGroup
+import me.rerere.rikkahub.ui.pages.models.ModelCapabilityRow
 
 @Composable
 fun ModelInventorySection(
@@ -43,10 +44,20 @@ fun ModelInventorySection(
                                 )
                             }
                         },
-                        supportingContent = { Text(model.capabilities.joinToString(" • ") { it.name.lowercase() }) },
+                        supportingContent = {
+                            ModelCapabilityRow(model.capabilities)
+                            if (!model.providerEnabled) {
+                                Text(
+                                    stringResource(R.string.models_source_disabled),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        },
                         trailingContent = {
                             Switch(
                                 checked = model.enabledCapabilities.isNotEmpty(),
+                                enabled = model.providerEnabled,
                                 onCheckedChange = { onModelEnabledChange(model, it) },
                             )
                         },

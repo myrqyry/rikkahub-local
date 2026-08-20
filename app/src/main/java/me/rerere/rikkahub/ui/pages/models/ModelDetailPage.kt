@@ -2,8 +2,10 @@ package me.rerere.rikkahub.ui.pages.models
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -22,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -32,7 +35,9 @@ import me.rerere.hugeicons.stroke.Delete01
 import me.rerere.hugeicons.stroke.Edit01
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
+import me.rerere.rikkahub.data.modelregistry.ModelLifecycle
 import me.rerere.rikkahub.data.modelregistry.ModelSource
+import me.rerere.rikkahub.data.modelregistry.capability
 import me.rerere.rikkahub.ui.components.ui.CardGroup
 import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.pages.models.components.SourceBadge
@@ -123,7 +128,20 @@ fun ModelDetailPage(
                 CardGroup(title = { Text(stringResource(R.string.models_capabilities)) }) {
                     model.capabilities.sortedBy { it.name }.forEach { cap ->
                         item(
-                            headlineContent = { Text(cap.name.lowercase()) },
+                            headlineContent = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = cap.icon,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        stringResource(cap.labelRes),
+                                        modifier = Modifier.padding(start = 8.dp),
+                                    )
+                                }
+                            },
                             trailingContent = {
                                 Switch(
                                     checked = cap in model.enabledCapabilities,
@@ -141,7 +159,7 @@ fun ModelDetailPage(
                 item {
                     CardGroup(title = { Text(stringResource(R.string.models_used_for)) }) {
                         usedFor.forEach { role ->
-                            item(headlineContent = { Text(role.name.lowercase()) })
+                            item(headlineContent = { Text(stringResource(role.capability().labelRes)) })
                         }
                     }
                 }
@@ -149,7 +167,7 @@ fun ModelDetailPage(
 
             item {
                 CardGroup(title = { Text(stringResource(R.string.models_status)) }) {
-                    item(headlineContent = { Text(model.lifecycle.name.lowercase()) })
+                    item(headlineContent = { Text(stringResource(model.lifecycle.labelRes)) })
                 }
             }
 
