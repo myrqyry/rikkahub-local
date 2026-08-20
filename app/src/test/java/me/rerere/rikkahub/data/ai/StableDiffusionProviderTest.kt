@@ -135,7 +135,7 @@ class StableDiffusionProviderTest {
     fun `memory policy allows fits-and-boundary`() {
         val deviceRam = 8L * 1024 * 1024 * 1024
         assertNull(sdMemoryPolicyViolation(2_000_000_000L, 512, 512, deviceRam))
-        assertNull(sdMemoryPolicyViolation(8L * 1024 * 1024 * 1024, 1, 1, 8L * 1024 * 1024 * 1024 + 1024))
+        assertNull(sdMemoryPolicyViolation(8L * 1024 * 1024 * 1024, 1, 1, 8L * 1024 * 1024 * 1024 + SD_SAFETY_MARGIN_BYTES + 1024))
     }
 
     @Test
@@ -151,7 +151,32 @@ class StableDiffusionProviderTest {
         val model = 4L * 1024 * 1024 * 1024 - 1
         val message = sdMemoryPolicyViolation(model, 1024, 1024, deviceRam)
         assertTrue(message != null)
-        assertTrue(message!!.contains("needs roughly"))
+        assertTrue(message!!.contains("needs about"))
+    }
+
+    @Test
+    fun `budget uses avail minus android threshold not heap ceiling`() {
+        val availMem = 4L * 1024 * 1024 * 1024
+        val threshold = 1L * 1024 * 1024 * 1024
+        val budget = estimateRuntimeBudget(availMem, threshold)
+        assertEquals(3L * 1024 * 1024 * 1024, budget)
+        assertNull(sdMemoryPolicyViolation(2_000_000_000L, 512, 512, availMem, threshold))
+    }
+
+    @Test
+    fun `policy message reports available reserved and budget`() {
+        val message = sdMemoryPolicyViolation(
+            5L * 1024 * 1024 * 1024,
+            512,
+            512,
+            deviceRamBytes = 4L * 1024 * 1024 * 1024,
+            androidReserveBytes = 1L * 1024 * 1024 * 1024,
+        )
+        assertTrue(message != null)
+        assertTrue(message!!.contains("needs about"))
+        assertTrue(message.contains("is currently available"))
+        assertTrue(message.contains("reserved for Android"))
+        assertTrue(message.contains("generation budget"))
     }
 
     @Test

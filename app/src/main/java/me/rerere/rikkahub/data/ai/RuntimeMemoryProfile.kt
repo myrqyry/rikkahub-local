@@ -5,7 +5,7 @@ package me.rerere.rikkahub.data.ai
  *
  * A conservative estimate of the resident memory a local diffusion run needs, and a budget
  * derived from what the device can actually spare — not from total RAM. Admission compares
- * the profile sum plus a safety margin against the budget.
+ * the profile sum (estimates plus an explicit safety margin) against the budget.
  */
 data class RuntimeMemoryProfile(
     val modelResidentEstimate: Long,
@@ -19,9 +19,23 @@ data class RuntimeMemoryProfile(
     fun fitsIn(budget: Long): Boolean = requiredBytes <= budget
 }
 
-/** Bytes available to the model after Android reserves and the app's known working set. */
-fun estimateRuntimeBudget(availMem: Long, androidReserve: Long, knownWorkingSet: Long): Long =
-    (availMem - androidReserve - knownWorkingSet).coerceAtLeast(0L)
+/**
+ * Modest extra headroom above the model/buffer estimates, so small estimator errors or
+ * transient allocations during sampling do not push us over Android's low-memory line.
+ * Kept here — visible and testable — instead of hidden as another reservation inside the
+ * device budget.
+ */
+internal const val SD_SAFETY_MARGIN_BYTES = 256L * 1024L * 1024L
+
+/**
+ * Generation budget: what the device can spare without tripping Android's low-memory
+ * threshold. [availMem] is what is free right now; [thresholdBytes] is the availMem value at
+ * which Android begins reclaiming background processes, so anything above it is safe to hand
+ * to native code. The Java heap ceiling is deliberately not subtracted here: `maxMemory()` is
+ * a hypothetical maximum the JVM may attempt to use, not the app's current working set.
+ */
+fun estimateRuntimeBudget(availMem: Long, thresholdBytes: Long): Long =
+    (availMem - thresholdBytes).coerceAtLeast(0L)
 
 /**
  * Conservative workspace estimate: latents + intermediate buffers scale with pixel area and

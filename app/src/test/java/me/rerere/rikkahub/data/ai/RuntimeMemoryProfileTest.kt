@@ -11,11 +11,10 @@ class RuntimeMemoryProfileTest {
     private val gb = 1024L * 1024L * 1024L
 
     @Test
-    fun `budget is net of reserves`() {
+    fun `budget is net of android threshold`() {
         val budget = estimateRuntimeBudget(
             availMem = 6L * gb,
-            androidReserve = (3L * gb) / 2,
-            knownWorkingSet = gb / 2,
+            thresholdBytes = 2L * gb,
         )
         assertEquals(4L * gb, budget)
     }
@@ -24,8 +23,7 @@ class RuntimeMemoryProfileTest {
     fun `budget never goes negative`() {
         val budget = estimateRuntimeBudget(
             availMem = gb,
-            androidReserve = 2L * gb,
-            knownWorkingSet = gb,
+            thresholdBytes = 2L * gb,
         )
         assertEquals(0L, budget)
     }
@@ -39,13 +37,24 @@ class RuntimeMemoryProfileTest {
 
     @Test
     fun `model over budget is refused`() {
-        val budget = estimateRuntimeBudget(availMem = 6L * gb, androidReserve = (3L * gb) / 2, knownWorkingSet = gb / 2)
+        val budget = estimateRuntimeBudget(availMem = 6L * gb, thresholdBytes = 2L * gb)
         assertNotNull(sdMemoryPolicyViolation(modelSizeBytes = 5L * gb, width = 512, height = 512, deviceRamBytes = budget))
     }
 
     @Test
     fun `model under budget is allowed`() {
-        val budget = estimateRuntimeBudget(availMem = 6L * gb, androidReserve = (3L * gb) / 2, knownWorkingSet = gb / 2)
+        val budget = estimateRuntimeBudget(availMem = 6L * gb, thresholdBytes = 2L * gb)
         assertNull(sdMemoryPolicyViolation(modelSizeBytes = 2L * gb, width = 512, height = 512, deviceRamBytes = budget))
+    }
+
+    @Test
+    fun `safety margin is included in required bytes`() {
+        val profile = RuntimeMemoryProfile(
+            modelResidentEstimate = gb,
+            workspaceEstimate = 0L,
+            outputEstimate = 0L,
+            safetyMargin = SD_SAFETY_MARGIN_BYTES,
+        )
+        assertEquals(gb + SD_SAFETY_MARGIN_BYTES, profile.requiredBytes)
     }
 }

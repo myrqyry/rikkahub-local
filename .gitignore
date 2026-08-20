@@ -51,6 +51,11 @@ app/src/main/jni/litert/litert_cc_sdk/
 # Proactive agent session state — local memory, not for the remote
 /MEMORY.md
 /SESSION-STATE.md
+/SOUL.md
+/USER.md
+/HEARTBEAT.md
+/ONBOARDING.md
+/TOOLS.md
 /memory/
 
 # Sensitive developer backup archives — may contain API keys; keep out of the repo

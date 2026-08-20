@@ -60,19 +60,16 @@ class StableDiffusionProvider(
         })
     }
 
-    /** Best-effort total physical RAM in bytes; 0 when unavailable (policy then skips the check). */
-    private fun deviceTotalRamBytes(): Long = runCatching {
+    /**
+     * Best-effort memory snapshot: currently-available RAM plus Android's low-memory threshold
+     * (the availMem point at which Android begins reclaiming background processes). Both are 0
+     * when unavailable, and the policy then skips the check.
+     */
+    private fun deviceMemorySnapshot(): Pair<Long, Long> = runCatching {
         val memInfo = ActivityManager.MemoryInfo()
         (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.getMemoryInfo(memInfo)
-        memInfo.totalMem
-    }.getOrDefault(0L)
-
-    /** Best-effort currently-available RAM in bytes; 0 when unavailable. */
-    private fun deviceAvailRamBytes(): Long = runCatching {
-        val memInfo = ActivityManager.MemoryInfo()
-        (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.getMemoryInfo(memInfo)
-        memInfo.availMem
-    }.getOrDefault(0L)
+        memInfo.availMem to memInfo.threshold
+    }.getOrDefault(0L to 0L)
 
     override suspend fun listModels(providerSetting: ProviderSetting.StableDiffusion): List<Model> {
         return providerSetting.models
@@ -126,20 +123,19 @@ class StableDiffusionProvider(
         )?.let { throw IllegalStateException(it) }
 
         // Memory policy: refuse clearly-dangerous model-size + resolution combinations BEFORE
-        // paying for a multi-GB context init. The budget is what the device can actually spare:
-        // available RAM minus the Android reserve minus the app's known working set. The warm
-        // session is already released on TRIM_MEMORY_RUNNING_CRITICAL / onLowMemory via the
-        // ComponentCallbacks2 above.
-        val budget = estimateRuntimeBudget(
-            availMem = deviceAvailRamBytes(),
-            androidReserve = ANDROID_RESERVE_BYTES,
-            knownWorkingSet = Runtime.getRuntime().maxMemory(),
-        )
+        // paying for a multi-GB context init. The budget is what Android reports as currently
+        // available minus its low-memory threshold — the point where Android starts reclaiming
+        // background processes. The Java heap ceiling is not part of this: maxMemory() is a
+        // hypothetical maximum, not current usage. Extra caution beyond Android's own threshold
+        // lives as the safety margin inside RuntimeMemoryProfile. The warm session is already
+        // released on TRIM_MEMORY_RUNNING_CRITICAL / onLowMemory via the ComponentCallbacks2 above.
+        val (availMem, threshold) = deviceMemorySnapshot()
         sdMemoryPolicyViolation(
             modelSizeBytes = File(modelPath).length(),
             width = width,
             height = height,
-            deviceRamBytes = budget,
+            deviceRamBytes = availMem,
+            androidReserveBytes = threshold,
         )?.let { throw IllegalStateException(it) }
 
         var initialized = false
@@ -449,38 +445,37 @@ internal fun resolveEffectiveGenerationParams(
 /** Conservative per-pixel buffer estimate (output RGBA + working latents) used by the memory policy. */
 internal const val SD_MEMORY_BYTES_PER_PIXEL = 4L
 
-/** Fixed Android/system reserve subtracted from available RAM before image admission. */
-internal const val ANDROID_RESERVE_BYTES = 1536L * 1024L * 1024L
-
 /**
  * Memory policy (roadmap #4). Returns a refusal message when a model-size + resolution
- * combination would clearly exceed the runtime budget passed in, or null when it is safe to
- * proceed. Uses the on-disk model size (mmap keeps most pages lazily loaded, but the sampling
- * working set is comparable) plus a conservative workspace + output estimate. The check is
- * intentionally conservative: refusing a combo here is far cheaper than OOM-killing a 2 GB
- * context mid-sampling. The caller reduces the device's physical RAM to the real budget via
- * [estimateRuntimeBudget]; passing total RAM here skips the reserve arithmetic (tests do this).
+ * combination would clearly exceed the runtime budget, or null when it is safe to proceed.
+ * Uses the on-disk model size (mmap keeps most pages lazily loaded, but the sampling working
+ * set is comparable) plus a conservative workspace + output estimate and an explicit safety
+ * margin ([SD_SAFETY_MARGIN_BYTES]). The check is intentionally conservative: refusing a combo
+ * here is far cheaper than OOM-killing a 2 GB context mid-sampling. [deviceRamBytes] is the
+ * currently-available RAM and [androidReserveBytes] Android's low-memory threshold; the budget
+ * is their difference (tests pass a plain budget by leaving the reserve at its default of zero).
  */
 internal fun sdMemoryPolicyViolation(
     modelSizeBytes: Long,
     width: Int,
     height: Int,
     deviceRamBytes: Long,
+    androidReserveBytes: Long = 0L,
 ): String? {
     if (modelSizeBytes <= 0L || width <= 0 || height <= 0 || deviceRamBytes <= 0L) return null
-    // The safety margin lives in the caller's budget (ANDROID_RESERVE_BYTES); keeping it at zero
-    // here preserves the exact boundary the provider tests assert (model + buffers fits device RAM).
     val profile = RuntimeMemoryProfile(
         modelResidentEstimate = modelSizeBytes,
         workspaceEstimate = workspaceEstimateBytes(width, height),
         outputEstimate = outputEstimateBytes(width, height),
-        safetyMargin = 0L,
+        safetyMargin = SD_SAFETY_MARGIN_BYTES,
     )
     val estimatedBytes = profile.requiredBytes
-    if (estimatedBytes <= deviceRamBytes) return null
-    return "This image model (${formatMemorySize(modelSizeBytes)}) at ${width}x$height needs roughly " +
-        "${formatMemorySize(estimatedBytes)} of memory, more than the device's " +
-        "${formatMemorySize(deviceRamBytes)}. Use a smaller model or image size."
+    val budget = estimateRuntimeBudget(availMem = deviceRamBytes, thresholdBytes = androidReserveBytes)
+    if (estimatedBytes <= budget) return null
+    return "This image model needs about ${formatMemorySize(estimatedBytes)} for a ${width}x$height image. " +
+        "About ${formatMemorySize(deviceRamBytes)} is currently available, with " +
+        "${formatMemorySize(androidReserveBytes)} reserved for Android, leaving a " +
+        "${formatMemorySize(budget)} generation budget. Use a smaller model or image size."
 }
 
 /** Renders a byte count as "N MB" or "N.NN GB" for policy messages. */

@@ -76,11 +76,62 @@ class ModelRoleResolverTest {
         assertTrue(assistant.allowCloudImageProcessing)
     }
 
-    private fun descriptor(id: String, local: Boolean) = ModelDescriptor(
+    @Test
+    fun imageGenerationRoutesThroughResolver() {
+        val local = descriptor("local:image-gen", local = true, capabilities = setOf(ModelCapability.IMAGE_GENERATION))
+        val registry = TestRegistry(listOf(local), ModelAssignments(
+            defaults = mapOf(ModelRole.IMAGE_GENERATION to local.id),
+        ))
+
+        val result = ModelRoleResolver(registry).resolve(
+            ModelRole.IMAGE_GENERATION,
+            Assistant(),
+            Settings(),
+            ModelSourcePolicy.ANY,
+        )
+
+        assertEquals(local.id, (result as ModelResolution.Resolved).model.id)
+    }
+
+    @Test
+    fun chatRoleShortCircuitsToNoCompatibleModel() {
+        val local = descriptor("local:chat", local = true, capabilities = setOf(ModelCapability.CHAT))
+        val registry = TestRegistry(listOf(local), ModelAssignments(
+            defaults = mapOf(ModelRole.CHAT to local.id),
+        ))
+
+        val result = ModelRoleResolver(registry).resolve(
+            ModelRole.CHAT,
+            Assistant(),
+            Settings(),
+            ModelSourcePolicy.ANY,
+        )
+
+        assertTrue(result is ModelResolution.NoCompatibleModel)
+    }
+
+    @Test
+    fun noCompatibleModelWhenNoModelHasCapability() {
+        val visionOnly = descriptor("local:vision", local = true, capabilities = setOf(ModelCapability.VISION))
+        val registry = TestRegistry(listOf(visionOnly), ModelAssignments(defaults = emptyMap()))
+
+        val result = ModelRoleResolver(registry).resolve(
+            ModelRole.IMAGE_GENERATION,
+            Assistant(),
+            Settings(),
+            ModelSourcePolicy.ANY,
+        )
+
+        assertTrue(result is ModelResolution.NoCompatibleModel)
+    }
+
+    private fun descriptor(id: String, local: Boolean) = descriptor(id, local, setOf(ModelCapability.VISION))
+
+    private fun descriptor(id: String, local: Boolean, capabilities: Set<ModelCapability>) = ModelDescriptor(
         id = id,
         displayName = id,
         source = if (local) ModelSource.Local(LocalRuntime.LiteRT, listOf(id)) else ModelSource.Cloud("provider", id),
-        capabilities = setOf(ModelCapability.VISION),
+        capabilities = capabilities,
         lifecycle = if (local) ModelLifecycle.READY else ModelLifecycle.AVAILABLE,
         installed = local,
     )
