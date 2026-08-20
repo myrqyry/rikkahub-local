@@ -537,10 +537,6 @@ class RouteActivity : ComponentActivity() {
                             entry<Screen.SettingRAG> {
                                 SettingRAGPage()
                             }
-                            entry<Screen.SettingModelManager> { key ->
-                                ModelsPage(request = key.request)
-                            }
-
                             entry<Screen.Models> { key ->
                                 ModelsPage(
                                     request = key.request,
@@ -828,11 +824,6 @@ sealed interface Screen : NavKey {
 
     @Serializable
     data object SettingDefaultModels : Screen
-
-    @Serializable
-    data class SettingModelManager(
-        val request: me.rerere.rikkahub.ui.pages.models.ModelManagerRequest = me.rerere.rikkahub.ui.pages.models.ModelManagerRequest(),
-    ) : Screen
 
     @Serializable
     data class Models(

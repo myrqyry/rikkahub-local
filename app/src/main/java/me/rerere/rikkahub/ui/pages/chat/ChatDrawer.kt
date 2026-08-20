@@ -63,9 +63,11 @@ import me.rerere.hugeicons.stroke.InLove
 import me.rerere.hugeicons.stroke.LanguageCircle
 import me.rerere.hugeicons.stroke.LookTop
 import me.rerere.hugeicons.stroke.PencilEdit01
+import me.rerere.hugeicons.stroke.Cpu
 import me.rerere.hugeicons.stroke.Search01
 import me.rerere.hugeicons.stroke.Settings03
 import me.rerere.hugeicons.stroke.Sparkles
+import me.rerere.hugeicons.stroke.Wrench01
 import me.rerere.hugeicons.stroke.TransactionHistory
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
@@ -330,6 +332,21 @@ fun ChatDrawerContent(
 
                 DrawerAction(
                     icon = {
+                        Icon(
+                            imageVector = HugeIcons.Cpu,
+                            contentDescription = stringResource(R.string.models_title)
+                        )
+                    },
+                    label = {
+                        Text(stringResource(R.string.models_title))
+                    },
+                    onClick = {
+                        navController.navigate(Screen.Models())
+                    },
+                )
+
+                DrawerAction(
+                    icon = {
                         Icon(HugeIcons.Image02, stringResource(R.string.chat_page_menu_image_generation))
                     },
                     label = {
@@ -342,13 +359,13 @@ fun ChatDrawerContent(
 
                 DrawerAction(
                     icon = {
-                        Icon(HugeIcons.InLove, stringResource(R.string.favorite_page_title))
+                        Icon(HugeIcons.Wrench01, stringResource(R.string.extensions_page_title))
                     },
                     label = {
-                        Text(stringResource(R.string.favorite_page_title))
+                        Text(stringResource(R.string.extensions_page_title))
                     },
                     onClick = {
-                        navController.navigate(Screen.Favorite)
+                        navController.navigate(Screen.Extensions)
                     },
                 )
 
@@ -378,6 +395,14 @@ fun ChatDrawerContent(
                         expanded = showMorePopup,
                         onDismissRequest = { showMorePopup = false }
                     ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.favorite_page_title)) },
+                            leadingIcon = { Icon(HugeIcons.InLove, null) },
+                            onClick = {
+                                showMorePopup = false
+                                navController.navigate(Screen.Favorite)
+                            }
+                        )
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.chat_drawer_statistics)) },
                             leadingIcon = { Icon(HugeIcons.ChartColumn, null) },
