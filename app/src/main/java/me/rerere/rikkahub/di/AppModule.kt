@@ -430,6 +430,8 @@ val appModule = module {
             // LiteRT accelerator status row in the Doctor: shows the persisted backend
             // decision so a silent GPU -> CPU fallback is visible.
             localRuntimePreferences = get(),
+            // Skill-installed count row: surface a silent skill-seed write failure.
+            skillManager = get(),
         )
     }
 }

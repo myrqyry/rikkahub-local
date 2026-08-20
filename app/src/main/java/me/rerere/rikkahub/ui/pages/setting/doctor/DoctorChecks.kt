@@ -155,6 +155,9 @@ class DoctorChecks(
     // local models actually engaged GPU/NPU or silently fell back to CPU.
     // Nullable + defaulted same as the others above for legacy test path compatibility.
     private val localRuntimePreferences: me.rerere.locallm.LocalRuntimePreferences? = null,
+    // Expose installed-skill count so a silent skill-seed write failure shows up as a row.
+    // Nullable + defaulted same as the others above for legacy test path compatibility.
+    private val skillManager: me.rerere.rikkahub.data.files.SkillManager? = null,
 ) {
     suspend fun runAll(): List<DoctorCheck> = withContext(Dispatchers.IO) {
         // Aggregate enabled tools across every assistant. A tool is "in use" if at least
@@ -172,6 +175,8 @@ class DoctorChecks(
             addAll(networkChecks())
             addAll(termuxChecks(enabled))
             addAll(browserChecks(enabled))
+            addAll(skillsChecks())
+            addAll(storageChecks())
             addAll(maintenanceChecks())
             addAll(diagnosticsChecks(enabled))
         }
@@ -1044,6 +1049,67 @@ class DoctorChecks(
                     label = "Browser write tools enabled",
                     detail = detail,
                     severity = Severity.INFO,
+                )
+            )
+        }
+    }
+
+    // ----- Skills ----------------------------------------------------------------------
+
+    private fun skillsChecks(): List<DoctorCheck> = buildList {
+        val mgr = skillManager ?: return@buildList
+        runCatching {
+            val skills = mgr.listSkills()
+            add(
+                DoctorCheck(
+                    id = "skills.installed",
+                    category = DoctorCategory.Database,
+                    label = "Installed skills",
+                    detail = "${skills.size} skill(s) installed.",
+                    severity = Severity.INFO,
+                )
+            )
+        }.onFailure {
+            add(
+                DoctorCheck(
+                    id = "skills.installed",
+                    category = DoctorCategory.Database,
+                    label = "Installed skills",
+                    detail = "Probe failed: ${it::class.simpleName}: ${it.message ?: "?"}",
+                    severity = Severity.WARN,
+                )
+            )
+        }
+    }
+
+    // ----- Storage integrity ----------------------------------------------------------
+
+    private suspend fun storageChecks(): List<DoctorCheck> = buildList {
+        runCatching {
+            val entities = database.genMediaDao().getAllMedia()
+            val total = entities.size
+            val orphans = entities.count { !File(context.filesDir, it.path).exists() }
+            add(
+                DoctorCheck(
+                    id = "storage.gallery_orphans",
+                    category = DoctorCategory.Database,
+                    label = "Gallery orphaned images",
+                    detail = if (orphans == 0) {
+                        "$total generated image record(s), all backed by a file on disk."
+                    } else {
+                        "$orphans of $total generated image record(s) point at a file that no longer exists on disk."
+                    },
+                    severity = if (orphans > 0) Severity.WARN else Severity.OK,
+                )
+            )
+        }.onFailure {
+            add(
+                DoctorCheck(
+                    id = "storage.gallery_orphans",
+                    category = DoctorCategory.Database,
+                    label = "Gallery orphaned images",
+                    detail = "Probe failed: ${it::class.simpleName}: ${it.message ?: "?"}",
+                    severity = Severity.WARN,
                 )
             )
         }
