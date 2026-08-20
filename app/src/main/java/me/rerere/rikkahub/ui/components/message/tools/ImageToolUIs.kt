@@ -29,6 +29,7 @@ import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.Image03
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
+import me.rerere.rikkahub.data.ai.tools.image.StoredImageArtifact
 import me.rerere.rikkahub.data.ai.tools.image.ImageToolResult
 import me.rerere.rikkahub.data.share.AndroidShareService
 import me.rerere.rikkahub.ui.components.richtext.ZoomableAsyncImage
@@ -59,6 +60,9 @@ internal fun decodeImageToolResult(content: JsonElement?, json: Json): ImageTool
  */
 internal fun isImageToolResultRenderable(result: ImageToolResult?): Boolean =
     result != null && result.schemaVersion <= 1 && result.success && result.artifacts.isNotEmpty()
+
+internal fun imageReferenceStudioDestination(artifact: StoredImageArtifact): Screen =
+    Screen.ImageGenReference(imageRef = artifact.artifactId)
 
 class ImageToolCardRenderer(
     override val toolName: String,
@@ -118,11 +122,14 @@ class ImageToolCardRenderer(
                     }) {
                         Text(stringResource(R.string.image_tool_share))
                     }
-                    // ImageGenPage 目前不支持初始参考图参数, "用作参考"/"编辑" 都直接打开图片工作室
-                    TextButton(onClick = { navController.navigate(Screen.ImageGen) }) {
+                    TextButton(onClick = {
+                        navController.navigate(imageReferenceStudioDestination(artifacts.first()))
+                    }) {
                         Text(stringResource(R.string.image_tool_use_as_reference))
                     }
-                    TextButton(onClick = { navController.navigate(Screen.ImageGen) }) {
+                    TextButton(onClick = {
+                        navController.navigate(imageReferenceStudioDestination(artifacts.first()))
+                    }) {
                         Text(stringResource(R.string.image_tool_edit))
                     }
                     TextButton(onClick = { navController.navigate(Screen.ImageGen) }) {

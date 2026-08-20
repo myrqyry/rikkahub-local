@@ -9,6 +9,7 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.map
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import me.rerere.ai.provider.ImageCapabilities
 import me.rerere.ai.provider.ImageEditParams
@@ -35,6 +37,8 @@ import me.rerere.rikkahub.data.datastore.getCurrentAssistant
 import me.rerere.rikkahub.data.ai.GenerationProgress
 import me.rerere.rikkahub.data.ai.StableDiffusionBridge
 import me.rerere.rikkahub.data.ai.generation.GenerationResult
+import me.rerere.rikkahub.data.ai.tools.ToolInvocationContext
+import me.rerere.rikkahub.data.ai.tools.image.MediaInputResolver
 import me.rerere.rikkahub.data.db.entity.GenMediaEntity
 import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.data.media.MediaArtifactRef
@@ -79,6 +83,7 @@ class ImgGenVM(
     private val modelRoleResolver: ModelRoleResolver,
     private val modelRegistry: ModelRegistry,
     private val generationService: me.rerere.rikkahub.data.ai.generation.GenerationService,
+    private val mediaInputResolver: MediaInputResolver,
 ) : AndroidViewModel(context) {
     private val _prompt = MutableStateFlow("")
     val prompt: StateFlow<String> = _prompt
@@ -101,6 +106,7 @@ class ImgGenVM(
 
     private val _referenceImages = MutableStateFlow<List<String>>(emptyList())
     val referenceImages: StateFlow<List<String>> = _referenceImages
+    private val initialReferenceLoader = InitialImageReferenceLoader(context.appTempFolder)
 
     val generationProgress: StateFlow<GenerationProgress?> = StableDiffusionBridge.progress
 
@@ -155,6 +161,22 @@ class ImgGenVM(
 
     fun addReferenceImages(paths: List<String>) {
         _referenceImages.value = (_referenceImages.value + paths).distinct().take(MAX_REFERENCE_IMAGES)
+    }
+
+    fun initializeReferenceImage(imageRef: String?) {
+        if (imageRef.isNullOrBlank()) return
+        viewModelScope.launch {
+            try {
+                val media = mediaInputResolver.resolveImage(imageRef, ToolInvocationContext.EMPTY)
+                val stagedPath = withContext(Dispatchers.IO) {
+                    initialReferenceLoader.stage(imageRef, media)
+                }
+                if (stagedPath != null) addReferenceImages(listOf(stagedPath))
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to initialize image reference", e)
+                _error.value = e.message ?: "Failed to load image reference"
+            }
+        }
     }
 
     fun removeReferenceImage(path: String) {

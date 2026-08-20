@@ -125,10 +125,15 @@ import kotlin.uuid.Uuid
 @Composable
 fun ImageGenPage(
     modifier: Modifier = Modifier,
+    initialImageRef: String? = null,
     vm: ImgGenVM = koinViewModel()
 ) {
     val pagerState = rememberPagerState { 2 }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(initialImageRef) {
+        vm.initializeReferenceImage(initialImageRef)
+    }
 
     val isGenerating by vm.isGenerating.collectAsStateWithLifecycle()
     var showCancelDialog by remember { mutableStateOf(false) }
