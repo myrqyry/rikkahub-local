@@ -57,7 +57,7 @@ import me.rerere.ai.util.configureReferHeaders
 import me.rerere.ai.util.encodeBase64
 import me.rerere.ai.util.json
 import me.rerere.ai.util.mergeCustomBody
-import me.rerere.ai.util.removeElements
+import me.rerere.ai.util.sanitizeForGeminiSchema
 import me.rerere.ai.util.stringSafe
 import me.rerere.ai.util.toHeaders
 import me.rerere.common.http.await
@@ -393,7 +393,7 @@ class GoogleProvider(private val client: OkHttpClient, context: Context? = null)
 
                         ReasoningLevel.OFF -> {
                             if (ModelRegistry.GEMINI_3_SERIES.match(modelId = params.model.modelId)) {
-                                put("thinkingLevel", "minimal")
+                                put("thinkingLevel", "MINIMAL")
                             } else if (!isGeminiPro) {
                                 put("thinkingBudget", 0)
                                 put("includeThoughts", false)
@@ -403,9 +403,9 @@ class GoogleProvider(private val client: OkHttpClient, context: Context? = null)
                         else -> {
                             if (ModelRegistry.GEMINI_3_SERIES.match(modelId = params.model.modelId)) {
                                 when (params.reasoningLevel) {
-                                    ReasoningLevel.LOW -> put("thinkingLevel", "low")
-                                    ReasoningLevel.MEDIUM -> put("thinkingLevel", "medium")
-                                    else -> put("thinkingLevel", "high") // HIGH, XHIGH
+                                    ReasoningLevel.LOW -> put("thinkingLevel", "LOW")
+                                    ReasoningLevel.MEDIUM -> put("thinkingLevel", "MEDIUM")
+                                    else -> put("thinkingLevel", "HIGH") // HIGH, XHIGH
                                 }
                             } else {
                                 put("thinkingBudget", params.reasoningLevel.budgetTokens)
@@ -431,20 +431,14 @@ class GoogleProvider(private val client: OkHttpClient, context: Context? = null)
                             add(buildJsonObject {
                                 put("name", JsonPrimitive(tool.name))
                                 put("description", JsonPrimitive(tool.description))
-                                put(
-                                    key = "parameters",
-                                    element = json.encodeToJsonElement(tool.parameters())
-                                        .removeElements(
-                                            listOf(
-                                                "const",
-                                                "exclusiveMaximum",
-                                                "exclusiveMinimum",
-                                                "format",
-                                                "additionalProperties",
-                                                "enum",
-                                            )
-                                        )
-                                )
+                                val parameters = tool.parameters()
+                                if (parameters != null) {
+                                    put(
+                                        key = "parameters",
+                                        element = json.encodeToJsonElement(parameters)
+                                            .sanitizeForGeminiSchema()
+                                    )
+                                }
                             })
                         }
                     })
@@ -600,7 +594,10 @@ class GoogleProvider(private val client: OkHttpClient, context: Context? = null)
                     )
                 }
                 UIMessagePart.Image(
-                    url = data,
+                    // Every other producer/consumer in this codebase (Base64ImageToLocalFileTransformer,
+                    // FileEncoder.encodeBase64, etc.) expects a proper data URL, not a bare payload -
+                    // see issue #37.
+                    url = "data:$mime;base64,$data",
                     metadata = GoogleThoughtMetadata(thoughtSignature = thoughtSignature).toMetadata()
                 )
             }
@@ -666,11 +663,14 @@ class GoogleProvider(private val client: OkHttpClient, context: Context? = null)
                     }
                     carriedSig = null  // consumed by this tool group
 
-                    // 输出 model 消息
-                    add(buildJsonObject {
-                        put("role", "model")
-                        putJsonArray("parts") { partsBuffer.forEach { add(it) } }
-                    })
+                    // 输出 model 消息 (skip if every part dropped - an empty "parts" array is an
+                    // invalid Google payload, matching the guard on the tail flush below)
+                    if (partsBuffer.isNotEmpty()) {
+                        add(buildJsonObject {
+                            put("role", "model")
+                            putJsonArray("parts") { partsBuffer.forEach { add(it) } }
+                        })
+                    }
                     partsBuffer.clear()
 
                     // 紧跟 functionResponse
@@ -694,11 +694,13 @@ class GoogleProvider(private val client: OkHttpClient, context: Context? = null)
     }
 
     private fun JsonArrayBuilder.addUserMessage(message: UIMessage) {
+        val parts = message.parts.mapNotNull { it.toGooglePart() }
+        // Skip the turn entirely if every part was dropped (e.g. an unencodable image) - an
+        // empty "parts" array is an invalid Google payload.
+        if (parts.isEmpty()) return
         add(buildJsonObject {
             put("role", commonRoleToGoogleRole(message.role))
-            putJsonArray("parts") {
-                message.parts.mapNotNull { it.toGooglePart() }.forEach { add(it) }
-            }
+            putJsonArray("parts") { parts.forEach { add(it) } }
         })
     }
 
@@ -708,7 +710,11 @@ class GoogleProvider(private val client: OkHttpClient, context: Context? = null)
         }
 
         is UIMessagePart.Image -> {
-            encodeBase64(false).getOrNull()?.let { encoded ->
+            val result = encodeBase64(false)
+            if (result.isFailure) {
+                logDroppedPart("Image", url)
+            }
+            result.getOrNull()?.let { encoded ->
                 buildJsonObject {
                     put("inlineData", buildJsonObject {
                         put("mimeType", encoded.mimeType)
@@ -722,7 +728,11 @@ class GoogleProvider(private val client: OkHttpClient, context: Context? = null)
         }
 
         is UIMessagePart.Video -> {
-            encodeBase64(false).getOrNull()?.let { base64Data ->
+            val result = encodeBase64(false)
+            if (result.isFailure) {
+                logDroppedPart("Video", url)
+            }
+            result.getOrNull()?.let { base64Data ->
                 buildJsonObject {
                     put("inlineData", buildJsonObject {
                         put("mimeType", "video/mp4")
@@ -733,7 +743,11 @@ class GoogleProvider(private val client: OkHttpClient, context: Context? = null)
         }
 
         is UIMessagePart.Audio -> {
-            encodeBase64(false).getOrNull()?.let { base64Data ->
+            val result = encodeBase64(false)
+            if (result.isFailure) {
+                logDroppedPart("Audio", url)
+            }
+            result.getOrNull()?.let { base64Data ->
                 buildJsonObject {
                     put("inlineData", buildJsonObject {
                         put("mimeType", "audio/mp3")
@@ -746,8 +760,18 @@ class GoogleProvider(private val client: OkHttpClient, context: Context? = null)
         else -> null
     }
 
+    // Never log the payload itself - only the part type and the url scheme - so this stays safe
+    // even though the caller passes a base64 payload's URL.
+    private fun logDroppedPart(partType: String, url: String) {
+        val scheme = url.substringBefore(':', missingDelimiterValue = "none")
+        Log.w(TAG, "toGooglePart: dropping unencodable $partType part, url scheme=$scheme")
+    }
+
     private fun UIMessagePart.Tool.toFunctionCallPart() = buildJsonObject {
         put("functionCall", buildJsonObject {
+            if (toolCallId.isNotBlank()) {
+                put("id", toolCallId)
+            }
             put("name", toolName)
             put("args", inputAsJson())
         })
@@ -758,6 +782,9 @@ class GoogleProvider(private val client: OkHttpClient, context: Context? = null)
 
     private fun UIMessagePart.Tool.toFunctionResponsePart() = buildJsonObject {
             put("functionResponse", buildJsonObject {
+                if (toolCallId.isNotBlank()) {
+                    put("id", toolCallId)
+                }
                 put("name", toolName)
 
                 // 1. 拆分出纯文本部分
