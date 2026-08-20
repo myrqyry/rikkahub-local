@@ -75,6 +75,7 @@ object SubAgentDefaults {
 data class SubAgentRequest(
     val task: String,
     val modelId: String? = null,
+    val agent: String? = null,
     val systemPrompt: String? = null,
     val tools: List<String>? = null,
     val runInBackground: Boolean = false,

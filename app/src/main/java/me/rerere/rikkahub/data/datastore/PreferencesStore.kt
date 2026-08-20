@@ -148,6 +148,7 @@ class SettingsStore(
         // IDs of built-in providers the user explicitly deleted; the re-seed pass
         // skips these so deletions are sticky across app restarts.
         val DELETED_BUILTIN_PROVIDER_IDS = stringPreferencesKey("deleted_builtin_provider_ids")
+        val SUB_AGENT_PROFILES = stringPreferencesKey("sub_agent_profiles")
 
         // 助手
         val SELECT_ASSISTANT = stringPreferencesKey("select_assistant")
@@ -244,6 +245,11 @@ class SettingsStore(
                     runCatching { JsonInstant.decodeFromString<Map<String, Set<ModelCapability>>>(raw) }
                         .getOrDefault(emptyMap())
                 } ?: emptyMap(),
+                subAgentProfiles = preferences[SUB_AGENT_PROFILES]?.let { raw ->
+                    runCatching {
+                        JsonInstant.decodeFromString<List<me.rerere.rikkahub.subagent.SubAgentProfile>>(raw)
+                    }.getOrDefault(emptyList())
+                } ?: emptyList(),
                 assistantId = preferences[SELECT_ASSISTANT]?.let { Uuid.parse(it) }
                     ?: DEFAULT_ASSISTANT_ID,
                 assistantTags = preferences[ASSISTANT_TAGS]?.let {
@@ -531,6 +537,8 @@ class SettingsStore(
             preferences[COMPRESS_PROMPT] = settings.compressPrompt
             preferences[DISABLED_MODEL_CAPABILITIES] =
                 JsonInstant.encodeToString(settings.disabledModelCapabilities)
+            preferences[SUB_AGENT_PROFILES] =
+                JsonInstant.encodeToString(settings.subAgentProfiles)
 
             preferences[PROVIDERS] = JsonInstant.encodeToString(settings.providers)
             preferences[DELETED_BUILTIN_PROVIDER_IDS] = JsonInstant.encodeToString(
@@ -693,6 +701,7 @@ data class Settings(
     val compressModelId: Uuid = Uuid.random(),
     val compressPrompt: String = DEFAULT_COMPRESS_PROMPT,
     val disabledModelCapabilities: Map<String, Set<ModelCapability>> = emptyMap(),
+    val subAgentProfiles: List<me.rerere.rikkahub.subagent.SubAgentProfile> = emptyList(),
     val assistantId: Uuid = DEFAULT_ASSISTANT_ID,
     val providers: List<ProviderSetting> = DEFAULT_PROVIDERS,
     /**
