@@ -65,6 +65,7 @@ class SimpleAgentRuntime(
     val maxDelegationDepth: Int = 2,
     val memoryStore: MemoryStore? = null,
     val toolCapabilities: ToolCapabilities? = null,
+    val verificationScripts: VerificationScripts? = null,
 ) : AgentRuntime {
 
     @OptIn(ExperimentalUuidApi::class)
@@ -80,7 +81,8 @@ class SimpleAgentRuntime(
             )
         }
         val memoryTool = memoryStore?.let { ProposeMemoryTool(store = it, agentName = agentName) }
-        val allTools = assistant.tools + listOfNotNull(delegateTool, memoryTool)
+        val verificationTool = verificationScripts?.let { RunVerificationTool(scripts = it, runner = ::runCommand) }
+        val allTools = assistant.tools + listOfNotNull(delegateTool, memoryTool, verificationTool)
         val filteredTools = if (toolCapabilities == null) allTools else ToolFilter.filter(allTools, toolCapabilities)
         val agent = LlmAgent.Builder()
             .name(assistant.name)
@@ -105,4 +107,16 @@ class SimpleAgentRuntime(
             runner.close()
         }
     }
+}
+
+/**
+ * Default runner for [RunVerificationTool]: executes the command via a process,
+ * returns combined stdout+stderr, and throws on a non-zero exit code.
+ */
+private fun runCommand(command: String): String {
+    val process = ProcessBuilder("sh", "-c", command).redirectErrorStream(true).start()
+    val output = process.inputStream.bufferedReader().readText()
+    val exit = process.waitFor()
+    if (exit != 0) throw IllegalStateException("exit code $exit: $output")
+    return output.trim()
 }
