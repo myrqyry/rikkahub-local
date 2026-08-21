@@ -401,7 +401,7 @@ val dataSourceModule = module {
             )
             pm.registerProvider(
                 "local_llamacpp",
-                me.rerere.locallm.llamacpp.LlamaCppProvider(prefs = get()),
+                me.rerere.locallm.llamacpp.LlamaCppProvider(context = get(), prefs = get()),
             )
         }
     }

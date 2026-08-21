@@ -50,6 +50,17 @@ class LlamaCppPromptTest {
         assertEquals("", req.user)
     }
 
+    @Test fun `rawTexts flattens each message to its text parts`() {
+        val messages = listOf(
+            UIMessage(
+                role = MessageRole.USER,
+                parts = listOf(UIMessagePart.Text("a "), UIMessagePart.Text("b")),
+            ),
+            text(MessageRole.ASSISTANT, "c"),
+        )
+        assertEquals(listOf("a b", "c"), LlamaCppPrompt.rawTexts(messages))
+    }
+
     @Test fun `context is capped at the history char budget`() {
         val big = "a".repeat(1000)
         val req = LlamaCppPrompt.build(

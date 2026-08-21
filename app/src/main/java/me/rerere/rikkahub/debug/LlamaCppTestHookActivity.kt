@@ -51,14 +51,18 @@ class LlamaCppTestHookActivity : Activity() {
         val cancelAfterMs = intent.getLongExtra(EXTRA_CANCEL_AFTER_MS, 0L)
         val modelUrl = intent.getStringExtra(EXTRA_MODEL_URL) ?: DEFAULT_MODEL_URL
         val modelPath = intent.getStringExtra(EXTRA_MODEL_PATH)
+        val mode = intent.getStringExtra(EXTRA_MODE) ?: MODE_CHAT
+        val imagePath = intent.getStringExtra(EXTRA_IMAGE)
+        val multiTurn = intent.getIntExtra(EXTRA_MULTI_TURN, 0)
         Log.i(
             TAG,
-            "hook start prompt=\"$prompt\" cancelAfterMs=$cancelAfterMs " +
-                "modelPath=${modelPath ?: "auto-download from $DEFAULT_MODEL_URL"}",
+            "hook start mode=$mode prompt=\"$prompt\" cancelAfterMs=$cancelAfterMs multiTurn=$multiTurn " +
+                "modelPath=${modelPath ?: "auto-download from $DEFAULT_MODEL_URL"} " +
+                "image=${imagePath ?: "none"}",
         )
         scope.launch {
             try {
-                runHook(prompt, cancelAfterMs, modelUrl, modelPath)
+                runHook(mode, prompt, cancelAfterMs, modelUrl, modelPath, imagePath, multiTurn)
             } catch (t: Throwable) {
                 Log.e(TAG, "hook failed", t)
             } finally {
@@ -68,13 +72,16 @@ class LlamaCppTestHookActivity : Activity() {
     }
 
     private suspend fun runHook(
+        mode: String,
         prompt: String,
         cancelAfterMs: Long,
         modelUrl: String,
         modelPath: String?,
+        imagePath: String?,
+        multiTurn: Int,
     ) {
         val prefs = LocalRuntimePreferences(applicationContext)
-        val provider = LlamaCppProvider(prefs = prefs)
+        val provider = LlamaCppProvider(context = applicationContext, prefs = prefs)
 
         var modelFile = if (!modelPath.isNullOrBlank()) {
             File(modelPath).takeIf { it.isFile }
@@ -132,16 +139,86 @@ class LlamaCppTestHookActivity : Activity() {
             enabled = true,
             models = listOf(model),
         )
-        val messages = listOf(
-            UIMessage(role = MessageRole.USER, parts = listOf(UIMessagePart.Text(prompt))),
-        )
+        val messages = buildList {
+            add(
+                UIMessage(
+                    role = MessageRole.USER,
+                    parts = buildList {
+                        add(UIMessagePart.Text(prompt))
+                        if (!imagePath.isNullOrBlank()) {
+                            add(UIMessagePart.Image(url = "file://$imagePath"))
+                        }
+                    },
+                ),
+            )
+        }
         val params = TextGenerationParams(
             model = model,
             temperature = 0.7f,
             maxTokens = 512,
         )
 
+        if (mode == MODE_EMBED) {
+            val embedRunStart = System.currentTimeMillis()
+            val result = provider.generateEmbedding(
+                providerSetting,
+                me.rerere.ai.provider.EmbeddingGenerationParams(
+                    model = model,
+                    input = listOf(prompt, "Second probe sentence for embedding."),
+                ),
+            )
+            val elapsedMs = System.currentTimeMillis() - embedRunStart
+            val dims = result.embeddings.map { it.size }
+            Log.i(TAG, "embed done model=${modelFile.name} count=${result.embeddings.size} dims=$dims elapsedMs=$elapsedMs")
+            Log.i(TAG, "embed sample: ${result.embeddings.firstOrNull()?.take(8)}")
+            Log.i(TAG, "hook complete")
+            return
+        }
+
         val runStart = System.currentTimeMillis()
+
+        if (multiTurn > 0) {
+            val q2 = "Now what is 2 + 2? Answer in one sentence."
+            val r1 = streamOnce(provider, providerSetting, params, messages, runStart, 0L)
+            Log.i(TAG, "multiturn turn1 chunks=${r1.chunks} chars=${r1.collected.length} firstDeltaMs=${r1.firstDeltaMs} elapsedMs=${r1.elapsedMs} finishReason=${r1.finishReason}")
+            Log.i(TAG, "multiturn turn1 reply: ${r1.collected.take(400)}")
+            val turn2Messages = messages +
+                UIMessage(
+                    role = MessageRole.ASSISTANT,
+                    parts = listOf(UIMessagePart.Text(r1.collected.toString())),
+                ) +
+                UIMessage(
+                    role = MessageRole.USER,
+                    parts = listOf(UIMessagePart.Text(q2)),
+                )
+            val r2 = streamOnce(provider, providerSetting, params, turn2Messages, System.currentTimeMillis(), 0L)
+            Log.i(TAG, "multiturn turn2 chunks=${r2.chunks} chars=${r2.collected.length} firstDeltaMs=${r2.firstDeltaMs} elapsedMs=${r2.elapsedMs} finishReason=${r2.finishReason}")
+            Log.i(TAG, "multiturn turn2 reply: ${r2.collected.take(400)}")
+            val continued = r2.collected.contains("4") || r2.collected.contains("four")
+            Log.i(TAG, "multiturn continuation applied (turn2 answered q2, not re-answering turn1)=$continued")
+            Log.i(TAG, "hook complete")
+            return
+        }
+
+        val r = streamOnce(provider, providerSetting, params, messages, runStart, cancelAfterMs)
+        Log.i(
+            TAG,
+            "hook done model=${modelFile.name} chunks=${r.chunks} " +
+                "chars=${r.collected.length} firstDeltaMs=${r.firstDeltaMs} " +
+                "elapsedMs=${r.elapsedMs} cancelled=${r.cancelled} finishReason=${r.finishReason}",
+        )
+        Log.i(TAG, "hook reply: ${r.collected.take(400)}")
+        Log.i(TAG, "hook complete")
+    }
+
+    private suspend fun streamOnce(
+        provider: LlamaCppProvider,
+        providerSetting: ProviderSetting.LlamaCppLocal,
+        params: TextGenerationParams,
+        messages: List<UIMessage>,
+        runStart: Long,
+        cancelAfterMs: Long,
+    ): StreamResult {
         var chunkCount = 0
         var firstDeltaMs: Long = -1
         var finishReason: String? = null
@@ -180,22 +257,36 @@ class LlamaCppTestHookActivity : Activity() {
         runJob.join()
         val cancelled = runJob.isCancelled
         cancelJob?.cancel()
-        val elapsedMs = System.currentTimeMillis() - runStart
-        Log.i(
-            TAG,
-            "hook done model=${modelFile.name} chunks=$chunkCount " +
-                "chars=${collected.length} firstDeltaMs=$firstDeltaMs " +
-                "elapsedMs=$elapsedMs cancelled=$cancelled finishReason=$finishReason",
+        return StreamResult(
+            chunks = chunkCount,
+            firstDeltaMs = firstDeltaMs,
+            collected = collected.toString(),
+            finishReason = finishReason,
+            cancelled = cancelled,
+            elapsedMs = System.currentTimeMillis() - runStart,
         )
-        Log.i(TAG, "hook reply: ${collected.toString().take(400)}")
-        Log.i(TAG, "hook complete")
     }
+
+    private data class StreamResult(
+        val chunks: Int,
+        val firstDeltaMs: Long,
+        val collected: String,
+        val finishReason: String?,
+        val cancelled: Boolean,
+        val elapsedMs: Long,
+    )
 
     companion object {
         const val EXTRA_PROMPT = "prompt"
         const val EXTRA_CANCEL_AFTER_MS = "cancelAfterMs"
         const val EXTRA_MODEL_URL = "modelUrl"
         const val EXTRA_MODEL_PATH = "modelPath"
+        const val EXTRA_MODE = "mode"
+        const val EXTRA_IMAGE = "image"
+        const val EXTRA_MULTI_TURN = "multiTurn"
+
+        const val MODE_CHAT = "chat"
+        const val MODE_EMBED = "embed"
 
         private const val TAG = "LlamaCppTestHook"
         private const val DEFAULT_MODEL_FILE = "qwen2.5-0.5b-instruct-q4_k_m.gguf"

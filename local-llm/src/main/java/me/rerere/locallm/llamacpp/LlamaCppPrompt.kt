@@ -52,6 +52,9 @@ object LlamaCppPrompt {
         return LlamaCppPromptRequest(system = system, context = context, user = user)
     }
 
+    /** Raw text per message, in order — used to detect session continuation. */
+    fun rawTexts(messages: List<UIMessage>): List<String> = messages.map(::rawText)
+
     private fun rawText(msg: UIMessage): String =
         msg.parts.filterIsInstance<UIMessagePart.Text>().joinToString("") { it.text }
 
