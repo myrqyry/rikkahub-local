@@ -61,14 +61,26 @@ fun Event.toAgentEvent(): AgentEvent? {
 class SimpleAgentRuntime(
     private val userId: String = "rikkahub-user",
     override val agentName: String = "SimpleAgentRuntime",
+    val subAgents: List<AssistantDefinition> = emptyList(),
+    val maxDelegationDepth: Int = 2,
 ) : AgentRuntime {
 
     @OptIn(ExperimentalUuidApi::class)
     override fun run(assistant: AssistantDefinition, input: String): Flow<AgentEvent> = flow {
+        val depth = DelegationDepth(max = maxDelegationDepth)
+        val delegateTool = if (subAgents.isEmpty()) {
+            null
+        } else {
+            DelegateTool(
+                subAgents = subAgents.associateBy { it.name },
+                depth = depth,
+                runtimeFactory = { SimpleAgentRuntime(userId = it, agentName = "delegated") },
+            )
+        }
         val agent = LlmAgent.Builder()
             .name(assistant.name)
             .model(assistant.model)
-            .tools(assistant.tools)
+            .tools(assistant.tools + listOfNotNull(delegateTool))
             .instruction(assistant.systemPrompt.orEmpty())
             .maxSteps(5)
             .build()
