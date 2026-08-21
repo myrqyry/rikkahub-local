@@ -135,6 +135,13 @@ android {
         generateLocaleConfig = true
     }
     packaging {
+        resources {
+            // ADK (google-adk-kotlin-core) transitively pulls Apache httpclient +
+            // httpcore and google-auth libraries, all of which ship duplicate
+            // META-INF/DEPENDENCIES and META-INF/INDEX.LIST files.
+            excludes += "META-INF/DEPENDENCIES"
+            excludes += "META-INF/INDEX.LIST"
+        }
         jniLibs {
             useLegacyPackaging = true
             pickFirsts += "lib/*/libtermux.so"
@@ -350,6 +357,7 @@ dependencies {
 
     // modules
     implementation(project(":ai"))
+    implementation(project(":agent-runtime-adk"))
     implementation(project(":local-llm")) {
         // LiteRT (com.google.ai.edge.litert, transitively via :speech) ships the
         // org.tensorflow.lite.* runtime as a drop-in; exclude the legacy jars to

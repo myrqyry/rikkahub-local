@@ -118,6 +118,7 @@ When working on a specific module, read its `AGENTS.md`:
 
 - **Android app** (main app, UI, screens) → `app/AGENTS.md`
 - **AI/LLM** (local model inference, chat) → `ai/AGENTS.md`
+- **Agent Runtime** (ADK orchestration boundary) → `agent-runtime-adk/AGENTS.md`
 - **Common** (shared utilities, types) → `common/AGENTS.md`
 - **Document** (PDF, document handling) → `document/AGENTS.md`
 - **Highlight** (code syntax highlighting) → `highlight/AGENTS.md`

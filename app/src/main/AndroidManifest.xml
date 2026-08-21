@@ -320,6 +320,16 @@
       android:excludeFromRecents="true"
       android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+    <!-- Debug-only ADK Kotlin PoC verification hook (BuildConfig.DEBUG-gated in the
+         activity body, so release builds are inert). Driven from adb by starting the
+         .debug.AdkTestHookActivity component with extras for prompt and modelPath.
+         Mirrors the LlamaCppTestHookActivity pattern (Activity, not BroadcastReceiver). -->
+    <activity
+      android:name=".debug.AdkTestHookActivity"
+      android:exported="true"
+      android:excludeFromRecents="true"
+      android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
     <service
       android:name=".service.TelegramBotService"
       android:exported="false"
