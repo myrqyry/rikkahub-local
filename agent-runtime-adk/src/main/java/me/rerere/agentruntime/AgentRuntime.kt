@@ -63,6 +63,7 @@ class SimpleAgentRuntime(
     override val agentName: String = "SimpleAgentRuntime",
     val subAgents: List<AssistantDefinition> = emptyList(),
     val maxDelegationDepth: Int = 2,
+    val memoryStore: MemoryStore? = null,
 ) : AgentRuntime {
 
     @OptIn(ExperimentalUuidApi::class)
@@ -77,10 +78,11 @@ class SimpleAgentRuntime(
                 runtimeFactory = { SimpleAgentRuntime(userId = it, agentName = "delegated") },
             )
         }
+        val memoryTool = memoryStore?.let { ProposeMemoryTool(store = it, agentName = agentName) }
         val agent = LlmAgent.Builder()
             .name(assistant.name)
             .model(assistant.model)
-            .tools(assistant.tools + listOfNotNull(delegateTool))
+            .tools(assistant.tools + listOfNotNull(delegateTool, memoryTool))
             .instruction(assistant.systemPrompt.orEmpty())
             .maxSteps(5)
             .build()
