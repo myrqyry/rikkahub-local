@@ -64,6 +64,7 @@ class SimpleAgentRuntime(
     val subAgents: List<AssistantDefinition> = emptyList(),
     val maxDelegationDepth: Int = 2,
     val memoryStore: MemoryStore? = null,
+    val toolCapabilities: ToolCapabilities? = null,
 ) : AgentRuntime {
 
     @OptIn(ExperimentalUuidApi::class)
@@ -79,10 +80,12 @@ class SimpleAgentRuntime(
             )
         }
         val memoryTool = memoryStore?.let { ProposeMemoryTool(store = it, agentName = agentName) }
+        val allTools = assistant.tools + listOfNotNull(delegateTool, memoryTool)
+        val filteredTools = if (toolCapabilities == null) allTools else ToolFilter.filter(allTools, toolCapabilities)
         val agent = LlmAgent.Builder()
             .name(assistant.name)
             .model(assistant.model)
-            .tools(assistant.tools + listOfNotNull(delegateTool, memoryTool))
+            .tools(filteredTools)
             .instruction(assistant.systemPrompt.orEmpty())
             .maxSteps(5)
             .build()

@@ -15,6 +15,7 @@ owns assistants, conversations, providers, tools, and permissions.
 | `src/main/.../AgentRuntime.kt` | `AgentRuntime` interface, `AgentEvent` sealed type, `SimpleAgentRuntime` (ADK `InMemoryRunner`, subagent delegation, memory proposals), `Event.toAgentEvent()` mapper |
 | `src/main/.../Delegation.kt` | Coday-style forked delegation: `ContextPolicy`, `DelegationTaskBuilder`, `DelegationDepth` (bounded recursion), `delegate()` / `DelegateTool` |
 | `src/main/.../Memory.kt` | Memory proposals requiring user acceptance: `MemoryLevel`, `Memory`, `MemoryStore` (pending/committed), `ProposeMemoryTool` |
+| `src/main/.../ToolFilter.kt` | Model-aware tool filtering: `ModelTier`, `ToolCapabilities`, `ToolFilter` (budgeted tool surface by model capability) |
 | `src/main/.../adk/ChatProviderAdkModel.kt` | ADK `Model` adapter around Rikkahub `ChatProvider` (stream/non-stream, system instruction) |
 | `build.gradle.kts` | Module dependencies (`com.google.adk:google-adk-kotlin-core:0.8.0`, `:ai`) |
 
