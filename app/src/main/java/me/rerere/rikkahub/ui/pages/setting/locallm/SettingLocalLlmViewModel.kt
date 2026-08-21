@@ -19,6 +19,7 @@ import me.rerere.ai.provider.ModelAbility
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.LITERT_PROVIDER_ID
 import me.rerere.ai.provider.STABLE_DIFFUSION_PROVIDER_ID
+import me.rerere.ai.provider.LLAMACPP_PROVIDER_ID
 import me.rerere.locallm.AcceleratorProbe
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
@@ -134,6 +135,7 @@ class SettingLocalLlmViewModel(
     private fun providerIdForRuntime(): kotlin.uuid.Uuid = when (runtime) {
         LocalRuntime.LiteRT -> LITERT_PROVIDER_ID
         LocalRuntime.StableDiffusion -> STABLE_DIFFUSION_PROVIDER_ID
+        LocalRuntime.LlamaCpp -> LLAMACPP_PROVIDER_ID
     }
 
     init {
@@ -266,6 +268,7 @@ class SettingLocalLlmViewModel(
         val accel = when (runtime) {
             LocalRuntime.LiteRT -> AcceleratorProbe.probeLiteRt(context, forceCpu = forceCpuNow)
             LocalRuntime.StableDiffusion -> "CPU"
+            LocalRuntime.LlamaCpp -> "CPU"
         }
         prefs.setAccelerator(runtime, accel)
         _accelerator.value = accel
@@ -529,5 +532,6 @@ class SettingLocalLlmViewModel(
         // Gallery allowlist sizeInBytes = 1_597_931_520 (~1.49 GB) + 200 MB safety pad.
         LocalRuntime.LiteRT -> 1_800_000_000L
         LocalRuntime.StableDiffusion -> 2_000_000_000L
+        LocalRuntime.LlamaCpp -> 2_000_000_000L
     }
 }

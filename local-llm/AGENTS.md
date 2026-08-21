@@ -13,6 +13,7 @@ workspace boundaries, and the pure terminal execution/observation substrate.
 | `build.gradle.kts` | Module dependencies |
 | `src/main/.../litert/terminal/` | Capability-gated process sessions, output observation, and receipts |
 | `src/main/.../litert/workspace/` | Workspace refs, shadow files, and command effect analysis |
+| `src/main/.../llamacpp/` | llama.cpp GGUF chat provider and prompt renderer (Llamatik bridge) |
 
 ## Deviations from Root
 

@@ -802,6 +802,9 @@ class DoctorChecks(
                     // Local Task OCR: usable when enabled AND both graph files are set.
                     is me.rerere.ai.provider.ProviderSetting.TaskOcrLocal ->
                         p.enabled && p.detModelPath.isNotBlank() && p.recModelPath.isNotBlank()
+                    // Local llama.cpp: usable when enabled AND at least one GGUF model loaded.
+                    is me.rerere.ai.provider.ProviderSetting.LlamaCppLocal ->
+                        p.enabled && p.models.isNotEmpty()
                 }
             }
             add(

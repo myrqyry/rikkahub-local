@@ -73,6 +73,7 @@ Use the original RikkaHub provider ecosystem alongside local Android runtimes.
 
 - Cloud providers including OpenAI-compatible endpoints, OpenRouter, Google, Anthropic, Codex, Grok, and others supported by the upstream provider layer
 - On-device LiteRT language and vision models
+- On-device llama.cpp GGUF chat models through Llamatik
 - Pixel AICore / Gemini Nano integration where supported
 - Experimental local Stable Diffusion GGUF management through `stable-diffusion.cpp`
 - Curated local model catalogs that link to source and licensing information
@@ -283,6 +284,7 @@ The repository is functional but experimental. Large parts of the agent system a
 - GitHub multi-file skill imports
 - Unified Prompt Library entry point
 - Local LiteRT chat and vision model catalog support
+- On-device llama.cpp chat provider backed by Llamatik with GGUF streaming and cancellation
 - Experimental Stable Diffusion model management and native bridge
 - Local and cloud speech integrations
 - Expanded document parsing, including XLSX and CSV
@@ -364,7 +366,7 @@ A fuller development verification pass used by recent changes is:
 | Architectures | `arm64-v8a`, `x86_64`, universal APK |
 | Java/Kotlin target | JVM 17 |
 | UI | Jetpack Compose / Material 3 |
-| Native components | LiteRT, local speech libraries, `stable-diffusion.cpp` |
+| Native components | LiteRT, Llamatik (llama.cpp), local speech libraries, `stable-diffusion.cpp` |
 | Model storage | Downloaded or user-imported; weights are not bundled |
 | Release channel | None yet; build from source |
 
@@ -396,6 +398,7 @@ RikkaHub Local builds on many projects, including:
 |---|---|
 | [RikkaHub](https://github.com/rikkahub/rikkahub) | Upstream Android chat client, provider abstraction, and interface foundation |
 | [LiteRT](https://ai.google.dev/edge/litert) | On-device model execution |
+| [Llamatik](https://github.com/ferranpons/Llamatik) | llama.cpp bindings for on-device GGUF chat |
 | [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp) | Experimental local image-generation runtime |
 | [cron-utils](https://github.com/jmrozanec/cron-utils) | Cron expression parsing |
 | [whisper.cpp](https://github.com/ggerganov/whisper.cpp) | Local speech-recognition foundation |

@@ -152,6 +152,10 @@ fun ProviderConfigure(
             is ProviderSetting.TaskOcrLocal -> {
                 ProviderConfigureTaskOcr(provider, onEdit)
             }
+
+            is ProviderSetting.LlamaCppLocal -> {
+                ProviderConfigureLlamaCpp(provider, onEdit)
+            }
         }
     }
 }
@@ -169,6 +173,7 @@ fun ProviderSetting.convertTo(type: KClass<out ProviderSetting>): ProviderSettin
         is ProviderSetting.Grok -> "" // OAuth, no API key
         is ProviderSetting.StableDiffusion -> "" // on-device, no API key
         is ProviderSetting.TaskOcrLocal -> "" // on-device, no API key
+        is ProviderSetting.LlamaCppLocal -> "" // on-device, no API key
     }
     val sourceBaseUrl = when (this) {
         is ProviderSetting.OpenAI -> this.baseUrl
@@ -180,6 +185,7 @@ fun ProviderSetting.convertTo(type: KClass<out ProviderSetting>): ProviderSettin
         is ProviderSetting.Grok -> "" // OAuth, no base URL
         is ProviderSetting.StableDiffusion -> "" // on-device, no base URL
         is ProviderSetting.TaskOcrLocal -> "" // on-device, no base URL
+        is ProviderSetting.LlamaCppLocal -> "" // on-device, no base URL
     }
     val targetDefaultBaseUrl = when (type) {
         ProviderSetting.OpenAI::class -> ProviderSetting.OpenAI().baseUrl
@@ -238,6 +244,7 @@ internal fun ProviderSetting.defaultBaseUrlForReset(): String {
             is ProviderSetting.Grok -> return "" // OAuth, no base URL
             is ProviderSetting.StableDiffusion -> return "" // on-device, no base URL
             is ProviderSetting.TaskOcrLocal -> return "" // on-device, no base URL
+            is ProviderSetting.LlamaCppLocal -> return "" // on-device, no base URL
         }
     }
     return when (this) {
@@ -250,6 +257,7 @@ internal fun ProviderSetting.defaultBaseUrlForReset(): String {
         is ProviderSetting.Grok -> ""
         is ProviderSetting.StableDiffusion -> ""
         is ProviderSetting.TaskOcrLocal -> ""
+        is ProviderSetting.LlamaCppLocal -> ""
     }
 }
 
@@ -265,6 +273,7 @@ internal fun ProviderSetting.resetBaseUrlToDefault(): ProviderSetting {
         is ProviderSetting.Grok -> this // no base URL to reset
         is ProviderSetting.StableDiffusion -> this // no base URL to reset
         is ProviderSetting.TaskOcrLocal -> this // no base URL to reset
+        is ProviderSetting.LlamaCppLocal -> this // no base URL to reset
     }
 }
 
@@ -279,6 +288,7 @@ internal fun ProviderSetting.isUsingDefaultBaseUrl(): Boolean {
         is ProviderSetting.Grok -> return true // no base URL concept
         is ProviderSetting.StableDiffusion -> return true // no base URL concept
         is ProviderSetting.TaskOcrLocal -> return true // no base URL concept
+        is ProviderSetting.LlamaCppLocal -> return true // no base URL concept
     }
     return baseUrl == defaultBaseUrlForReset()
 }
@@ -920,6 +930,39 @@ private fun ColumnScope.ProviderConfigureTaskOcr(
         text = "On-device PP-OCRv5 text recognition. Copy both model URLs from " +
             "Local Task Library models below, import the files via the LiteRT import picker, " +
             "then paste their paths here. No images leave the device.",
+        style = MaterialTheme.typography.labelSmall,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun ColumnScope.ProviderConfigureLlamaCpp(
+    provider: ProviderSetting.LlamaCppLocal,
+    onEdit: (ProviderSetting.LlamaCppLocal) -> Unit,
+) {
+    provider.description()
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(stringResource(id = R.string.setting_provider_page_enable), modifier = Modifier.weight(1f))
+        Checkbox(
+            checked = provider.enabled,
+            onCheckedChange = { onEdit(provider.copy(enabled = it)) },
+        )
+    }
+
+    OutlinedTextField(
+        value = provider.name,
+        onValueChange = { onEdit(provider.copy(name = it.trim())) },
+        label = { Text(stringResource(id = R.string.setting_provider_page_name)) },
+        modifier = Modifier.fillMaxWidth(),
+        maxLines = 3,
+    )
+
+    Text(
+        text = "On-device llama.cpp inference. Install a GGUF chat model via Settings → On-device " +
+            "models, then chat with it here — no API key, no network.",
         style = MaterialTheme.typography.labelSmall,
         modifier = Modifier.fillMaxWidth(),
     )

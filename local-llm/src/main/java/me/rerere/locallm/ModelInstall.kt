@@ -84,6 +84,7 @@ object ModelInstall {
         val sub = when (runtime) {
             LocalRuntime.LiteRT -> "litert"
             LocalRuntime.StableDiffusion -> "stable-diffusion"
+            LocalRuntime.LlamaCpp -> "llama-cpp"
         }
         return File(File(baseDir, sub), fileName)
     }

@@ -76,5 +76,6 @@ internal object SubAgentModelResolver {
         is ProviderSetting.Codex -> "Codex"
         is ProviderSetting.Grok -> "Grok"
         is ProviderSetting.StableDiffusion -> "Stable Diffusion"
+        is ProviderSetting.LlamaCppLocal -> "Local Llama.cpp"
     }
 }
