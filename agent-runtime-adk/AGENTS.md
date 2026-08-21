@@ -17,6 +17,7 @@ owns assistants, conversations, providers, tools, and permissions.
 | `src/main/.../Memory.kt` | Memory proposals requiring user acceptance: `MemoryLevel`, `Memory`, `MemoryStore` (pending/committed), `ProposeMemoryTool` |
 | `src/main/.../ToolFilter.kt` | Model-aware tool filtering: `ModelTier`, `ToolCapabilities`, `ToolFilter` (budgeted tool surface by model capability) |
 | `src/main/.../VerificationScripts.kt` | Deterministic project verification commands: `VerificationCommand`, `VerificationScripts`, `RunVerificationTool` (project scripts as tools) |
+| `src/main/.../AgentEnvironment.kt` | Tunix-style agent environment + ATIF trajectory recording: `AgentEnvironment`, `Observation`, `AgentAction`, `EnvironmentResult`, `Outcome`, `TrajectoryRecorder` |
 | `src/main/.../adk/ChatProviderAdkModel.kt` | ADK `Model` adapter around Rikkahub `ChatProvider` (stream/non-stream, system instruction) |
 | `build.gradle.kts` | Module dependencies (`com.google.adk:google-adk-kotlin-core:0.8.0`, `:ai`) |
 
