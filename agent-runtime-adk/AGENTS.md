@@ -19,7 +19,7 @@ owns assistants, conversations, providers, tools, and permissions.
 | `src/main/.../VerificationScripts.kt` | Deterministic project verification commands: `VerificationCommand`, `VerificationScripts`, `RunVerificationTool` (project scripts as tools) |
 | `src/main/.../AgentEnvironment.kt` | Tunix-style agent environment + ATIF trajectory recording: `AgentEnvironment`, `Observation`, `AgentAction`, `EnvironmentResult`, `Outcome`, `TrajectoryRecorder` |
 | `src/main/.../StructuredQuery.kt` | Langfun-style structured queries: `StructuredQuery`, `StructuredProtocol`, `CompiledModelRequest`, `QueryCompiler`, `Evaluator`, `EvaluationCase`, `EvaluationResult` |
-| `src/main/.../EvidenceArchive.kt` | Evidence archive with provenance anchors: `EvidenceArchive`, `EvidenceRecord`, `ProvenanceAnchor` (stores trajectory/evaluation/external-session evidence) |
+| `src/main/.../EvidenceStore.kt` | Immutable evidence contract: `EvidenceStore`, `EvidenceRecord`, `EvidenceQuery`, `EvidenceWriteResult`, and in-memory test implementation; the app owns durable persistence. |
 | `src/main/.../ContextDisposition.kt` | Context-mode continuation/context disposition: `ContextDisposition` (byte/char-safe truncation), `ContinuationMarker` (consume-once retrieval accounting) |
 | `src/main/.../adk/ChatProviderAdkModel.kt` | ADK `Model` adapter around Rikkahub `ChatProvider` (stream/non-stream, system instruction) |
 | `build.gradle.kts` | Module dependencies (`com.google.adk:google-adk-kotlin-core:0.8.0`, `:ai`) |
