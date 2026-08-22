@@ -61,20 +61,24 @@ object ContextDisposition {
     fun capBytes(str: String, maxBytes: Int): String {
         if (str.toByteArray(StandardCharsets.UTF_8).size <= maxBytes) return str
         val ellipsis = "..."
+        if (maxBytes < ellipsis.toByteArray(StandardCharsets.UTF_8).size) {
+            return byteSafePrefix(ellipsis, maxBytes)
+        }
         val prefix = byteSafePrefix(str, (maxBytes - ellipsis.toByteArray(StandardCharsets.UTF_8).size).coerceAtLeast(0))
         return prefix + ellipsis
     }
 
     /**
-     * JSON-encode [value] then truncate to [maxBytes] at a UTF-8-safe boundary
+     * Display [value] then truncate to [maxBytes] at a UTF-8-safe boundary
      * with a truncated marker. Result is display/logging-only, not valid JSON.
      */
-    fun truncateJson(value: Any?, maxBytes: Int): String {
-        // kotlinx.serialization is not a dependency of this module; mirror
-        // JSON.stringify with the plain toString of the given value.
+    fun truncateValue(value: Any?, maxBytes: Int): String {
         val encoded = value?.toString() ?: "null"
         if (encoded.toByteArray(StandardCharsets.UTF_8).size <= maxBytes) return encoded
         val marker = TRUNCATED_MARKER
+        if (maxBytes < marker.toByteArray(StandardCharsets.UTF_8).size) {
+            return byteSafePrefix(marker, maxBytes)
+        }
         val budget = (maxBytes - marker.toByteArray(StandardCharsets.UTF_8).size).coerceAtLeast(0)
         return byteSafePrefix(encoded, budget) + marker
     }

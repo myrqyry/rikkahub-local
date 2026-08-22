@@ -40,12 +40,31 @@ class ContextDispositionTest {
     }
 
     @Test
-    fun `truncateJson appends a truncated marker`() {
+    fun `capBytes truncation marker fits budgets smaller than an ellipsis`() {
+        for (budget in 0..2) {
+            val capped = ContextDisposition.capBytes("hello", budget)
+            assertEquals(ContextDisposition.byteSafePrefix("...", budget), capped)
+            assertTrue(capped.toByteArray(Charsets.UTF_8).size <= budget)
+        }
+    }
+
+    @Test
+    fun `truncateValue appends a truncated marker`() {
         val big = "x".repeat(2000)
-        val out = ContextDisposition.truncateJson(mapOf("data" to big), 100)
+        val out = ContextDisposition.truncateValue(mapOf("data" to big), 100)
         assertTrue(out.length < big.length)
         assertTrue(out.contains("[truncated]"))
-        assertTrue(out.toByteArray(Charsets.UTF_8).size <= 100 + "[truncated]".length)
+        assertTrue(out.toByteArray(Charsets.UTF_8).size <= 100)
+    }
+
+    @Test
+    fun `truncateValue marker fits budgets smaller than the marker`() {
+        val marker = "... [truncated]"
+        for (budget in 0 until marker.toByteArray(Charsets.UTF_8).size) {
+            val out = ContextDisposition.truncateValue("x".repeat(marker.length + 1), budget)
+            assertEquals(ContextDisposition.byteSafePrefix(marker, budget), out)
+            assertTrue(out.toByteArray(Charsets.UTF_8).size <= budget)
+        }
     }
 
     @Test
