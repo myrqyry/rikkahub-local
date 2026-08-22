@@ -14,7 +14,7 @@ import org.junit.runner.RunWith
 
 /**
  * P0 stabilization: prove every supported recent schema migrates cleanly to the current
- * version (32) through the exact production chain. Each start version seeds representative
+ * version (33) through the exact production chain. Each start version seeds representative
  * rows before migration and validates rows, defaults, foreign keys, and indexes afterwards.
  */
 @RunWith(AndroidJUnit4::class)
@@ -33,6 +33,7 @@ class MigrationChainTest {
         Migration_29_30,
         Migration_30_31,
         Migration_31_32,
+        Migration_32_33,
     )
 
     private fun chainFrom(startVersion: Int): Array<Migration> {
@@ -42,28 +43,32 @@ class MigrationChainTest {
             29 -> 2
             30 -> 3
             31 -> 4
+            32 -> 5
             else -> error("unsupported start version $startVersion")
         }
         return migrations.subList(idx, migrations.size).toTypedArray()
     }
 
     @Test
-    fun migrate27To32_preservesSeededRowsAndSchema() = migrateChainFrom(27)
+    fun migrate27To33_preservesSeededRowsAndSchema() = migrateChainFrom(27)
 
     @Test
-    fun migrate28To32_preservesSeededRowsAndSchema() = migrateChainFrom(28)
+    fun migrate28To33_preservesSeededRowsAndSchema() = migrateChainFrom(28)
 
     @Test
-    fun migrate29To32_preservesSeededRowsAndSchema() = migrateChainFrom(29)
+    fun migrate29To33_preservesSeededRowsAndSchema() = migrateChainFrom(29)
 
     @Test
-    fun migrate30To32_preservesSeededRowsAndSchema() = migrateChainFrom(30)
+    fun migrate30To33_preservesSeededRowsAndSchema() = migrateChainFrom(30)
 
     @Test
-    fun migrate31To32_preservesSeededRowsAndSchema() = migrateChainFrom(31)
+    fun migrate31To33_preservesSeededRowsAndSchema() = migrateChainFrom(31)
+
+    @Test
+    fun migrate32To33_preservesSeededRowsAndSchema() = migrateChainFrom(32)
 
     private fun migrateChainFrom(startVersion: Int) {
-        val testDb = "migration-chain-$startVersion-to-32"
+        val testDb = "migration-chain-$startVersion-to-33"
 
         helper.createDatabase(testDb, startVersion).apply {
             execSQL(
@@ -82,7 +87,7 @@ class MigrationChainTest {
             close()
         }
 
-        val db = helper.runMigrationsAndValidate(testDb, 32, true, *chainFrom(startVersion))
+        val db = helper.runMigrationsAndValidate(testDb, 33, true, *chainFrom(startVersion))
 
         // Seeded conversation survives and revision defaults to 0 after the 29 -> 30 step.
         db.query("SELECT revision FROM ConversationEntity WHERE id = 'c1'").use { c ->
@@ -121,6 +126,12 @@ class MigrationChainTest {
         db.query("SELECT COUNT(*) FROM agent_evidence").use { c ->
             assertTrue(c.moveToFirst())
             assertEquals("agent_evidence must exist and start empty", 0, c.getInt(0))
+        }
+
+        // continuation_checkpoints (schema 33) exists independently of agent run lifecycle.
+        db.query("SELECT COUNT(*) FROM continuation_checkpoints").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("continuation_checkpoints must exist and start empty", 0, c.getInt(0))
         }
 
         db.close()

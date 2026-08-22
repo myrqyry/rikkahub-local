@@ -24,6 +24,8 @@ import me.rerere.rikkahub.data.db.dao.TelegramChatDao
 import me.rerere.rikkahub.data.db.dao.WorkspaceDAO
 import me.rerere.rikkahub.data.rag.VectorDao
 import me.rerere.rikkahub.data.db.entity.ConversationEntity
+import me.rerere.rikkahub.data.db.entity.ContinuationCheckpointDao
+import me.rerere.rikkahub.data.db.entity.ContinuationCheckpointEntity
 import me.rerere.rikkahub.data.db.entity.EvidenceDao
 import me.rerere.rikkahub.data.db.entity.EvidenceEntity
 import me.rerere.rikkahub.data.db.entity.FavoriteEntity
@@ -48,6 +50,7 @@ import me.rerere.rikkahub.data.db.migrations.Migration_27_28
 import me.rerere.rikkahub.data.db.migrations.Migration_29_30
 import me.rerere.rikkahub.data.db.migrations.Migration_30_31
 import me.rerere.rikkahub.data.db.migrations.Migration_31_32
+import me.rerere.rikkahub.data.db.migrations.Migration_32_33
 import me.rerere.rikkahub.data.db.migrations.Migration_8_9
 import me.rerere.rikkahub.utils.JsonInstant
 import me.rerere.rikkahub.workflow.db.WorkflowDao
@@ -76,8 +79,9 @@ import me.rerere.rikkahub.workflow.db.WorkflowRunEntity
         VectorEntity::class,
         ZeroProcedureEntity::class,
         EvidenceEntity::class,
+        ContinuationCheckpointEntity::class,
     ],
-    version = 32,
+    version = 33,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
@@ -149,6 +153,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun zeroProcedureDao(): ZeroProcedureDao
 
     abstract fun evidenceDao(): EvidenceDao
+
+    abstract fun continuationCheckpointDao(): ContinuationCheckpointDao
 }
 
 object TokenUsageConverter {

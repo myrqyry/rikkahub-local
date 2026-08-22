@@ -39,6 +39,7 @@ import me.rerere.rikkahub.data.db.migrations.Migration_28_29
 import me.rerere.rikkahub.data.db.migrations.Migration_29_30
 import me.rerere.rikkahub.data.db.migrations.Migration_30_31
 import me.rerere.rikkahub.data.db.migrations.Migration_31_32
+import me.rerere.rikkahub.data.db.migrations.Migration_32_33
 import me.rerere.rikkahub.data.db.migrations.Migration_6_7
 import me.rerere.rikkahub.data.db.migrations.Migration_11_12
 import me.rerere.rikkahub.data.db.migrations.Migration_13_14
@@ -54,7 +55,9 @@ import me.rerere.rikkahub.data.agentrun.AgentRunProcedureReceiptSink
 import me.rerere.rikkahub.data.agentrun.ZeroProcedureExecutorAdapter
 import me.rerere.rikkahub.data.agentrun.ZeroProcedureRepository
 import me.rerere.rikkahub.data.agentrun.RoomEvidenceStore
+import me.rerere.rikkahub.data.agentrun.RoomContinuationStore
 import me.rerere.agentruntime.EvidenceStore
+import me.rerere.agentruntime.ContinuationStore
 import me.rerere.rikkahub.data.ai.revision.ConversationRepositoryRevisionSource
 import me.rerere.rikkahub.data.ai.revision.ConversationRevisionGuard
 import me.rerere.rikkahub.data.ai.revision.ConversationRevisionSource
@@ -89,7 +92,7 @@ val dataSourceModule = module {
         val context: Context = get()
         Room.databaseBuilder(context, AppDatabase::class.java, "rikka_hub")
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
-            .addMigrations(Migration_6_7, Migration_11_12, Migration_13_14, Migration_14_15, Migration_15_16, Migration_23_24, Migration_27_28, Migration_28_29, Migration_29_30, Migration_30_31, Migration_31_32)
+            .addMigrations(Migration_6_7, Migration_11_12, Migration_13_14, Migration_14_15, Migration_15_16, Migration_23_24, Migration_27_28, Migration_28_29, Migration_29_30, Migration_30_31, Migration_31_32, Migration_32_33)
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onOpen(db: SupportSQLiteDatabase) {
                     val dictDir = SimpleDictManager.extractDict(context)
@@ -206,6 +209,8 @@ val dataSourceModule = module {
     single { ZeroProcedureRepository(get()) }
     single { get<AppDatabase>().evidenceDao() }
     single<EvidenceStore> { RoomEvidenceStore(get()) }
+    single { get<AppDatabase>().continuationCheckpointDao() }
+    single<ContinuationStore> { RoomContinuationStore(get()) }
     single { ZeroProcedureEngine() }
     single<me.rerere.locallm.litert.zero.ZeroProcedureReceiptSink> {
         AgentRunProcedureReceiptSink(repository = get(), trace = get())

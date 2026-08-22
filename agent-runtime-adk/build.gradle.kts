@@ -58,6 +58,7 @@ dependencies {
     // Compose runtime on the classpath is required by the compose compiler plugin (see plugins block).
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
+    implementation(libs.kotlinx.serialization.json)
 
     // tests
     testImplementation(libs.junit)
