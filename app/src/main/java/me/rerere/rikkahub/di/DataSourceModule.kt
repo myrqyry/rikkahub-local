@@ -240,6 +240,7 @@ val dataSourceModule = module {
     }
 
     single { McpManager(context = get(), settingsStore = get(), appScope = get(), filesManager = get(), appEventBus = get()) }
+    single { me.rerere.rikkahub.data.ai.ToolResultContextProjector(evidenceStore = get()) }
 
     single {
         GenerationHandler(
@@ -250,6 +251,7 @@ val dataSourceModule = module {
             conversationRepo = get(),
             aiLoggingManager = get(),
             systemPromptBuilder = get(),
+            toolResultContextProjector = get(),
             pluginManager = getOrNull(),
         )
     }

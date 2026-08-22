@@ -50,8 +50,6 @@ import me.rerere.rikkahub.data.repository.ConversationRepository
 import me.rerere.rikkahub.data.ai.transformers.InputMessageTransformer
 import me.rerere.rikkahub.data.ai.transformers.MessageTransformer
 import me.rerere.rikkahub.data.ai.transformers.OutputMessageTransformer
-import me.rerere.rikkahub.data.files.FileFolders
-import java.io.File
 import me.rerere.rikkahub.data.ai.transformers.onGenerationFinish
 import me.rerere.rikkahub.data.ai.transformers.transforms
 import me.rerere.rikkahub.data.ai.transformers.visualTransforms
@@ -69,8 +67,6 @@ import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 private const val TAG = "GenerationHandler"
-private const val MAX_TOOL_OUTPUT_CHARS = 32 * 1024
-private const val TOOL_OUTPUT_PREVIEW_CHARS = 4 * 1024
 
 /**
  * Keys whose string values are sensitive enough that the raw value MUST NOT land in
@@ -279,6 +275,7 @@ class GenerationHandler(
     private val conversationRepo: ConversationRepository,
     private val aiLoggingManager: AILoggingManager,
     private val systemPromptBuilder: SystemPromptBuilder,
+    private val toolResultContextProjector: ToolResultContextProjector,
     private val pluginManager: me.rerere.rikkahub.skills.plugins.PluginManager? = null,
 ) {
     fun generateText(
@@ -822,14 +819,13 @@ class GenerationHandler(
                                 )
                                 executeResult
                             }
-                            // Upstream tool-output truncation: when the workspace shell is
-                            // available, oversized text output is spilled to /tool_outputs/
-                            // and replaced with a preview + read/grep instructions so the
-                            // model can pull the full payload on demand instead of burning
-                            // the context window.
-                            val hasShellAccess = toolsInternal.any { it.name == "workspace_shell" }
                             executedTools += markedTool.copy(
-                                output = maybeTruncateToolOutput(tool.toolCallId, result, hasShellAccess)
+                                output = toolResultContextProjector.project(
+                                    toolName = toolDef.name,
+                                    toolCallId = tool.toolCallId,
+                                    conversationId = conversationId,
+                                    output = result,
+                                ),
                             )
                         }.onFailure {
                             // Stack trace stays in logcat for debugging; the JSON envelope
@@ -1095,40 +1091,6 @@ class GenerationHandler(
             }
             onUpdateMessages(messages)
         }
-    }
-
-    private fun maybeTruncateToolOutput(
-        toolCallId: String,
-        output: List<UIMessagePart>,
-        hasShellAccess: Boolean,
-    ): List<UIMessagePart> {
-        val textParts = output.filterIsInstance<UIMessagePart.Text>()
-        val nonTextParts = output.filter { it !is UIMessagePart.Text }
-        val totalChars = textParts.sumOf { it.text.length }
-
-        if (totalChars <= MAX_TOOL_OUTPUT_CHARS || !hasShellAccess) return output
-
-        Log.i(TAG, "maybeTruncateToolOutput: truncating tool $toolCallId output ($totalChars chars)")
-
-        val fullText = textParts.joinToString("\n") { it.text }
-        val preview = fullText.take(TOOL_OUTPUT_PREVIEW_CHARS)
-
-        val fileName = "${toolCallId}.txt"
-        val outputDir = File(context.filesDir, FileFolders.TOOL_OUTPUTS).apply { mkdirs() }
-        File(outputDir, fileName).writeText(fullText)
-
-        return listOf(
-            UIMessagePart.Text(
-                buildString {
-                    appendLine("[Tool output truncated: $totalChars characters total]")
-                    appendLine("Full output saved to: /tool_outputs/$fileName")
-                    appendLine("Use shell to read: `cat /tool_outputs/$fileName`")
-                    appendLine("Use shell to search: `grep \"pattern\" /tool_outputs/$fileName`")
-                    appendLine()
-                    append(preview)
-                }
-            )
-        ) + nonTextParts
     }
 
     fun translateText(
