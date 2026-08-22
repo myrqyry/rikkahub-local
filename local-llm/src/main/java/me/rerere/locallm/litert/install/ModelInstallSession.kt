@@ -143,7 +143,7 @@ class ModelInstallSession(
                         saveCheckpoint(partialDir, checkpoint, downloadedBytes)
                         return failedReceipt(request, source, installId, "budget_exceeded: maxDownloadBytes", downloadedBytes, completedRanges, totalRanges, request.budget)
                     }
-                    if (cancellationFlags[request.destination] == true) {
+                    if (cancellationFlags.remove(request.destination) == true) {
                         saveCheckpoint(partialDir, checkpoint, downloadedBytes)
                         return pausedReceipt(request, source, installId, downloadedBytes, completedRanges, totalRanges)
                     }

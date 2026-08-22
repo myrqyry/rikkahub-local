@@ -179,6 +179,10 @@ class ModelInstallSessionTest {
         assertEquals(0, receipt.completedRanges)
         // partial dir checkpoint preserved (no final file)
         assertFalse(File(dest).exists())
+
+        val resumed = session.install(request, source)
+        assertEquals("ready", resumed.state)
+        assertTrue(content.contentEquals(File(dest).readBytes()))
     }
 
     @Test
