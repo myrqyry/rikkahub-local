@@ -10,6 +10,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import me.rerere.ai.core.Tool
+import me.rerere.agentruntime.ContinuationCheckpointDraft
+import me.rerere.agentruntime.ContinuationSnapshot
+import me.rerere.agentruntime.ContinuationStore
 import me.rerere.rikkahub.data.ai.tools.HardlineCommandGuard
 import me.rerere.rikkahub.data.ai.tools.LocalTools
 import me.rerere.rikkahub.data.datastore.SettingsStore
@@ -80,6 +83,10 @@ class WorkflowEngine(
      */
     private val agentRunRepo: me.rerere.rikkahub.data.agentrun.AgentRunRepository by lazy {
         org.koin.java.KoinJavaComponent.getKoin().get<me.rerere.rikkahub.data.agentrun.AgentRunRepository>()
+    }
+
+    private val continuationStore: ContinuationStore by lazy {
+        org.koin.java.KoinJavaComponent.getKoin().get<ContinuationStore>()
     }
 
     private val perWorkflowLocks = mutableMapOf<String, Mutex>()
@@ -220,9 +227,42 @@ class WorkflowEngine(
         )
 
         // Execute the action sequence. ActionRunner enforces per-action timeout + HARDLINE.
-        val result = actionRunner.run(def.actions, tools)
+        val result = actionRunner.run(def.actions, tools) { actionIndex, action ->
+            appendWorkflowCheckpoint(ledgerId, entity.name, def.actions, actionIndex, action)
+        }
         val status = if (result.success) WorkflowRunStatus.SUCCESS else WorkflowRunStatus.FAILED
         return persistAndReturn(workflowId, firedAtMs, started, status, result.error, result.summary, ledgerId)
+    }
+
+    private suspend fun appendWorkflowCheckpoint(
+        ledgerId: String,
+        workflowName: String,
+        actions: List<WorkflowAction>,
+        actionIndex: Int,
+        action: WorkflowAction,
+    ) {
+        try {
+            val nextAction = actions.getOrNull(actionIndex + 1)
+            continuationStore.append(
+                ContinuationCheckpointDraft(
+                    id = "$ledgerId:action:$actionIndex",
+                    runId = ledgerId,
+                    verifiedAtMs = System.currentTimeMillis(),
+                    snapshot = ContinuationSnapshot(
+                        goal = "Run workflow '$workflowName'",
+                        pendingWork = nextAction?.let {
+                            "Run ${actions.size - actionIndex - 1} remaining action(s), beginning with '${it.tool}'."
+                        } ?: "No actions remain; record the terminal workflow outcome.",
+                        lastVerifiedAction = "Action ${actionIndex + 1}/${actions.size} '${action.tool}' returned successfully.",
+                        touchedResources = listOf("tool:${action.tool}"),
+                        decisions = listOf("Manual continuation only; do not automatically rerun actions."),
+                        verificationState = "Tool '${action.tool}' completed without timeout or exception.",
+                    ),
+                )
+            )
+        } catch (t: Throwable) {
+            Log.w(TAG, "workflow checkpoint append failed for $ledgerId action $actionIndex", t)
+        }
     }
 
     /**
@@ -350,7 +390,11 @@ class WorkflowActionRunner {
 
     data class RunResult(val success: Boolean, val error: String?, val summary: String)
 
-    suspend fun run(actions: List<WorkflowAction>, availableTools: List<Tool>): RunResult {
+    suspend fun run(
+        actions: List<WorkflowAction>,
+        availableTools: List<Tool>,
+        onActionSucceeded: suspend (Int, WorkflowAction) -> Unit = { _, _ -> },
+    ): RunResult {
         val outputs = mutableListOf<String>()
         for ((idx, action) in actions.withIndex()) {
             val argsJson = action.args.toString()
@@ -385,6 +429,7 @@ class WorkflowActionRunner {
             val text = out.filterIsInstance<me.rerere.ai.ui.UIMessagePart.Text>()
                 .joinToString("\n") { it.text }
             outputs += "[$idx] ${action.tool}: ${text.take(200)}"
+            onActionSucceeded(idx, action)
         }
         return RunResult(true, null, outputs.joinToString("\n").take(2000))
     }

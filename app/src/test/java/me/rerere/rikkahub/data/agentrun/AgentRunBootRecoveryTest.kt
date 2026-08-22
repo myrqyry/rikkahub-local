@@ -1,6 +1,9 @@
 package me.rerere.rikkahub.data.agentrun
 
 import kotlinx.coroutines.runBlocking
+import me.rerere.agentruntime.ContinuationCheckpointDraft
+import me.rerere.agentruntime.ContinuationSnapshot
+import me.rerere.agentruntime.InMemoryContinuationStore
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -20,12 +23,26 @@ class AgentRunBootRecoveryTest {
 
     private var notifiedWith: List<AgentRun>? = null
     private var notifyCount = 0
+    private var recoveryCandidates: List<AgentRunRecoveryCandidate>? = null
 
     private fun recovery(repo: AgentRunRepository): AgentRunBootRecovery =
-        AgentRunBootRecovery(repo) { stranded ->
+        AgentRunBootRecovery(repository = repo, notifyRecovery = { report ->
             notifyCount++
-            notifiedWith = stranded
-        }
+            notifiedWith = report.stranded
+        })
+
+    private fun recovery(
+        repo: AgentRunRepository,
+        store: InMemoryContinuationStore,
+    ): AgentRunBootRecovery = AgentRunBootRecovery(
+        repository = repo,
+        continuationStore = store,
+        notifyRecovery = { report ->
+            notifyCount++
+            notifiedWith = report.stranded
+            recoveryCandidates = report.candidates
+        },
+    )
 
     @Test
     fun `stranded running rows older than the threshold are flipped to process_lost`() = runBlocking {
@@ -100,6 +117,36 @@ class AgentRunBootRecoveryTest {
         assertEquals(AgentRunStatus.running.name, repo.getById("live")!!.status)
         assertEquals(AgentRunStatus.succeeded.name, repo.getById("done")!!.status)
     }
+
+    @Test
+    fun `recovery exposes only latest workflow checkpoint for a flipped workflow run`() = runBlocking {
+        val dao = FakeAgentRunDao()
+        val repo = AgentRunRepository(dao)
+        val store = InMemoryContinuationStore()
+        dao.insert(runRow(id = "workflow", status = AgentRunStatus.running, updatedAtMs = stale)
+            .copy(kind = AgentRunKind.Workflow.wire))
+        dao.insert(runRow(id = "cron", status = AgentRunStatus.running, updatedAtMs = stale))
+        store.append(checkpoint("first", "workflow", "first action"))
+        store.append(checkpoint("latest", "workflow", "second action"))
+
+        recovery(repo, store).runRecovery()
+
+        assertEquals(1, recoveryCandidates!!.size)
+        assertEquals("workflow", recoveryCandidates!!.single().run.id)
+        assertEquals("latest", recoveryCandidates!!.single().checkpoint.id)
+    }
+
+    private fun checkpoint(id: String, runId: String, action: String) = ContinuationCheckpointDraft(
+        id = id,
+        runId = runId,
+        verifiedAtMs = now,
+        snapshot = ContinuationSnapshot(
+            goal = "workflow",
+            pendingWork = "continue",
+            lastVerifiedAction = action,
+            verificationState = "verified",
+        ),
+    )
 
     private fun runRow(id: String, status: AgentRunStatus, updatedAtMs: Long): AgentRun =
         AgentRun(

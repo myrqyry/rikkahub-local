@@ -195,7 +195,7 @@ val dataSourceModule = module {
     // there is no DI-cycle risk here.
     single { get<AppDatabase>().agentRunDao() }
     single { AgentRunRepository(get()) }
-    single { AgentRunBootRecovery(context = get(), repository = get()) }
+    single { AgentRunBootRecovery(context = get(), repository = get(), continuationStore = get()) }
 
     // Trust/observability (harvested from PR #2): append-only event trace, revision guard,
     // and effect-aware safety preflight. No DI-cycle risk (trace repo depends only on DB).

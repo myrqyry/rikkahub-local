@@ -69,6 +69,21 @@ class HardlineInWorkflowTest {
         assertTrue("expected success: ${result.error}", result.success)
     }
 
+    @Test fun `successful actions invoke checkpoint callback in order`() = runBlocking {
+        val completed = mutableListOf<String>()
+        val result = WorkflowActionRunner().run(
+            actions = listOf(
+                WorkflowAction(tool = "show_toast", args = buildJsonObject {}, timeoutSeconds = 10),
+                WorkflowAction(tool = "show_toast", args = buildJsonObject {}, timeoutSeconds = 10),
+            ),
+            availableTools = listOf(toastTool),
+            onActionSucceeded = { index, action -> completed += "$index:${action.tool}" },
+        )
+
+        assertTrue(result.success)
+        assertEquals(listOf("0:show_toast", "1:show_toast"), completed)
+    }
+
     @Test fun `aborts on first failure leaves later actions un-run`() = runBlocking {
         var lateExecuted = false
         val lateTool = Tool(
