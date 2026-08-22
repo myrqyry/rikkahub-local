@@ -199,7 +199,27 @@ class SubAgentEngine(
         parentChatId: String?,
         request: SubAgentRequest,
     ) {
-        registry.update(runId) { it.copy(status = SubAgentStatus.RUNNING) }
+        // Resolve the sub-agent's model (explicit model_id -> CHAT model of an enabled
+        // provider, else the named profile's model, else inherit) and its named profile
+        // before building the run's conversation. A bad explicit model or unknown agent
+        // name fails the dispatch up front instead of silently inheriting.
+        val settings = settingsStore.settingsFlow.first()
+        val modelResolution = SubAgentModelResolver.resolve(request.modelId, settings.providers)
+        val profileResolution = SubAgentProfileResolver.resolve(request.agent, settings.subAgentProfiles)
+        val profile = (profileResolution as? SubAgentProfileResolver.Result.Resolved)?.profile
+        val combined = SubAgentProfileResolver.combinedModelResolution(modelResolution, profile)
+        val resolvedModelId = when (combined) {
+            is SubAgentModelResolver.Result.Inherit -> null
+            is SubAgentModelResolver.Result.Resolved -> combined.modelId
+            is SubAgentModelResolver.Result.Failed -> {
+                markTerminal(runId, SubAgentStatus.FAILED, combined.message)
+                return
+            }
+        }
+        val effectiveTask = profile?.systemPrompt?.trim()?.takeIf { it.isNotEmpty() }
+            ?.let { "$it\n\n${request.task}" } ?: request.task
+
+        registry.update(runId) { it.copy(status = SubAgentStatus.RUNNING, modelId = resolvedModelId) }
         ledgerIds[runId]?.let { agentRunRepo.setStatus(it, AgentRunStatus.running) }
 
         val parentAsstUuid = runCatching { Uuid.parse(parentAssistantId) }.getOrNull()
@@ -221,7 +241,7 @@ class SubAgentEngine(
             // no closing text. Without explicit text the parent has nothing to harvest and
             // the sub-agent's findings are lost.
             val taskWithWrapup = buildString {
-                append(request.task)
+                append(effectiveTask)
                 appendLine()
                 appendLine()
                 append("When you have finished, end with one short paragraph in plain text that summarises what you did and what you found. Do NOT stop on a tool call — finish with assistant text. The dispatcher harvests only your final text reply, so this paragraph is the entire response the parent sees.")

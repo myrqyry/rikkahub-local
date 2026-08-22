@@ -147,20 +147,12 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
             keywords = listOf("ai", "model", "provider", "assistant", "prompt"),
             items = listOf(
                 SettingsHomeItem(
-                    id = "modelManager",
-                    title = stringResource(R.string.setting_home_model_manager),
-                    description = stringResource(R.string.setting_home_model_manager_desc),
+                    id = "models",
+                    title = stringResource(R.string.setting_home_models),
+                    description = stringResource(R.string.setting_home_models_desc),
                     icon = HugeIcons.Deepseek,
-                    keywords = listOf("offline", "litert", "download", "local model"),
-                    onClick = { navController.navigate(Screen.SettingModelManager()) },
-                ),
-                SettingsHomeItem(
-                    id = "defaultModels",
-                    title = stringResource(R.string.setting_default_models_title),
-                    description = stringResource(R.string.setting_page_default_model_desc),
-                    icon = HugeIcons.AiMagic,
-                    keywords = listOf("chat model", "title model", "translation model"),
-                    onClick = { navController.navigate(Screen.SettingDefaultModels) },
+                    keywords = listOf("model", "provider", "default", "download", "local", "cloud", "litert", "endpoint", "api"),
+                    onClick = { navController.navigate(Screen.Models()) },
                 ),
                 SettingsHomeItem(
                     id = "agentSettings",
@@ -177,14 +169,6 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     icon = HugeIcons.LookTop,
                     keywords = listOf("agent", "persona", "prompt"),
                     onClick = { navController.navigate(Screen.Assistant) },
-                ),
-                SettingsHomeItem(
-                    id = "providers",
-                    title = stringResource(R.string.setting_page_providers),
-                    description = stringResource(R.string.setting_page_providers_desc),
-                    icon = HugeIcons.ChatGpt,
-                    keywords = listOf("api", "credentials", "cloud", "endpoint"),
-                    onClick = { navController.navigate(Screen.SettingProvider) },
                 ),
                 SettingsHomeItem(
                     id = "promptLibrary",
@@ -650,7 +634,7 @@ private fun ProviderConfigWarningCard(navController: Navigator) {
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )
             Button(
-                onClick = { navController.navigate(Screen.SettingProvider) },
+                onClick = { navController.navigate(Screen.Models(scrollToSources = true)) },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError,

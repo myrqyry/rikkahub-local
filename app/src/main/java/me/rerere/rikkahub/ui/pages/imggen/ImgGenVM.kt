@@ -9,18 +9,24 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.map
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import me.rerere.ai.provider.ImageCapabilities
 import me.rerere.ai.provider.ImageEditParams
 import me.rerere.ai.provider.ImageGenerationParams
-import me.rerere.ai.provider.ProviderManager
+import me.rerere.ai.provider.ProviderSetting
+import me.rerere.ai.provider.imageCapabilities
 import me.rerere.ai.ui.ImageAspectRatio
 import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.common.android.appTempFolder
@@ -30,19 +36,18 @@ import me.rerere.rikkahub.data.datastore.findProvider
 import me.rerere.rikkahub.data.datastore.getCurrentAssistant
 import me.rerere.rikkahub.data.ai.GenerationProgress
 import me.rerere.rikkahub.data.ai.StableDiffusionBridge
-import me.rerere.rikkahub.data.ai.tools.image.ImageOperation
+import me.rerere.rikkahub.data.ai.generation.GenerationResult
+import me.rerere.rikkahub.data.ai.tools.ToolInvocationContext
+import me.rerere.rikkahub.data.ai.tools.image.MediaInputResolver
 import me.rerere.rikkahub.data.db.entity.GenMediaEntity
 import me.rerere.rikkahub.data.files.FilesManager
-import me.rerere.rikkahub.data.media.ImageMediaStore
 import me.rerere.rikkahub.data.media.MediaArtifactRef
-import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
+import me.rerere.rikkahub.data.media.writePayloadToFile
 import me.rerere.rikkahub.data.modelregistry.ModelRegistry
 import me.rerere.rikkahub.data.modelregistry.ModelResolution
 import me.rerere.rikkahub.data.modelregistry.ModelRole
 import me.rerere.rikkahub.data.modelregistry.ModelRoleResolver
-import me.rerere.rikkahub.data.modelregistry.ModelSource
 import me.rerere.rikkahub.data.modelregistry.ModelSourcePolicy
-import me.rerere.rikkahub.data.modelregistry.canProcessImageWith
 import me.rerere.rikkahub.data.repository.GenMediaRepository
 import java.io.File
 import kotlin.coroutines.cancellation.CancellationException
@@ -73,12 +78,12 @@ private fun GenMediaEntity.toGeneratedImage(filesManager: FilesManager): Generat
 class ImgGenVM(
     context: Application,
     val settingsStore: SettingsStore,
-    val providerManager: ProviderManager,
     val genMediaRepository: GenMediaRepository,
     private val filesManager: FilesManager,
     private val modelRoleResolver: ModelRoleResolver,
     private val modelRegistry: ModelRegistry,
-    private val imageMediaStore: ImageMediaStore,
+    private val generationService: me.rerere.rikkahub.data.ai.generation.GenerationService,
+    private val mediaInputResolver: MediaInputResolver,
 ) : AndroidViewModel(context) {
     private val _prompt = MutableStateFlow("")
     val prompt: StateFlow<String> = _prompt
@@ -101,8 +106,36 @@ class ImgGenVM(
 
     private val _referenceImages = MutableStateFlow<List<String>>(emptyList())
     val referenceImages: StateFlow<List<String>> = _referenceImages
+    private val initialReferenceLoader = InitialImageReferenceLoader(context.appTempFolder)
 
     val generationProgress: StateFlow<GenerationProgress?> = StableDiffusionBridge.progress
+
+    private val _imageCapabilities = MutableStateFlow(ProviderSetting.StableDiffusion().imageCapabilities)
+    val imageCapabilities: StateFlow<ImageCapabilities> = _imageCapabilities
+
+    init {
+        viewModelScope.launch {
+            settingsStore.settingsFlow.collect { settings ->
+                val resolved = modelRoleResolver.resolve(
+                    ModelRole.IMAGE_GENERATION,
+                    settings.getCurrentAssistant(),
+                    settings,
+                    ModelSourcePolicy.ANY,
+                )
+                val providerId = when (resolved) {
+                    is ModelResolution.Resolved -> {
+                        val aiModel = runCatching {
+                            settings.findModelById(Uuid.parse(resolved.model.id))
+                        }.getOrNull()
+                        aiModel?.findProvider(settings.providers)?.id
+                    }
+                    else -> null
+                }
+                val setting = settings.providers.find { it.id == providerId }
+                _imageCapabilities.value = setting?.imageCapabilities ?: ProviderSetting.StableDiffusion().imageCapabilities
+            }
+        }
+    }
 
     val pager = Pager(
         config = PagingConfig(pageSize = 20, enablePlaceholders = false),
@@ -119,7 +152,7 @@ class ImgGenVM(
     }
 
     fun updateNumberOfImages(count: Int) {
-        _numberOfImages.value = count.coerceIn(1, 4)
+        _numberOfImages.value = count.coerceIn(1, _imageCapabilities.value.maxOutputs.coerceAtLeast(1))
     }
 
     fun updateAspectRatio(aspectRatio: ImageAspectRatio) {
@@ -128,6 +161,22 @@ class ImgGenVM(
 
     fun addReferenceImages(paths: List<String>) {
         _referenceImages.value = (_referenceImages.value + paths).distinct().take(MAX_REFERENCE_IMAGES)
+    }
+
+    fun initializeReferenceImage(imageRef: String?) {
+        if (imageRef.isNullOrBlank()) return
+        viewModelScope.launch {
+            try {
+                val media = mediaInputResolver.resolveImage(imageRef, ToolInvocationContext.EMPTY)
+                val stagedPath = withContext(Dispatchers.IO) {
+                    initialReferenceLoader.stage(imageRef, media)
+                }
+                if (stagedPath != null) addReferenceImages(listOf(stagedPath))
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to initialize image reference", e)
+                _error.value = e.message ?: "Failed to load image reference"
+            }
+        }
     }
 
     fun removeReferenceImage(path: String) {
@@ -167,15 +216,6 @@ class ImgGenVM(
                 val model = resolveModel(settings, ModelRole.IMAGE_GENERATION)
                     ?: throw IllegalStateException("No model selected")
 
-                val provider = model.findProvider(settings.providers)
-                    ?: throw IllegalStateException("Provider not found")
-
-                val providerSetting = settings.providers.find { it.id == provider.id }
-                    ?: throw IllegalStateException("Provider setting not found")
-                if (!settings.getCurrentAssistant().canProcessImageWith(providerSetting)) {
-                    throw IllegalStateException("Cloud image processing is disabled for this assistant")
-                }
-
                 val requestPrompt = _prompt.value
                 val params = ImageGenerationParams(
                     model = model,
@@ -186,14 +226,42 @@ class ImgGenVM(
                     customBody = model.customBodies
                 )
 
-                val images = providerManager.getProviderByType(provider)
-                    .generateImage(providerSetting, params)
-
-                collectImageGeneration(
-                    images = images,
-                    prompt = requestPrompt,
-                    modelName = model.displayName,
+                var previewFile: File? = null
+                val outcome = generationService.generate(
+                    settings = settings,
+                    assistant = settings.getCurrentAssistant(),
+                    params = params,
+                    onPartial = { item ->
+                        previewFile?.delete()
+                        val file = saveImagePreview(item, model.displayName, item.partialImageIndex ?: 0)
+                        previewFile = file
+                        _currentGeneratedImages.value = listOf(
+                            GeneratedImage(
+                                id = 0,
+                                prompt = requestPrompt,
+                                filePath = file.absolutePath,
+                                timestamp = System.currentTimeMillis(),
+                                model = model.displayName,
+                            )
+                        )
+                    },
                 )
+                previewFile?.delete()
+
+                when (outcome) {
+                    is GenerationResult.Empty -> _error.value = "Provider returned no images"
+                    is GenerationResult.Success -> {
+                        _currentGeneratedImages.value = outcome.artifacts.map {
+                            GeneratedImage(
+                                id = it.galleryId,
+                                prompt = outcome.prompt,
+                                filePath = it.path,
+                                timestamp = System.currentTimeMillis(),
+                                model = outcome.modelName,
+                            )
+                        }
+                    }
+                }
             } catch (e: Exception) {
                 if(e is CancellationException) return@launch
                 Log.e(TAG, "Failed to generate image", e)
@@ -217,15 +285,6 @@ class ImgGenVM(
                 val model = resolveModel(settings, ModelRole.IMAGE_EDITING)
                     ?: throw IllegalStateException("No model selected")
 
-                val provider = model.findProvider(settings.providers)
-                    ?: throw IllegalStateException("Provider not found")
-
-                val providerSetting = settings.providers.find { it.id == provider.id }
-                    ?: throw IllegalStateException("Provider setting not found")
-                if (!settings.getCurrentAssistant().canProcessImageWith(providerSetting)) {
-                    throw IllegalStateException("Cloud image processing is disabled for this assistant")
-                }
-
                 val requestPrompt = _prompt.value
                 val sourceImages = _referenceImages.value
                 val params = ImageEditParams(
@@ -238,16 +297,43 @@ class ImgGenVM(
                     customBody = model.customBodies
                 )
 
-                val images = providerManager.getProviderByType(provider)
-                    .editImage(providerSetting, params)
-
-                collectImageGeneration(
-                    images = images,
-                    prompt = requestPrompt,
-                    modelName = model.displayName,
-                    type = GenMediaEntity.TYPE_IMAGE_EDIT,
-                    sourcePaths = sourceImages.joinToString("\n"),
+                var previewFile: File? = null
+                val outcome = generationService.edit(
+                    settings = settings,
+                    assistant = settings.getCurrentAssistant(),
+                    params = params,
+                    sourceArtifacts = sourceImages.map { MediaArtifactRef(artifactId = it, path = it) },
+                    onPartial = { item ->
+                        previewFile?.delete()
+                        val file = saveImagePreview(item, model.displayName, item.partialImageIndex ?: 0)
+                        previewFile = file
+                        _currentGeneratedImages.value = listOf(
+                            GeneratedImage(
+                                id = 0,
+                                prompt = requestPrompt,
+                                filePath = file.absolutePath,
+                                timestamp = System.currentTimeMillis(),
+                                model = model.displayName,
+                            )
+                        )
+                    },
                 )
+                previewFile?.delete()
+
+                when (outcome) {
+                    is GenerationResult.Empty -> _error.value = "Provider returned no images"
+                    is GenerationResult.Success -> {
+                        _currentGeneratedImages.value = outcome.artifacts.map {
+                            GeneratedImage(
+                                id = it.galleryId,
+                                prompt = outcome.prompt,
+                                filePath = it.path,
+                                timestamp = System.currentTimeMillis(),
+                                model = outcome.modelName,
+                            )
+                        }
+                    }
+                }
             } catch (e: Exception) {
                 if (e is CancellationException) return@launch
                 Log.e(TAG, "Failed to edit image", e)
@@ -272,94 +358,6 @@ class ImgGenVM(
             else -> settings.imageGenerationModelId.toString()
         }
         return runCatching { settings.findModelById(Uuid.parse(id)) }.getOrNull()
-    }
-
-    private suspend fun collectImageGeneration(
-        images: Flow<ImageGenerationItem>,
-        prompt: String,
-        modelName: String,
-        type: String = GenMediaEntity.TYPE_IMAGE_GENERATION,
-        sourcePaths: String? = null,
-    ) {
-        val finalImages = mutableListOf<GeneratedImage>()
-        var previewFile: File? = null
-        var finalIndex = 0
-
-        images.collect { item ->
-            if (item.partial) {
-                previewFile?.delete()
-                val imageFile = saveImagePreview(
-                    item = item,
-                    modelName = modelName,
-                    index = item.partialImageIndex ?: finalIndex,
-                )
-                previewFile = imageFile
-                _currentGeneratedImages.value = finalImages + GeneratedImage(
-                    id = 0,
-                    prompt = prompt,
-                    filePath = imageFile.absolutePath,
-                    timestamp = System.currentTimeMillis(),
-                    model = modelName
-                )
-            } else {
-                previewFile?.delete()
-                previewFile = null
-                val imageFile = saveImageToStorage(
-                    item = item,
-                    prompt = prompt,
-                    modelName = modelName,
-                    index = finalIndex,
-                    type = type,
-                    sourcePaths = sourcePaths,
-                )
-                finalImages.add(
-                    GeneratedImage(
-                        id = 0, // Will be updated after database insertion
-                        prompt = prompt,
-                        filePath = imageFile.absolutePath,
-                        timestamp = System.currentTimeMillis(),
-                        model = modelName
-                    )
-                )
-                finalIndex++
-                _currentGeneratedImages.value = finalImages.toList()
-            }
-        }
-    }
-
-    private fun saveImagePreview(
-        item: ImageGenerationItem,
-        modelName: String,
-        index: Int,
-    ): File {
-        val timestamp = System.currentTimeMillis()
-        val imageFile = File(getApplication<Application>().appTempFolder, "imggen_${timestamp}_${modelName}_$index.png")
-        return filesManager.createImageFileFromBase64(item.data, imageFile.absolutePath)
-    }
-
-    private suspend fun saveImageToStorage(
-        item: ImageGenerationItem,
-        prompt: String,
-        modelName: String,
-        index: Int,
-        type: String = GenMediaEntity.TYPE_IMAGE_GENERATION,
-        sourcePaths: String? = null,
-    ): File {
-        val descriptor = modelRegistry.models.value.firstOrNull { it.displayName == modelName }
-            ?: ModelDescriptor(
-                id = modelName,
-                displayName = modelName,
-                source = ModelSource.Cloud(providerId = "", remoteModelId = ""),
-                capabilities = emptySet(),
-            )
-        val artifact = imageMediaStore.saveGenerated(
-            item = item,
-            prompt = prompt,
-            model = descriptor,
-            operation = if (type == GenMediaEntity.TYPE_IMAGE_EDIT) ImageOperation.IMAGE_EDIT else ImageOperation.IMAGE_GENERATION,
-            sourceArtifacts = sourcePaths?.lines()?.filter { it.isNotBlank() }?.map { MediaArtifactRef(artifactId = it, path = it) } ?: emptyList(),
-        )
-        return File(artifact.path)
     }
 
     fun deleteImage(image: GeneratedImage) {
@@ -389,6 +387,17 @@ class ImgGenVM(
                 }
             }
         }
+    }
+
+    /** Writes a partial item to a temp preview file for the progressive-generation UI. */
+    private fun saveImagePreview(item: ImageGenerationItem, modelName: String, index: Int): File {
+        val timestamp = System.currentTimeMillis()
+        val imageFile = File(
+            getApplication<Application>().appTempFolder,
+            "imggen_${timestamp}_${modelName}_$index.png"
+        )
+        writePayloadToFile(item.payload, imageFile)
+        return imageFile
     }
 
     companion object {

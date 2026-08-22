@@ -122,6 +122,8 @@ fun ChatMessage(
     onClearTranslation: (UIMessage) -> Unit = {},
     onToolApproval: ((toolCallId: String, approved: Boolean, reason: String, scope: me.rerere.rikkahub.service.ChatService.ApprovalScope, toolName: String) -> Unit)? = null,
     onToolAnswer: ((toolCallId: String, answer: String) -> Unit)? = null,
+    onSubmit: ((RikkaUiEvent.FormSubmit) -> Unit)? = null,
+    onNavigate: ((String) -> Unit)? = null,
 ) {
     val message = node.messages[node.selectIndex]
     val settings = LocalSettings.current.displaySetting
@@ -185,6 +187,8 @@ fun ChatMessage(
                     onToolApproval = onToolApproval,
                     onToolAnswer = onToolAnswer,
                     onUserMessageClick = if (message.role == MessageRole.USER) onEdit else null,
+                    onSubmit = onSubmit,
+                    onNavigate = onNavigate,
                 )
 
                 message.translation?.let { translation ->
@@ -319,6 +323,8 @@ private fun MessagePartsBlock(
     onToolApproval: ((toolCallId: String, approved: Boolean, reason: String, scope: me.rerere.rikkahub.service.ChatService.ApprovalScope, toolName: String) -> Unit)? = null,
     onToolAnswer: ((toolCallId: String, answer: String) -> Unit)? = null,
     onUserMessageClick: (() -> Unit)? = null,
+    onSubmit: ((RikkaUiEvent.FormSubmit) -> Unit)? = null,
+    onNavigate: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val contentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
@@ -633,7 +639,12 @@ private fun MessagePartsBlock(
                     }
 
                     is UIMessagePart.GeneratedUi -> {
-                        RikkaUiRenderer(ui = part.ui)
+                        RikkaUiRenderer(
+                            ui = part.ui,
+                            renderId = part.renderId,
+                            onSubmit = onSubmit ?: {},
+                            onNavigate = onNavigate ?: {},
+                        )
                     }
 
                     else -> {

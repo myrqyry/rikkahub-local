@@ -16,7 +16,9 @@ import me.rerere.ai.provider.Modality
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelType
 import me.rerere.ai.provider.ProviderSetting
+import me.rerere.ai.ui.GeneratedImagePayload
 import me.rerere.ai.ui.ImageGenerationItem
+import me.rerere.rikkahub.data.media.writePayloadToFile
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
 import me.rerere.locallm.ModelInstall
@@ -156,14 +158,13 @@ val downloadClient = OkHttpClient.Builder()
                         val now = System.currentTimeMillis()
                         if (first) coldLoadMs = now - runStart
                         genMs = now - runStart
-                        val bytes = Base64.decode(item.data, Base64.NO_WRAP)
                         val file = File(
                             outDir,
                             "gen_${i}_${if (vulkan) "vulkan" else "cpu"}_${width}x${height}_s${steps}.png",
                         )
-                        file.writeBytes(bytes)
+                        writePayloadToFile(item.payload, file)
                         imageSaved = true
-                        Log.i(TAG, "hook run $i IMAGE saved ${file.absolutePath} bytes=${bytes.size}")
+                        Log.i(TAG, "hook run $i IMAGE saved ${file.absolutePath}")
                     }
                 }.collect()
             }

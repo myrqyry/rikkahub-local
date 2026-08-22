@@ -1,6 +1,5 @@
 package me.rerere.rikkahub.data.ai.tools.image
 
-import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -13,15 +12,19 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+
 import me.rerere.ai.core.InputSchema
 import me.rerere.ai.core.MessageRole
 import me.rerere.ai.core.Tool
 import me.rerere.ai.provider.ImageEditParams
 import me.rerere.ai.provider.ImageGenerationParams
+import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.TextGenerationParams
 import me.rerere.ai.ui.ImageAspectRatio
 import me.rerere.ai.ui.UIMessage
 import me.rerere.ai.ui.UIMessagePart
+import me.rerere.rikkahub.data.ai.generation.GenerationResult
+import me.rerere.rikkahub.data.ai.generation.GenerationService
 import me.rerere.rikkahub.data.ai.tools.ToolInvocationContext
 import me.rerere.rikkahub.data.datastore.Settings
 import me.rerere.rikkahub.data.datastore.findModelById
@@ -42,7 +45,7 @@ import kotlin.uuid.Uuid
 /**
  * Minimal settings surface [ImageTools] reads (mirrors `SettingsStore.settingsFlow.value`).
  * A tiny functional interface instead of the concrete [me.rerere.rikkahub.data.datastore.SettingsStore]
- * so the JVM tests can fake it without an Android Context / DataStore; the Koin wiring bridges
+ * so the JVM tests can substitute it without an Android Context / DataStore; the Koin wiring bridges
  * it with `SettingsProvider { get<SettingsStore>().settingsFlow.value }`.
  */fun interface SettingsProvider {
     fun current(): Settings
@@ -62,6 +65,7 @@ class ImageTools(
     private val imageMediaStore: ImageMediaStore,
     private val mediaInputResolver: MediaInputResolver,
     private val imageTextExtractor: ImageTextExtractor,
+    private val generationService: GenerationService,
 ) {
     private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
 
@@ -120,18 +124,13 @@ class ImageTools(
             )
             val parts = mutableListOf<UIMessagePart>()
             try {
-                val items = imageToolBackend.generateImage(providerSetting, params).toList()
-                val finals = items.filter { !it.partial }
-                if (finals.isEmpty()) return@Tool errorEnvelope("generation_returned_no_images", "generate_image")
-                val artifacts = finals.map { item ->
-                    imageMediaStore.saveGenerated(
-                        item = item,
-                        prompt = prompt,
-                        model = descriptor.model,
-                        operation = ImageOperation.IMAGE_GENERATION,
-                        sourceArtifacts = emptyList(),
-                    )
+                val outcome = generationService.generate(settings, assistant, params)
+                val success = when (outcome) {
+                    is GenerationResult.Empty ->
+                        return@Tool errorEnvelope("generation_returned_no_images", "generate_image")
+                    is GenerationResult.Success -> outcome
                 }
+                val artifacts = success.artifacts
                 artifacts.forEach { parts.add(UIMessagePart.Image(url = it.uri)) }
                 val result = ImageToolResult(
                     success = true,
@@ -140,6 +139,7 @@ class ImageTools(
                     modelId = descriptor.model.id,
                     providerId = providerSetting.id.toString(),
                     executionSource = descriptor.source.toString(),
+                    receipt = success.receipt,
                 )
                 parts.add(UIMessagePart.Text(json.encodeToString(result)))
                 parts
@@ -190,18 +190,14 @@ class ImageTools(
             )
             val parts = mutableListOf<UIMessagePart>()
             try {
-                val items = imageToolBackend.editImage(providerSetting, params).toList()
-                val finals = items.filter { !it.partial }
-                if (finals.isEmpty()) return@Tool errorEnvelope("generation_returned_no_images", "edit_image")
-                val artifacts = finals.map { item ->
-                    imageMediaStore.saveGenerated(
-                        item = item,
-                        prompt = prompt,
-                        model = descriptor.model,
-                        operation = ImageOperation.IMAGE_EDIT,
-                        sourceArtifacts = listOf(MediaArtifactRef(media.originalReference, media.stablePath)),
-                    )
+                val sourceArtifacts = listOf(MediaArtifactRef(media.originalReference, media.stablePath))
+                val outcome = generationService.edit(settings, assistant, params, sourceArtifacts)
+                val success = when (outcome) {
+                    is GenerationResult.Empty ->
+                        return@Tool errorEnvelope("generation_returned_no_images", "edit_image")
+                    is GenerationResult.Success -> outcome
                 }
+                val artifacts = success.artifacts
                 artifacts.forEach { parts.add(UIMessagePart.Image(url = it.uri)) }
                 val result = ImageToolResult(
                     success = true,
@@ -210,6 +206,7 @@ class ImageTools(
                     modelId = descriptor.model.id,
                     providerId = providerSetting.id.toString(),
                     executionSource = descriptor.source.toString(),
+                    receipt = success.receipt,
                 )
                 parts.add(UIMessagePart.Text(json.encodeToString(result)))
                 parts

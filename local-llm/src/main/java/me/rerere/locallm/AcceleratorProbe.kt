@@ -4,43 +4,19 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import com.google.ai.edge.litert.BuiltinNpuAcceleratorProvider
+import me.rerere.locallm.litert.compute.ComputeCapabilities
+import me.rerere.locallm.litert.compute.pickLiteRt
+import me.rerere.locallm.litert.compute.pickTaskAccelerator
 
 /**
- * Decides which accelerator to use for each runtime. Two layers:
- *
- *  - Pure decision function ([pickLiteRt]) takes a capability snapshot and
- *    returns the chosen label. JVM unit-testable.
- *  - Production probe ([probeLiteRt]) reads live device state and feeds the
- *    decision function.
+ * Android adapter that reads live device state and feeds the pure accelerator
+ * decision functions in [me.rerere.locallm.litert.compute] — the compute seam
+ * itself holds no Android types.
  *
  * The cached choice persists in [LocalRuntimePreferences]; the probe runs once
  * on first model load and again only when the user taps "Re-detect".
  */
 object AcceleratorProbe {
-
-    data class LiteRtCapabilities(
-        val isQualcomm: Boolean,
-        val qnnLibrarySupported: Boolean,
-        val gpuDelegateSupported: Boolean,
-        val nnapiSupported: Boolean,
-        val npuSupported: Boolean = false,
-    )
-
-    fun pickLiteRt(caps: LiteRtCapabilities): String = when {
-        caps.isQualcomm && caps.qnnLibrarySupported -> "QNN"
-        caps.gpuDelegateSupported -> "GPU"
-        caps.nnapiSupported -> "NNAPI"
-        else -> "CPU"
-    }
-
-    /** Decision function for the small JIT task models (image/audio classifiers, OCR, detection).
-     *  NPU wins over everything; then GPU; then NNAPI; CPU last. Pure and JVM-testable. */
-    fun pickTaskAccelerator(caps: LiteRtCapabilities): String = when {
-        caps.npuSupported -> "NPU"
-        caps.gpuDelegateSupported -> "GPU"
-        caps.nnapiSupported -> "NNAPI"
-        else -> "CPU"
-    }
 
     /**
      * Whether LiteRT should DEFAULT to forcing CPU (GPU opt-in) on a device, before the
@@ -71,7 +47,7 @@ object AcceleratorProbe {
 
     /**
      * Read the live device capabilities for the LiteRT runtime. Production callers
-     * use this; unit tests pass synthesised [LiteRtCapabilities] to [pickLiteRt]
+     * use this; unit tests pass synthesised [ComputeCapabilities] to [pickLiteRt]
      * directly.
      *
      * @param forceCpu short-circuits to "CPU" without probing — set when the user has
@@ -101,7 +77,7 @@ object AcceleratorProbe {
         )
         val nnapiSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1
         return pickLiteRt(
-            LiteRtCapabilities(
+            ComputeCapabilities(
                 isQualcomm = isQualcomm,
                 qnnLibrarySupported = qnnLibrarySupported,
                 gpuDelegateSupported = gpuDelegateSupported,
@@ -129,7 +105,7 @@ object AcceleratorProbe {
         val gpu = context.packageManager.hasSystemFeature(PackageManager.FEATURE_OPENGLES_EXTENSION_PACK)
         val nnapi = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1
         return pickTaskAccelerator(
-            LiteRtCapabilities(
+            ComputeCapabilities(
                 isQualcomm = false,
                 qnnLibrarySupported = false,
                 gpuDelegateSupported = gpu,

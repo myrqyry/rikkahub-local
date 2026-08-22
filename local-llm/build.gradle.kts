@@ -60,6 +60,9 @@ dependencies {
     // CompiledModel / Accelerator.NPU Kotlin API for on-device JIT task inference
     // (same artifact the speech module already pins; must stay 2.1.5).
     implementation("com.google.ai.edge.litert:litert:2.1.5")
+    // llama.cpp runtime via Llamatik: loads .gguf chat models. Pinned to 1.10.0 —
+    // v1.9.1 contains PR #165 (generateStream emoji crash) and 1.10.0 is the latest.
+    implementation("com.llamatik:library:1.10.0")
     // Raw org.tensorflow.lite.Interpreter for the PP-OCRv5 det/rec graphs (the 
     // task-vision/-audio AARs were dropped: their jni libs are 4KB-aligned, which
     // Android 15+ 16KB-page devices reject at install; task inference now runs via

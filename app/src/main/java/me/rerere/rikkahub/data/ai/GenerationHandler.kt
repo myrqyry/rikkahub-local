@@ -883,7 +883,10 @@ class GenerationHandler(
                     executedTools.find { it.toolCallId == part.toolCallId } ?: part
                 } else part
             }
-            messages = messages.dropLast(1) + lastMessage.copy(parts = updatedParts)
+            // Phase G: lift successful render_ui receipts into GeneratedUi sibling parts so
+            // the human projection renders alongside the tool block (idempotent by renderId).
+            val liftedParts = liftRenderedUi(updatedParts)
+            messages = messages.dropLast(1) + lastMessage.copy(parts = liftedParts)
             emit(
                 GenerationChunk.Messages(
                     messages.transforms(

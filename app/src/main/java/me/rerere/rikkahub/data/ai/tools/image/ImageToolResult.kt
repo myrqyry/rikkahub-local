@@ -2,6 +2,7 @@ package me.rerere.rikkahub.data.ai.tools.image
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
+import me.rerere.rikkahub.data.ai.GenerationReceipt
 
 @Serializable
 enum class ImageOperation {
@@ -43,5 +44,6 @@ data class ImageToolResult(
     val modelId: String? = null,
     val providerId: String? = null,
     val executionSource: String? = null,
+    val receipt: GenerationReceipt? = null,
     val error: ImageToolError? = null,
 )

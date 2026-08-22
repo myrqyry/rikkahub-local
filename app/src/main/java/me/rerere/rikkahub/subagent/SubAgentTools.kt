@@ -63,6 +63,11 @@ fun subagentDispatchTool(
         the running sub-agent. For long-running work, set run_in_background=true and
         poll with subagent_get; otherwise foreground (default) blocks until terminal.
 
+        Optionally pass an agent name to dispatch a named sub-agent profile (its own
+        prompt and model). Optionally pass model_id to force a model; it wins over the
+        profile's model, and both resolve against CHAT-type models of enabled providers
+        by uuid / provider model id / display name (case-insensitive exact).
+
         Concurrency caps: each assistant has its own (default 3, configurable 1-8) and
         there's a global cap of 16 across all assistants. Over-cap dispatches fail with
         a clear error — back off and retry, or wait for a slot.
@@ -75,7 +80,11 @@ fun subagentDispatchTool(
             properties = buildJsonObject {
                 put("task", buildJsonObject { put("type", "string") })
                 put("label", buildJsonObject { put("type", "string") })
-                put("model_id", buildJsonObject { put("type", "string") })
+                put("agent", buildJsonObject { put("type", "string") })
+                put("model_id", buildJsonObject {
+                    put("type", "string")
+                    put("description", "Model to run the sub-agent on: a model UUID, provider model id, or display name (case-insensitive exact). Resolved against CHAT-type models of enabled providers; ambiguous or unknown values fail the dispatch and list valid choices. Omit to inherit the parent's model.")
+                })
                 put("system_prompt", buildJsonObject { put("type", "string") })
                 put("tools", buildJsonObject {
                     put("type", "array")
@@ -106,6 +115,7 @@ fun subagentDispatchTool(
         val request = SubAgentRequest(
             task = task,
             modelId = params["model_id"]?.jsonPrimitive?.contentOrNull,
+            agent = params["agent"]?.jsonPrimitive?.contentOrNull,
             systemPrompt = params["system_prompt"]?.jsonPrimitive?.contentOrNull,
             tools = params["tools"]?.let { runCatching { it.jsonArray }.getOrNull() }
                 ?.mapNotNull { it.jsonPrimitive.contentOrNull },

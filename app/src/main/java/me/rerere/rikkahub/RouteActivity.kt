@@ -124,16 +124,15 @@ import me.rerere.rikkahub.ui.pages.setting.SettingThemePage
 import me.rerere.rikkahub.ui.pages.setting.SettingDonatePage
 import me.rerere.rikkahub.ui.pages.setting.SettingFilesPage
 import me.rerere.rikkahub.ui.pages.setting.SettingMcpPage
-import me.rerere.rikkahub.ui.pages.models.DefaultModelsPage
+import me.rerere.rikkahub.ui.pages.models.ModelDetailPage
+import me.rerere.rikkahub.ui.pages.models.ModelsPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPage
 import me.rerere.rikkahub.ui.pages.setting.SettingProviderDetailPage
-import me.rerere.rikkahub.ui.pages.setting.SettingProviderPage
 import me.rerere.rikkahub.ui.pages.setting.SettingAgentPage
 import me.rerere.rikkahub.ui.pages.setting.SettingSearchDetailPage
 import me.rerere.rikkahub.ui.pages.setting.SettingSearchPage
 
 import me.rerere.rikkahub.ui.pages.setting.SettingRAGPage
-import me.rerere.rikkahub.ui.pages.modelmanager.ModelManagerPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPluginPage
 import me.rerere.rikkahub.ui.pages.setting.SettingSpeechPage
 import me.rerere.rikkahub.ui.pages.setting.SettingTelegramPage
@@ -480,6 +479,10 @@ class RouteActivity : ComponentActivity() {
                                 ImageGenPage()
                             }
 
+                            entry<Screen.ImageGenReference> { key ->
+                                ImageGenPage(initialImageRef = key.imageRef)
+                            }
+
                             entry<Screen.WebView> { key ->
                                 WebViewPage(key.url, key.contentId)
                             }
@@ -505,7 +508,7 @@ class RouteActivity : ComponentActivity() {
                             }
 
                             entry<Screen.SettingProvider> {
-                                SettingProviderPage()
+                                ModelsPage(scrollToSources = true)
                             }
 
                             entry<Screen.SettingProviderDetail> { key ->
@@ -518,7 +521,7 @@ class RouteActivity : ComponentActivity() {
                             }
 
                             entry<Screen.SettingDefaultModels> {
-                                DefaultModelsPage()
+                                ModelsPage(showAssignments = true)
                             }
 
                             entry<Screen.SettingAbout> {
@@ -534,8 +537,16 @@ class RouteActivity : ComponentActivity() {
                             entry<Screen.SettingRAG> {
                                 SettingRAGPage()
                             }
-                            entry<Screen.SettingModelManager> { key ->
-                                ModelManagerPage(request = key.request)
+                            entry<Screen.Models> { key ->
+                                ModelsPage(
+                                    request = key.request,
+                                    showAssignments = key.showAssignments,
+                                    scrollToSources = key.scrollToSources,
+                                )
+                            }
+
+                            entry<Screen.ModelDetail> { key ->
+                                ModelDetailPage(modelId = key.modelId)
                             }
                             entry<Screen.SettingPlugin> {
                                 SettingPluginPage()
@@ -773,6 +784,9 @@ sealed interface Screen : NavKey {
     data object ImageGen : Screen
 
     @Serializable
+    data class ImageGenReference(val imageRef: String) : Screen
+
+    @Serializable
     data class WebView(val url: String = "", val contentId: String = "") : Screen
 
     @Serializable
@@ -812,9 +826,14 @@ sealed interface Screen : NavKey {
     data object SettingDefaultModels : Screen
 
     @Serializable
-    data class SettingModelManager(
+    data class Models(
         val request: me.rerere.rikkahub.ui.pages.models.ModelManagerRequest = me.rerere.rikkahub.ui.pages.models.ModelManagerRequest(),
+        val showAssignments: Boolean = false,
+        val scrollToSources: Boolean = false,
     ) : Screen
+
+    @Serializable
+    data class ModelDetail(val modelId: String) : Screen
 
     @Serializable
     data object SettingPlugin : Screen

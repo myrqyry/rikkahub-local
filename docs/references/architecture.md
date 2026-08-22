@@ -46,7 +46,7 @@ line and is not negotiable.
                   ├──────────────────────────────┐
                   ▼                              ▼
              Compute                         ServiceWorld
-        LiteRT / CPU / GPU               Fake / Emulated / Real
+        LiteRT / CPU / GPU               Simulated / Emulated / Real
                   │                              │
                   └──────────────┬───────────────┘
                                  ▼
@@ -143,18 +143,18 @@ the app. App-side implementations adapt them and are wired via DI (Koin):
 | Deterministic compilation  | ✅ |
 | Real user capability grants | ✅ |
 | Audit receipts             | ✅ |
-| Generated native UI        | 🟡 small component set |
+| Generated native UI        | 🟡 interactive component set (Form/Input/Toggle/Select/Progress/Link + render_ui lift) |
 | Zero procedures            | 🟡 engine exists, production routing pending |
 | Zero production routing    | ❌ `WorkflowCall` still delegates to `WorkflowEngine` |
 | Shadow planning            | 🟡 evaluator exists, not the live selector |
 | Procedure mining           | 🟡 miner + cache seam, no persistence feed |
 | Micro-agent event mesh     | 🟡 bus exists, app-side sink pending |
 | Effect broker              | 🟡 grants exist, typed effects pending |
-| Append-only traces         | ❌ on master (in PR #2, to be harvested) |
-| Conversation revision guard| ❌ on master (in PR #2, to be harvested) |
+| Append-only traces         | ✅ built (harvested from PR #2; agent_run_events append-only trace, verified + gated) |
+| Conversation revision guard| ✅ built (harvested from PR #2; conversation revision guard, verified + gated) |
 | Shadow workspace           | ❌ designed |
 | Terminal sessions          | ❌ designed |
-| Browser sessions           | ❌ designed |
-| GenerationService          | ❌ designed |
-| Compute abstraction        | ❌ designed |
+| Browser sessions           | ✅ built (substrate: commands, observations, effect gate, state machine, receipts); app-side adapter deferred |
+| GenerationService          | 🟡 app facade built; executor-branch future |
+| Compute abstraction        | ✅ built (substrate: commands, requirements, observations, effect gate, state machine, receipts); adapters and ServiceWorld deferred |
 | Agent scenario lab         | ❌ designed |

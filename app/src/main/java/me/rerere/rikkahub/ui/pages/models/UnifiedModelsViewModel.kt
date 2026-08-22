@@ -169,6 +169,17 @@ class UnifiedModelsViewModel(
         }
     }
 
+    fun setCapabilityEnabled(modelId: String, capability: ModelCapability, enabled: Boolean) = ownerScope.launch {
+        _operationError.value = null
+        try {
+            registry.setCapabilityEnabled(modelId, capability, enabled)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            _operationError.value = error.message ?: error::class.simpleName
+        }
+    }
+
     fun refreshProvider(providerId: String) = ownerScope.launch {
         _operationError.value = null
         try {

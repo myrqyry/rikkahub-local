@@ -1,7 +1,10 @@
 package me.rerere.locallm.litert.terminal
 
 import kotlinx.serialization.json.Json
+import me.rerere.locallm.litert.artifact.ArtifactKind
+import me.rerere.locallm.litert.artifact.ArtifactRef
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -45,5 +48,31 @@ class ProcessReceiptTest {
         val encoded = json.encodeToString(ProcessReceipt.serializer(), r)
         val decoded = json.decodeFromString(ProcessReceipt.serializer(), encoded)
         assertEquals(r, decoded)
+    }
+
+    @Test
+    fun `round-trips with output ref`() {
+        val r = receipt().copy(
+            outputRef = ArtifactRef(
+                id = "out-1",
+                kind = ArtifactKind.PROCESS_OUTPUT,
+                name = "git-status.log",
+                mimeType = "text/plain",
+            ),
+        )
+        val encoded = json.encodeToString(ProcessReceipt.serializer(), r)
+        val decoded = json.decodeFromString(ProcessReceipt.serializer(), encoded)
+        assertEquals(r, decoded)
+        assertEquals("out-1", decoded.outputRef?.id)
+        assertEquals(ArtifactKind.PROCESS_OUTPUT, decoded.outputRef?.kind)
+    }
+
+    @Test
+    fun `round-trips without output ref`() {
+        val r = receipt()
+        val encoded = json.encodeToString(ProcessReceipt.serializer(), r)
+        val decoded = json.decodeFromString(ProcessReceipt.serializer(), encoded)
+        assertEquals(r, decoded)
+        assertNull(decoded.outputRef)
     }
 }

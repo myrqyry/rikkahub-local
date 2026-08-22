@@ -20,7 +20,9 @@ import me.rerere.ai.provider.Modality
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelType
 import me.rerere.ai.provider.ProviderSetting
+import me.rerere.ai.provider.LLAMACPP_PROVIDER_ID
 import me.rerere.ai.provider.STABLE_DIFFUSION_PROVIDER_ID
+import me.rerere.locallm.GgufClassifier
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
 import me.rerere.locallm.ModelInstall
@@ -29,6 +31,7 @@ import me.rerere.locallm.SdCatalogEntry
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.files.FileUtils
 import okhttp3.OkHttpClient
+import kotlin.uuid.Uuid
 
 data class Progress(val percent: Int, val bytesRead: Long, val totalBytes: Long?)
 
@@ -111,7 +114,7 @@ class ModelManagerViewModel(
                 return@launch
             }
             prefs.addInstalledModel(runtime, safeName, targetFile.absolutePath)
-            registerModel(safeName, targetFile.absolutePath)
+            registerByClassification(safeName, targetFile)
             cleanupTarget = null
         } catch (e: CancellationException) {
             cleanupTarget?.delete()
@@ -124,6 +127,14 @@ class ModelManagerViewModel(
 
     fun clearError() {
         _errorMessage.value = null
+    }
+
+    fun addProvider(provider: ProviderSetting) = viewModelScope.launch {
+        settingsStore.update { settings ->
+            settings.copy(
+                providers = listOf(provider.copyProvider(Uuid.random())) + settings.providers,
+            )
+        }
     }
 
     private suspend fun updateMyProvider(transform: (ProviderSetting) -> ProviderSetting) {
@@ -170,14 +181,70 @@ class ModelManagerViewModel(
                 }
                 is ModelInstall.Progress.Done -> {
                     _downloadProgress.value = null
-                    prefs.addInstalledModel(runtime, fileName, p.file.absolutePath)
-                    registerModel(fileName, p.file.absolutePath)
+                    registerByClassification(fileName, p.file)
                 }
                 is ModelInstall.Progress.Failed -> {
                     _downloadProgress.value = null
                     _errorMessage.value = p.cause.message.orEmpty()
                 }
             }
+        }
+    }
+
+    /**
+     * Classifies the GGUF and registers it under the matching runtime/provider.
+     * Chat GGUFs (llama.cpp architectures/tensors) land in the llama-cpp subdir
+     * as CHAT models; anything else keeps the legacy Stable Diffusion path.
+     */
+    private suspend fun registerByClassification(fileName: String, file: File) {
+        val runtimeForFile = GgufClassifier.classifyFile(file) ?: LocalRuntime.StableDiffusion
+        if (runtimeForFile != LocalRuntime.LlamaCpp) {
+            prefs.addInstalledModel(runtime, fileName, file.absolutePath)
+            registerModel(fileName, file.absolutePath)
+            return
+        }
+        val chatTarget = ModelInstall.targetFile(
+            ModelInstall.localModelsDir(context),
+            LocalRuntime.LlamaCpp,
+            fileName,
+        )
+        if (file.absolutePath != chatTarget.absolutePath && file.renameTo(chatTarget)) {
+            prefs.addInstalledModel(LocalRuntime.LlamaCpp, fileName, chatTarget.absolutePath)
+            registerChatModel(fileName, chatTarget.absolutePath)
+        } else {
+            prefs.addInstalledModel(LocalRuntime.LlamaCpp, fileName, file.absolutePath)
+            registerChatModel(fileName, file.absolutePath)
+        }
+    }
+
+    private suspend fun registerChatModel(fileName: String, absolutePath: String) {
+        val model = Model(
+            modelId = fileName,
+            displayName = fileName,
+            type = ModelType.CHAT,
+            inputModalities = listOf(Modality.TEXT),
+            outputModalities = listOf(Modality.TEXT),
+        )
+        settingsStore.update { settings ->
+            val current = settings.providers
+                .firstOrNull { it.id == LLAMACPP_PROVIDER_ID } as? ProviderSetting.LlamaCppLocal
+            val models = when {
+                current != null && current.models.any { it.modelId == fileName } ->
+                    current.models.map { existing ->
+                        if (existing.modelId == fileName) model.copy(id = existing.id, displayName = existing.displayName)
+                        else existing
+                    }
+                current != null -> current.models + model
+                else -> listOf(model)
+            }
+            val newLlm = (current ?: ProviderSetting.LlamaCppLocal()).copy(enabled = true, models = models)
+            settings.copy(
+                providers = if (current != null) {
+                    settings.providers.map { if (it.id == LLAMACPP_PROVIDER_ID) newLlm else it }
+                } else {
+                    settings.providers + newLlm
+                },
+            )
         }
     }
 

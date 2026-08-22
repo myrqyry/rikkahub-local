@@ -172,7 +172,7 @@ internal fun AssistantBasicContent(
                     },
                     onManage = {
                         navController.navigate(
-                            Screen.SettingModelManager(
+                            Screen.Models(
                                 request = me.rerere.rikkahub.ui.pages.models.ModelManagerRequest(
                                     tab = when (capability) {
                                         ModelCapability.IMAGE_GENERATION,

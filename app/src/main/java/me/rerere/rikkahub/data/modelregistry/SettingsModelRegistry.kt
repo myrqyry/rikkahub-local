@@ -232,7 +232,14 @@ class SettingsModelRegistry(
             providerEnabled = provider.enabled,
             installed = installed,
             unverifiedCapabilities = inferred.unverified,
-            metadata = mapOf("provider" to provider.name),
+            metadata = buildMap {
+                put("provider", provider.name)
+                val path = runtime?.let { localFiles[it]?.get(model.modelId) }
+                if (path != null) {
+                    put("path", path)
+                    put("sizeBytes", File(path).length().toString())
+                }
+            },
         )
     }
 

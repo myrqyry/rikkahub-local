@@ -1,6 +1,11 @@
 package me.rerere.rikkahub.data.ai
 
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.runBlocking
 import me.rerere.ai.provider.ProviderSetting
+import me.rerere.ai.ui.ImageAspectRatio
+import me.rerere.ai.ui.GeneratedImagePayload
+import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.locallm.SdCatalog
 import me.rerere.locallm.SdGenerationProfile
 import org.junit.Assert.assertEquals
@@ -130,7 +135,7 @@ class StableDiffusionProviderTest {
     fun `memory policy allows fits-and-boundary`() {
         val deviceRam = 8L * 1024 * 1024 * 1024
         assertNull(sdMemoryPolicyViolation(2_000_000_000L, 512, 512, deviceRam))
-        assertNull(sdMemoryPolicyViolation(8L * 1024 * 1024 * 1024, 1, 1, 8L * 1024 * 1024 * 1024 + 1024))
+        assertNull(sdMemoryPolicyViolation(8L * 1024 * 1024 * 1024, 1, 1, 8L * 1024 * 1024 * 1024 + SD_SAFETY_MARGIN_BYTES + 1024))
     }
 
     @Test
@@ -146,7 +151,32 @@ class StableDiffusionProviderTest {
         val model = 4L * 1024 * 1024 * 1024 - 1
         val message = sdMemoryPolicyViolation(model, 1024, 1024, deviceRam)
         assertTrue(message != null)
-        assertTrue(message!!.contains("needs roughly"))
+        assertTrue(message!!.contains("needs about"))
+    }
+
+    @Test
+    fun `budget uses avail minus android threshold not heap ceiling`() {
+        val availMem = 4L * 1024 * 1024 * 1024
+        val threshold = 1L * 1024 * 1024 * 1024
+        val budget = estimateRuntimeBudget(availMem, threshold)
+        assertEquals(3L * 1024 * 1024 * 1024, budget)
+        assertNull(sdMemoryPolicyViolation(2_000_000_000L, 512, 512, availMem, threshold))
+    }
+
+    @Test
+    fun `policy message reports available reserved and budget`() {
+        val message = sdMemoryPolicyViolation(
+            5L * 1024 * 1024 * 1024,
+            512,
+            512,
+            deviceRamBytes = 4L * 1024 * 1024 * 1024,
+            androidReserveBytes = 1L * 1024 * 1024 * 1024,
+        )
+        assertTrue(message != null)
+        assertTrue(message!!.contains("needs about"))
+        assertTrue(message.contains("is currently available"))
+        assertTrue(message.contains("reserved for Android"))
+        assertTrue(message.contains("generation budget"))
     }
 
     @Test
@@ -155,6 +185,46 @@ class StableDiffusionProviderTest {
         assertEquals("1 MB", formatMemorySize(1024L * 1024))
         assertEquals("1.00 GB", formatMemorySize(1024L * 1024 * 1024))
         assertEquals("2.16 GB", formatMemorySize(2_320_000_000L))
+    }
+
+    @Test
+    fun `aspectRatio selects profile-aware dimensions`() {
+        val profile = SdGenerationProfile(
+            defaultWidth = 768,
+            defaultHeight = 512,
+            minSteps = 1,
+            maxSteps = 4,
+            defaultSteps = 1,
+            defaultCfgScale = 0f,
+        )
+        assertEquals(768 to 512, resolveAspectDimensions(ImageAspectRatio.SQUARE, profile))
+        assertEquals(768 to 512, resolveAspectDimensions(ImageAspectRatio.LANDSCAPE, profile))
+        assertEquals(512 to 768, resolveAspectDimensions(ImageAspectRatio.PORTRAIT, profile))
+    }
+
+    @Test
+    fun `aspectRatio falls back to 512 square without a profile`() {
+        assertEquals(512 to 512, resolveAspectDimensions(ImageAspectRatio.SQUARE, null))
+        assertEquals(512 to 512, resolveAspectDimensions(ImageAspectRatio.LANDSCAPE, null))
+        assertEquals(512 to 512, resolveAspectDimensions(ImageAspectRatio.PORTRAIT, null))
+    }
+
+    @Test
+    fun `numOfImages emits that many items`() = runBlocking {
+        val items = generateSerially(count = 3) { index ->
+            ImageGenerationItem(payload = GeneratedImagePayload.Base64("png-$index", "image/png"))
+        }.toList()
+        assertEquals(3, items.size)
+        assertEquals(listOf("png-0", "png-1", "png-2"), items.map { (it.payload as GeneratedImagePayload.Base64).data })
+    }
+
+    @Test
+    fun `numOfImages of one emits a single item`() = runBlocking {
+        val items = generateSerially(count = 1) {
+            ImageGenerationItem(payload = GeneratedImagePayload.Base64("only", "image/png"))
+        }.toList()
+        assertEquals(1, items.size)
+        assertEquals("only", (items.single().payload as GeneratedImagePayload.Base64).data)
     }
 
     @Test

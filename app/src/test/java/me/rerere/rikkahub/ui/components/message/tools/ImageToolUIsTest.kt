@@ -3,6 +3,7 @@ package me.rerere.rikkahub.ui.components.message.tools
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
+import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.ai.tools.image.StoredImageArtifact
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -94,5 +95,23 @@ class ImageToolUIsTest {
         // 解码器不负责版本回退决策: 对象必须返回, 由 Preview 里的 renderable 检查决定回退
         assertTrue(result != null)
         assertFalse(isImageToolResultRenderable(result))
+    }
+
+    @Test
+    fun `reference action opens studio with the selected artifact`() {
+        val artifact = StoredImageArtifact(
+            artifactId = "img_7",
+            path = "/gallery/original.png",
+            uri = "file:///gallery/original.png",
+            galleryId = 7,
+            mimeType = "image/png",
+            width = 512,
+            height = 512,
+        )
+
+        assertEquals(
+            Screen.ImageGenReference(imageRef = "img_7"),
+            imageReferenceStudioDestination(artifact),
+        )
     }
 }

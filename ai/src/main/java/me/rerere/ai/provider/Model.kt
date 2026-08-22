@@ -22,6 +22,16 @@ data class Model(
     val supportedParameters: List<String> = emptyList(),
     val pricePromptPerToken: Double? = null,
     val priceCompletionPerToken: Double? = null,
+    // Runtime metadata: keeps the format/runtime/execution-backend/accelerator
+    // distinction on the model itself instead of inferring it from the file
+    // extension. format is the model file format (litertlm | gguf), runtime is
+    // the inference engine (liteRT | stable-diffusion | llama.cpp),
+    // executionBackend is the compute backend (litert | xnnpack | ggml), and
+    // hardwareAccelerator is the device target (cpu | gpu | npu | qnn | nnapi).
+    val format: String? = null,
+    val runtime: String? = null,
+    val executionBackend: String? = null,
+    val hardwareAccelerator: String? = null,
 )
 
 @Serializable

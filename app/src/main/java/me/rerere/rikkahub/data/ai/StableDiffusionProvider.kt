@@ -13,6 +13,7 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -24,6 +25,8 @@ import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.Provider
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.TextGenerationParams
+import me.rerere.ai.ui.ImageAspectRatio
+import me.rerere.ai.ui.GeneratedImagePayload
 import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.ai.ui.MessageChunk
 import me.rerere.ai.ui.UIMessage
@@ -45,24 +48,28 @@ class StableDiffusionProvider(
         context.applicationContext.registerComponentCallbacks(object : ComponentCallbacks2 {
             override fun onTrimMemory(level: Int) {
                 if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
-                    bridge.invalidateSession()
+                    bridge.requestEviction()
                 }
             }
 
             override fun onConfigurationChanged(newConfig: Configuration) = Unit
 
             override fun onLowMemory() {
-                bridge.invalidateSession()
+                bridge.requestEviction()
             }
         })
     }
 
-    /** Best-effort total physical RAM in bytes; 0 when unavailable (policy then skips the check). */
-    private fun deviceTotalRamBytes(): Long = runCatching {
+    /**
+     * Best-effort memory snapshot: currently-available RAM plus Android's low-memory threshold
+     * (the availMem point at which Android begins reclaiming background processes). Both are 0
+     * when unavailable, and the policy then skips the check.
+     */
+    private fun deviceMemorySnapshot(): Pair<Long, Long> = runCatching {
         val memInfo = ActivityManager.MemoryInfo()
         (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.getMemoryInfo(memInfo)
-        memInfo.totalMem
-    }.getOrDefault(0L)
+        memInfo.availMem to memInfo.threshold
+    }.getOrDefault(0L to 0L)
 
     override suspend fun listModels(providerSetting: ProviderSetting.StableDiffusion): List<Model> {
         return providerSetting.models
@@ -102,25 +109,33 @@ class StableDiffusionProvider(
         // through the same LocalRuntimePreferences inventory that Model Manager writes instead of
         // relying on a second, independently-mutated currentModelPath field.
         val modelPath = resolveInstalledModelPath(providerSetting, params.model)
+        val profile = SdCatalog.findByModelFile(params.model.modelId)?.generationProfile
         val effective = resolveEffectiveGenerationParams(
             providerSetting = providerSetting,
-            profile = SdCatalog.findByModelFile(params.model.modelId)?.generationProfile,
+            profile = profile,
         )
+        val (width, height) = resolveAspectDimensions(params.aspectRatio, profile)
         stableDiffusionRequestError(
-            width = effective.width,
-            height = effective.height,
+            width = width,
+            height = height,
             steps = effective.steps,
             cfg = effective.cfgScale,
         )?.let { throw IllegalStateException(it) }
 
         // Memory policy: refuse clearly-dangerous model-size + resolution combinations BEFORE
-        // paying for a multi-GB context init. The warm session is already released on
-        // TRIM_MEMORY_RUNNING_CRITICAL / onLowMemory via the ComponentCallbacks2 above.
+        // paying for a multi-GB context init. The budget is what Android reports as currently
+        // available minus its low-memory threshold — the point where Android starts reclaiming
+        // background processes. The Java heap ceiling is not part of this: maxMemory() is a
+        // hypothetical maximum, not current usage. Extra caution beyond Android's own threshold
+        // lives as the safety margin inside RuntimeMemoryProfile. The warm session is already
+        // released on TRIM_MEMORY_RUNNING_CRITICAL / onLowMemory via the ComponentCallbacks2 above.
+        val (availMem, threshold) = deviceMemorySnapshot()
         sdMemoryPolicyViolation(
             modelSizeBytes = File(modelPath).length(),
-            width = effective.width,
-            height = effective.height,
-            deviceRamBytes = deviceTotalRamBytes(),
+            width = width,
+            height = height,
+            deviceRamBytes = availMem,
+            androidReserveBytes = threshold,
         )?.let { throw IllegalStateException(it) }
 
         var initialized = false
@@ -182,55 +197,82 @@ class StableDiffusionProvider(
                 )
             }
 
-            // Phase 2 — GENERATING. The 120s deadline applies to sampling only, after the
-            // model is loaded and the warm session is reusable.
-            bridge.setPhase(GenerationPhase.GENERATING)
-            val rgba = generateNativeWithCancellation(
-                prompt = params.prompt,
-                negativePrompt = providerSetting.negativePrompt,
-                width = effective.width,
-                height = effective.height,
-                steps = effective.steps,
-                cfg = effective.cfgScale,
-                seed = providerSetting.seed,
-            ) ?: throw IllegalStateException(
-                "Generation failed or was cancelled by the native runtime. Check model compatibility and available memory."
+            // Phase 2 — GENERATING. One 120s deadline per image; the warm session is reused
+            // across the serial loop so peak memory stays bounded (no batch_count multiplier).
+            emitAll(
+                generateSerially(count = params.numOfImages) { index ->
+                    bridge.setPhase(GenerationPhase.GENERATING)
+                    val rgba = generateNativeWithCancellation(
+                        prompt = params.prompt,
+                        negativePrompt = providerSetting.negativePrompt,
+                        width = width,
+                        height = height,
+                        steps = effective.steps,
+                        cfg = effective.cfgScale,
+                        seed = providerSetting.seed,
+                    ) ?: throw IllegalStateException(
+                        "Generation failed or was cancelled by the native runtime. Check model compatibility and available memory."
+                    )
+
+                    val expectedBytes = width.toLong() * height.toLong() * 4L
+                    if (expectedBytes > Int.MAX_VALUE || rgba.size != expectedBytes.toInt()) {
+                        throw IllegalStateException(
+                            "Native image output had ${rgba.size} bytes; expected $expectedBytes RGBA bytes."
+                        )
+                    }
+
+                    val pngBytes = rgbaToPng(rgba, width, height)
+                    ImageGenerationItem(
+                        payload = GeneratedImagePayload.Bytes(pngBytes, "image/png"),
+                        partial = false,
+                        partialImageIndex = if (params.numOfImages > 1) index else null,
+                    )
+                },
             )
-
-            val expectedBytes = effective.width.toLong() * effective.height.toLong() * 4L
-            if (expectedBytes > Int.MAX_VALUE || rgba.size != expectedBytes.toInt()) {
-                throw IllegalStateException(
-                    "Native image output had ${rgba.size} bytes; expected $expectedBytes RGBA bytes."
-                )
-            }
-
-            val pngBytes = rgbaToPng(rgba, effective.width, effective.height)
-            val b64 = Base64.encodeToString(pngBytes, Base64.NO_WRAP)
-            emit(ImageGenerationItem(data = b64, mimeType = "image/png"))
             bridge.setPhase(GenerationPhase.COMPLETED)
+            releaseEvictedSessionIfNeeded()
         } catch (e: UnsatisfiedLinkError) {
             bridge.setPhase(GenerationPhase.FAILED)
+            releaseEvictedSessionIfNeeded()
             throw IllegalStateException(
                 "Image generation is not available on this device (arm64 native runtime required)",
                 e,
             )
         } catch (e: TimeoutCancellationException) {
             bridge.setPhase(GenerationPhase.FAILED)
+            releaseEvictedSessionIfNeeded()
             throw IllegalStateException(
                 "Generation timed out and was cancelled. Try fewer steps or a smaller image/model.",
                 e,
             )
         } catch (e: CancellationException) {
-            // User/app cancellation is normal coroutine control flow. Never turn it into a fake
+            // User/app cancellation is normal coroutine control flow. Never turn it into a test-double
             // generation failure; generateNativeWithCancellation already tells sd.cpp to stop.
             bridge.setPhase(GenerationPhase.CANCELLED)
+            releaseEvictedSessionIfNeeded()
             throw e
         } catch (e: IllegalStateException) {
             bridge.setPhase(GenerationPhase.FAILED)
+            releaseEvictedSessionIfNeeded()
             throw e
         } catch (e: Exception) {
             bridge.setPhase(GenerationPhase.FAILED)
+            releaseEvictedSessionIfNeeded()
             throw IllegalStateException("Generation error: ${e.message ?: e::class.simpleName}", e)
+        }
+    }
+
+    /**
+     * Applies a low-memory eviction that was requested while a native call was in flight. The
+     * release is deferred onto the serialized native dispatcher so it never runs synchronously
+     * from the Android lifecycle callback thread, and never races the in-flight JNI call.
+     */
+    private suspend fun releaseEvictedSessionIfNeeded() {
+        if (bridge.evictionRequested) {
+            withContext(nativeDispatcher) {
+                bridge.invalidateSession()
+            }
+            bridge.evictionRequested = false
         }
     }
 
@@ -336,6 +378,41 @@ internal data class EffectiveGenerationParams(
 )
 
 /**
+ * Resolves the requested [ImageAspectRatio] against a model's [SdGenerationProfile], so a
+ * 512-oriented model gets a modest landscape/portrait pair while an SDXL-scale profile keeps
+ * larger dimensions. The base pair is the profile's default dims (512×512 when absent); the
+ * ratio then orients them instead of a hardcoded universal resolution.
+ */
+internal fun resolveAspectDimensions(
+    aspectRatio: ImageAspectRatio,
+    profile: SdGenerationProfile?,
+): Pair<Int, Int> {
+    val (w, h) = when {
+        profile != null -> profile.defaultWidth to profile.defaultHeight
+        else -> 512 to 512
+    }
+    return when (aspectRatio) {
+        ImageAspectRatio.SQUARE -> w to h
+        ImageAspectRatio.LANDSCAPE -> maxOf(w, h) to minOf(w, h)
+        ImageAspectRatio.PORTRAIT -> minOf(w, h) to maxOf(w, h)
+    }
+}
+
+/**
+ * Emits one item per requested image, generating serially so the warm native session is reused
+ * while peak memory stays bounded (no batch_count multiplier).
+ */
+internal fun generateSerially(
+    count: Int,
+    generateOne: suspend (index: Int) -> ImageGenerationItem,
+): Flow<ImageGenerationItem> = flow {
+    require(count >= 1) { "numOfImages must be at least 1" }
+    repeat(count) { index ->
+        emit(generateOne(index))
+    }
+}
+
+/**
  * Resolves model-aware generation defaults.
  *
  * Catalog models carry an [SdGenerationProfile] with model-appropriate values — the
@@ -370,23 +447,35 @@ internal const val SD_MEMORY_BYTES_PER_PIXEL = 4L
 
 /**
  * Memory policy (roadmap #4). Returns a refusal message when a model-size + resolution
- * combination would clearly exceed the device's physical RAM, or null when it is safe to
- * proceed. Uses the on-disk model size (mmap keeps most pages lazily loaded, but the sampling
- * working set is comparable) plus a per-pixel buffer estimate. The check is intentionally
- * conservative: refusing a combo here is far cheaper than OOM-killing a 2 GB context mid-sampling.
+ * combination would clearly exceed the runtime budget, or null when it is safe to proceed.
+ * Uses the on-disk model size (mmap keeps most pages lazily loaded, but the sampling working
+ * set is comparable) plus a conservative workspace + output estimate and an explicit safety
+ * margin ([SD_SAFETY_MARGIN_BYTES]). The check is intentionally conservative: refusing a combo
+ * here is far cheaper than OOM-killing a 2 GB context mid-sampling. [deviceRamBytes] is the
+ * currently-available RAM and [androidReserveBytes] Android's low-memory threshold; the budget
+ * is their difference (tests pass a plain budget by leaving the reserve at its default of zero).
  */
 internal fun sdMemoryPolicyViolation(
     modelSizeBytes: Long,
     width: Int,
     height: Int,
     deviceRamBytes: Long,
+    androidReserveBytes: Long = 0L,
 ): String? {
     if (modelSizeBytes <= 0L || width <= 0 || height <= 0 || deviceRamBytes <= 0L) return null
-    val estimatedBytes = modelSizeBytes + width.toLong() * height.toLong() * SD_MEMORY_BYTES_PER_PIXEL
-    if (estimatedBytes <= deviceRamBytes) return null
-    return "This image model (${formatMemorySize(modelSizeBytes)}) at ${width}x$height needs roughly " +
-        "${formatMemorySize(estimatedBytes)} of memory, more than the device's " +
-        "${formatMemorySize(deviceRamBytes)}. Use a smaller model or image size."
+    val profile = RuntimeMemoryProfile(
+        modelResidentEstimate = modelSizeBytes,
+        workspaceEstimate = workspaceEstimateBytes(width, height),
+        outputEstimate = outputEstimateBytes(width, height),
+        safetyMargin = SD_SAFETY_MARGIN_BYTES,
+    )
+    val estimatedBytes = profile.requiredBytes
+    val budget = estimateRuntimeBudget(availMem = deviceRamBytes, thresholdBytes = androidReserveBytes)
+    if (estimatedBytes <= budget) return null
+    return "This image model needs about ${formatMemorySize(estimatedBytes)} for a ${width}x$height image. " +
+        "About ${formatMemorySize(deviceRamBytes)} is currently available, with " +
+        "${formatMemorySize(androidReserveBytes)} reserved for Android, leaving a " +
+        "${formatMemorySize(budget)} generation budget. Use a smaller model or image size."
 }
 
 /** Renders a byte count as "N MB" or "N.NN GB" for policy messages. */

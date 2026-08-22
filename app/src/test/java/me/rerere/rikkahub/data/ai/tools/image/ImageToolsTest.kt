@@ -12,11 +12,13 @@ import me.rerere.ai.provider.ImageGenerationParams
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.TextGenerationParams
+import me.rerere.ai.ui.GeneratedImagePayload
 import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.ai.ui.MessageChunk
 import me.rerere.ai.ui.UIMessage
 import me.rerere.ai.ui.UIMessageChoice
 import me.rerere.ai.ui.UIMessagePart
+import me.rerere.rikkahub.data.ai.generation.GenerationService
 import me.rerere.rikkahub.data.ai.tools.ToolInvocationContext
 import me.rerere.rikkahub.data.datastore.Settings
 import me.rerere.rikkahub.data.media.ImageMediaStore
@@ -51,6 +53,7 @@ class ImageToolsTest {
         imageMediaStore = stubStore(),
         mediaInputResolver = stubResolverInput(),
         imageTextExtractor = stubExtractor(),
+        generationService = stubGenerationService(),
     )
 
     @Test
@@ -84,8 +87,8 @@ class ImageToolsTest {
         assertTrue(text.contains("/tmp/1.png"))
     }
 
-    // ---- fakes (same scaffolding as ImageTextExtractorTest: real ModelRoleResolver over a
-    // fake ModelRegistry + a real Settings whose provider models match the descriptor id) ----
+    // ---- test doubles (same scaffolding as ImageTextExtractorTest: real ModelRoleResolver over a
+    // test-double ModelRegistry + a real Settings whose provider models match the descriptor id) ----
 
     private class FakeSettingsStore : SettingsProvider {
         private val stub = SettingsStub()
@@ -95,7 +98,7 @@ class ImageToolsTest {
     private fun stubResolver(): ModelRoleResolver {
         val descriptor = ModelDescriptor(
             id = GEN_DESCRIPTOR_ID,
-            displayName = "fake",
+            displayName = "test-double",
             source = ModelSource.Cloud(providerId = CLOUD_PROVIDER_ID.toString(), remoteModelId = "gemini"),
             capabilities = setOf(ModelCapability.IMAGE_GENERATION),
             lifecycle = ModelLifecycle.AVAILABLE,
@@ -108,21 +111,21 @@ class ImageToolsTest {
             providerSetting: ProviderSetting,
             params: ImageGenerationParams,
         ): Flow<ImageGenerationItem> =
-            flowOf(ImageGenerationItem(data = "base64", mimeType = "image/png", partial = false))
+            flowOf(ImageGenerationItem(payload = GeneratedImagePayload.Base64("base64", "image/png"), partial = false))
 
         override suspend fun editImage(
             providerSetting: ProviderSetting,
             params: ImageEditParams,
         ): Flow<ImageGenerationItem> =
-            flowOf(ImageGenerationItem(data = "base64", mimeType = "image/png", partial = false))
+            flowOf(ImageGenerationItem(payload = GeneratedImagePayload.Base64("base64", "image/png"), partial = false))
 
         override suspend fun generateText(
             providerSetting: ProviderSetting,
             messages: List<UIMessage>,
             params: TextGenerationParams,
         ): MessageChunk = MessageChunk(
-            id = "fake",
-            model = "fake",
+            id = "test-double",
+            model = "test-double",
             choices = listOf(
                 UIMessageChoice(
                     index = 0,
@@ -154,6 +157,8 @@ class ImageToolsTest {
             height = 64,
         )
     }
+
+    private fun stubGenerationService(): GenerationService = GenerationService(stubResolver(), StubBackend(), stubStore())
 
     private fun stubResolverInput(): MediaInputResolver = object : MediaInputResolver {
         override suspend fun resolveImage(

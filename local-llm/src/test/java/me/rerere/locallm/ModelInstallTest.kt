@@ -30,6 +30,20 @@ class ModelInstallTest {
         assertEquals(null, ModelInstall.runtimeForExtension("tflite"))
     }
 
+    @Test fun `LlamaCpp runtime exists with gguf extension`() {
+        assertEquals("Llama.cpp", LocalRuntime.LlamaCpp.displayName)
+        assertEquals("gguf", LocalRuntime.LlamaCpp.fileExtension)
+    }
+
+    @Test fun `targetFile resolves LlamaCpp to the llama-cpp subdir`() {
+        val baseDir = File("/data/data/com.test/files/local-models")
+        val out = ModelInstall.targetFile(baseDir, LocalRuntime.LlamaCpp, "qwen3-2b-instruct.gguf")
+        assertEquals(
+            "/data/data/com.test/files/local-models/llama-cpp/qwen3-2b-instruct.gguf",
+            out.absolutePath,
+        )
+    }
+
     @Test fun `runtimeForExtension is case-insensitive`() {
         assertEquals(LocalRuntime.LiteRT, ModelInstall.runtimeForExtension("LITERTLM"))
         assertEquals(LocalRuntime.StableDiffusion, ModelInstall.runtimeForExtension("GGUF"))

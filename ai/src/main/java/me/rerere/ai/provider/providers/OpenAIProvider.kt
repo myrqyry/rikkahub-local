@@ -31,6 +31,7 @@ import me.rerere.ai.provider.providers.openai.ResponseAPI
 import me.rerere.ai.provider.providers.openai.openRouterModelFromJson
 import me.rerere.ai.provider.providers.openai.parseImageDataUri
 import me.rerere.ai.ui.ImageAspectRatio
+import me.rerere.ai.ui.GeneratedImagePayload
 import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.ai.ui.MessageChunk
 import me.rerere.ai.ui.UIMessage
@@ -355,7 +356,7 @@ class OpenAIProvider(
             val url = img.jsonObject["image_url"]?.jsonObject?.get("url")
                 ?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
             val parsed = parseImageDataUri(url) ?: return@mapNotNull null
-            ImageGenerationItem(data = parsed.base64, mimeType = parsed.mime)
+            ImageGenerationItem(payload = GeneratedImagePayload.Base64(parsed.base64, parsed.mime))
         }
         if (items.isEmpty()) {
             val text = message["content"]?.jsonPrimitive?.contentOrNull
@@ -445,8 +446,7 @@ class OpenAIProvider(
             if (b64Json != null) {
                 val outputFormat = obj["output_format"]?.jsonPrimitive?.contentOrNull ?: defaultFormat
                 ImageGenerationItem(
-                    data = b64Json,
-                    mimeType = outputFormat.toImageMimeType(),
+                    payload = GeneratedImagePayload.Base64(b64Json, outputFormat.toImageMimeType()),
                 )
             } else {
                 val url = obj["url"]?.jsonPrimitive?.contentOrNull
@@ -473,8 +473,7 @@ class OpenAIProvider(
         val base64 = Base64.encode(body.bytes())
 
         return ImageGenerationItem(
-            data = base64,
-            mimeType = mimeType
+            payload = GeneratedImagePayload.Base64(base64, mimeType)
         )
     }
 

@@ -21,6 +21,8 @@ import kotlinx.coroutines.launch
 import me.rerere.ai.provider.Model
 import me.rerere.ai.ui.UIMessage
 import me.rerere.ai.ui.UIMessagePart
+import me.rerere.rikkahub.ui.components.message.RikkaUiEvent
+import me.rerere.rikkahub.ui.components.message.formSubmitToUserTurn
 import me.rerere.ai.ui.isEmptyInputMessage
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.Settings
@@ -174,6 +176,15 @@ class ChatVM(
         if (content.isEmptyInputMessage()) return
 
         chatService.sendMessage(_conversationId, content, answer)
+    }
+
+    /**
+     * Routes a typed RikkaUi form submission into the conversation as an ordinary
+     * new user turn (Phase G). The event is converted to canonical model-facing
+     * text at ingress and never persisted as a typed part.
+     */
+    fun submitForm(event: RikkaUiEvent.FormSubmit) {
+        handleMessageSend(formSubmitToUserTurn(event))
     }
 
     fun handleMessageEdit(parts: List<UIMessagePart>, messageId: Uuid) {

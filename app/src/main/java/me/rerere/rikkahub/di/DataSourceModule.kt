@@ -399,6 +399,10 @@ val dataSourceModule = module {
                 "stable_diffusion",
                 me.rerere.rikkahub.data.ai.StableDiffusionProvider(context = get()),
             )
+            pm.registerProvider(
+                "local_llamacpp",
+                me.rerere.locallm.llamacpp.LlamaCppProvider(context = get(), prefs = get()),
+            )
         }
     }
 

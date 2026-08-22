@@ -125,10 +125,15 @@ import kotlin.uuid.Uuid
 @Composable
 fun ImageGenPage(
     modifier: Modifier = Modifier,
+    initialImageRef: String? = null,
     vm: ImgGenVM = koinViewModel()
 ) {
     val pagerState = rememberPagerState { 2 }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(initialImageRef) {
+        vm.initializeReferenceImage(initialImageRef)
+    }
 
     val isGenerating by vm.isGenerating.collectAsStateWithLifecycle()
     var showCancelDialog by remember { mutableStateOf(false) }
@@ -391,7 +396,7 @@ private fun ImageGenScreen(
                 Button(
                     onClick = {
                         navController.navigate(
-                            Screen.SettingModelManager(
+                            Screen.Models(
                                 request = ModelManagerRequest(tab = ModelTab.IMAGE),
                             )
                         )
@@ -510,7 +515,7 @@ private fun InputBar(
                 },
                 onManage = {
                     navController.navigate(
-                        Screen.SettingModelManager(
+                        Screen.Models(
                             request = ModelManagerRequest(tab = ModelTab.IMAGE),
                         )
                     )
@@ -730,6 +735,13 @@ private fun ImageGalleryScreen(
                                         IconButton(
                                             onClick = {
                                                 scope.launch {
+                                                    if (!File(it.filePath).exists()) {
+                                                        toaster.show(
+                                                            message = context.getString(R.string.imggen_page_image_missing),
+                                                            type = ToastType.Error
+                                                        )
+                                                        return@launch
+                                                    }
                                                     try {
                                                         filesManager.saveMessageImage(context, "file://${it.filePath}")
                                                         toaster.show(

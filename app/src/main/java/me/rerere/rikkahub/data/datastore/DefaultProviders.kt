@@ -74,6 +74,21 @@ val DEFAULT_PROVIDERS = listOf(
             Text("On-device — Stable Diffusion")
         },
     ),
+    ProviderSetting.LlamaCppLocal(
+        // On-device llama.cpp (via Llamatik) provider. Disabled by default and
+        // carries zero models until the user installs a GGUF via Model Manager
+        // (Settings → On-device models), which then registers the model and flips
+        // the provider on. Kept in DEFAULT_PROVIDERS (like LiteRtLocal) so the card
+        // is always discoverable in the Providers list even on a fresh install.
+        enabled = false,
+        builtIn = true,
+        description = {
+            Text("Runs GGUF chat models on-device via llama.cpp (Llamatik). Install a model from Settings → On-device models, then chat here — no API key, no network.")
+        },
+        shortDescription = {
+            Text("On-device — llama.cpp")
+        },
+    ),
     // All built-in providers ship DISABLED by default. New installs start with zero
     // network-egress paths so a freshly-installed app can never make an LLM call (or
     // bill any account) until the user explicitly enables a provider AND adds an API

@@ -5,57 +5,7 @@ import org.junit.Test
 
 class AcceleratorProbeTest {
 
-    @Test fun `LiteRT picks QNN when Qualcomm and QNN library is loadable`() {
-        val caps = AcceleratorProbe.LiteRtCapabilities(
-            isQualcomm = true,
-            qnnLibrarySupported = true,
-            gpuDelegateSupported = true,
-            nnapiSupported = true,
-        )
-        assertEquals("QNN", AcceleratorProbe.pickLiteRt(caps))
-    }
-
-    @Test fun `LiteRT falls back to GPU on Qualcomm if QNN not loadable`() {
-        val caps = AcceleratorProbe.LiteRtCapabilities(
-            isQualcomm = true,
-            qnnLibrarySupported = false,
-            gpuDelegateSupported = true,
-            nnapiSupported = true,
-        )
-        assertEquals("GPU", AcceleratorProbe.pickLiteRt(caps))
-    }
-
-    @Test fun `LiteRT picks GPU on non-Qualcomm Mali or Adreno when delegate works`() {
-        val caps = AcceleratorProbe.LiteRtCapabilities(
-            isQualcomm = false,
-            qnnLibrarySupported = false,
-            gpuDelegateSupported = true,
-            nnapiSupported = true,
-        )
-        assertEquals("GPU", AcceleratorProbe.pickLiteRt(caps))
-    }
-
-    @Test fun `LiteRT falls back to NNAPI when GPU delegate is unavailable`() {
-        val caps = AcceleratorProbe.LiteRtCapabilities(
-            isQualcomm = false,
-            qnnLibrarySupported = false,
-            gpuDelegateSupported = false,
-            nnapiSupported = true,
-        )
-        assertEquals("NNAPI", AcceleratorProbe.pickLiteRt(caps))
-    }
-
-    @Test fun `LiteRT falls back to CPU when nothing else works`() {
-        val caps = AcceleratorProbe.LiteRtCapabilities(
-            isQualcomm = false,
-            qnnLibrarySupported = false,
-            gpuDelegateSupported = false,
-            nnapiSupported = false,
-        )
-        assertEquals("CPU", AcceleratorProbe.pickLiteRt(caps))
-    }
-
-    // -- defaultForceCpu: GPU is the default everywhere except the Google Tensor crash class --
+    // defaultForceCpu: GPU is the default everywhere except the Google Tensor crash class.
 
     @Test fun `defaultForceCpu is true for Google Tensor by SOC manufacturer`() {
         assertEquals(true, AcceleratorProbe.defaultForceCpu("Google", "Tensor G3"))
@@ -78,39 +28,5 @@ class AcceleratorProbeTest {
     @Test fun `defaultForceCpu is false when SOC info is unavailable`() {
         // Pre-API-31 devices report null SOC_* - no Tensor device runs an OS that old.
         assertEquals(false, AcceleratorProbe.defaultForceCpu(null, null))
-    }
-
-    // -- pickTaskAccelerator: NPU first, then GPU, then NNAPI, CPU last --
-
-    @Test fun `task accelerator picks NPU first when supported`() {
-        val accel = AcceleratorProbe.pickTaskAccelerator(
-            AcceleratorProbe.LiteRtCapabilities(
-                isQualcomm = false,
-                qnnLibrarySupported = false,
-                gpuDelegateSupported = true,
-                nnapiSupported = true,
-                npuSupported = true,
-            )
-        )
-        assertEquals("NPU", accel)
-    }
-
-    @Test fun `task accelerator falls back NPU to GPU then NNAPI then CPU`() {
-        val npu = AcceleratorProbe.pickTaskAccelerator(
-            AcceleratorProbe.LiteRtCapabilities(false, false, false, false, npuSupported = true)
-        )
-        assertEquals("NPU", npu)
-        val gpu = AcceleratorProbe.pickTaskAccelerator(
-            AcceleratorProbe.LiteRtCapabilities(false, false, true, false, npuSupported = false)
-        )
-        assertEquals("GPU", gpu)
-        val nnapi = AcceleratorProbe.pickTaskAccelerator(
-            AcceleratorProbe.LiteRtCapabilities(false, false, false, true, npuSupported = false)
-        )
-        assertEquals("NNAPI", nnapi)
-        val cpu = AcceleratorProbe.pickTaskAccelerator(
-            AcceleratorProbe.LiteRtCapabilities(false, false, false, false, npuSupported = false)
-        )
-        assertEquals("CPU", cpu)
     }
 }

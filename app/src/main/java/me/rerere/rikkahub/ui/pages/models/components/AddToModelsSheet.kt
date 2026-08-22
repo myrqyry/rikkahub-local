@@ -1,4 +1,4 @@
-package me.rerere.rikkahub.ui.pages.modelmanager
+package me.rerere.rikkahub.ui.pages.models.components
 
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -8,10 +8,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -19,206 +17,104 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Delete01
-import me.rerere.hugeicons.stroke.Edit01
+import me.rerere.ai.provider.ProviderSetting
 import me.rerere.locallm.SdCatalogEntry
 import me.rerere.rikkahub.R
-import me.rerere.rikkahub.Screen
-import me.rerere.rikkahub.data.modelregistry.ModelSource
-import me.rerere.rikkahub.ui.components.nav.BackButton
-import me.rerere.rikkahub.ui.context.LocalNavController
-import me.rerere.rikkahub.ui.pages.models.ModelManagerRequest
-import me.rerere.rikkahub.ui.pages.models.ModelTab
-import me.rerere.rikkahub.ui.pages.models.UnifiedModelsViewModel
-import me.rerere.rikkahub.ui.pages.models.components.ModelInventorySection
-import me.rerere.rikkahub.ui.pages.setting.SettingVM
-import me.rerere.rikkahub.ui.theme.CustomColors
+import me.rerere.rikkahub.data.datastore.RECOMMENDED_PROVIDERS
+import me.rerere.rikkahub.ui.hooks.useEditState
+import me.rerere.rikkahub.ui.pages.modelmanager.ModelManagerViewModel
+import me.rerere.rikkahub.ui.pages.modelmanager.Progress
+import me.rerere.rikkahub.ui.pages.setting.components.ProviderConfigure
 import org.koin.androidx.compose.koinViewModel
-import kotlin.uuid.Uuid
-
-private val MANAGER_TABS = listOf(
-    ModelTab.ALL,
-    ModelTab.CHAT,
-    ModelTab.EMBEDDINGS,
-    ModelTab.VISION,
-    ModelTab.SPEECH,
-    ModelTab.TASK,
-    ModelTab.IMAGE,
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ModelManagerPage(
-    // Koin registers this VM parameterised ({ params -> ... }) even though it takes no
-    // parameters, so the type-less koinViewModel() overload can't match a definition and
-    // the page crashed on open. The explicit type parameter picks the parameterised one.
+fun AddToModelsSheet(
     viewModel: ModelManagerViewModel = koinViewModel<ModelManagerViewModel>(),
-    request: ModelManagerRequest = ModelManagerRequest(),
+    onDismiss: () -> Unit,
 ) {
-    val settingsVm: SettingVM = koinViewModel()
-    val assignmentsVm: UnifiedModelsViewModel = koinViewModel()
-    val settings by settingsVm.settings.collectAsStateWithLifecycle()
-    val visibleModels by assignmentsVm.managerVisibleModels.collectAsStateWithLifecycle()
-    val providers by assignmentsVm.registryProviders.collectAsStateWithLifecycle()
-    val selectedTab by assignmentsVm.selectedTab.collectAsStateWithLifecycle()
-    val search by assignmentsVm.searchText.collectAsStateWithLifecycle()
+    val sheetState = rememberModalBottomSheetState()
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let { viewModel.importModelFromUri(it) } }
+    val editState = useEditState<ProviderSetting> { provider ->
+        viewModel.addProvider(provider)
+    }
     val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
 
-    LaunchedEffect(request) {
-        assignmentsVm.setTab(
-            when (request.tab) {
-                ModelTab.OTHER -> ModelTab.TASK
-                else -> request.tab
-            }
-        )
-        assignmentsVm.setSearch(request.search)
-        assignmentsVm.setProviderFilter(request.providerId)
-    }
-    val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        uri ?: return@rememberLauncherForActivityResult
-        viewModel.importModelFromUri(uri)
-    }
-    var showAddModel by remember { mutableStateOf(false) }
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val navController = LocalNavController.current
-
-    Scaffold(
-        containerColor = CustomColors.topBarColors.containerColor,
-        topBar = {
-            LargeFlexibleTopAppBar(
-                title = { Text(stringResource(R.string.model_manager_title)) },
-                navigationIcon = { BackButton() },
-                scrollBehavior = scrollBehavior,
-                colors = CustomColors.topBarColors,
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(Modifier.padding(bottom = 16.dp)) {
+            AddModelSectionHeader(
+                title = stringResource(R.string.models_add_on_device),
+                subtitle = stringResource(R.string.models_add_on_device_subtitle),
             )
-        },
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        bottomBar = {
-            if (showAddModel) {
-                OutlinedButton(
-                    onClick = { showAddModel = false },
+            AddModelOptions(
+                viewModel = viewModel,
+                filePickerLauncher = filePickerLauncher,
+                downloadProgress = downloadProgress,
+                errorMessage = errorMessage,
+            )
+
+            AddModelSectionHeader(
+                title = stringResource(R.string.models_add_connect_source),
+                subtitle = stringResource(R.string.models_add_connect_source_subtitle),
+            )
+            RECOMMENDED_PROVIDERS.forEach { provider ->
+                TextButton(
+                    onClick = { editState.open(provider) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp),
                 ) {
-                    Text(stringResource(R.string.model_manager_back_to_models))
-                }
-            } else {
-                Button(
-                    onClick = { showAddModel = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                ) {
-                    Text(stringResource(R.string.model_manager_add_model))
-                }
-            }
-        },
-    ) { padding ->
-        Column(Modifier.padding(padding)) {
-            if (showAddModel) {
-                AddModelOptions(viewModel, filePickerLauncher, downloadProgress, errorMessage)
-            } else {
-                PrimaryTabRow(selectedTabIndex = MANAGER_TABS.indexOf(selectedTab).coerceAtLeast(0)) {
-                    MANAGER_TABS.forEach { tab ->
-                        Tab(
-                            selected = selectedTab == tab,
-                            onClick = { assignmentsVm.setTab(tab) },
-                            text = {
-                                Text(
-                                    stringResource(
-                                        when (tab) {
-                                            ModelTab.ALL -> R.string.unified_models_tab_all
-                                            ModelTab.CHAT -> R.string.unified_models_tab_chat
-                                            ModelTab.EMBEDDINGS -> R.string.unified_models_tab_embeddings
-                                            ModelTab.VISION -> R.string.unified_models_tab_vision
-                                            ModelTab.SPEECH -> R.string.unified_models_tab_speech
-                                            ModelTab.TASK -> R.string.unified_models_tab_task
-                                            else -> R.string.unified_models_tab_image
-                                        }
-                                    )
-                                )
-                            },
-                        )
-                    }
-                }
-                OutlinedTextField(
-                    value = search,
-                    onValueChange = assignmentsVm::setSearch,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.unified_models_search)) },
-                )
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    item {
-                        ModelInventorySection(
-                            models = visibleModels,
-                            providers = providers,
-                            onRefreshProvider = assignmentsVm::refreshProvider,
-                            onProviderEnabledChange = { providerId, enabled ->
-                                val providerUuid = runCatching { Uuid.parse(providerId) }.getOrNull()
-                                if (providerUuid != null) {
-                                    settingsVm.updateSettings(settings.copy(
-                                        providers = settings.providers.map { provider ->
-                                            if (provider.id == providerUuid) provider.copyProvider(enabled = enabled) else provider
-                                        },
-                                    ))
-                                }
-                            },
-                            onModelEnabledChange = assignmentsVm::setModelEnabled,
-                            onCloudModelClick = { model ->
-                                val providerId = (model.source as? ModelSource.Cloud)?.providerId
-                                if (providerId != null) {
-                                    navController.navigate(Screen.SettingProviderDetail(providerId))
-                                }
-                            },
-                            onProviderConfigure = { providerId ->
-                                navController.navigate(Screen.SettingProviderDetail(providerId))
-                            },
-                            onLocalModelRename = { model, name -> assignmentsVm.renameLocalModel(model.id, name) },
-                            onLocalModelDelete = { model -> assignmentsVm.deleteLocalModel(model.id) },
-                        )
-                    }
+                    Text(provider.name)
                 }
             }
         }
+    }
+
+    if (editState.isEditing) {
+        AlertDialog(
+            onDismissRequest = editState::dismiss,
+            title = { Text(stringResource(R.string.setting_provider_page_add_provider)) },
+            text = {
+                editState.currentState?.let { provider ->
+                    ProviderConfigure(provider) { newState ->
+                        editState.currentState = newState
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = editState::confirm) {
+                    Text(stringResource(R.string.setting_provider_page_add))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = editState::dismiss) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
     }
 }
 
@@ -233,7 +129,6 @@ private fun ColumnScope.AddModelOptions(
     val installedFiles = installedModels?.models?.map { it.modelId }?.toSet() ?: emptySet()
 
     LazyColumn(
-        modifier = Modifier.weight(1f),
         contentPadding = PaddingValues(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -450,4 +345,3 @@ private fun SdCatalogEntryCard(
         }
     }
 }
-
