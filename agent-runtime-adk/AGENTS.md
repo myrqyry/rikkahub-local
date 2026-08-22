@@ -19,7 +19,7 @@ owns assistants, conversations, providers, tools, and permissions.
 | `src/main/.../VerificationScripts.kt` | Deterministic project verification commands: `VerificationCommand`, `VerificationScripts`, `RunVerificationTool` (project scripts as tools) |
 | `src/main/.../AgentEnvironment.kt` | Tunix-style agent environment + ATIF trajectory recording: `AgentEnvironment`, `Observation`, `AgentAction`, `EnvironmentResult`, `Outcome`, `TrajectoryRecorder` |
 | `src/main/.../StructuredQuery.kt` | Langfun-style structured queries: `StructuredQuery`, `StructuredProtocol`, `CompiledModelRequest`, `QueryCompiler`, `Evaluator`, `EvaluationCase`, `EvaluationResult` |
-| `src/main/.../EvidenceStore.kt` | Immutable evidence contract: `EvidenceStore`, `EvidenceRecord`, `EvidenceQuery`, `EvidenceWriteResult`, and in-memory test implementation; the app owns durable persistence. |
+| `src/main/.../EvidenceStore.kt` | Suspend-only immutable evidence contract: `EvidenceStore`, `EvidenceRecord`, `EvidenceQuery`, `EvidenceWriteResult`, and in-memory test implementation; the app owns durable persistence and explicit insertion ordering. |
 | `src/main/.../ContinuationStore.kt` | Append-only manual-resume checkpoints: `ContinuationStore`, compact snapshots, and an in-memory test implementation; the app owns durable persistence and must not replay actions automatically. |
 | `src/main/.../ContextDisposition.kt` | Context-mode continuation/context disposition: `ContextDisposition` (byte/char-safe truncation), `ContinuationMarker` (consume-once retrieval accounting) |
 | `src/main/.../adk/ChatProviderAdkModel.kt` | ADK `Model` adapter around Rikkahub `ChatProvider` (stream/non-stream, system instruction) |

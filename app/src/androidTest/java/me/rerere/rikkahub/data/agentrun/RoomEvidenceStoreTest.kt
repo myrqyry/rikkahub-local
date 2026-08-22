@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.runBlocking
 import me.rerere.agentruntime.EvidenceQuery
 import me.rerere.agentruntime.EvidenceRecord
 import me.rerere.agentruntime.EvidenceWriteResult
@@ -26,11 +27,13 @@ class RoomEvidenceStoreTest {
     }
 
     @Test
-    fun put_reopenAndQuery_preservesImmutableEvidence() {
+    fun put_reopenAndQuery_preservesImmutableEvidence() = runBlocking {
         val first = openStore()
         val record = evidence(id = "e1", type = "trajectory", origin = "agent", sessionId = "s1")
+        val second = evidence(id = "e2", type = "evaluation", origin = "agent", sessionId = "s1")
 
         assertEquals(EvidenceWriteResult.Stored, first.second.put(record))
+        assertEquals(EvidenceWriteResult.Stored, first.second.put(second))
         first.first.close()
 
         val reopened = openStore()
@@ -39,6 +42,7 @@ class RoomEvidenceStoreTest {
             EvidenceWriteResult.Duplicate(record),
             reopened.second.put(record.copy(payload = "replacement")),
         )
+        assertEquals(listOf("e1", "e2"), reopened.second.query().map { it.id })
         assertEquals(listOf(record), reopened.second.query(EvidenceQuery(type = "trajectory", origin = "agent")))
         assertNull(reopened.second.get("missing"))
         reopened.first.close()

@@ -8,17 +8,17 @@ import androidx.room.Query
 @Dao
 interface EvidenceDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    fun insert(entity: EvidenceEntity): Long
+    suspend fun insert(entity: EvidenceEntity): Long
 
     @Query("SELECT * FROM agent_evidence WHERE id = :id")
-    fun getById(id: String): EvidenceEntity?
+    suspend fun getById(id: String): EvidenceEntity?
 
     @Query(
         "SELECT * FROM agent_evidence " +
             "WHERE (:type IS NULL OR type = :type) " +
             "AND (:origin IS NULL OR origin = :origin) " +
             "AND (:sessionId IS NULL OR session_id = :sessionId) " +
-            "ORDER BY rowid ASC",
+            "ORDER BY sequence ASC",
     )
-    fun query(type: String?, origin: String?, sessionId: String?): List<EvidenceEntity>
+    suspend fun query(type: String?, origin: String?, sessionId: String?): List<EvidenceEntity>
 }

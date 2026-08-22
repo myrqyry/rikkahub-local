@@ -8,13 +8,15 @@ import androidx.room.PrimaryKey
 @Entity(
     tableName = "agent_evidence",
     indices = [
+        Index(value = ["id"], unique = true),
         Index(value = ["type"]),
         Index(value = ["origin"]),
         Index(value = ["session_id"]),
     ],
 )
 data class EvidenceEntity(
-    @PrimaryKey val id: String,
+    @PrimaryKey(autoGenerate = true) val sequence: Long = 0,
+    val id: String,
     val type: String,
     val payload: String,
     val origin: String,
