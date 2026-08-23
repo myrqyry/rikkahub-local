@@ -28,7 +28,22 @@ import me.rerere.hugeicons.stroke.Speaker01
 import me.rerere.hugeicons.stroke.Tools
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.modelregistry.ModelCapability
+import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
 import me.rerere.rikkahub.data.modelregistry.ModelLifecycle
+import me.rerere.rikkahub.data.modelregistry.ModelSource
+
+enum class ModelInventoryStatus {
+    PROVIDER_DISABLED,
+    CONNECTION_UNAVAILABLE,
+    NOT_READY,
+}
+
+fun ModelDescriptor.inventoryStatus(): ModelInventoryStatus? = when {
+    !providerEnabled -> ModelInventoryStatus.PROVIDER_DISABLED
+    source is ModelSource.Cloud && !connected -> ModelInventoryStatus.CONNECTION_UNAVAILABLE
+    source is ModelSource.Local && lifecycle != ModelLifecycle.READY -> ModelInventoryStatus.NOT_READY
+    else -> null
+}
 
 val ModelLifecycle.labelRes: Int
     get() = when (this) {

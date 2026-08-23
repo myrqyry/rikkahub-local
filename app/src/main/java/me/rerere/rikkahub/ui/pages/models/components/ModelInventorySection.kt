@@ -15,7 +15,10 @@ import androidx.compose.ui.unit.dp
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
 import me.rerere.rikkahub.ui.components.ui.CardGroup
+import me.rerere.rikkahub.ui.pages.models.ModelInventoryStatus
 import me.rerere.rikkahub.ui.pages.models.ModelCapabilityRow
+import me.rerere.rikkahub.ui.pages.models.inventoryStatus
+import me.rerere.rikkahub.ui.pages.models.labelRes
 
 @Composable
 fun ModelInventorySection(
@@ -46,11 +49,24 @@ fun ModelInventorySection(
                         },
                         supportingContent = {
                             ModelCapabilityRow(model.capabilities)
-                            if (!model.providerEnabled) {
+                            model.inventoryStatus()?.let { status ->
                                 Text(
-                                    stringResource(R.string.models_source_disabled),
+                                    stringResource(
+                                        when (status) {
+                                            ModelInventoryStatus.PROVIDER_DISABLED -> R.string.models_source_disabled
+                                            ModelInventoryStatus.CONNECTION_UNAVAILABLE -> R.string.models_connection_unavailable
+                                            ModelInventoryStatus.NOT_READY -> model.lifecycle.labelRes
+                                        },
+                                    ),
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error,
+                                    color = if (
+                                        status == ModelInventoryStatus.PROVIDER_DISABLED ||
+                                        status == ModelInventoryStatus.CONNECTION_UNAVAILABLE
+                                    ) {
+                                        MaterialTheme.colorScheme.error
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
                                 )
                             }
                         },
