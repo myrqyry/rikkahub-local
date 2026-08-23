@@ -225,6 +225,11 @@ class ImgGenVM(
                     customHeaders = model.customHeaders,
                     customBody = model.customBodies
                 )
+                Log.i(
+                    TAG,
+                    "SD-TRACE request constructed t=${android.os.SystemClock.elapsedRealtime()} " +
+                        "model=${model.displayName} aspect=${params.aspectRatio} count=${params.numOfImages}",
+                )
 
                 var previewFile: File? = null
                 val outcome = generationService.generate(

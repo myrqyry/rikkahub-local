@@ -3,6 +3,7 @@
 #include <stable-diffusion.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -27,6 +28,13 @@ constexpr jint MIN_IMAGE_DIMENSION = 64;
 constexpr jint MAX_IMAGE_DIMENSION = 2048;
 constexpr jint MAX_STEPS = 200;
 constexpr float MAX_CFG = 50.0f;
+
+long long trace_ms() {
+    static const auto start = std::chrono::steady_clock::now();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - start
+    ).count();
+}
 
 // stable-diffusion.cpp contexts are process-global in this bridge. Generation, init, and release
 // are serialized because sd_ctx_t is not safe to mutate concurrently. Cancellation is deliberately
@@ -199,6 +207,9 @@ void progress_callback(int step, int steps, float time, void*) {
     if (g_vm == nullptr || g_bridge_class == nullptr || g_on_progress == nullptr) {
         return;
     }
+    if (step == 1) {
+        LOGI("trace t=%lldms first inference step callback steps=%d", trace_ms(), steps);
+    }
     JNIEnv* env = nullptr;
     jint attached = g_vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6);
     bool detach = false;
@@ -249,7 +260,7 @@ Java_me_rerere_rikkahub_data_ai_StableDiffusionBridge_nativeInit(
     std::lock_guard<std::mutex> generation_lock(g_generation_mutex);
     release_context_locked();
 
-    LOGI("nativeInit: %s backend=%s", path.c_str(), backend_name(backend));
+    LOGI("trace t=%lldms native init begin model=%s backend=%s", trace_ms(), path.c_str(), backend_name(backend));
     const auto init_start = std::chrono::steady_clock::now();
     sd_ctx_params_t params;
     sd_ctx_params_init(&params);
@@ -263,12 +274,12 @@ Java_me_rerere_rikkahub_data_ai_StableDiffusionBridge_nativeInit(
     params.params_backend = "cpu";
 
     sd_set_log_callback(android_sd_log, nullptr);
-    LOGI("nativeInit: entering new_sd_ctx");
+    LOGI("trace t=%lldms entering new_sd_ctx (device/pipeline/model load)", trace_ms());
     sd_ctx_t* new_ctx = new_sd_ctx(&params);
     const auto init_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - init_start
     ).count();
-    LOGI("nativeInit: exited new_sd_ctx after %lld ms", static_cast<long long>(init_ms));
+    LOGI("trace t=%lldms exited new_sd_ctx after %lld ms", trace_ms(), static_cast<long long>(init_ms));
     if (new_ctx == nullptr) {
         LOGE("new_sd_ctx failed");
         return JNI_FALSE;
@@ -305,7 +316,7 @@ Java_me_rerere_rikkahub_data_ai_StableDiffusionBridge_nativeInit(
         LOGI("progress callback registered");
     }
 
-    LOGI("nativeInit OK");
+    LOGI("trace t=%lldms native init complete", trace_ms());
     return JNI_TRUE;
 }
 
@@ -359,7 +370,9 @@ Java_me_rerere_rikkahub_data_ai_StableDiffusionBridge_nativeGenerate(
 
     sd_image_t* images = nullptr;
     int num_images = 0;
+    LOGI("trace t=%lldms entering generate_image dimensions=%dx%d steps=%d", trace_ms(), width, height, steps);
     const bool ok = generate_image(ctx, &gen, &images, &num_images);
+    LOGI("trace t=%lldms generate_image returned ok=%d images=%d", trace_ms(), ok ? 1 : 0, num_images);
 
     if (!ok || num_images < 1 || images == nullptr || images[0].data == nullptr) {
         if (images != nullptr) {
@@ -370,6 +383,7 @@ Java_me_rerere_rikkahub_data_ai_StableDiffusionBridge_nativeGenerate(
     }
 
     jbyteArray result = image_to_rgba(env, images[0], width, height);
+    LOGI("trace t=%lldms first output converted to RGBA", trace_ms());
     free_sd_images(images, num_images);
     return result;
 }

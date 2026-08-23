@@ -5,6 +5,8 @@ import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.os.SystemClock
+import android.util.Log
 import android.util.Base64
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -101,6 +103,7 @@ class StableDiffusionProvider(
         require(providerSetting is ProviderSetting.StableDiffusion) {
             "Expected StableDiffusion provider setting"
         }
+        trace("local provider request received model=${params.model.modelId} aspect=${params.aspectRatio}")
 
         // Clear any stale progress from a previous run before this generation starts.
         bridge.resetProgress()
@@ -140,11 +143,16 @@ class StableDiffusionProvider(
             height = height,
             deviceRamBytes = availMem,
             androidReserveBytes = threshold,
-        )?.let { throw IllegalStateException(it) }
+        )?.let {
+            trace("preflight memory policy refused: ${it.take(160)}")
+            throw IllegalStateException(it)
+        }
 
         var initialized = false
         try {
+            trace("local provider ready model=${File(modelPath).name} backend=${if (providerSetting.useVulkan) "vulkan" else "cpu"} dimensions=${width}x$height steps=${effective.steps}")
             bridge.ensureLoaded()
+            trace("runtime loaded")
 
             val backend = if (providerSetting.useVulkan) {
                 StableDiffusionBridge.Backend.VULKAN
@@ -171,9 +179,11 @@ class StableDiffusionProvider(
             // context, and return cancellation without ever entering generation (rather than calling
             // nativeCancel() and blocking forever).
             if (bridge.isSessionWarm(modelPath, backend)) {
+                trace("model session warm")
                 initialized = true
             } else {
                 bridge.setPhase(GenerationPhase.LOADING_MODEL)
+                trace("model/runtime init begin")
                 initialized = coroutineScope {
                     val loadCall = async(nativeDispatcher) {
                         bridge.ensureSession(modelPath, backend)
@@ -206,6 +216,7 @@ class StableDiffusionProvider(
             emitAll(
                 generateSerially(count = params.numOfImages) { index ->
                     bridge.setPhase(GenerationPhase.GENERATING)
+                    trace("first inference begin image=$index")
                     val rgba = generateNativeWithCancellation(
                         prompt = params.prompt,
                         negativePrompt = providerSetting.negativePrompt,
@@ -226,6 +237,7 @@ class StableDiffusionProvider(
                     }
 
                     val pngBytes = rgbaToPng(rgba, width, height)
+                    trace("first output returned image=$index rgbaBytes=${rgba.size}")
                     ImageGenerationItem(
                         payload = GeneratedImagePayload.Bytes(pngBytes, "image/png"),
                         partial = false,
@@ -351,8 +363,13 @@ class StableDiffusionProvider(
     ): Flow<ImageGenerationItem> = error("Image edit is not yet supported")
 
     private companion object {
+        const val TAG = "SD-TRACE"
         const val GENERATION_TIMEOUT_MS = 120_000L
         val nativeDispatcher = Dispatchers.Default.limitedParallelism(1, "StableDiffusionNative")
+
+        fun trace(message: String) {
+            Log.i(TAG, "trace t=${SystemClock.elapsedRealtime()} $message")
+        }
     }
 }
 
