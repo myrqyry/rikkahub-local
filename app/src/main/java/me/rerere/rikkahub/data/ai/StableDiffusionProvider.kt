@@ -137,8 +137,19 @@ class StableDiffusionProvider(
         // lives as the safety margin inside RuntimeMemoryProfile. The warm session is already
         // released on TRIM_MEMORY_RUNNING_CRITICAL / onLowMemory via the ComponentCallbacks2 above.
         val (availMem, threshold) = deviceMemorySnapshot()
+        val modelSizeBytes = File(modelPath).length()
+        val workspaceBytes = workspaceEstimateBytes(width, height)
+        val outputBytes = outputEstimateBytes(width, height)
+        val budgetBytes = estimateRuntimeBudget(availMem, threshold)
+        val estimatedBytes = modelSizeBytes + workspaceBytes + outputBytes + SD_SAFETY_MARGIN_BYTES
+        trace(
+            "memory model=${File(modelPath).name} modelBytes=$modelSizeBytes " +
+                "workspaceBytes=$workspaceBytes outputBytes=$outputBytes " +
+                "safetyBytes=$SD_SAFETY_MARGIN_BYTES availBytes=$availMem " +
+                "thresholdBytes=$threshold budgetBytes=$budgetBytes requiredBytes=$estimatedBytes",
+        )
         sdMemoryPolicyViolation(
-            modelSizeBytes = File(modelPath).length(),
+            modelSizeBytes = modelSizeBytes,
             width = width,
             height = height,
             deviceRamBytes = availMem,
