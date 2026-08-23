@@ -487,40 +487,42 @@ private fun InputBar(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            RegistryModelSelector(
-                value = if (referenceImages.isEmpty()) {
-                    settings.imageGenerationModelId.toString()
-                } else {
-                    settings.imageEditingModelId?.toString()
-                },
-                models = registryModels,
-                capability = if (referenceImages.isEmpty()) {
-                    ModelCapability.IMAGE_GENERATION
-                } else {
-                    ModelCapability.IMAGE_EDITING
-                },
-                label = stringResource(R.string.imggen_page_model_selection),
-                onSelect = { descriptor ->
-                    scope.launch {
-                        runCatching { Uuid.parse(descriptor.id) }.getOrNull()?.let { id ->
-                            vm.settingsStore.update { oldSettings ->
-                                if (referenceImages.isEmpty()) {
-                                    oldSettings.copy(imageGenerationModelId = id)
-                                } else {
-                                    oldSettings.copy(imageEditingModelId = id)
+            Box(modifier = Modifier.weight(1f)) {
+                RegistryModelSelector(
+                    value = if (referenceImages.isEmpty()) {
+                        settings.imageGenerationModelId.toString()
+                    } else {
+                        settings.imageEditingModelId?.toString()
+                    },
+                    models = registryModels,
+                    capability = if (referenceImages.isEmpty()) {
+                        ModelCapability.IMAGE_GENERATION
+                    } else {
+                        ModelCapability.IMAGE_EDITING
+                    },
+                    label = stringResource(R.string.imggen_page_model_selection),
+                    onSelect = { descriptor ->
+                        scope.launch {
+                            runCatching { Uuid.parse(descriptor.id) }.getOrNull()?.let { id ->
+                                vm.settingsStore.update { oldSettings ->
+                                    if (referenceImages.isEmpty()) {
+                                        oldSettings.copy(imageGenerationModelId = id)
+                                    } else {
+                                        oldSettings.copy(imageEditingModelId = id)
+                                    }
                                 }
                             }
                         }
-                    }
-                },
-                onManage = {
-                    navController.navigate(
-                        Screen.Models(
-                            request = ModelManagerRequest(tab = ModelTab.IMAGE),
+                    },
+                    onManage = {
+                        navController.navigate(
+                            Screen.Models(
+                                request = ModelManagerRequest(tab = ModelTab.IMAGE),
+                            )
                         )
-                    )
-                },
-            )
+                    },
+                )
+            }
 
             OutlinedButton(
                 onClick = { imagePickerLauncher.launch("image/*") },
