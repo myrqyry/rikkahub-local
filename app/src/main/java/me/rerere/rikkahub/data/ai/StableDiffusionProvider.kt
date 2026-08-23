@@ -114,7 +114,11 @@ class StableDiffusionProvider(
             providerSetting = providerSetting,
             profile = profile,
         )
-        val (width, height) = resolveAspectDimensions(params.aspectRatio, profile)
+        val (width, height) = resolveAspectDimensions(
+            aspectRatio = params.aspectRatio,
+            baseWidth = effective.width,
+            baseHeight = effective.height,
+        )
         stableDiffusionRequestError(
             width = width,
             height = height,
@@ -378,23 +382,18 @@ internal data class EffectiveGenerationParams(
 )
 
 /**
- * Resolves the requested [ImageAspectRatio] against a model's [SdGenerationProfile], so a
- * 512-oriented model gets a modest landscape/portrait pair while an SDXL-scale profile keeps
- * larger dimensions. The base pair is the profile's default dims (512×512 when absent); the
- * ratio then orients them instead of a hardcoded universal resolution.
+ * Resolves the requested [ImageAspectRatio] against the already-effective model dimensions.
+ * The caller supplies profile defaults or explicit provider overrides as appropriate.
  */
 internal fun resolveAspectDimensions(
     aspectRatio: ImageAspectRatio,
-    profile: SdGenerationProfile?,
+    baseWidth: Int,
+    baseHeight: Int,
 ): Pair<Int, Int> {
-    val (w, h) = when {
-        profile != null -> profile.defaultWidth to profile.defaultHeight
-        else -> 512 to 512
-    }
     return when (aspectRatio) {
-        ImageAspectRatio.SQUARE -> w to h
-        ImageAspectRatio.LANDSCAPE -> maxOf(w, h) to minOf(w, h)
-        ImageAspectRatio.PORTRAIT -> minOf(w, h) to maxOf(w, h)
+        ImageAspectRatio.SQUARE -> baseWidth to baseHeight
+        ImageAspectRatio.LANDSCAPE -> maxOf(baseWidth, baseHeight) to minOf(baseWidth, baseHeight)
+        ImageAspectRatio.PORTRAIT -> minOf(baseWidth, baseHeight) to maxOf(baseWidth, baseHeight)
     }
 }
 

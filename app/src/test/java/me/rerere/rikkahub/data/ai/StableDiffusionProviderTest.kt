@@ -188,7 +188,7 @@ class StableDiffusionProviderTest {
     }
 
     @Test
-    fun `aspectRatio selects profile-aware dimensions`() {
+    fun `aspectRatio preserves effective dimensions`() {
         val profile = SdGenerationProfile(
             defaultWidth = 768,
             defaultHeight = 512,
@@ -197,16 +197,35 @@ class StableDiffusionProviderTest {
             defaultSteps = 1,
             defaultCfgScale = 0f,
         )
-        assertEquals(768 to 512, resolveAspectDimensions(ImageAspectRatio.SQUARE, profile))
-        assertEquals(768 to 512, resolveAspectDimensions(ImageAspectRatio.LANDSCAPE, profile))
-        assertEquals(512 to 768, resolveAspectDimensions(ImageAspectRatio.PORTRAIT, profile))
+        assertEquals(
+            768 to 512,
+            resolveAspectDimensions(ImageAspectRatio.SQUARE, profile.defaultWidth, profile.defaultHeight),
+        )
+        assertEquals(
+            768 to 512,
+            resolveAspectDimensions(ImageAspectRatio.LANDSCAPE, profile.defaultWidth, profile.defaultHeight),
+        )
+        assertEquals(
+            512 to 768,
+            resolveAspectDimensions(ImageAspectRatio.PORTRAIT, profile.defaultWidth, profile.defaultHeight),
+        )
+        assertEquals(256 to 256, resolveAspectDimensions(ImageAspectRatio.SQUARE, 256, 256))
     }
 
     @Test
     fun `aspectRatio falls back to 512 square without a profile`() {
-        assertEquals(512 to 512, resolveAspectDimensions(ImageAspectRatio.SQUARE, null))
-        assertEquals(512 to 512, resolveAspectDimensions(ImageAspectRatio.LANDSCAPE, null))
-        assertEquals(512 to 512, resolveAspectDimensions(ImageAspectRatio.PORTRAIT, null))
+        assertEquals(
+            512 to 512,
+            resolveAspectDimensions(ImageAspectRatio.SQUARE, 512, 512),
+        )
+        assertEquals(
+            512 to 512,
+            resolveAspectDimensions(ImageAspectRatio.LANDSCAPE, 512, 512),
+        )
+        assertEquals(
+            512 to 512,
+            resolveAspectDimensions(ImageAspectRatio.PORTRAIT, 512, 512),
+        )
     }
 
     @Test
