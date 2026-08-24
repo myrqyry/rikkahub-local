@@ -1,6 +1,8 @@
 package me.rerere.locallm.litert
 
 import android.util.Log
+import java.io.ByteArrayOutputStream
+import android.graphics.Bitmap
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -11,6 +13,7 @@ import me.rerere.ai.provider.Provider
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.TextGenerationParams
 import me.rerere.ai.ui.ImageGenerationItem
+import me.rerere.ai.ui.GeneratedImagePayload
 import me.rerere.ai.ui.MessageChunk
 import me.rerere.ai.ui.UIMessage
 import me.rerere.ai.ui.UIMessageChoice
@@ -20,6 +23,7 @@ import me.rerere.ai.util.audioBytes
 import me.rerere.ai.util.toBitmap
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
+import me.rerere.locallm.litert.image.LiteRtImageGenerationRuntime
 import com.google.ai.edge.litertlm.tool as litertTool
 import com.google.ai.edge.litertlm.ToolProvider
 
@@ -76,6 +80,7 @@ internal fun decideImageForwarding(
 class LiteRtProvider(
     private val context: Context,
     private val runtime: LiteRtRuntime,
+    private val imageRuntime: LiteRtImageGenerationRuntime,
     private val prefs: LocalRuntimePreferences,
     private val settingsUpdater: suspend (transform: (List<ProviderSetting>) -> List<ProviderSetting>) -> Unit,
     zeroWorkflowExecutor: ZeroWorkflowExecutor? = null,
@@ -694,7 +699,19 @@ class LiteRtProvider(
     override suspend fun generateImage(
         providerSetting: ProviderSetting,
         params: ImageGenerationParams,
-    ): Flow<ImageGenerationItem> = error("LiteRT does not support image generation in 22A")
+    ): Flow<ImageGenerationItem> = flow {
+        require(providerSetting is ProviderSetting.LiteRtLocal)
+        repeat(params.numOfImages.coerceAtLeast(1)) {
+            val bitmap = imageRuntime.generate(params.prompt) { }
+            val bytes = ByteArrayOutputStream().use { output ->
+                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+                    "Failed to encode FLUX.2-klein output"
+                }
+                output.toByteArray()
+            }
+            emit(ImageGenerationItem(GeneratedImagePayload.Bytes(bytes, "image/png")))
+        }
+    }
 
     /**
      * Translate the LiteRT-LM SDK's raw native error message into a user-actionable

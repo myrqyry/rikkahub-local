@@ -381,6 +381,7 @@ val dataSourceModule = module {
                 me.rerere.locallm.litert.LiteRtProvider(
                     context = get(),
                     runtime = get(),
+                    imageRuntime = get(),
                     prefs = get(),
                     settingsUpdater = { transform ->
                         settingsStore.update { old -> old.copy(providers = transform(old.providers)) }

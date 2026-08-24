@@ -353,6 +353,14 @@ val appModule = module {
     // Phase 22A: Local-LLM on-device providers
     single { me.rerere.locallm.LocalRuntimePreferences(get()) }
     single { me.rerere.locallm.litert.LiteRtRuntime(get()) }
+    single {
+        me.rerere.locallm.litert.image.LiteRtImageGenerationRuntime(
+            context = get(),
+            packageRoot = me.rerere.locallm.litert.image.Flux2KleinPackage(
+                java.io.File(get<android.content.Context>().filesDir, "local-models/flux2-klein"),
+            ),
+        )
+    }
     single<me.rerere.rikkahub.data.modelregistry.ModelRegistry> {
         me.rerere.rikkahub.data.modelregistry.SettingsModelRegistry(get(), get(), get<me.rerere.rikkahub.AppScope>(), get())
     }
