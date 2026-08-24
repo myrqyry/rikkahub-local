@@ -131,7 +131,7 @@ executionBackend: litert
 hardwareAccelerator: gpu
 ```
 
-The existing Image Generation screen is unchanged. Existing prompt, progress, cancel, error, persistence, and result surfaces are reused. No fake partial image is emitted in this slice; the provider emits one final image. Runtime progress is bridged into the existing generation progress surface.
+The existing Image Generation screen is unchanged. Existing prompt, progress, cancel, error, persistence, and result surfaces are reused. No synthetic partial image is emitted in this slice; the provider emits one final image. Runtime progress is bridged into the existing generation progress surface.
 
 ## Memory Policy
 
