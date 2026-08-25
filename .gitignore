@@ -61,3 +61,7 @@ app/src/main/jni/litert/litert_cc_sdk/
 # Sensitive developer backup archives — may contain API keys; keep out of the repo
 /var/tmp/rikkahub-local-backups/
 .rikkahub-backup/
+
+# Local agent artifacts and planning notes
+/.codebase-memory/
+/Meristem Mobile — Finish-the-Core Task List.md
