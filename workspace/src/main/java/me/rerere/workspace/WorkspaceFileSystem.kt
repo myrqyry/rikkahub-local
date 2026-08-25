@@ -57,7 +57,26 @@ class WorkspaceFileSystem(
         val file = resolvePath(root, path)
         file.parentFile?.mkdirs()
         val target = if (!file.exists()) file else resolveConflict(file)
-        inputStream.use { input -> target.outputStream().use { input.copyTo(it) } }
+        try {
+            inputStream.use { input ->
+                target.outputStream().use { output ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    var total = 0L
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        total += count
+                        require(total <= config.maxImportBytes) {
+                            "Content is too large to import: $total bytes"
+                        }
+                        output.write(buffer, 0, count)
+                    }
+                }
+            }
+        } catch (error: Throwable) {
+            target.delete()
+            throw error
+        }
         return target.toEntry(root)
     }
 
