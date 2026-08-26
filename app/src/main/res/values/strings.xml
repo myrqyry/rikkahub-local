@@ -2100,7 +2100,10 @@
   <string name="models_connection_healthy">Healthy</string>
   <string name="models_connection_unavailable">Unavailable</string>
   <string name="models_advanced">Advanced</string>
+  <string name="models_memory_fit_now">Fits now</string>
+  <string name="models_memory_needs_more">Needs more memory · %1$d MB required, %2$d MB available</string>
+  <string name="models_memory_checking">Checking memory fit</string>
+  <string name="models_memory_unavailable">Memory fit unavailable</string>
   <string name="setting_home_models">Models</string>
   <string name="setting_home_models_desc">Manage available models, default assignments, and sources</string>
 </resources>
-

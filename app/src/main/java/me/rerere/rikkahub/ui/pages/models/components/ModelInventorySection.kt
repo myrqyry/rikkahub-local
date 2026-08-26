@@ -12,11 +12,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import me.rerere.locallm.LocalRuntime
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
+import me.rerere.rikkahub.data.modelregistry.ModelSource
 import me.rerere.rikkahub.ui.components.ui.CardGroup
 import me.rerere.rikkahub.ui.pages.models.ModelInventoryStatus
 import me.rerere.rikkahub.ui.pages.models.ModelCapabilityRow
+import me.rerere.rikkahub.ui.pages.models.ModelMemoryFit
 import me.rerere.rikkahub.ui.pages.models.inventoryStatus
 import me.rerere.rikkahub.ui.pages.models.labelRes
 
@@ -25,6 +28,7 @@ fun ModelInventorySection(
     models: List<ModelDescriptor>,
     onModelEnabledChange: (ModelDescriptor, Boolean) -> Unit,
     onModelClick: (ModelDescriptor) -> Unit = {},
+    memoryFit: (ModelDescriptor) -> ModelMemoryFit = { ModelMemoryFit.Unavailable },
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -68,6 +72,9 @@ fun ModelInventorySection(
                                         MaterialTheme.colorScheme.onSurfaceVariant
                                     },
                                 )
+                            }
+                            if ((model.source as? ModelSource.Local)?.runtime == LocalRuntime.LiteRT) {
+                                ModelMemoryFitBadge(memoryFit(model))
                             }
                         },
                         trailingContent = {
