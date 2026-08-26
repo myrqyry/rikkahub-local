@@ -1,5 +1,7 @@
 package me.rerere.rikkahub.ui.pages.models
 
+import android.app.ActivityManager
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -24,11 +26,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlin.uuid.Uuid
@@ -75,6 +79,18 @@ fun ModelsPage(
     var showAddSheet by remember { mutableStateOf(false) }
     var showManageSources by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    val context = LocalContext.current
+    val availableMemory by produceState<Long?>(null, context) {
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val memoryInfo = ActivityManager.MemoryInfo()
+        sampleAvailableMemory(
+            readAvailableMemory = {
+                activityManager.getMemoryInfo(memoryInfo)
+                memoryInfo.availMem
+            },
+            emit = { value = it },
+        )
+    }
 
     LaunchedEffect(request) {
         filter = request.tab.toModelsFilter()
@@ -213,6 +229,7 @@ fun ModelsPage(
                     models = visible,
                     onModelEnabledChange = { model, enabled -> vm.setModelEnabled(model, enabled) },
                     onModelClick = { model -> navController.navigate(Screen.ModelDetail(model.id)) },
+                    memoryFit = { model -> model.memoryFit(availableMemory) },
                 )
             }
 
