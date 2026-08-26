@@ -16,6 +16,11 @@ import me.rerere.locallm.LocalRuntimePreferences
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import kotlin.uuid.Uuid
 
+internal fun localFileMetadata(path: String): Map<String, String> = mapOf(
+    "path" to path,
+    "sizeBytes" to File(path).length().toString(),
+)
+
 class SettingsModelRegistry(
     private val settingsStore: SettingsStore,
     private val localPreferences: LocalRuntimePreferences,
@@ -73,7 +78,7 @@ class SettingsModelRegistry(
                                 ModelLifecycle.ERROR
                             },
                             installed = true,
-                            metadata = mapOf("path" to path),
+                            metadata = localFileMetadata(path),
                         )
                     }
                 }
@@ -236,8 +241,7 @@ class SettingsModelRegistry(
                 put("provider", provider.name)
                 val path = runtime?.let { localFiles[it]?.get(model.modelId) }
                 if (path != null) {
-                    put("path", path)
-                    put("sizeBytes", File(path).length().toString())
+                    putAll(localFileMetadata(path))
                 }
             },
         )

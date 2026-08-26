@@ -12,6 +12,20 @@ import me.rerere.locallm.LocalRuntime
 
 class ModelRegistryTest {
     @Test
+    fun localFileMetadataIncludesSizeBytes() {
+        val file = kotlin.io.path.createTempFile("model", ".litertlm").toFile()
+        try {
+            file.writeBytes(ByteArray(1234))
+            assertEquals(
+                mapOf("path" to file.absolutePath, "sizeBytes" to "1234"),
+                localFileMetadata(file.absolutePath),
+            )
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
     fun inferenceKeepsUncertainImageCapabilitiesUnverified() {
         val result = ModelCapabilityInference.infer(
             Model(type = ModelType.CHAT, inputModalities = listOf(Modality.IMAGE)),
