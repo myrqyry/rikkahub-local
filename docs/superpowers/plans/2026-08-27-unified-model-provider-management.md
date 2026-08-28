@@ -39,7 +39,7 @@ JUnit tests.
 **Files:**
 - Create: `local-llm/src/main/java/me/rerere/locallm/ModelCatalog.kt`
 - Create: `local-llm/src/test/java/me/rerere/locallm/ModelCatalogTest.kt`
-- Modify: `local-llm/src/main/java/me/rerere/locallm/Flux2KleinPackage.kt`
+- Modify: `local-llm/src/main/java/me/rerere/locallm/litert/image/Flux2KleinPackage.kt`
 
 **Interfaces:**
 - Produces `ModelCatalogEntry`, `ModelModality`, `ModelRuntime`, and
@@ -81,7 +81,7 @@ Run the same Gradle command and confirm all catalog and routing tests pass.
 
 ```bash
 git add local-llm/src/main/java/me/rerere/locallm/ModelCatalog.kt \
-  local-llm/src/main/java/me/rerere/locallm/Flux2KleinPackage.kt \
+  local-llm/src/main/java/me/rerere/locallm/litert/image/Flux2KleinPackage.kt \
   local-llm/src/test/java/me/rerere/locallm/ModelCatalogTest.kt
 git commit -m "feat(models): add modality catalog routing"
 ```
