@@ -1,7 +1,5 @@
 package me.rerere.rikkahub.data.ai.generation
 
-import android.os.SystemClock
-import android.util.Log
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.flow.collect
 import me.rerere.ai.provider.ImageEditParams
@@ -69,13 +67,11 @@ class GenerationService(
             throw IllegalStateException("Cloud image processing is disabled for this assistant")
         }
         val startedAt = System.nanoTime()
-        Log.i(TAG, "trace t=${SystemClock.elapsedRealtime()} dispatch model=${descriptor.displayName} provider=${providerSetting::class.simpleName}")
         val finals = mutableListOf<ImageGenerationItem>()
         backend.generateImage(providerSetting, params).collect { item ->
             if (item.partial) onPartial(item) else finals += item
         }
         val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
-        Log.i(TAG, "trace t=${SystemClock.elapsedRealtime()} provider returned finals=${finals.size} elapsedMs=$elapsedMs")
         return persistFinals(
             finals = finals,
             prompt = params.prompt,
@@ -194,9 +190,5 @@ class GenerationService(
             elapsedMs = elapsedMs,
             sourceArtifacts = sourceArtifacts,
         )
-    }
-
-    private companion object {
-        const val TAG = "SD-TRACE"
     }
 }
