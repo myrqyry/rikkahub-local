@@ -31,6 +31,9 @@ jobs:
         with:
           version: 10.15.1
 
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
       - name: Set up Node for the web UI bundle
         uses: actions/setup-node@v4
         with:
@@ -105,6 +108,9 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 10.15.1
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
