@@ -354,15 +354,22 @@ val appModule = module {
     single { me.rerere.locallm.LocalRuntimePreferences(get()) }
     single { me.rerere.locallm.litert.LiteRtRuntime(get()) }
     single {
-        me.rerere.locallm.litert.image.LiteRtImageGenerationRuntime(
-            context = get(),
-            packageRoot = me.rerere.locallm.litert.image.Flux2KleinPackage(
-                java.io.File(get<android.content.Context>().filesDir, "local-models/flux2-klein"),
+        me.rerere.locallm.litert.image.Flux2KleinPackage(
+            java.io.File(
+                get<android.content.Context>().getExternalFilesDir(null)
+                    ?: get<android.content.Context>().filesDir,
+                "local-models/flux2-klein",
             ),
         )
     }
+    single {
+        me.rerere.locallm.litert.image.LiteRtImageGenerationRuntime(
+            context = get(),
+            packageRoot = get(),
+        )
+    }
     single<me.rerere.rikkahub.data.modelregistry.ModelRegistry> {
-        me.rerere.rikkahub.data.modelregistry.SettingsModelRegistry(get(), get(), get<me.rerere.rikkahub.AppScope>(), get())
+        me.rerere.rikkahub.data.modelregistry.SettingsModelRegistry(get(), get(), get<me.rerere.rikkahub.AppScope>(), get(), get())
     }
     single { me.rerere.rikkahub.data.modelregistry.ModelRoleResolver(get()) }
     single<me.rerere.rikkahub.data.ai.tools.image.ImageToolBackend> { me.rerere.rikkahub.data.ai.tools.image.ProviderImageToolBackend(get()) }

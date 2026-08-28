@@ -37,6 +37,17 @@ class Flux2KleinPackageTest {
     }
 
     @Test
+    fun `reference installer's flat layout is ready`() {
+        val root = createTempDirectory().toFile()
+        createRequiredFiles(root, includeTokenizer = true, nestedGraphs = false)
+
+        val result = Flux2KleinPackage(root).validate()
+
+        assertEquals(Flux2KleinPackageStatus.Ready, result.status)
+        assertTrue(result.missingFiles.isEmpty())
+    }
+
+    @Test
     fun `missing graph identifies the graph`() {
         val root = createTempDirectory().toFile()
         createRequiredFiles(root, includeTokenizer = true)
@@ -59,19 +70,23 @@ class Flux2KleinPackageTest {
         assertTrue(result.missingFiles.contains("qwen_vocab.txt"))
     }
 
-    private fun createRequiredFiles(root: File, includeTokenizer: Boolean) {
+    private fun createRequiredFiles(
+        root: File,
+        includeTokenizer: Boolean,
+        nestedGraphs: Boolean = true,
+    ) {
         val pkg = Flux2KleinPackage(root)
         root.mkdirs()
-        pkg.graphsDir.mkdirs()
+        if (nestedGraphs) pkg.graphsDir.mkdirs()
         pkg.binsDir.mkdirs()
-        pkg.tokenizerDir.mkdirs()
+        if (nestedGraphs) pkg.tokenizerDir.mkdirs()
 
         listOf(
             "ke_enc0.tflite", "ke_enc1.tflite", "ke_enc2.tflite", "kc_prep.tflite",
             "kc_double0.tflite", "kc_double1.tflite", "kc_single0.tflite",
             "kc_single1.tflite", "kc_single2.tflite", "kc_single3.tflite",
             "kc_final.tflite", "kv_vae.tflite",
-        ).forEach { File(pkg.graphsDir, it).writeText("graph") }
+        ).forEach { File(if (nestedGraphs) pkg.graphsDir else root, it).writeText("graph") }
 
         listOf(
             "inputs_embeds", "enc_mask", "enc_cos", "enc_sin", "cos", "sin", "temb",
@@ -80,7 +95,7 @@ class Flux2KleinPackageTest {
 
         if (includeTokenizer) {
             listOf("qwen_vocab.txt", "qwen_merges.txt", "qwen_embed_fp16.bin")
-                .forEach { pkg.tokenizerAsset(it).writeText("tokenizer") }
+                .forEach { File(if (nestedGraphs) pkg.tokenizerDir else root, it).writeText("tokenizer") }
         }
     }
 }

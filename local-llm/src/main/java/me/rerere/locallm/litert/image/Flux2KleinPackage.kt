@@ -1,6 +1,23 @@
 package me.rerere.locallm.litert.image
 
 import java.io.File
+import me.rerere.ai.provider.Model
+import me.rerere.ai.provider.ModelType
+import me.rerere.ai.provider.Modality
+import kotlin.uuid.Uuid
+
+val FLUX2_KLEIN_MODEL = Model(
+    modelId = "flux2-klein",
+    displayName = "FLUX.2-klein",
+    id = Uuid.parse("1d1b7d8b-6bc5-4fc8-8d46-6db6e9ebd8c1"),
+    type = ModelType.IMAGE,
+    inputModalities = listOf(Modality.TEXT, Modality.IMAGE),
+    outputModalities = listOf(Modality.IMAGE),
+    format = "litert",
+    runtime = "liteRT",
+    executionBackend = "litert",
+    hardwareAccelerator = "gpu",
+)
 
 sealed interface Flux2KleinPackageStatus {
     data object Ready : Flux2KleinPackageStatus
@@ -20,11 +37,13 @@ class Flux2KleinPackage(
     val binsDir: File = File(root, "klein_bins")
     val tokenizerDir: File = File(root, "klein_tokenizer")
 
-    fun graph(name: String): File = File(graphsDir, name)
+    /** Accept the reference installer's flat graph layout and the app's nested layout. */
+    fun graph(name: String): File = File(graphsDir, name).takeIf { it.isFile } ?: File(root, name)
 
     fun bin(name: String): File = File(binsDir, "$name.bin")
 
-    fun tokenizerAsset(name: String): File = File(tokenizerDir, name)
+    fun tokenizerAsset(name: String): File =
+        File(tokenizerDir, name).takeIf { it.isFile } ?: File(root, name)
 
     fun validate(): Flux2KleinPackageValidation = Flux2KleinPackageValidator.validate(this)
 }

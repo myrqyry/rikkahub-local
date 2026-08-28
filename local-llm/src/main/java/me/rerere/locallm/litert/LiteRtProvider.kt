@@ -24,6 +24,7 @@ import me.rerere.ai.util.toBitmap
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
 import me.rerere.locallm.litert.image.LiteRtImageGenerationRuntime
+import me.rerere.locallm.litert.image.FLUX2_KLEIN_MODEL
 import com.google.ai.edge.litertlm.tool as litertTool
 import com.google.ai.edge.litertlm.ToolProvider
 
@@ -147,7 +148,7 @@ class LiteRtProvider(
                 modelId = fileName,
                 displayName = fileName,
             )
-        }
+        } + FLUX2_KLEIN_MODEL
     }
 
     override suspend fun generateText(

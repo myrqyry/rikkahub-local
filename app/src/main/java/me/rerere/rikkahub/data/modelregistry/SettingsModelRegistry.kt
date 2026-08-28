@@ -13,6 +13,9 @@ import me.rerere.ai.provider.ProviderManager
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
+import me.rerere.locallm.litert.image.FLUX2_KLEIN_MODEL
+import me.rerere.locallm.litert.image.Flux2KleinPackage
+import me.rerere.locallm.litert.image.Flux2KleinPackageStatus
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import kotlin.uuid.Uuid
 
@@ -26,6 +29,7 @@ class SettingsModelRegistry(
     private val localPreferences: LocalRuntimePreferences,
     scope: CoroutineScope,
     private val providerManager: ProviderManager,
+    private val fluxPackage: Flux2KleinPackage,
 ) : ModelRegistry {
     private val _models = MutableStateFlow<List<ModelDescriptor>>(emptyList())
     private val _providers = MutableStateFlow<List<ModelProviderDescriptor>>(emptyList())
@@ -215,8 +219,14 @@ class SettingsModelRegistry(
             else -> null
         }
         val inferred = ModelCapabilityInference.infer(model)
-        val files = runtime?.let { localFiles[it].orEmpty().keys.filter { file -> file == model.modelId } }.orEmpty()
-        val installed = files.isNotEmpty()
+        val isFlux = provider is ProviderSetting.LiteRtLocal && model.modelId == FLUX2_KLEIN_MODEL.modelId
+        val fluxStatus = if (isFlux) fluxPackage.validate().status else null
+        val files = if (isFlux) {
+            listOf(model.modelId)
+        } else {
+            runtime?.let { localFiles[it].orEmpty().keys.filter { file -> file == model.modelId } }.orEmpty()
+        }
+        val installed = if (isFlux) fluxPackage.root.exists() else files.isNotEmpty()
         val capabilities = inferred.verified
         return ModelDescriptor(
             id = modelId(model),
@@ -225,7 +235,13 @@ class SettingsModelRegistry(
                 ?: ModelSource.Cloud(provider.id.toString(), model.modelId),
             capabilities = capabilities,
             enabledCapabilities = capabilities - disabledCapabilities,
-            lifecycle = if (runtime != null) {
+            lifecycle = if (isFlux) {
+                when (fluxStatus) {
+                    Flux2KleinPackageStatus.Ready -> ModelLifecycle.READY
+                    null -> ModelLifecycle.AVAILABLE
+                    else -> if (installed) ModelLifecycle.ERROR else ModelLifecycle.AVAILABLE
+                }
+            } else if (runtime != null) {
                 if (installed && files.all { file -> localFiles[runtime]?.get(file)?.let(::File)?.exists() == true }) {
                     ModelLifecycle.READY
                 } else if (installed) {
@@ -242,6 +258,10 @@ class SettingsModelRegistry(
                 val path = runtime?.let { localFiles[it]?.get(model.modelId) }
                 if (path != null) {
                     putAll(localFileMetadata(path))
+                }
+                if (isFlux) {
+                    put("path", fluxPackage.root.absolutePath)
+                    put("packageStatus", fluxStatus.toString())
                 }
             },
         )

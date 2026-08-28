@@ -364,6 +364,9 @@ class SettingsStore(
                         builtIn = defaultProvider.builtIn,
                         description = defaultProvider.description,
                         shortDescription = defaultProvider.shortDescription,
+                        models = provider.models + defaultProvider.models.filterNot { defaultModel ->
+                            provider.models.any { it.id == defaultModel.id }
+                        },
                     )
                 } else provider
             }.toMutableList()

@@ -15,6 +15,7 @@ import me.rerere.ai.provider.ModelAbility
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.ui.components.richtext.MarkdownBlock
+import me.rerere.locallm.litert.image.FLUX2_KLEIN_MODEL
 import kotlin.uuid.Uuid
 
 val DEFAULT_AUTO_MODEL_ID = Uuid.parse("b7055fb4-39f9-4042-a88a-0d80ed76cf08")
@@ -57,6 +58,7 @@ val DEFAULT_PROVIDERS = listOf(
         shortDescription = {
             Text("On-device — LiteRT-LM")
         },
+        models = listOf(FLUX2_KLEIN_MODEL),
     ),
     ProviderSetting.StableDiffusion(
         // On-device Stable Diffusion (stable-diffusion.cpp) provider. Disabled by
