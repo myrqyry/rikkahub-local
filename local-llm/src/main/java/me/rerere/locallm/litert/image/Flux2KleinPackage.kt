@@ -1,5 +1,6 @@
 package me.rerere.locallm.litert.image
 
+import android.content.Context
 import java.io.File
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelType
@@ -33,6 +34,58 @@ data class Flux2KleinPackageValidation(
 class Flux2KleinPackage(
     val root: File,
 ) {
+    companion object {
+        private const val PACKAGE_PATH = "local-models/flux2-klein"
+
+        fun fromContext(context: Context): Flux2KleinPackage {
+            val canonical = canonicalRoot(context)
+            runCatching { reconcileLegacyRoot(context, canonical) }
+            return Flux2KleinPackage(canonical)
+        }
+
+        fun canonicalRoot(context: Context): File = File(
+            context.getExternalFilesDir(null) ?: context.filesDir,
+            PACKAGE_PATH,
+        )
+
+        fun legacyRoot(context: Context): File = File(context.filesDir, PACKAGE_PATH)
+
+        /** Promote a valid legacy install without replacing a valid canonical install. */
+        internal fun reconcileLegacyRoot(context: Context, canonical: File = canonicalRoot(context)) {
+            reconcileRoots(canonical, legacyRoot(context))
+        }
+
+        internal fun reconcileRoots(canonical: File, legacy: File) {
+            if (legacy.absoluteFile == canonical.absoluteFile || !legacy.exists()) return
+
+            val canonicalStatus = Flux2KleinPackage(canonical).validate().status
+            val legacyStatus = Flux2KleinPackage(legacy).validate().status
+            val legacyReady = legacyStatus is Flux2KleinPackageStatus.Ready ||
+                legacyStatus is Flux2KleinPackageStatus.ReadyBakedPrompt
+            if (!legacyReady) return
+
+            val canonicalReady = canonicalStatus is Flux2KleinPackageStatus.Ready ||
+                canonicalStatus is Flux2KleinPackageStatus.ReadyBakedPrompt
+            if (canonicalReady) {
+                legacy.deleteRecursively()
+                return
+            }
+
+            canonical.parentFile?.mkdirs()
+            val backup = File(canonical.parentFile, ".flux2-klein-previous")
+            backup.deleteRecursively()
+            val hadCanonical = canonical.exists()
+            if (hadCanonical) check(canonical.renameTo(backup)) { "Could not back up FLUX package" }
+            try {
+                check(legacy.renameTo(canonical)) { "Could not promote legacy FLUX package" }
+                backup.deleteRecursively()
+            } catch (error: Throwable) {
+                if (hadCanonical) backup.renameTo(canonical)
+                throw error
+            }
+        }
+    }
+
     val graphsDir: File = File(root, "graphs")
     val binsDir: File = File(root, "klein_bins")
     val tokenizerDir: File = File(root, "klein_tokenizer")

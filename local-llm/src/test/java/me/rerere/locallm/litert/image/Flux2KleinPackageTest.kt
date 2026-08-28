@@ -70,6 +70,33 @@ class Flux2KleinPackageTest {
         assertTrue(result.missingFiles.contains("qwen_vocab.txt"))
     }
 
+    @Test
+    fun `valid legacy package is promoted when canonical package is absent`() {
+        val parent = createTempDirectory().toFile()
+        val canonical = File(parent, "external/local-models/flux2-klein")
+        val legacy = File(parent, "internal/local-models/flux2-klein")
+        createRequiredFiles(legacy, includeTokenizer = true)
+
+        Flux2KleinPackage.reconcileRoots(canonical, legacy)
+
+        assertEquals(Flux2KleinPackageStatus.Ready, Flux2KleinPackage(canonical).validate().status)
+        assertTrue(!legacy.exists())
+    }
+
+    @Test
+    fun `valid canonical package wins over valid legacy package`() {
+        val parent = createTempDirectory().toFile()
+        val canonical = File(parent, "external/local-models/flux2-klein")
+        val legacy = File(parent, "internal/local-models/flux2-klein")
+        createRequiredFiles(canonical, includeTokenizer = true)
+        createRequiredFiles(legacy, includeTokenizer = true)
+
+        Flux2KleinPackage.reconcileRoots(canonical, legacy)
+
+        assertEquals(Flux2KleinPackageStatus.Ready, Flux2KleinPackage(canonical).validate().status)
+        assertTrue(!legacy.exists())
+    }
+
     private fun createRequiredFiles(
         root: File,
         includeTokenizer: Boolean,

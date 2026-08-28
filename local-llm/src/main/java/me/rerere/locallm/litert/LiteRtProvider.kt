@@ -143,12 +143,12 @@ class LiteRtProvider(
 
     override suspend fun listModels(providerSetting: ProviderSetting.LiteRtLocal): List<Model> {
         val installed = prefs.installedModels(LocalRuntime.LiteRT)
-        return installed.map { (fileName, _) ->
+        return (installed.map { (fileName, _) ->
             Model(
                 modelId = fileName,
                 displayName = fileName,
             )
-        } + FLUX2_KLEIN_MODEL
+        } + FLUX2_KLEIN_MODEL).distinctBy { it.modelId }
     }
 
     override suspend fun generateText(

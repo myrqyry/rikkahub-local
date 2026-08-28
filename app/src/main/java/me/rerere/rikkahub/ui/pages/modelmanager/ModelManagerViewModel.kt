@@ -47,6 +47,7 @@ class ModelManagerViewModel(
     private val prefs: LocalRuntimePreferences,
     private val httpClient: OkHttpClient,
     private val settingsStore: SettingsStore,
+    private val fluxPackage: Flux2KleinPackage,
 ) : ViewModel() {
 
     private val runtime = LocalRuntime.StableDiffusion
@@ -54,10 +55,7 @@ class ModelManagerViewModel(
     val catalogEntries: List<SdCatalogEntry> = SdCatalog.ENTRIES
     val unifiedCatalog: List<ModelCatalogEntry> = ModelCatalog.entries
 
-    private val fluxPackageRoot = File(
-        context.getExternalFilesDir(null) ?: context.filesDir,
-        "local-models/flux2-klein",
-    )
+    private val fluxPackageRoot = fluxPackage.root
     private val _fluxStatus = MutableStateFlow<Flux2KleinPackageStatus>(
         Flux2KleinPackageStatus.NotReady("FLUX.2-klein package is not installed"),
     )

@@ -354,13 +354,7 @@ val appModule = module {
     single { me.rerere.locallm.LocalRuntimePreferences(get()) }
     single { me.rerere.locallm.litert.LiteRtRuntime(get()) }
     single {
-        me.rerere.locallm.litert.image.Flux2KleinPackage(
-            java.io.File(
-                get<android.content.Context>().getExternalFilesDir(null)
-                    ?: get<android.content.Context>().filesDir,
-                "local-models/flux2-klein",
-            ),
-        )
+        me.rerere.locallm.litert.image.Flux2KleinPackage.fromContext(get())
     }
     single {
         me.rerere.locallm.litert.image.LiteRtImageGenerationRuntime(
