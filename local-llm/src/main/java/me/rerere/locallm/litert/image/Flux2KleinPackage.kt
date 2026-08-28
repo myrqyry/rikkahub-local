@@ -39,8 +39,7 @@ class Flux2KleinPackage(
 
         fun fromContext(context: Context): Flux2KleinPackage {
             val canonical = canonicalRoot(context)
-            runCatching { reconcileLegacyRoot(context, canonical) }
-            return Flux2KleinPackage(canonical)
+            return Flux2KleinPackage(reconcileLegacyRoot(context, canonical))
         }
 
         fun canonicalRoot(context: Context): File = File(
@@ -51,37 +50,49 @@ class Flux2KleinPackage(
         fun legacyRoot(context: Context): File = File(context.filesDir, PACKAGE_PATH)
 
         /** Promote a valid legacy install without replacing a valid canonical install. */
-        internal fun reconcileLegacyRoot(context: Context, canonical: File = canonicalRoot(context)) {
+        internal fun reconcileLegacyRoot(context: Context, canonical: File = canonicalRoot(context)): File =
             reconcileRoots(canonical, legacyRoot(context))
-        }
 
-        internal fun reconcileRoots(canonical: File, legacy: File) {
-            if (legacy.absoluteFile == canonical.absoluteFile || !legacy.exists()) return
+        internal fun reconcileRoots(canonical: File, legacy: File): File {
+            if (legacy.absoluteFile == canonical.absoluteFile || !legacy.exists()) return canonical
 
             val canonicalStatus = Flux2KleinPackage(canonical).validate().status
             val legacyStatus = Flux2KleinPackage(legacy).validate().status
             val legacyReady = legacyStatus is Flux2KleinPackageStatus.Ready ||
                 legacyStatus is Flux2KleinPackageStatus.ReadyBakedPrompt
-            if (!legacyReady) return
+            if (!legacyReady) return canonical
 
             val canonicalReady = canonicalStatus is Flux2KleinPackageStatus.Ready ||
                 canonicalStatus is Flux2KleinPackageStatus.ReadyBakedPrompt
             if (canonicalReady) {
                 legacy.deleteRecursively()
-                return
+                return canonical
             }
 
-            canonical.parentFile?.mkdirs()
-            val backup = File(canonical.parentFile, ".flux2-klein-previous")
-            backup.deleteRecursively()
-            val hadCanonical = canonical.exists()
-            if (hadCanonical) check(canonical.renameTo(backup)) { "Could not back up FLUX package" }
+            val parent = canonical.parentFile ?: return legacy
+            val staging = File(parent, ".flux2-klein-staging")
+            val backup = File(parent, ".flux2-klein-previous")
+            var hadCanonical = false
             try {
-                check(legacy.renameTo(canonical)) { "Could not promote legacy FLUX package" }
+                check(parent.mkdirs() || parent.isDirectory) { "Could not create FLUX package directory" }
+                staging.deleteRecursively()
+                check(legacy.copyRecursively(staging, overwrite = false)) { "Could not copy legacy FLUX package" }
+                val stagingStatus = Flux2KleinPackage(staging).validate().status
+                check(stagingStatus is Flux2KleinPackageStatus.Ready ||
+                    stagingStatus is Flux2KleinPackageStatus.ReadyBakedPrompt) {
+                    "Copied FLUX package is invalid"
+                }
                 backup.deleteRecursively()
+                hadCanonical = canonical.exists()
+                if (hadCanonical) check(canonical.renameTo(backup)) { "Could not back up FLUX package" }
+                check(staging.renameTo(canonical)) { "Could not install FLUX package" }
+                backup.deleteRecursively()
+                legacy.deleteRecursively()
+                return canonical
             } catch (error: Throwable) {
-                if (hadCanonical) backup.renameTo(canonical)
-                throw error
+                staging.deleteRecursively()
+                if (hadCanonical && !canonical.exists()) backup.renameTo(canonical)
+                return legacy
             }
         }
     }

@@ -30,6 +30,11 @@ import com.google.ai.edge.litertlm.ToolProvider
 
 private const val TAG = "LiteRtProvider"
 
+internal fun listLiteRtModels(installed: Map<String, String>): List<Model> =
+    installed.filterKeys { it != FLUX2_KLEIN_MODEL.modelId }
+        .map { (fileName, _) -> Model(modelId = fileName, displayName = fileName) } +
+        FLUX2_KLEIN_MODEL
+
 /**
  * Outcome of [decideImageForwarding]: whether to hand image bytes to the runtime this turn,
  * and whether the user's attached images were dropped in a way that warrants a chat note.
@@ -142,13 +147,7 @@ class LiteRtProvider(
     }
 
     override suspend fun listModels(providerSetting: ProviderSetting.LiteRtLocal): List<Model> {
-        val installed = prefs.installedModels(LocalRuntime.LiteRT)
-        return (installed.map { (fileName, _) ->
-            Model(
-                modelId = fileName,
-                displayName = fileName,
-            )
-        } + FLUX2_KLEIN_MODEL).distinctBy { it.modelId }
+        return listLiteRtModels(prefs.installedModels(LocalRuntime.LiteRT))
     }
 
     override suspend fun generateText(

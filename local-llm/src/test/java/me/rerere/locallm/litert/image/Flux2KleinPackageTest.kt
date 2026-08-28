@@ -77,8 +77,9 @@ class Flux2KleinPackageTest {
         val legacy = File(parent, "internal/local-models/flux2-klein")
         createRequiredFiles(legacy, includeTokenizer = true)
 
-        Flux2KleinPackage.reconcileRoots(canonical, legacy)
+        val result = Flux2KleinPackage.reconcileRoots(canonical, legacy)
 
+        assertEquals(canonical, result)
         assertEquals(Flux2KleinPackageStatus.Ready, Flux2KleinPackage(canonical).validate().status)
         assertTrue(!legacy.exists())
     }
@@ -91,10 +92,27 @@ class Flux2KleinPackageTest {
         createRequiredFiles(canonical, includeTokenizer = true)
         createRequiredFiles(legacy, includeTokenizer = true)
 
-        Flux2KleinPackage.reconcileRoots(canonical, legacy)
+        val result = Flux2KleinPackage.reconcileRoots(canonical, legacy)
 
+        assertEquals(canonical, result)
         assertEquals(Flux2KleinPackageStatus.Ready, Flux2KleinPackage(canonical).validate().status)
         assertTrue(!legacy.exists())
+    }
+
+    @Test
+    fun `failed migration falls back to valid legacy package`() {
+        val parent = createTempDirectory().toFile()
+        val canonicalParent = File(parent, "canonical-parent")
+        canonicalParent.writeText("not a directory")
+        val canonical = File(canonicalParent, "local-models/flux2-klein")
+        val legacy = File(parent, "internal/local-models/flux2-klein")
+        createRequiredFiles(legacy, includeTokenizer = true)
+
+        val result = Flux2KleinPackage.reconcileRoots(canonical, legacy)
+
+        assertEquals(legacy, result)
+        assertEquals(Flux2KleinPackageStatus.Ready, Flux2KleinPackage(result).validate().status)
+        assertTrue(legacy.exists())
     }
 
     private fun createRequiredFiles(

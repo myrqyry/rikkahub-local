@@ -26,15 +26,17 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
+
       - name: Set up Node for the web UI bundle
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: pnpm
           cache-dependency-path: web-ui/pnpm-lock.yaml
-
-      - name: Enable corepack (pnpm)
-        run: corepack enable
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -99,8 +101,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Enable corepack (pnpm)
-        run: corepack enable
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -114,12 +118,7 @@ jobs:
           api-level: ${{ matrix.api-level }}
           arch: x86_64
           disable-animations: true
-          script: |
-            ./gradlew :app:connectedDebugAndroidTest \
-              -Pandroid.testInstrumentationRunnerArguments.class=\
-                me.rerere.rikkahub.data.db.migrations.MigrationChainTest,\
-                me.rerere.rikkahub.data.db.ImportedDatabaseReconcilerTest,\
-                me.rerere.rikkahub.data.db.migrations.Migration_29_30_Test
+          script: ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=me.rerere.rikkahub.data.db.migrations.MigrationChainTest,me.rerere.rikkahub.data.db.ImportedDatabaseReconcilerTest,me.rerere.rikkahub.data.db.migrations.Migration_29_30_Test
 
       - name: Upload connected-test reports on failure
         if: failure()

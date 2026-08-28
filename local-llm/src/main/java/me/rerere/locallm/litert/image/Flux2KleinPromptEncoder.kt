@@ -53,6 +53,7 @@ class Flux2KleinPromptEncoder(assetsDir: File) : Closeable {
     }
 
     /** Gathers the fp16 embedding rows for [tokens] into a `[1, 512, 2560]` fp32 tensor. */
+    @Suppress("HalfFloat")
     fun embed(tokens: Tokens): FloatArray {
         val out = FloatArray(TEXT_TOKENS * HIDDEN_SIZE)
         for (position in 0 until TEXT_TOKENS) {

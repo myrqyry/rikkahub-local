@@ -1,6 +1,9 @@
 package me.rerere.locallm.litert
 
+import me.rerere.ai.provider.ModelType
+import me.rerere.locallm.litert.image.FLUX2_KLEIN_MODEL
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -16,6 +19,20 @@ import org.junit.Test
  * is still `true` at the moment of the doomed first load).
  */
 class LiteRtProviderTest {
+
+    @Test
+    fun `legacy FLUX preference is replaced by canonical descriptor`() {
+        val models = listLiteRtModels(
+            mapOf("flux2-klein" to "/legacy/flux2-klein", "gemma.task" to "/gemma.task"),
+        )
+
+        val fluxModels = models.filter { it.modelId == FLUX2_KLEIN_MODEL.modelId }
+        assertEquals(1, fluxModels.size)
+        assertEquals(FLUX2_KLEIN_MODEL, fluxModels.single())
+        assertEquals(ModelType.IMAGE, fluxModels.single().type)
+        assertEquals(listOf("TEXT", "IMAGE"), fluxModels.single().inputModalities.map { it.name })
+        assertEquals("liteRT", fluxModels.single().runtime)
+    }
 
     @Test
     fun `forwards images when vision is live post-load`() {
