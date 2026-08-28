@@ -29,6 +29,7 @@ import me.rerere.locallm.ModelInstall
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.files.FileUtils
+import me.rerere.rikkahub.ui.pages.modelmanager.ModelRegistration
 import okhttp3.OkHttpClient
 import java.io.File
 
@@ -383,7 +384,6 @@ class SettingLocalLlmViewModel(
                             return@withContext
                         }
                     }
-                    prefs.addInstalledModel(runtime, safeName, targetFile.absolutePath)
                     val caps = LiteRtModelMetadata.deriveCapabilities(safeName)
                     val model = Model(
                         modelId = safeName,
@@ -391,12 +391,9 @@ class SettingLocalLlmViewModel(
                         inputModalities = caps.inputModalities,
                         abilities = caps.abilities,
                     )
-                    updateMyProvider { provider -> provider.addModel(model) }
-                    updateMyProvider { provider ->
-                        when (provider) {
-                            is ProviderSetting.LiteRtLocal -> provider.copy(enabled = true)
-                            else -> provider
-                        }
+                    prefs.addInstalledModel(runtime, safeName, targetFile.absolutePath)
+                    settingsStore.update { settings ->
+                        ModelRegistration.register(settings, LITERT_PROVIDER_ID, model, targetFile.absolutePath)
                     }
                     refreshFromDisk()
                 } catch (e: Exception) {
@@ -461,7 +458,6 @@ class SettingLocalLlmViewModel(
                 }
                 is ModelInstall.Progress.Done -> {
                     _downloadProgress.value = null
-                    prefs.addInstalledModel(runtime, fileName, p.file.absolutePath)
                     val caps = LiteRtModelMetadata.deriveCapabilities(fileName)
                     val model = Model(
                         modelId = fileName,
@@ -469,13 +465,9 @@ class SettingLocalLlmViewModel(
                         inputModalities = caps.inputModalities,
                         abilities = caps.abilities,
                     )
-                    updateMyProvider { provider -> provider.addModel(model) }
-                    // Enable the provider automatically after the first successful download.
-                    updateMyProvider { provider ->
-                        when (provider) {
-                            is ProviderSetting.LiteRtLocal -> provider.copy(enabled = true)
-                            else -> provider
-                        }
+                    prefs.addInstalledModel(runtime, fileName, p.file.absolutePath)
+                    settingsStore.update { settings ->
+                        ModelRegistration.register(settings, LITERT_PROVIDER_ID, model, p.file.absolutePath)
                     }
                     refreshFromDisk()
                 }

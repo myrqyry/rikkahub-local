@@ -226,25 +226,7 @@ class ModelManagerViewModel(
             outputModalities = listOf(Modality.TEXT),
         )
         settingsStore.update { settings ->
-            val current = settings.providers
-                .firstOrNull { it.id == LLAMACPP_PROVIDER_ID } as? ProviderSetting.LlamaCppLocal
-            val models = when {
-                current != null && current.models.any { it.modelId == fileName } ->
-                    current.models.map { existing ->
-                        if (existing.modelId == fileName) model.copy(id = existing.id, displayName = existing.displayName)
-                        else existing
-                    }
-                current != null -> current.models + model
-                else -> listOf(model)
-            }
-            val newLlm = (current ?: ProviderSetting.LlamaCppLocal()).copy(enabled = true, models = models)
-            settings.copy(
-                providers = if (current != null) {
-                    settings.providers.map { if (it.id == LLAMACPP_PROVIDER_ID) newLlm else it }
-                } else {
-                    settings.providers + newLlm
-                },
-            )
+            ModelRegistration.register(settings, LLAMACPP_PROVIDER_ID, model, absolutePath)
         }
     }
 
@@ -257,37 +239,7 @@ class ModelManagerViewModel(
             outputModalities = listOf(Modality.IMAGE),
         )
         settingsStore.update { settings ->
-            val sd = settings.providers
-                .firstOrNull { it.id == STABLE_DIFFUSION_PROVIDER_ID } as? ProviderSetting.StableDiffusion
-            val models = when {
-                sd != null && sd.models.any { it.modelId == fileName } ->
-                    sd.models.map { existing ->
-                        if (existing.modelId == fileName) {
-                            model.copy(id = existing.id, displayName = existing.displayName)
-                        } else {
-                            existing
-                        }
-                    }
-                sd != null -> sd.models + model
-                else -> listOf(model)
-            }
-            val newSd = (sd ?: ProviderSetting.StableDiffusion()).copy(
-                enabled = true,
-                models = models,
-                // Legacy compatibility only. StableDiffusionProvider now resolves params.model
-                // through LocalRuntimePreferences, but keeping a valid path here helps old state
-                // survive app upgrades until currentModelPath can be removed entirely.
-                currentModelPath = sd?.currentModelPath
-                    ?.takeIf { File(it).isFile }
-                    ?: absolutePath,
-            )
-            settings.copy(
-                providers = if (sd != null) {
-                    settings.providers.map { if (it.id == STABLE_DIFFUSION_PROVIDER_ID) newSd else it }
-                } else {
-                    settings.providers + newSd
-                },
-            )
+            ModelRegistration.register(settings, STABLE_DIFFUSION_PROVIDER_ID, model, absolutePath)
         }
         me.rerere.rikkahub.data.ai.StableDiffusionBridge.invalidateSession()
     }
