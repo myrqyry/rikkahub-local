@@ -2004,6 +2004,11 @@
   <string name="model_manager_add_section_catalog">Browse catalog</string>
   <string name="model_manager_add_section_url">Import from Hugging Face URL</string>
   <string name="model_manager_add_section_file">Import from local file</string>
+  <string name="model_manager_flux_catalog_subtitle">Local LiteRT image generation package.</string>
+  <string name="model_manager_flux_ready">Installed and ready</string>
+  <string name="model_manager_flux_incomplete">Installed package is missing tokenizer files</string>
+  <string name="model_manager_flux_not_installed">Not installed</string>
+  <string name="model_manager_flux_import">Import package folder</string>
   <string name="unified_models_configure">Configure</string>
   <string name="unified_models_provider_count">{count} models</string>
   <string name="setting_page_agent">Agent Settings</string>

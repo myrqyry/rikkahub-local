@@ -977,24 +977,11 @@ private fun ColumnScope.ProviderConfigureLiteRT(
         key = "configure-${LocalRuntime.LiteRT.displayName}",
         parameters = { parametersOf(LocalRuntime.LiteRT) },
     )
-    val downloadProgress by vm.downloadProgress.collectAsStateWithLifecycle()
-    val errorMessage by vm.errorMessage.collectAsStateWithLifecycle()
     val accelerator by vm.accelerator.collectAsStateWithLifecycle()
     val taskAccelerator by vm.taskAccelerator.collectAsStateWithLifecycle()
     val forceCpu by vm.forceCpu.collectAsStateWithLifecycle()
     val maxNumTokensOverride by vm.maxNumTokensOverride.collectAsStateWithLifecycle()
     val crashRecoveryAccel by vm.crashRecoveryAccelerator.collectAsStateWithLifecycle()
-    val installedModelFiles by vm.installedModelFiles.collectAsStateWithLifecycle()
-    val visionUnavailableSet by vm.visionUnavailableSet.collectAsStateWithLifecycle()
-    val perfTelemetry by vm.perfTelemetry.collectAsStateWithLifecycle()
-
-    val scope = rememberCoroutineScope()
-    val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        uri ?: return@rememberLauncherForActivityResult
-        vm.importModelFromUri(uri)
-    }
 
     provider.description()
 
@@ -1032,121 +1019,6 @@ private fun ColumnScope.ProviderConfigureLiteRT(
         modifier = Modifier.fillMaxWidth(),
         maxLines = 3,
     )
-
-    // Installed model count — model management is on the Models tab (page 1).
-    Text(
-        text = stringResource(R.string.local_llm_installed_models_count, provider.models.size),
-        style = MaterialTheme.typography.bodySmall,
-    )
-
-    // URL install field — paste an HF URL, hit Install.
-    var manualUrl by remember { mutableStateOf("") }
-    OutlinedTextField(
-        value = manualUrl,
-        onValueChange = { manualUrl = it },
-        label = { Text(stringResource(R.string.local_llm_install_url_label)) },
-        supportingText = { Text(stringResource(R.string.local_llm_install_url_hint)) },
-        modifier = Modifier.fillMaxWidth(),
-    )
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Button(
-            onClick = {
-                vm.startManualDownload(manualUrl)
-                manualUrl = ""
-            },
-            enabled = manualUrl.isNotBlank() && downloadProgress == null,
-        ) {
-            Text(stringResource(R.string.local_llm_install_url_action))
-        }
-        OutlinedButton(
-            onClick = { vm.startDefaultDownload() },
-            enabled = downloadProgress == null,
-        ) {
-            Text(stringResource(R.string.local_llm_download_default))
-        }
-    }
-
-    // Manage installed files — rename or delete each downloaded .litertlm.
-    if (provider.models.isNotEmpty()) {
-        Text(
-            stringResource(R.string.local_llm_manage_files_title),
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-        provider.models.forEach { model ->
-            InstalledModelRow(
-                model = model,
-                visionUnavailable = model.modelId in visionUnavailableSet,
-                // After a native crash inside liblitertlm we suppress the Re-try
-                // vision button: re-trying immediately is what just crashed the app.
-                // The user dismisses the crash banner (above) when they want to opt
-                // back in to taking that risk; the button reappears.
-                allowVisionRetry = crashRecoveryAccel == null,
-                perfSample = perfTelemetry[model.modelId],
-                onRename = { newName -> vm.renameModel(model.modelId, newName) },
-                onDelete = { vm.deleteModel(model.modelId) },
-                onRetryVision = { vm.retryVisionEncoder(model.modelId) },
-            )
-        }
-    }
-
-    // Recommended-models curated picker. Sourced from Google AI Edge Gallery's allowlist
-    // (LiteRtCatalog.ENTRIES). Each card links to the model's HuggingFace page — the user
-    // gets the file there (copy the URL into the paste field, or download + import from the
-    // filesystem), since the app never downloads a catalog model directly.
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-        Text(
-            stringResource(R.string.local_llm_catalog_title),
-            style = MaterialTheme.typography.titleSmall,
-        )
-        Text(
-            stringResource(R.string.local_llm_catalog_subtitle),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        val context = LocalContext.current
-        LiteRtCatalog.ENTRIES.forEach { entry ->
-            LiteRtCatalogEntryCard(
-                entry = entry,
-                installed = entry.modelFile in installedModelFiles,
-                onOpenSource = { openModelSourceUrl(context, entry.sourceUrl) },
-            )
-        }
-
-        OutlinedButton(
-            onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
-            enabled = downloadProgress == null,
-            modifier = Modifier.padding(top = 4.dp),
-        ) {
-            Text(stringResource(R.string.local_llm_import_filesystem))
-        }
-    }
-
-    // Local Task Library models — on-device classifiers, detectors, OCR and audio tagging.
-    // Link-only like LiteRtCatalog: each card copies the model URL or opens the HF page;
-    // the user imports the file via the Local LiteRT import picker above.
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 16.dp)) {
-        Text("Local Task Library models", style = MaterialTheme.typography.titleMedium)
-        Text(
-            "On-device classifiers, detectors, OCR and audio tagging. Copy the model URL or import the file below.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        TaskKind.entries.forEach { kind ->
-            val entries = TaskLibraryCatalog.findByTaskKind(kind)
-            if (entries.isNotEmpty()) {
-                Text(
-                    kind.displayName(),
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                entries.forEach { entry -> TaskLibraryCatalogEntryCard(entry = entry) }
-            }
-        }
-    }
 
     // Accelerator row with re-detect button.
     Row(
@@ -1284,49 +1156,6 @@ private fun ColumnScope.ProviderConfigureLiteRT(
         }
     }
 
-    // Download progress indicator.
-    downloadProgress?.let { progress ->
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (progress.totalBytes != null && progress.totalBytes > 0) {
-                LinearProgressIndicator(
-                    progress = { progress.percent / 100f },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            } else {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
-            Text(
-                text = stringResource(R.string.local_llm_download_progress, progress.percent),
-                style = MaterialTheme.typography.labelSmall,
-            )
-        }
-    }
-
-    // Error text + optional "Delete model" action when a model file is the likely culprit.
-    errorMessage?.let { msg ->
-        Text(
-            text = stringResource(R.string.local_llm_status_error_format, msg),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-        )
-        // If there are installed models, offer to delete them so the user can clear a
-        // broken file (e.g. wrong runtime version) without navigating away.
-        if (provider.models.isNotEmpty()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                provider.models.forEach { model ->
-                    OutlinedButton(onClick = { vm.deleteModel(model.modelId) }) {
-                        Text(
-                            text = stringResource(R.string.local_llm_delete_model) +
-                                if (provider.models.size > 1) " ${model.modelId}" else "",
-                        )
-                    }
-                }
-            }
-        }
-    }
 }
 
 @Composable

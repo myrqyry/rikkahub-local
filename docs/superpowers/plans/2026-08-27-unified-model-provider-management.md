@@ -20,6 +20,18 @@ selection state without changing installed-data locations.
 ObjectBox-backed settings, OkHttp, existing local-llm runtime managers, and
 JUnit tests.
 
+## Implementation Status
+
+- Tasks 1 and 2 are complete and committed as `fa00e21a` and `4466d10a`.
+- Task 3 currently provides the FLUX package import entry point in the existing
+  Models acquisition sheet, with validation, staging, backup, rollback, and
+  centralized LiteRT registration.
+- Task 4 removes local model lifecycle controls from provider configuration,
+  hides the redundant local-provider model tab, enables LiteRT by default, and
+  filters the provider source list to configured providers.
+- Remaining: full modality catalog integration on `ModelsPage`, a dedicated
+  provider type picker, full regression test coverage, and device smoke testing.
+
 ## Global Constraints
 
 - LiteRT is a built-in provider and starts enabled.

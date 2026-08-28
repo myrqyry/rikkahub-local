@@ -141,7 +141,10 @@ fun SettingProviderDetailPage(id: Uuid, vm: SettingVM = koinViewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val navController = LocalNavController.current
     val provider = settings.providers.find { it.id == id } ?: return
-    val pager = rememberPagerState { 2 }
+    val hasModelTab = provider !is ProviderSetting.LiteRtLocal &&
+        provider !is ProviderSetting.StableDiffusion &&
+        provider !is ProviderSetting.LlamaCppLocal
+    val pager = rememberPagerState { if (hasModelTab) 2 else 1 }
     val scope = rememberCoroutineScope()
     val toaster = LocalToaster.current
     val context = LocalContext.current
@@ -212,16 +215,18 @@ fun SettingProviderDetailPage(id: Uuid, vm: SettingVM = koinViewModel()) {
                         }
                     }
                 )
-                NavigationBarItem(
-                    selected = pager.currentPage == 1,
-                    label = { Text(stringResource(id = R.string.setting_provider_page_models)) },
-                    icon = { Icon(HugeIcons.Package01, null) },
-                    onClick = {
-                        scope.launch {
-                            pager.animateScrollToPage(1)
+                if (hasModelTab) {
+                    NavigationBarItem(
+                        selected = pager.currentPage == 1,
+                        label = { Text(stringResource(id = R.string.setting_provider_page_models)) },
+                        icon = { Icon(HugeIcons.Package01, null) },
+                        onClick = {
+                            scope.launch {
+                                pager.animateScrollToPage(1)
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         }
     ) {
@@ -248,7 +253,7 @@ fun SettingProviderDetailPage(id: Uuid, vm: SettingVM = koinViewModel()) {
                     )
                 }
 
-                1 -> {
+                1 -> if (hasModelTab) {
                     SettingProviderModelPage(
                         provider = provider,
                         onEdit = onEdit

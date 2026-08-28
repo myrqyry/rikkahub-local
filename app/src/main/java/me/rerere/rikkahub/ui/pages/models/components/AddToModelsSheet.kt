@@ -38,7 +38,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.rerere.ai.provider.ProviderSetting
+import me.rerere.locallm.ModelCatalogEntry
+import me.rerere.locallm.ModelModality
 import me.rerere.locallm.SdCatalogEntry
+import me.rerere.locallm.litert.image.Flux2KleinPackageStatus
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.RECOMMENDED_PROVIDERS
 import me.rerere.rikkahub.ui.hooks.useEditState
@@ -57,11 +60,15 @@ fun AddToModelsSheet(
     val filePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri -> uri?.let { viewModel.importModelFromUri(it) } }
+    val fluxFolderPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri -> uri?.let { viewModel.importFluxPackageFromTree(it) } }
     val editState = useEditState<ProviderSetting> { provider ->
         viewModel.addProvider(provider)
     }
     val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    val fluxStatus by viewModel.fluxStatus.collectAsStateWithLifecycle()
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(Modifier.padding(bottom = 16.dp)) {
@@ -74,6 +81,8 @@ fun AddToModelsSheet(
                 filePickerLauncher = filePickerLauncher,
                 downloadProgress = downloadProgress,
                 errorMessage = errorMessage,
+                fluxStatus = fluxStatus,
+                onImportFlux = { fluxFolderPickerLauncher.launch(null) },
             )
 
             AddModelSectionHeader(
@@ -124,6 +133,8 @@ private fun ColumnScope.AddModelOptions(
     filePickerLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>,
     downloadProgress: Progress?,
     errorMessage: String?,
+    fluxStatus: Flux2KleinPackageStatus,
+    onImportFlux: () -> Unit,
 ) {
     val installedModels by viewModel.provider.collectAsStateWithLifecycle()
     val installedFiles = installedModels?.models?.map { it.modelId }?.toSet() ?: emptySet()
@@ -136,6 +147,13 @@ private fun ColumnScope.AddModelOptions(
             AddModelSectionHeader(
                 title = stringResource(R.string.model_manager_add_section_catalog),
                 subtitle = stringResource(R.string.model_manager_sd_catalog_subtitle),
+            )
+        }
+        item {
+            FluxCatalogEntryCard(
+                entry = viewModel.unifiedCatalog.first { it.modality == ModelModality.IMAGE },
+                status = fluxStatus,
+                onImport = onImportFlux,
             )
         }
         items(viewModel.catalogEntries, key = { it.modelFile }) { entry ->
@@ -191,6 +209,38 @@ private fun ColumnScope.AddModelOptions(
             color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         )
+    }
+}
+
+@Composable
+private fun FluxCatalogEntryCard(
+    entry: ModelCatalogEntry,
+    status: Flux2KleinPackageStatus,
+    onImport: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(entry.model.displayName, style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.model_manager_flux_catalog_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Text(
+                when (status) {
+                    Flux2KleinPackageStatus.Ready -> stringResource(R.string.model_manager_flux_ready)
+                    Flux2KleinPackageStatus.ReadyBakedPrompt -> stringResource(R.string.model_manager_flux_incomplete)
+                    is Flux2KleinPackageStatus.NotReady -> stringResource(R.string.model_manager_flux_not_installed)
+                },
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Button(onClick = onImport) {
+                Text(stringResource(R.string.model_manager_flux_import))
+            }
+        }
     }
 }
 

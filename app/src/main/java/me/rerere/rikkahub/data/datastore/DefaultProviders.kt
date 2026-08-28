@@ -43,14 +43,14 @@ val DEFAULT_PROVIDERS = listOf(
         },
     ),
     ProviderSetting.LiteRtLocal(
-        // LiteRT-LM on-device provider. Disabled by default. Settings → Local · LiteRT
+        // LiteRT-LM on-device provider. Enabled by default as the built-in local runtime.
         // shows a curated picker (LiteRtCatalog) with Google AI Edge Gallery's recommended
         // models — Gemma 4 E2B / Gemma3-1B-IT / Qwen2.5-1.5B / DeepSeek-R1 distill / etc.
         // — each with the per-model sampler + length defaults Gallery curates for them.
         // The runtime mirrors Gallery's exact SDK call sequence (engine.initialize() +
         // maxNumTokens + systemInstruction via ConversationConfig + speculative decoding
         // probe via Capabilities) so on-device inference behaves the same as Gallery.
-        enabled = false,
+        enabled = true,
         builtIn = true,
         description = {
             Text("Runs .litertlm models on-device via LiteRT-LM. Pick a curated model from Settings → Local · LiteRT (Google AI Edge Gallery's allowlist) — no API key, no network at inference.")

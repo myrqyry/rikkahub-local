@@ -3,6 +3,7 @@ package me.rerere.rikkahub.ui.pages.modelmanager
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.io.File
@@ -20,12 +21,18 @@ import me.rerere.ai.provider.Modality
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelType
 import me.rerere.ai.provider.ProviderSetting
+import me.rerere.ai.provider.LITERT_PROVIDER_ID
 import me.rerere.ai.provider.LLAMACPP_PROVIDER_ID
 import me.rerere.ai.provider.STABLE_DIFFUSION_PROVIDER_ID
 import me.rerere.locallm.GgufClassifier
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
 import me.rerere.locallm.ModelInstall
+import me.rerere.locallm.ModelCatalog
+import me.rerere.locallm.ModelCatalogEntry
+import me.rerere.locallm.litert.image.FLUX2_KLEIN_MODEL
+import me.rerere.locallm.litert.image.Flux2KleinPackage
+import me.rerere.locallm.litert.image.Flux2KleinPackageStatus
 import me.rerere.locallm.SdCatalog
 import me.rerere.locallm.SdCatalogEntry
 import me.rerere.rikkahub.data.datastore.SettingsStore
@@ -45,6 +52,16 @@ class ModelManagerViewModel(
     private val runtime = LocalRuntime.StableDiffusion
 
     val catalogEntries: List<SdCatalogEntry> = SdCatalog.ENTRIES
+    val unifiedCatalog: List<ModelCatalogEntry> = ModelCatalog.entries
+
+    private val fluxPackageRoot = File(
+        context.getExternalFilesDir(null) ?: context.filesDir,
+        "local-models/flux2-klein",
+    )
+    private val _fluxStatus = MutableStateFlow<Flux2KleinPackageStatus>(
+        Flux2KleinPackageStatus.NotReady("FLUX.2-klein package is not installed"),
+    )
+    val fluxStatus: StateFlow<Flux2KleinPackageStatus> = _fluxStatus.asStateFlow()
 
     private val _downloadProgress = MutableStateFlow<Progress?>(null)
     val downloadProgress: StateFlow<Progress?> = _downloadProgress.asStateFlow()
@@ -60,6 +77,54 @@ class ModelManagerViewModel(
 
     init {
         viewModelScope.launch { refreshFromDisk() }
+        refreshFluxStatus()
+    }
+
+    fun refreshFluxStatus() {
+        _fluxStatus.value = Flux2KleinPackage(fluxPackageRoot).validate().status
+    }
+
+    fun importFluxPackageFromTree(uri: Uri) = viewModelScope.launch {
+        val staging = File(fluxPackageRoot.parentFile, ".flux2-klein-staging")
+        try {
+            withContext(Dispatchers.IO) {
+                val source = DocumentFile.fromTreeUri(context, uri)
+                    ?: error("The selected location is not a folder")
+                staging.deleteRecursively()
+                staging.mkdirs()
+                copyTree(source, staging)
+                val packageStatus = Flux2KleinPackage(staging).validate().status
+                check(packageStatus is Flux2KleinPackageStatus.Ready) {
+                    "FLUX.2-klein package is incomplete"
+                }
+                val previous = File(fluxPackageRoot.parentFile, ".flux2-klein-previous")
+                previous.deleteRecursively()
+                val hadTarget = fluxPackageRoot.exists()
+                if (hadTarget) check(fluxPackageRoot.renameTo(previous)) { "Could not back up FLUX package" }
+                try {
+                    check(staging.renameTo(fluxPackageRoot)) { "Could not install FLUX package" }
+                    previous.deleteRecursively()
+                } catch (error: Throwable) {
+                    if (hadTarget) previous.renameTo(fluxPackageRoot)
+                    throw error
+                }
+            }
+            settingsStore.update { settings ->
+                ModelRegistration.register(
+                    settings,
+                    LITERT_PROVIDER_ID,
+                    FLUX2_KLEIN_MODEL,
+                    fluxPackageRoot.absolutePath,
+                )
+            }
+            refreshFluxStatus()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            staging.deleteRecursively()
+            _errorMessage.value = e.message ?: "FLUX package import failed"
+            refreshFluxStatus()
+        }
     }
 
     fun setEnabled(enabled: Boolean) = viewModelScope.launch {
@@ -294,5 +359,20 @@ class ModelManagerViewModel(
             .trim('.')
             .ifBlank { "model_${System.currentTimeMillis()}" }
         return if (leaf.endsWith(".gguf", ignoreCase = true)) leaf else "$leaf.gguf"
+    }
+
+    private fun copyTree(current: DocumentFile, targetRoot: File) {
+        current.listFiles().forEach { child ->
+            val name = child.name ?: return@forEach
+            val target = File(targetRoot, name)
+            if (child.isDirectory) {
+                target.mkdirs()
+                copyTree(child, target)
+            } else {
+                val input = context.contentResolver.openInputStream(child.uri)
+                    ?: error("Could not read $name")
+                input.use { stream -> target.outputStream().use(stream::copyTo) }
+            }
+        }
     }
 }

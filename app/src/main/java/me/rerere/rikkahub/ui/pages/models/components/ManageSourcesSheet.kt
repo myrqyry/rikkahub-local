@@ -82,11 +82,12 @@ fun ManageSourcesSheet(
         vm.updateSettings(settings.copy(providers = newProviders))
     }
 
-    val filteredProviders = remember(settings.providers, searchQuery) {
+    val configured = remember(settings.providers) { configuredProviders(settings.providers) }
+    val filteredProviders = remember(configured, searchQuery) {
         if (searchQuery.isBlank()) {
-            settings.providers
+            configured
         } else {
-            settings.providers.filter { provider ->
+            configured.filter { provider ->
                 provider.name.contains(searchQuery, ignoreCase = true)
             }
         }
@@ -205,6 +206,11 @@ fun ManageSourcesSheet(
         }
     }
 }
+
+internal fun configuredProviders(providers: List<ProviderSetting>): List<ProviderSetting> =
+    providers.filter { provider ->
+        provider.enabled || provider.models.isNotEmpty() || !provider.builtIn
+    }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
