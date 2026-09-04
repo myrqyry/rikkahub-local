@@ -22,7 +22,7 @@ private fun errEnv(error: String, detail: String): List<UIMessagePart> {
     return listOf(UIMessagePart.Text(obj.toString()))
 }
 
-private fun encodeRun(run: SubAgentRun): kotlinx.serialization.json.JsonObject = buildJsonObject {
+internal fun encodeRun(run: SubAgentRun): kotlinx.serialization.json.JsonObject = buildJsonObject {
     put("id", run.id)
     put("status", run.status.name)
     put("label", run.label)
@@ -32,7 +32,11 @@ private fun encodeRun(run: SubAgentRun): kotlinx.serialization.json.JsonObject =
     put("max_trips", run.maxTrips)
     put("started_at_ms", run.startedAtMs)
     if (run.finishedAtMs != null) put("finished_at_ms", run.finishedAtMs)
-    if (run.result != null) put("result", run.result)
+    if (run.result != null && !run.noResult) {
+        put("result", run.result)
+    } else if (run.noResult) {
+        put("result_suppressed", true)
+    }
     if (run.error != null) put("error", run.error)
     put("tokens_in", run.tokensIn)
     put("tokens_out", run.tokensOut)
@@ -91,6 +95,15 @@ fun subagentDispatchTool(
                     put("items", buildJsonObject { put("type", "string") })
                 })
                 put("run_in_background", buildJsonObject { put("type", "boolean") })
+                put("no_result", buildJsonObject {
+                    put("type", "boolean")
+                    put(
+                        "description",
+                        "When true the sub-agent's final output is not returned to you " +
+                            "(only status, ids and counters). Use for fire-and-forget work " +
+                            "whose result you do not need, to keep your context small.",
+                    )
+                })
                 put("timeout_seconds", buildJsonObject { put("type", "integer") })
                 put("max_trips", buildJsonObject { put("type", "integer") })
             },
@@ -120,6 +133,7 @@ fun subagentDispatchTool(
             tools = params["tools"]?.let { runCatching { it.jsonArray }.getOrNull() }
                 ?.mapNotNull { it.jsonPrimitive.contentOrNull },
             runInBackground = params["run_in_background"]?.jsonPrimitive?.booleanOrNull ?: false,
+            noResult = params["no_result"]?.jsonPrimitive?.booleanOrNull ?: false,
             timeoutSeconds = params["timeout_seconds"]?.jsonPrimitive?.intOrNull
                 ?: SubAgentDefaults.DEFAULT_TIMEOUT_SECONDS,
             maxTrips = params["max_trips"]?.jsonPrimitive?.intOrNull

@@ -22,6 +22,7 @@ data class SubAgentRun(
     val modelId: String?,              // null = inherited from parent
     val tools: List<String>?,          // null = inherited from parent
     val runInBackground: Boolean,
+    val noResult: Boolean = false,     // suppress final result text from parent-facing replies/notices
     val timeoutSeconds: Int,
     val maxTrips: Int,
     val status: SubAgentStatus,
@@ -79,6 +80,7 @@ data class SubAgentRequest(
     val systemPrompt: String? = null,
     val tools: List<String>? = null,
     val runInBackground: Boolean = false,
+    val noResult: Boolean = false,
     val timeoutSeconds: Int = SubAgentDefaults.DEFAULT_TIMEOUT_SECONDS,
     val maxTrips: Int = SubAgentDefaults.DEFAULT_MAX_TRIPS,
     val label: String? = null,
