@@ -4,7 +4,7 @@ import me.rerere.rikkahub.data.modelregistry.ModelCapability
 import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
 
 enum class ModelsFilter {
-    ALL, CHAT, VISION, IMAGE, AUDIO, RETRIEVAL;
+    ALL, CHAT, VISION, IMAGE, AUDIO, EMBEDDINGS;
 
     fun matches(model: ModelDescriptor): Boolean = when (this) {
         ALL -> true
@@ -22,9 +22,7 @@ enum class ModelsFilter {
                 it == ModelCapability.SPEECH_TO_TEXT ||
                 it == ModelCapability.AUDIO_UNDERSTANDING
         }
-        RETRIEVAL -> model.capabilities.any {
-            it == ModelCapability.EMBEDDINGS || it == ModelCapability.RERANKING
-        }
+        EMBEDDINGS -> model.capabilities.contains(ModelCapability.EMBEDDINGS)
     }
 }
 
@@ -34,7 +32,7 @@ fun ModelTab.toModelsFilter(): ModelsFilter = when (this) {
     ModelTab.VISION -> ModelsFilter.VISION
     ModelTab.IMAGE -> ModelsFilter.IMAGE
     ModelTab.SPEECH -> ModelsFilter.AUDIO
-    ModelTab.EMBEDDINGS -> ModelsFilter.RETRIEVAL
+    ModelTab.EMBEDDINGS -> ModelsFilter.EMBEDDINGS
     ModelTab.TASK -> ModelsFilter.VISION
     ModelTab.OTHER -> ModelsFilter.ALL
 }
