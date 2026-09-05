@@ -1,12 +1,21 @@
 package me.rerere.rikkahub.ui.pages.models.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
@@ -33,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.core.tween
 import kotlinx.coroutines.launch
 import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.ArrowRight01
@@ -119,7 +129,12 @@ fun ModelAssignmentsSection(
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         groups.forEach { group ->
-            CardGroup(title = { Text(stringResource(group.title)) }) {
+            CardGroup(
+                modifier = if (group.title == R.string.setting_model_group_conversation) {
+                    Modifier.animateContentSize(animationSpec = tween(180))
+                } else Modifier,
+                title = { Text(stringResource(group.title)) },
+            ) {
                 if (group.title == R.string.setting_model_group_conversation) {
                     item(
                         headlineContent = { Text(stringResource(R.string.setting_model_page_enable_suggestion)) },
@@ -133,13 +148,13 @@ fun ModelAssignmentsSection(
                     if (enableSuggestion) {
                         val row = AssignmentRow("Suggestion model", null, suggestionModelId, true, onSuggestionModelSelected)
                         val candidates = compatibleAssignments(ModelRole.CHAT, models)
-                        AssignmentItem(
-                            row = row,
-                            candidates = candidates,
-                            allModels = models,
-                            repairState = repairState,
-                            rowStateHolder = rowStateHolder,
-                        )
+                            AssignmentItem(
+                                row = row,
+                                candidates = candidates,
+                                allModels = models,
+                                repairState = repairState,
+                                rowStateHolder = rowStateHolder,
+                            )
                     }
                 }
                 group.rows.forEach { row ->
@@ -197,12 +212,22 @@ private fun CardGroupScope.AssignmentItem(
         headlineContent = { Text(row.label) },
         supportingContent = if (unavailable) {
             {
-                Text(
-                    "⚠ " + stringResource(R.string.model_assignment_disabled),
-                    color = MaterialTheme.colorScheme.error,
-                )
+                Box(modifier = Modifier.height(18.dp)) {
+                    AnimatedVisibility(
+                        visible = unavailable,
+                        enter = fadeIn(tween(120)),
+                        exit = fadeOut(tween(100)),
+                    ) {
+                        Text(
+                            "⚠ " + stringResource(R.string.model_assignment_disabled),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
             }
-        } else null,
+        } else {
+            { Box(modifier = Modifier.height(18.dp)) {} }
+        },
         trailingContent = {
             AssignmentValue(
                 model = chosen,
@@ -234,19 +259,28 @@ private fun AssignmentValue(
     onClear: () -> Unit,
     onOpen: () -> Unit,
 ) {
+    val valueText = when {
+        model != null -> model.displayName
+        unavailable -> stringResource(R.string.model_assignment_select_replacement)
+        else -> stringResource(R.string.model_list_select_model)
+    }
     Row(verticalAlignment = Alignment.CenterVertically) {
         TextButton(onClick = onOpen) {
-            Text(
-                text = when {
-                    model != null -> model.displayName
-                    unavailable -> stringResource(R.string.model_assignment_select_replacement)
-                    else -> stringResource(R.string.model_list_select_model)
+            AnimatedContent(
+                targetState = valueText,
+                transitionSpec = {
+                    fadeIn(tween(120)) togetherWith fadeOut(tween(80)) using SizeTransform(clip = false)
                 },
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color = if (unavailable && model == null) MaterialTheme.colorScheme.error
-                else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+                label = "assignment value",
+            ) { text ->
+                Text(
+                    text = text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (unavailable && model == null) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         if (allowClear && model != null) {
             IconButton(onClick = onClear, modifier = Modifier.size(20.dp)) {
