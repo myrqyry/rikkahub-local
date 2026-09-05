@@ -65,9 +65,9 @@ class ModelsFilterTest {
     }
 
     @Test
-    fun `RETRIEVAL covers embeddings and reranking`() {
-        assertTrue(ModelsFilter.RETRIEVAL.matches(descriptor("a", "x", setOf(ModelCapability.EMBEDDINGS))))
-        assertTrue(ModelsFilter.RETRIEVAL.matches(descriptor("b", "y", setOf(ModelCapability.RERANKING))))
+    fun `EMBEDDINGS matches embedding models only`() {
+        assertTrue(ModelsFilter.EMBEDDINGS.matches(descriptor("a", "x", setOf(ModelCapability.EMBEDDINGS))))
+        assertFalse(ModelsFilter.EMBEDDINGS.matches(descriptor("b", "y", setOf(ModelCapability.RERANKING))))
     }
 
     @Test
@@ -77,7 +77,7 @@ class ModelsFilterTest {
         assertTrue(ModelTab.VISION.toModelsFilter() == ModelsFilter.VISION)
         assertTrue(ModelTab.IMAGE.toModelsFilter() == ModelsFilter.IMAGE)
         assertTrue(ModelTab.SPEECH.toModelsFilter() == ModelsFilter.AUDIO)
-        assertTrue(ModelTab.EMBEDDINGS.toModelsFilter() == ModelsFilter.RETRIEVAL)
+        assertTrue(ModelTab.EMBEDDINGS.toModelsFilter() == ModelsFilter.EMBEDDINGS)
         assertTrue(ModelTab.TASK.toModelsFilter() == ModelsFilter.VISION)
         assertTrue(ModelTab.OTHER.toModelsFilter() == ModelsFilter.ALL)
     }

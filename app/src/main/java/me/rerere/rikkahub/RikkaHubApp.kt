@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Handler
 import android.util.Log
 import androidx.compose.foundation.ComposeFoundationFlags
 import androidx.compose.runtime.Composer
@@ -94,17 +95,17 @@ class RikkaHubApp : Application() {
         // Start WebServer if enabled in settings
         startWebServerIfEnabled()
 
-        // Eagerly construct ChatService on the main thread. Its constructor calls
-        // LifecycleRegistry.addObserver which throws if it runs off-main, and the Telegram
-        // bot service runs on Dispatchers.IO — without this priming, the first inbound bot
-        // message after a fresh app start crashes the bot's handleIncoming with
-        // "addObserver must be called on the main thread" because Koin's lazy factory
-        // builds ChatService on the IO thread.
-        eagerlyInitChatService()
+        // ChatService must be constructed on the main thread because its constructor calls
+        // LifecycleRegistry.addObserver. Defer the potentially slow Koin/database resolution
+        // until the first UI turn, then start Telegram so its IO thread cannot construct the
+        // singleton itself.
+        Handler(mainLooper).postDelayed({
+            eagerlyInitChatService()
 
-        // Start Telegram bot if previously enabled — service is START_NOT_STICKY so OS won't
-        // auto-revive it after a process kill; we need to bring it back ourselves.
-        startTelegramBotIfEnabled()
+            // Start Telegram bot if previously enabled — service is START_NOT_STICKY so OS
+            // won't auto-revive it after a process kill; we need to bring it back ourselves.
+            startTelegramBotIfEnabled()
+        }, 1_000L)
 
         // Initialise the agent's `~` workspace at /data/data/<pkg>/files/workspace/.
         // Tools resolve `~` and `~/foo` paths to this dir, giving the LLM a stable
