@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="models_add_provider_api">Provider API</string>
+    <string name="models_add_provider_api_desc">Configure access to a cloud or local-network provider.</string>
+    <string name="models_add_hugging_face">Hugging Face model</string>
+    <string name="models_add_hugging_face_desc">Download a local model from a Hugging Face file URL.</string>
+    <string name="models_add_local_file">Local model file</string>
+    <string name="models_add_local_file_desc">Import a model file already on this device.</string>
+    <string name="models_add_custom_openai">Custom OpenAI-compatible API</string>
+    <string name="models_add_provider_list">Provider APIs</string>
+    <string name="models_recommended">Recommended models</string>
+    <string name="models_recommended_for">Recommended %1$s models</string>
+</resources>
