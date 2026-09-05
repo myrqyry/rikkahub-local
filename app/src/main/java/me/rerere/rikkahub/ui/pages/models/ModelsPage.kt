@@ -80,8 +80,8 @@ fun ModelsPage(
             enableSuggestion = settings.enableSuggestion,
             onBack = { navController.popBackStack() },
             onAssign = { role, id -> vm.assign(role, id) },
-            onAssignTitle = vm::assignTitle,
-            onAssignTranslation = vm::assignTranslation,
+            onAssignTitle = { vm.assignTitle(it) },
+            onAssignTranslation = { vm.assignTranslation(it) },
             onSuggestionEnabledChange = {
                 settingsVm.updateSettings(settings.copy(enableSuggestion = it))
             },
@@ -308,23 +308,24 @@ private fun DefaultAssignmentsStatus(
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             items(rows, key = { it.role.name }) { row ->
-                val model = row.model ?: return@items
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp),
-                ) {
-                    Icon(
-                        imageVector = row.role.capability().icon,
-                        contentDescription = stringResource(row.role.labelRes()),
-                        modifier = Modifier.size(15.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = model.displayName,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                row.model?.let { model ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                        Icon(
+                            imageVector = row.role.capability().icon,
+                            contentDescription = stringResource(row.role.labelRes()),
+                            modifier = Modifier.size(15.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = model.displayName,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }
