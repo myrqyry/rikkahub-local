@@ -98,15 +98,17 @@ fun ModelInventorySection(
                 enter = expandVertically() + fadeIn(),
                 exit = shrinkVertically() + fadeOut(),
             ) {
-                group.models.forEachIndexed { modelIndex, model ->
-                    key(model.id) {
-                        CompactModelRow(
-                            model = model,
-                            onClick = { onModelClick(model) },
-                            onEnabledChange = { onModelEnabledChange(model, it) },
-                        )
-                        if (modelIndex != group.models.lastIndex) {
-                            HorizontalDivider(modifier = Modifier.padding(start = 44.dp))
+                Column {
+                    group.models.forEachIndexed { modelIndex, model ->
+                        key(model.id) {
+                            CompactModelRow(
+                                model = model,
+                                onClick = { onModelClick(model) },
+                                onEnabledChange = { onModelEnabledChange(model, it) },
+                            )
+                            if (modelIndex != group.models.lastIndex) {
+                                HorizontalDivider(modifier = Modifier.padding(start = 44.dp))
+                            }
                         }
                     }
                 }
@@ -138,15 +140,17 @@ fun ModelInventorySection(
                 enter = expandVertically() + fadeIn(),
                 exit = shrinkVertically() + fadeOut(),
             ) {
-                ungroupedModels.forEachIndexed { index, model ->
-                    key(model.id) {
-                        CompactModelRow(
-                            model = model,
-                            onClick = { onModelClick(model) },
-                            onEnabledChange = { onModelEnabledChange(model, it) },
-                        )
-                        if (index != ungroupedModels.lastIndex) {
-                            HorizontalDivider(modifier = Modifier.padding(start = 44.dp))
+                Column {
+                    ungroupedModels.forEachIndexed { index, model ->
+                        key(model.id) {
+                            CompactModelRow(
+                                model = model,
+                                onClick = { onModelClick(model) },
+                                onEnabledChange = { onModelEnabledChange(model, it) },
+                            )
+                            if (index != ungroupedModels.lastIndex) {
+                                HorizontalDivider(modifier = Modifier.padding(start = 44.dp))
+                            }
                         }
                     }
                 }

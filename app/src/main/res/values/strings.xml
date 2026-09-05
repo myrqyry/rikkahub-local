@@ -2010,7 +2010,7 @@
   <string name="model_manager_flux_not_installed">Not installed</string>
   <string name="model_manager_flux_import">Import package folder</string>
   <string name="unified_models_configure">Configure</string>
-  <string name="unified_models_provider_count">{count} models</string>
+  <string name="unified_models_provider_count">%1$d models</string>
   <string name="setting_page_agent">Agent Settings</string>
   <string name="setting_page_agent_desc">Prompts and agent behavior</string>
   <string name="imggen_page_edit_image">Edit Image</string>

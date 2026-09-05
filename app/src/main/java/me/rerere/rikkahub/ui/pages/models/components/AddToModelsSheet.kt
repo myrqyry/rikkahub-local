@@ -110,86 +110,88 @@ fun AddToModelsSheet(
                 },
                 label = "add models subpage",
             ) { currentMode ->
-                when (currentMode) {
-                AddModelsMode.ROOT -> {
-                    Text(
-                        text = stringResource(R.string.models_add),
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    )
-                    AddChoiceRow(
-                        title = stringResource(R.string.models_add_provider_api),
-                        subtitle = stringResource(R.string.models_add_provider_api_desc),
-                        onClick = { mode = AddModelsMode.PROVIDER },
-                    )
-                    AddChoiceRow(
-                        title = stringResource(R.string.models_add_hugging_face),
-                        subtitle = stringResource(R.string.models_add_hugging_face_desc),
-                        onClick = { mode = AddModelsMode.HUGGING_FACE },
-                    )
-                    AddChoiceRow(
-                        title = stringResource(R.string.models_add_local_file),
-                        subtitle = stringResource(R.string.models_add_local_file_desc),
-                        onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
-                    )
-                    AddChoiceRow(
-                        title = stringResource(R.string.model_manager_flux_import),
-                        subtitle = stringResource(R.string.model_manager_flux_catalog_subtitle),
-                        onClick = { fluxFolderPickerLauncher.launch(null) },
-                    )
-                }
-
-                AddModelsMode.PROVIDER -> {
-                    SheetSubpageHeader(
-                        title = stringResource(R.string.models_add_provider_list),
-                        onBack = { mode = AddModelsMode.ROOT },
-                    )
-                    LazyColumn {
-                        item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    when (currentMode) {
+                        AddModelsMode.ROOT -> {
+                            Text(
+                                text = stringResource(R.string.models_add),
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            )
                             AddChoiceRow(
-                                title = stringResource(R.string.models_add_custom_openai),
+                                title = stringResource(R.string.models_add_provider_api),
                                 subtitle = stringResource(R.string.models_add_provider_api_desc),
-                                onClick = {
-                                    editState.open(
-                                        ProviderSetting.OpenAI(
-                                            id = Uuid.random(),
-                                            name = "Custom API",
-                                            baseUrl = "",
-                                            apiKey = "",
-                                            enabled = true,
-                                            builtIn = false,
-                                        )
-                                    )
-                                },
+                                onClick = { mode = AddModelsMode.PROVIDER },
+                            )
+                            AddChoiceRow(
+                                title = stringResource(R.string.models_add_hugging_face),
+                                subtitle = stringResource(R.string.models_add_hugging_face_desc),
+                                onClick = { mode = AddModelsMode.HUGGING_FACE },
+                            )
+                            AddChoiceRow(
+                                title = stringResource(R.string.models_add_local_file),
+                                subtitle = stringResource(R.string.models_add_local_file_desc),
+                                onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
+                            )
+                            AddChoiceRow(
+                                title = stringResource(R.string.model_manager_flux_import),
+                                subtitle = stringResource(R.string.model_manager_flux_catalog_subtitle),
+                                onClick = { fluxFolderPickerLauncher.launch(null) },
                             )
                         }
-                        items(remoteProviders, key = { it.id }) { provider ->
-                            AddChoiceRow(
-                                title = provider.name,
-                                subtitle = provider.models.takeIf { it.isNotEmpty() }?.let {
-                                    "${it.size} model${if (it.size == 1) "" else "s"}"
-                                },
-                                onClick = {
-                                    onDismiss()
-                                    navController.navigate(
-                                        Screen.SettingProviderDetail(provider.id.toString())
+
+                        AddModelsMode.PROVIDER -> {
+                            SheetSubpageHeader(
+                                title = stringResource(R.string.models_add_provider_list),
+                                onBack = { mode = AddModelsMode.ROOT },
+                            )
+                            LazyColumn {
+                                item {
+                                    AddChoiceRow(
+                                        title = stringResource(R.string.models_add_custom_openai),
+                                        subtitle = stringResource(R.string.models_add_provider_api_desc),
+                                        onClick = {
+                                            editState.open(
+                                                ProviderSetting.OpenAI(
+                                                    id = Uuid.random(),
+                                                    name = "Custom API",
+                                                    baseUrl = "",
+                                                    apiKey = "",
+                                                    enabled = true,
+                                                    builtIn = false,
+                                                )
+                                            )
+                                        },
                                     )
-                                },
+                                }
+                                items(remoteProviders, key = { it.id }) { provider ->
+                                    AddChoiceRow(
+                                        title = provider.name,
+                                        subtitle = provider.models.takeIf { it.isNotEmpty() }?.let {
+                                            "${it.size} model${if (it.size == 1) "" else "s"}"
+                                        },
+                                        onClick = {
+                                            onDismiss()
+                                            navController.navigate(
+                                                Screen.SettingProviderDetail(provider.id.toString())
+                                            )
+                                        },
+                                    )
+                                }
+                            }
+                        }
+
+                        AddModelsMode.HUGGING_FACE -> {
+                            SheetSubpageHeader(
+                                title = stringResource(R.string.models_add_hugging_face),
+                                onBack = { mode = AddModelsMode.ROOT },
+                            )
+                            HuggingFaceImport(
+                                viewModel = viewModel,
+                                downloadInProgress = downloadProgress != null,
                             )
                         }
                     }
-                }
-
-                AddModelsMode.HUGGING_FACE -> {
-                    SheetSubpageHeader(
-                        title = stringResource(R.string.models_add_hugging_face),
-                        onBack = { mode = AddModelsMode.ROOT },
-                    )
-                    HuggingFaceImport(
-                        viewModel = viewModel,
-                        downloadInProgress = downloadProgress != null,
-                    )
-                }
                 }
             }
 
