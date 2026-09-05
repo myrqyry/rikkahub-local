@@ -183,7 +183,7 @@ fun ModelsPage(
                 }
             }
 
-            if (!searching && summaryRows.isNotEmpty()) {
+            if (!searching) {
                 item {
                     DefaultAssignmentsStatus(
                         rows = summaryRows,
