@@ -2,6 +2,13 @@ package me.rerere.rikkahub.ui.pages.models.components
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -87,7 +94,23 @@ fun AddToModelsSheet(
             modifier = Modifier.padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            when (mode) {
+            AnimatedContent(
+                targetState = mode,
+                transitionSpec = {
+                    val direction = if (targetState == AddModelsMode.ROOT) -1 else 1
+                    val enter = slideInHorizontally(
+                        animationSpec = tween(220),
+                        initialOffsetX = { offset -> offset * direction },
+                    ) + fadeIn(tween(140))
+                    val exit = slideOutHorizontally(
+                        animationSpec = tween(180),
+                        targetOffsetX = { offset -> -offset * direction },
+                    ) + fadeOut(tween(100))
+                    enter togetherWith exit
+                },
+                label = "add models subpage",
+            ) { currentMode ->
+                when (currentMode) {
                 AddModelsMode.ROOT -> {
                     Text(
                         text = stringResource(R.string.models_add),
@@ -166,6 +189,7 @@ fun AddToModelsSheet(
                         viewModel = viewModel,
                         downloadInProgress = downloadProgress != null,
                     )
+                }
                 }
             }
 
