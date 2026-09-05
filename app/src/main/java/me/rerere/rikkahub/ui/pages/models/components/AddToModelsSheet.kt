@@ -1,26 +1,24 @@
 package me.rerere.rikkahub.ui.pages.models.components
 
-import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -32,73 +30,138 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlin.uuid.Uuid
 import me.rerere.ai.provider.ProviderSetting
-import me.rerere.locallm.ModelCatalogEntry
-import me.rerere.locallm.ModelModality
-import me.rerere.locallm.SdCatalogEntry
-import me.rerere.locallm.litert.image.Flux2KleinPackageStatus
+import me.rerere.hugeicons.HugeIcons
+import me.rerere.hugeicons.stroke.ArrowLeft01
+import me.rerere.hugeicons.stroke.ArrowRight01
 import me.rerere.rikkahub.R
-import me.rerere.rikkahub.data.datastore.RECOMMENDED_PROVIDERS
+import me.rerere.rikkahub.Screen
+import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.hooks.useEditState
 import me.rerere.rikkahub.ui.pages.modelmanager.ModelManagerViewModel
 import me.rerere.rikkahub.ui.pages.modelmanager.Progress
+import me.rerere.rikkahub.ui.pages.setting.SettingVM
 import me.rerere.rikkahub.ui.pages.setting.components.ProviderConfigure
 import org.koin.androidx.compose.koinViewModel
+
+enum class AddModelsMode {
+    ROOT,
+    PROVIDER,
+    HUGGING_FACE,
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddToModelsSheet(
-    viewModel: ModelManagerViewModel = koinViewModel<ModelManagerViewModel>(),
+    viewModel: ModelManagerViewModel = koinViewModel(),
+    settingsVm: SettingVM = koinViewModel(),
     onDismiss: () -> Unit,
 ) {
+    val navController = LocalNavController.current
+    val settings by settingsVm.settings.collectAsStateWithLifecycle()
     val sheetState = rememberModalBottomSheetState()
     val filePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri -> uri?.let { viewModel.importModelFromUri(it) } }
-    val fluxFolderPickerLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocumentTree(),
-    ) { uri -> uri?.let { viewModel.importFluxPackageFromTree(it) } }
     val editState = useEditState<ProviderSetting> { provider ->
         viewModel.addProvider(provider)
     }
     val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
-    val fluxStatus by viewModel.fluxStatus.collectAsStateWithLifecycle()
+    var mode by remember { mutableStateOf(AddModelsMode.ROOT) }
+
+    val remoteProviders = remember(settings.providers) {
+        settings.providers.filterNot(::isLocalProvider)
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(Modifier.padding(bottom = 16.dp)) {
-            AddModelSectionHeader(
-                title = stringResource(R.string.models_add_on_device),
-                subtitle = stringResource(R.string.models_add_on_device_subtitle),
-            )
-            AddModelOptions(
-                viewModel = viewModel,
-                filePickerLauncher = filePickerLauncher,
-                downloadProgress = downloadProgress,
-                errorMessage = errorMessage,
-                fluxStatus = fluxStatus,
-                onImportFlux = { fluxFolderPickerLauncher.launch(null) },
-            )
+        Column(
+            modifier = Modifier.padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            when (mode) {
+                AddModelsMode.ROOT -> {
+                    Text(
+                        text = stringResource(R.string.models_add),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                    AddChoiceRow(
+                        title = stringResource(R.string.models_add_provider_api),
+                        subtitle = stringResource(R.string.models_add_provider_api_desc),
+                        onClick = { mode = AddModelsMode.PROVIDER },
+                    )
+                    AddChoiceRow(
+                        title = stringResource(R.string.models_add_hugging_face),
+                        subtitle = stringResource(R.string.models_add_hugging_face_desc),
+                        onClick = { mode = AddModelsMode.HUGGING_FACE },
+                    )
+                    AddChoiceRow(
+                        title = stringResource(R.string.models_add_local_file),
+                        subtitle = stringResource(R.string.models_add_local_file_desc),
+                        onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
+                    )
+                }
 
-            AddModelSectionHeader(
-                title = stringResource(R.string.models_add_connect_source),
-                subtitle = stringResource(R.string.models_add_connect_source_subtitle),
-            )
-            RECOMMENDED_PROVIDERS.forEach { provider ->
-                TextButton(
-                    onClick = { editState.open(provider) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                ) {
-                    Text(provider.name)
+                AddModelsMode.PROVIDER -> {
+                    SheetSubpageHeader(
+                        title = stringResource(R.string.models_add_provider_list),
+                        onBack = { mode = AddModelsMode.ROOT },
+                    )
+                    LazyColumn {
+                        item {
+                            AddChoiceRow(
+                                title = stringResource(R.string.models_add_custom_openai),
+                                subtitle = stringResource(R.string.models_add_provider_api_desc),
+                                onClick = {
+                                    editState.open(
+                                        ProviderSetting.OpenAI(
+                                            id = Uuid.random(),
+                                            name = "Custom API",
+                                            baseUrl = "",
+                                            apiKey = "",
+                                            enabled = true,
+                                            builtIn = false,
+                                        )
+                                    )
+                                },
+                            )
+                        }
+                        items(remoteProviders, key = { it.id }) { provider ->
+                            AddChoiceRow(
+                                title = provider.name,
+                                subtitle = provider.models.takeIf { it.isNotEmpty() }?.let {
+                                    "${it.size} model${if (it.size == 1) "" else "s"}"
+                                },
+                                onClick = {
+                                    onDismiss()
+                                    navController.navigate(
+                                        Screen.SettingProviderDetail(provider.id.toString())
+                                    )
+                                },
+                            )
+                        }
+                    }
+                }
+
+                AddModelsMode.HUGGING_FACE -> {
+                    SheetSubpageHeader(
+                        title = stringResource(R.string.models_add_hugging_face),
+                        onBack = { mode = AddModelsMode.ROOT },
+                    )
+                    HuggingFaceImport(
+                        viewModel = viewModel,
+                        downloadInProgress = downloadProgress != null,
+                    )
                 }
             }
+
+            DownloadStatus(downloadProgress, errorMessage)
         }
     }
 
@@ -127,61 +190,114 @@ fun AddToModelsSheet(
     }
 }
 
+private fun isLocalProvider(provider: ProviderSetting): Boolean = when (provider) {
+    is ProviderSetting.AICore,
+    is ProviderSetting.LiteRtLocal,
+    is ProviderSetting.StableDiffusion,
+    is ProviderSetting.LlamaCppLocal -> true
+    else -> false
+}
+
 @Composable
-private fun ColumnScope.AddModelOptions(
-    viewModel: ModelManagerViewModel,
-    filePickerLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>,
-    downloadProgress: Progress?,
-    errorMessage: String?,
-    fluxStatus: Flux2KleinPackageStatus,
-    onImportFlux: () -> Unit,
+private fun AddChoiceRow(
+    title: String,
+    subtitle: String? = null,
+    onClick: () -> Unit,
 ) {
-    val installedModels by viewModel.provider.collectAsStateWithLifecycle()
-    val installedFiles = installedModels?.models?.map { it.modelId }?.toSet() ?: emptySet()
-
-    LazyColumn(
-        contentPadding = PaddingValues(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        item {
-            AddModelSectionHeader(
-                title = stringResource(R.string.model_manager_add_section_catalog),
-                subtitle = stringResource(R.string.model_manager_sd_catalog_subtitle),
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
-        item {
-            FluxCatalogEntryCard(
-                entry = viewModel.unifiedCatalog.first { it.modality == ModelModality.IMAGE },
-                status = fluxStatus,
-                onImport = onImportFlux,
-            )
-        }
-        items(viewModel.catalogEntries, key = { it.modelFile }) { entry ->
-            val context = LocalContext.current
-            SdCatalogEntryCard(
-                entry = entry,
-                installed = entry.modelFile in installedFiles,
-                onOpenSource = {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, entry.sourceUrl.toUri()))
-                },
-            )
-        }
+        Icon(
+            imageVector = HugeIcons.ArrowRight01,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
 
-        item {
-            AddModelSectionHeader(stringResource(R.string.model_manager_add_section_url))
+@Composable
+private fun SheetSubpageHeader(
+    title: String,
+    onBack: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(HugeIcons.ArrowLeft01, stringResource(R.string.back))
         }
-        item {
-            HfUrlTab(viewModel, downloadProgress != null)
-        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
 
-        item {
-            AddModelSectionHeader(stringResource(R.string.model_manager_add_section_file))
-        }
-        item {
-            LocalImportTab(filePickerLauncher, downloadProgress != null)
+@Composable
+private fun HuggingFaceImport(
+    viewModel: ModelManagerViewModel,
+    downloadInProgress: Boolean,
+) {
+    var manualUrl by remember { mutableStateOf("") }
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        OutlinedTextField(
+            value = manualUrl,
+            onValueChange = { manualUrl = it },
+            label = { Text(stringResource(R.string.local_llm_install_url_label)) },
+            supportingText = { Text(stringResource(R.string.local_llm_install_url_hint)) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+        Button(
+            onClick = {
+                viewModel.startManualDownload(manualUrl)
+                manualUrl = ""
+            },
+            enabled = manualUrl.isNotBlank() && !downloadInProgress,
+        ) {
+            Text(stringResource(R.string.local_llm_install_url_action))
         }
     }
+}
 
+@Composable
+private fun DownloadStatus(
+    downloadProgress: Progress?,
+    errorMessage: String?,
+) {
     downloadProgress?.let { progress ->
         Column(
             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -202,196 +318,12 @@ private fun ColumnScope.AddModelOptions(
         }
     }
 
-    errorMessage?.let { msg ->
+    errorMessage?.let { message ->
         Text(
-            text = stringResource(R.string.local_llm_status_error_format, msg),
+            text = stringResource(R.string.local_llm_status_error_format, message),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         )
-    }
-}
-
-@Composable
-private fun FluxCatalogEntryCard(
-    entry: ModelCatalogEntry,
-    status: Flux2KleinPackageStatus,
-    onImport: () -> Unit,
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(entry.model.displayName, style = MaterialTheme.typography.titleMedium)
-            Text(
-                stringResource(R.string.model_manager_flux_catalog_subtitle),
-                style = MaterialTheme.typography.bodySmall,
-            )
-            Text(
-                when (status) {
-                    Flux2KleinPackageStatus.Ready -> stringResource(R.string.model_manager_flux_ready)
-                    Flux2KleinPackageStatus.ReadyBakedPrompt -> stringResource(R.string.model_manager_flux_incomplete)
-                    is Flux2KleinPackageStatus.NotReady -> stringResource(R.string.model_manager_flux_not_installed)
-                },
-                style = MaterialTheme.typography.bodySmall,
-            )
-            Button(onClick = onImport) {
-                Text(stringResource(R.string.model_manager_flux_import))
-            }
-        }
-    }
-}
-
-@Composable
-private fun AddModelSectionHeader(
-    title: String,
-    subtitle: String? = null,
-) {
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Text(title, style = MaterialTheme.typography.titleSmall)
-        if (subtitle != null) {
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun HfUrlTab(
-    viewModel: ModelManagerViewModel,
-    downloadInProgress: Boolean,
-) {
-    var manualUrl by remember { mutableStateOf("") }
-    Column(
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(16.dp),
-    ) {
-        OutlinedTextField(
-            value = manualUrl,
-            onValueChange = { manualUrl = it },
-            label = { Text(stringResource(R.string.local_llm_install_url_label)) },
-            supportingText = { Text(stringResource(R.string.local_llm_install_url_hint)) },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Button(
-                onClick = {
-                    viewModel.startManualDownload(manualUrl)
-                    manualUrl = ""
-                },
-                enabled = manualUrl.isNotBlank() && !downloadInProgress,
-            ) {
-                Text(stringResource(R.string.local_llm_install_url_action))
-            }
-            OutlinedButton(
-                onClick = { viewModel.startDefaultDownload() },
-                enabled = !downloadInProgress,
-            ) {
-                Text(stringResource(R.string.local_llm_download_default))
-            }
-        }
-    }
-}
-
-@Composable
-private fun LocalImportTab(
-    filePickerLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>,
-    downloadInProgress: Boolean,
-) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(16.dp),
-    ) {
-        OutlinedButton(
-            onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
-            enabled = !downloadInProgress,
-        ) {
-            Text(stringResource(R.string.local_llm_import_filesystem))
-        }
-    }
-}
-
-@Composable
-private fun SdCatalogEntryCard(
-    entry: SdCatalogEntry,
-    installed: Boolean,
-    onOpenSource: () -> Unit,
-) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.padding(12.dp),
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    entry.displayName,
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.weight(1f),
-                )
-                if (entry.recommended) {
-                    Text(
-                        text = stringResource(R.string.local_llm_catalog_recommended),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
-                }
-            }
-
-            Text(
-                entry.description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Text(
-                text = String.format(
-                    java.util.Locale.US,
-                    stringResource(R.string.local_llm_catalog_size_format),
-                    entry.sizeBytes / 1_000_000_000.0,
-                    entry.minDeviceMemoryGb,
-                ),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (installed) {
-                    Text(
-                        text = stringResource(R.string.local_llm_catalog_installed),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                } else {
-                    Button(
-                        onClick = onOpenSource,
-                    ) {
-                        Text(stringResource(R.string.local_llm_catalog_get_on_hf))
-                    }
-                }
-            }
-        }
     }
 }
