@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -98,13 +99,15 @@ fun ModelInventorySection(
                 exit = shrinkVertically() + fadeOut(),
             ) {
                 group.models.forEachIndexed { modelIndex, model ->
-                    CompactModelRow(
-                        model = model,
-                        onClick = { onModelClick(model) },
-                        onEnabledChange = { onModelEnabledChange(model, it) },
-                    )
-                    if (modelIndex != group.models.lastIndex) {
-                        HorizontalDivider(modifier = Modifier.padding(start = 44.dp))
+                    key(model.id) {
+                        CompactModelRow(
+                            model = model,
+                            onClick = { onModelClick(model) },
+                            onEnabledChange = { onModelEnabledChange(model, it) },
+                        )
+                        if (modelIndex != group.models.lastIndex) {
+                            HorizontalDivider(modifier = Modifier.padding(start = 44.dp))
+                        }
                     }
                 }
             }
@@ -136,13 +139,15 @@ fun ModelInventorySection(
                 exit = shrinkVertically() + fadeOut(),
             ) {
                 ungroupedModels.forEachIndexed { index, model ->
-                    CompactModelRow(
-                        model = model,
-                        onClick = { onModelClick(model) },
-                        onEnabledChange = { onModelEnabledChange(model, it) },
-                    )
-                    if (index != ungroupedModels.lastIndex) {
-                        HorizontalDivider(modifier = Modifier.padding(start = 44.dp))
+                    key(model.id) {
+                        CompactModelRow(
+                            model = model,
+                            onClick = { onModelClick(model) },
+                            onEnabledChange = { onModelEnabledChange(model, it) },
+                        )
+                        if (index != ungroupedModels.lastIndex) {
+                            HorizontalDivider(modifier = Modifier.padding(start = 44.dp))
+                        }
                     }
                 }
             }
