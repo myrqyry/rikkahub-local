@@ -1,5 +1,13 @@
 package me.rerere.rikkahub.ui.pages.models.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +44,9 @@ import me.rerere.rikkahub.data.modelregistry.ModelProviderDescriptor
 import me.rerere.rikkahub.data.modelregistry.ModelSource
 import me.rerere.rikkahub.ui.pages.models.icon
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.graphics.Color
 
 @Composable
 fun ModelInventorySection(
@@ -81,7 +92,11 @@ fun ModelInventorySection(
                 },
                 onSettings = { onProviderClick(provider) },
             )
-            if (expanded) {
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) {
                 group.models.forEachIndexed { modelIndex, model ->
                     CompactModelRow(
                         model = model,
@@ -115,7 +130,11 @@ fun ModelInventorySection(
                 },
                 onSettings = null,
             )
-            if (expanded) {
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) {
                 ungroupedModels.forEachIndexed { index, model ->
                     CompactModelRow(
                         model = model,
@@ -145,10 +164,28 @@ private fun ProviderHeader(
     onToggle: () -> Unit,
     onSettings: (() -> Unit)?,
 ) {
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 90f else 0f,
+        animationSpec = spring(stiffness = 700f, dampingRatio = 0.82f),
+        label = "provider chevron rotation",
+    )
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val statusColor by animateColorAsState(
+        targetValue = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+        label = "provider status color",
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onToggle)
+            .background(
+                color = if (pressed) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent,
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onToggle,
+            )
             .padding(start = 2.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -158,18 +195,14 @@ private fun ProviderHeader(
             contentDescription = null,
             modifier = Modifier
                 .size(18.dp)
-                .rotate(if (expanded) 90f else 0f),
+                .rotate(rotation),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Box(
             modifier = Modifier
                 .size(8.dp)
                 .background(
-                    color = if (enabled) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.outline
-                    },
+                    color = statusColor,
                     shape = CircleShape,
                 ),
         )
@@ -206,10 +239,31 @@ private fun CompactModelRow(
     onClick: () -> Unit,
     onEnabledChange: (Boolean) -> Unit,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val statusTargetColor = when {
+        !model.providerEnabled -> MaterialTheme.colorScheme.outline
+        model.source is ModelSource.Local && model.lifecycle == ModelLifecycle.ERROR -> {
+            MaterialTheme.colorScheme.error
+        }
+        model.enabledCapabilities.isEmpty() -> MaterialTheme.colorScheme.outline
+        else -> MaterialTheme.colorScheme.primary
+    }
+    val statusColor by animateColorAsState(
+        targetValue = statusTargetColor,
+        label = "model status color",
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .background(
+                color = if (pressed) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent,
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            )
             .padding(start = 28.dp, end = 2.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -247,14 +301,7 @@ private fun CompactModelRow(
             modifier = Modifier
                 .size(8.dp)
                 .background(
-                    color = when {
-                        !model.providerEnabled -> MaterialTheme.colorScheme.outline
-                        model.source is ModelSource.Local && model.lifecycle == ModelLifecycle.ERROR -> {
-                            MaterialTheme.colorScheme.error
-                        }
-                        model.enabledCapabilities.isEmpty() -> MaterialTheme.colorScheme.outline
-                        else -> MaterialTheme.colorScheme.primary
-                    },
+                    color = statusColor,
                     shape = CircleShape,
                 ),
         )
