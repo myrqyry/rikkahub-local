@@ -68,6 +68,9 @@ fun AddToModelsSheet(
     val filePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri -> uri?.let { viewModel.importModelFromUri(it) } }
+    val fluxFolderPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri -> uri?.let { viewModel.importFluxPackageFromTree(it) } }
     val editState = useEditState<ProviderSetting> { provider ->
         viewModel.addProvider(provider)
     }
@@ -105,6 +108,11 @@ fun AddToModelsSheet(
                         title = stringResource(R.string.models_add_local_file),
                         subtitle = stringResource(R.string.models_add_local_file_desc),
                         onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
+                    )
+                    AddChoiceRow(
+                        title = stringResource(R.string.model_manager_flux_import),
+                        subtitle = stringResource(R.string.model_manager_flux_catalog_subtitle),
+                        onClick = { fluxFolderPickerLauncher.launch(null) },
                     )
                 }
 
