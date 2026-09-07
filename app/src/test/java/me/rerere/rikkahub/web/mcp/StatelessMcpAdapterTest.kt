@@ -20,6 +20,7 @@ import kotlin.uuid.Uuid
 class StatelessMcpAdapterTest {
     private val firstId = Uuid.random()
     private val secondId = Uuid.random()
+    private val approvalId = Uuid.random()
     private lateinit var adapter: StatelessMcpAdapter
     private var calls = 0
 
@@ -30,6 +31,7 @@ class StatelessMcpAdapterTest {
                 listOf(
                     Triple(secondId, "server", McpTool(name = "z-tool", inputSchema = InputSchema.Obj(buildJsonObject {}))),
                     Triple(firstId, "server", McpTool(name = "a-tool", description = "A tool")),
+                    Triple(approvalId, "server", McpTool(name = "approval-tool", needsApproval = true)),
                 )
             },
             callTool = { _, _, _ ->
@@ -60,19 +62,34 @@ class StatelessMcpAdapterTest {
     fun `header and body protocol versions must match`() = runBlocking {
         val result = adapter.handle(validHeaders("tools/list") + ("MCP-Protocol-Version" to "2025-06-18"), request(), null)
         assertEquals(HttpStatusCode.BadRequest, result.status)
-        assertEquals("HeaderMismatch", result.body["error"]!!.jsonObject["code"]!!.jsonPrimitive.content)
+        assertEquals(-32020, result.body["error"]!!.jsonObject["code"]!!.jsonPrimitive.int)
+    }
+
+    @Test
+    fun `unsupported protocol version uses numeric MCP error`() = runBlocking {
+        val result = adapter.handle(
+            validHeaders("tools/list") + ("MCP-Protocol-Version" to "2025-06-18"),
+            request(params = buildJsonObject {
+                put("_meta", metadata(protocolVersion = "2025-06-18"))
+            }),
+            null,
+        )
+
+        assertEquals(-32022, result.body["error"]!!.jsonObject["code"]!!.jsonPrimitive.int)
     }
 
     @Test
     fun `method header must match JSON-RPC method`() = runBlocking {
-        assertEquals(HttpStatusCode.BadRequest, adapter.handle(validHeaders("tools/call"), request(), null).status)
+        val result = adapter.handle(validHeaders("tools/call"), request(), null)
+        assertEquals(HttpStatusCode.BadRequest, result.status)
+        assertEquals(-32020, result.body["error"]!!.jsonObject["code"]!!.jsonPrimitive.int)
     }
 
     @Test
     fun `unsupported method returns not found`() = runBlocking {
         val result = adapter.handle(validHeaders("resources/list"), request("resources/list"), null)
         assertEquals(HttpStatusCode.NotFound, result.status)
-        assertEquals("-32601", result.body["error"]!!.jsonObject["code"]!!.jsonPrimitive.content)
+        assertEquals(-32601, result.body["error"]!!.jsonObject["code"]!!.jsonPrimitive.int)
     }
 
     @Test
@@ -93,7 +110,39 @@ class StatelessMcpAdapterTest {
         )
         assertEquals(HttpStatusCode.OK, result.status)
         assertEquals(1, calls)
+        assertEquals("complete", result.body["result"]!!.jsonObject["resultType"]!!.jsonPrimitive.content)
         assertTrue(result.body["result"]!!.jsonObject["content"]!!.toString().contains("called"))
+    }
+
+    @Test
+    fun `client info is optional`() = runBlocking {
+        assertEquals(
+            HttpStatusCode.OK,
+            adapter.handle(
+                validHeaders("tools/list"),
+                request(params = buildJsonObject {
+                    put("_meta", metadata(includeClientInfo = false))
+                }),
+                null,
+            ).status,
+        )
+    }
+
+    @Test
+    fun `approval-required tool is rejected without delegation`() = runBlocking {
+        val result = adapter.handle(
+            validHeaders("tools/call") + ("Mcp-Name" to "approval-tool"),
+            request("tools/call", buildJsonObject {
+                put("_meta", metadata())
+                put("name", "approval-tool")
+                put("arguments", buildJsonObject {})
+            }),
+            null,
+        )
+
+        assertEquals(HttpStatusCode.OK, result.status)
+        assertEquals(-32003, result.body["error"]!!.jsonObject["code"]!!.jsonPrimitive.int)
+        assertEquals(0, calls)
     }
 
     private fun validHeaders(method: String) = mapOf(
@@ -112,9 +161,12 @@ class StatelessMcpAdapterTest {
         put("params", params)
     }
 
-    private fun metadata() = buildJsonObject {
-        put("io.modelcontextprotocol/protocolVersion", MCP_PROTOCOL_VERSION)
-        put("io.modelcontextprotocol/clientInfo", buildJsonObject {
+    private fun metadata(
+        protocolVersion: String = MCP_PROTOCOL_VERSION,
+        includeClientInfo: Boolean = true,
+    ) = buildJsonObject {
+        put("io.modelcontextprotocol/protocolVersion", protocolVersion)
+        if (includeClientInfo) put("io.modelcontextprotocol/clientInfo", buildJsonObject {
             put("name", "test-client")
             put("version", "1.0")
         })

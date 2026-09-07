@@ -16,6 +16,10 @@ import java.net.URI
 import kotlin.uuid.Uuid
 
 const val MCP_PROTOCOL_VERSION = "2026-07-28"
+private const val JSON_RPC_INVALID_REQUEST = -32600
+private const val MCP_HEADER_MISMATCH = -32020
+private const val MCP_UNSUPPORTED_VERSION = -32022
+private const val MCP_APPROVAL_REQUIRED = -32003
 
 data class StatelessMcpResponse(
     val status: HttpStatusCode,
@@ -47,27 +51,32 @@ class StatelessMcpAdapter(
         val meta = params["_meta"]?.jsonObject ?: return badRequest("params._meta is required")
         val bodyVersion = meta["io.modelcontextprotocol/protocolVersion"].stringValue()
             ?: return headerMismatch("protocol version metadata is required")
-        val clientInfo = meta["io.modelcontextprotocol/clientInfo"]?.jsonObject
-            ?: return badRequest("clientInfo metadata is required")
-        if (clientInfo["name"].stringValue().isNullOrBlank() ||
-            clientInfo["version"].stringValue().isNullOrBlank()
-        ) return badRequest("clientInfo name and version are required")
+        meta["io.modelcontextprotocol/clientInfo"]?.let { clientInfoElement ->
+            val clientInfo = clientInfoElement.jsonObjectOrNull()
+                ?: return badRequest("clientInfo metadata must be an object")
+            if (clientInfo["name"].stringValue().isNullOrBlank() ||
+                clientInfo["version"].stringValue().isNullOrBlank()
+            ) return badRequest("clientInfo name and version are required")
+        }
         if (meta["io.modelcontextprotocol/clientCapabilities"] !is JsonObject) {
             return badRequest("clientCapabilities metadata is required")
         }
 
         val headerVersion = headers["MCP-Protocol-Version"]
             ?: return headerMismatch("MCP-Protocol-Version header is required")
-        if (headerVersion != MCP_PROTOCOL_VERSION || bodyVersion != headerVersion) {
+        if (bodyVersion != headerVersion) {
             return headerMismatch("protocol versions must match $MCP_PROTOCOL_VERSION")
         }
+        if (headerVersion != MCP_PROTOCOL_VERSION) {
+            return unsupportedProtocolVersion("unsupported protocol version: $headerVersion")
+        }
 
-        if (headers["Mcp-Method"] != method) return badRequest("Mcp-Method must match method")
+        if (headers["Mcp-Method"] != method) return headerMismatch("Mcp-Method must match method")
         if (origin != null && !isAllowedOrigin(origin)) {
-            return StatelessMcpResponse(HttpStatusCode.Forbidden, errorBody("origin is not allowed"))
+            return StatelessMcpResponse(HttpStatusCode.Forbidden, errorBody(JSON_RPC_INVALID_REQUEST, "origin is not allowed"))
         }
         if (method != "tools/list" && method != "tools/call") {
-            return StatelessMcpResponse(HttpStatusCode.NotFound, errorBody("-32601", "Method not found"))
+            return StatelessMcpResponse(HttpStatusCode.NotFound, errorBody(-32601, "Method not found"))
         }
 
         return when (method) {
@@ -100,14 +109,21 @@ class StatelessMcpAdapter(
     ): StatelessMcpResponse {
         val name = params["name"].stringValue()
             ?: return invalidParams(id, "params.name is required")
-        if (headers["Mcp-Name"] != name) return badRequest("Mcp-Name must match params.name")
+        if (headers["Mcp-Name"] != name) return headerMismatch("Mcp-Name must match params.name")
         val args = params["arguments"]?.jsonObject
             ?: return invalidParams(id, "params.arguments must be an object")
         val tool = availableTools().firstOrNull { it.third.name == name }
             ?: return invalidParams(id, "Unknown tool: $name")
+        if (tool.third.needsApproval) {
+            return StatelessMcpResponse(
+                HttpStatusCode.OK,
+                errorBody(MCP_APPROVAL_REQUIRED, "Tool requires approval", id),
+            )
+        }
         return try {
             val parts = callTool(tool.first, name, args)
             ok(id, buildJsonObject {
+                put("resultType", "complete")
                 put("content", JsonArray(parts.mapNotNull { part ->
                     (part as? UIMessagePart.Text)?.let {
                         buildJsonObject {
@@ -119,7 +135,7 @@ class StatelessMcpAdapter(
                 put("isError", false)
             })
         } catch (e: Exception) {
-            StatelessMcpResponse(HttpStatusCode.OK, errorBody("-32000", e.message ?: "Tool execution failed", id))
+            StatelessMcpResponse(HttpStatusCode.OK, errorBody(-32000, e.message ?: "Tool execution failed", id))
         }
     }
 
@@ -141,24 +157,29 @@ class StatelessMcpAdapter(
     )
 
     private fun invalidParams(id: JsonElement, message: String) =
-        StatelessMcpResponse(HttpStatusCode.OK, errorBody("-32602", message, id))
+        StatelessMcpResponse(HttpStatusCode.OK, errorBody(-32602, message, id))
 
     private fun badRequest(message: String) =
-        StatelessMcpResponse(HttpStatusCode.BadRequest, errorBody(message))
+        StatelessMcpResponse(HttpStatusCode.BadRequest, errorBody(JSON_RPC_INVALID_REQUEST, message))
 
     private fun headerMismatch(message: String) =
-        StatelessMcpResponse(HttpStatusCode.BadRequest, errorBody("HeaderMismatch", message))
+        StatelessMcpResponse(HttpStatusCode.BadRequest, errorBody(MCP_HEADER_MISMATCH, message))
+
+    private fun unsupportedProtocolVersion(message: String) =
+        StatelessMcpResponse(HttpStatusCode.BadRequest, errorBody(MCP_UNSUPPORTED_VERSION, message))
 
     private fun error(message: String): StatelessMcpResponse = badRequest(message)
 
-    private fun errorBody(code: String, message: String = code, id: JsonElement? = null) = buildJsonObject {
+    private fun errorBody(code: Int, message: String = code.toString(), id: JsonElement? = null) = buildJsonObject {
         put("jsonrpc", "2.0")
         id?.let { put("id", it) }
         put("error", buildJsonObject {
-            code.toIntOrNull()?.let { put("code", it) } ?: put("code", code)
+            put("code", code)
             put("message", message)
         })
     }
+
+    private fun JsonElement.jsonObjectOrNull(): JsonObject? = this as? JsonObject
 
     private fun isAllowedOrigin(origin: String): Boolean = runCatching {
         val uri = URI(origin)
