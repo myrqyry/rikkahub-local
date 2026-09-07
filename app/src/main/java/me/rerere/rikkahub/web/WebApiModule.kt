@@ -141,6 +141,14 @@ fun Application.configureWebApi(
     }
 
     routing {
+        if (jwtEnabled) {
+            authenticate("auth-jwt") {
+                statelessMcpRoute(mcpManager)
+            }
+        } else {
+            statelessMcpRoute(mcpManager)
+        }
+
         route("/api") {
             post("/auth/token") {
                 val settings = settingsStore.settingsFlow.value
@@ -172,7 +180,6 @@ fun Application.configureWebApi(
 
             if (jwtEnabled) {
                 authenticate("auth-jwt") {
-                    statelessMcpRoute(mcpManager)
                     conversationRoutes(chatService, conversationRepo, folderRepo, settingsStore)
                     folderRoutes(chatService, folderRepo, settingsStore)
                     eventsRoutes(chatService, conversationRepo, folderRepo, settingsStore)
@@ -181,7 +188,6 @@ fun Application.configureWebApi(
                     assetsRoutes(context)
                 }
             } else {
-                statelessMcpRoute(mcpManager)
                 conversationRoutes(chatService, conversationRepo, folderRepo, settingsStore)
                 folderRoutes(chatService, folderRepo, settingsStore)
                 eventsRoutes(chatService, conversationRepo, folderRepo, settingsStore)
