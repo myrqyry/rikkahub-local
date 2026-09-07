@@ -8,8 +8,13 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.route
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 import me.rerere.ai.provider.BuiltInTools
 import me.rerere.ai.provider.ModelType
+import me.rerere.rikkahub.data.datastore.Settings
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.datastore.findModelById
 import me.rerere.rikkahub.web.BadRequestException
@@ -23,6 +28,9 @@ import me.rerere.rikkahub.web.dto.UpdateBuiltInToolRequest
 import me.rerere.rikkahub.web.dto.UpdateFavoriteModelsRequest
 import me.rerere.rikkahub.web.dto.UpdateSearchEnabledRequest
 import me.rerere.rikkahub.web.dto.UpdateSearchServiceRequest
+import me.rerere.rikkahub.web.dto.mergeBrowserSettings
+import me.rerere.rikkahub.web.dto.toBrowserSafeJson
+import me.rerere.rikkahub.utils.JsonInstant
 import java.util.Locale
 
 fun Route.settingsRoutes(
@@ -30,12 +38,16 @@ fun Route.settingsRoutes(
 ) {
     route("/settings") {
         get {
-            call.respond(settingsStore.settingsFlow.value)
+            call.respond(settingsStore.settingsFlow.value.toBrowserSafeJson())
         }
 
         put {
-            val body = call.receive<me.rerere.rikkahub.data.datastore.Settings>()
-            settingsStore.update(body)
+            val body = call.receive<JsonObject>()
+            settingsStore.update { current ->
+                JsonInstant.decodeFromJsonElement<Settings>(
+                    mergeBrowserSettings(JsonInstant.encodeToJsonElement(current).jsonObject, body)
+                )
+            }
             call.respond(HttpStatusCode.OK, mapOf("status" to "ok"))
         }
 

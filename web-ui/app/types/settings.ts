@@ -159,7 +159,8 @@ export interface Settings {
   webServerEnabled: boolean;
   webServerPort: number;
   webServerJwtEnabled: boolean;
-  webServerAccessPassword: string;
+  webServerAccessPassword?: string;
+  webServerPasswordConfigured?: boolean;
   webServerLocalhostOnly: boolean;
   [key: string]: unknown;
 }

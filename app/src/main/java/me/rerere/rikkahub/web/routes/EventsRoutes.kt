@@ -15,6 +15,7 @@ import me.rerere.rikkahub.service.ChatService
 import me.rerere.rikkahub.utils.JsonInstant
 import me.rerere.rikkahub.web.dto.ConversationListInvalidateEvent
 import me.rerere.rikkahub.web.dto.FolderListEvent
+import me.rerere.rikkahub.web.dto.toBrowserSafeJson
 import me.rerere.rikkahub.web.dto.toDto
 import kotlin.time.Duration.Companion.seconds
 
@@ -43,7 +44,7 @@ fun Route.eventsRoutes(
 
         // Full settings snapshot; StateFlow emits the current value immediately on connect.
         val settingsEvents = settingsStore.settingsFlow.map { settings ->
-            EventPayload(event = "settings", json = JsonInstant.encodeToString(settings))
+            EventPayload(event = "settings", json = settings.toBrowserSafeJson().toString())
         }
 
         // Conversation list invalidation, scoped to the currently selected assistant.

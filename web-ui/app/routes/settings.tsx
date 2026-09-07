@@ -212,7 +212,7 @@ export default function SettingsPage() {
               <span className="text-sm">Access password</span>
               <Input
                 type="password"
-                value={settings.webServerAccessPassword}
+                value={settings.webServerAccessPassword ?? ""}
                 onChange={(e) => handleUpdate({ webServerAccessPassword: e.target.value })}
               />
             </div>
