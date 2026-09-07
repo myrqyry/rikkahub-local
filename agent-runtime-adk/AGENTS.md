@@ -17,6 +17,7 @@ owns assistants, conversations, providers, tools, and permissions.
 | `src/main/.../Memory.kt` | Memory proposals requiring user acceptance: `MemoryLevel`, `Memory`, `MemoryStore` (pending/committed), `ProposeMemoryTool` |
 | `src/main/.../ToolFilter.kt` | Model-aware tool filtering: `ModelTier`, `ToolCapabilities`, `ToolFilter` (budgeted tool surface by model capability) |
 | `src/main/.../VerificationScripts.kt` | Deterministic project verification commands: `VerificationCommand`, `VerificationScripts`, `RunVerificationTool` (project scripts as tools) |
+| `src/main/.../WorkReceipt.kt` | Serializable delivery facts and pure evidence collector for changed files and verification results |
 | `src/main/.../AgentEnvironment.kt` | Tunix-style agent environment + ATIF trajectory recording: `AgentEnvironment`, `Observation`, `AgentAction`, `EnvironmentResult`, `Outcome`, `TrajectoryRecorder` |
 | `src/main/.../StructuredQuery.kt` | Langfun-style structured queries: `StructuredQuery`, `StructuredProtocol`, `CompiledModelRequest`, `QueryCompiler`, `Evaluator`, `EvaluationCase`, `EvaluationResult` |
 | `src/main/.../EvidenceStore.kt` | Suspend-only immutable evidence contract: `EvidenceStore`, `EvidenceRecord`, `EvidenceQuery`, `EvidenceWriteResult`, and in-memory test implementation; the app owns durable persistence and explicit insertion ordering. |
