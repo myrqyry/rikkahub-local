@@ -13,8 +13,14 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import me.rerere.rikkahub.data.ai.mcp.McpManager
+import me.rerere.rikkahub.data.datastore.SettingsStore
+import me.rerere.rikkahub.data.repository.ConversationRepository
 
-fun Route.statelessMcpRoute(mcpManager: McpManager) {
+fun Route.statelessMcpRoute(
+    mcpManager: McpManager,
+    conversationRepository: ConversationRepository,
+    settingsStore: SettingsStore,
+) {
     route("/mcp") {
         get { call.respond(HttpStatusCode.NotFound) }
         delete { call.respond(HttpStatusCode.NotFound) }
@@ -42,6 +48,7 @@ fun Route.statelessMcpRoute(mcpManager: McpManager) {
             val response = StatelessMcpAdapter(
                 availableTools = mcpManager::getAllAvailableTools,
                 callTool = mcpManager::callTool,
+                nativeTools = { RikkaConversationMcpTools(conversationRepository, settingsStore).tools() },
             ).handle(headers, body, call.request.headers[HttpHeaders.Origin])
             call.respond(response.status, response.body)
         }

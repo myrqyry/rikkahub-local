@@ -143,10 +143,10 @@ fun Application.configureWebApi(
     routing {
         if (jwtEnabled) {
             authenticate("auth-jwt") {
-                statelessMcpRoute(mcpManager)
+                statelessMcpRoute(mcpManager, conversationRepo, settingsStore)
             }
         } else {
-            statelessMcpRoute(mcpManager)
+            statelessMcpRoute(mcpManager, conversationRepo, settingsStore)
         }
 
         route("/api") {

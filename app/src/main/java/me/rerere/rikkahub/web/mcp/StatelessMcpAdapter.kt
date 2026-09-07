@@ -26,9 +26,19 @@ data class StatelessMcpResponse(
     val body: JsonObject,
 )
 
+class NativeMcpInvalidParamsException(message: String) : IllegalArgumentException(message)
+
+data class NativeMcpTool(
+    val name: String,
+    val description: String? = null,
+    val inputSchema: InputSchema? = null,
+    val call: suspend (JsonObject) -> JsonObject,
+)
+
 class StatelessMcpAdapter(
     private val availableTools: () -> List<Triple<Uuid, String, McpTool>>,
     private val callTool: suspend (Uuid, String, JsonObject) -> List<UIMessagePart>,
+    private val nativeTools: () -> List<NativeMcpTool> = { emptyList() },
 ) {
     suspend fun handle(
         headers: Map<String, String>,
@@ -87,16 +97,14 @@ class StatelessMcpAdapter(
     }
 
     private fun listTools(id: JsonElement): StatelessMcpResponse {
-        val tools = availableTools().sortedBy { it.third.name }.map { (_, _, tool) ->
-            buildJsonObject {
-                put("name", tool.name)
-                tool.description?.let { put("description", it) }
-                tool.inputSchema?.let { put("inputSchema", schemaJson(it)) }
-            }
+        val tools = availableTools().map { (_, _, tool) ->
+            toolJson(tool.name, tool.description, tool.inputSchema)
+        } + nativeTools().map { tool ->
+            toolJson(tool.name, tool.description, tool.inputSchema)
         }
         return ok(id, buildJsonObject {
             put("resultType", "complete")
-            put("tools", JsonArray(tools))
+            put("tools", JsonArray(tools.sortedBy { it["name"].stringValue() }))
             put("ttlMs", 0)
             put("cacheScope", "private")
         })
@@ -112,6 +120,16 @@ class StatelessMcpAdapter(
         if (headers["Mcp-Name"] != name) return headerMismatch("Mcp-Name must match params.name")
         val args = params["arguments"]?.jsonObject
             ?: return invalidParams(id, "params.arguments must be an object")
+        nativeTools().firstOrNull { it.name == name }?.let { tool ->
+            return try {
+                val payload = tool.call(args)
+                ok(id, jsonContentResult(payload))
+            } catch (e: NativeMcpInvalidParamsException) {
+                invalidParams(id, e.message ?: "Invalid native tool arguments")
+            } catch (e: Exception) {
+                StatelessMcpResponse(HttpStatusCode.OK, errorBody(-32000, e.message ?: "Tool execution failed", id))
+            }
+        }
         val tool = availableTools().firstOrNull { it.third.name == name }
             ?: return invalidParams(id, "Unknown tool: $name")
         if (tool.third.needsApproval) {
@@ -124,14 +142,7 @@ class StatelessMcpAdapter(
             val parts = callTool(tool.first, name, args)
             ok(id, buildJsonObject {
                 put("resultType", "complete")
-                put("content", JsonArray(parts.mapNotNull { part ->
-                    (part as? UIMessagePart.Text)?.let {
-                        buildJsonObject {
-                            put("type", "text")
-                            put("text", it.text)
-                        }
-                    }
-                }))
+                put("content", JsonArray(parts.mapNotNull(::textContent)))
                 put("isError", false)
             })
         } catch (e: Exception) {
@@ -144,6 +155,28 @@ class StatelessMcpAdapter(
             put("type", "object")
             put("properties", schema.properties)
             schema.required?.let { put("required", JsonArray(it.map(::JsonPrimitive))) }
+        }
+    }
+
+    private fun toolJson(name: String, description: String?, schema: InputSchema?) = buildJsonObject {
+        put("name", name)
+        description?.let { put("description", it) }
+        schema?.let { put("inputSchema", schemaJson(it)) }
+    }
+
+    private fun jsonContentResult(payload: JsonObject) = buildJsonObject {
+        put("resultType", "complete")
+        put("content", JsonArray(listOf(buildJsonObject {
+            put("type", "text")
+            put("text", payload.toString())
+        })))
+        put("isError", false)
+    }
+
+    private fun textContent(part: UIMessagePart): JsonObject? = (part as? UIMessagePart.Text)?.let {
+        buildJsonObject {
+            put("type", "text")
+            put("text", it.text)
         }
     }
 

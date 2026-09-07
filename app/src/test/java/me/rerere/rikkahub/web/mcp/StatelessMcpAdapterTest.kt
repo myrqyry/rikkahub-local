@@ -23,6 +23,7 @@ class StatelessMcpAdapterTest {
     private val approvalId = Uuid.random()
     private lateinit var adapter: StatelessMcpAdapter
     private var calls = 0
+    private val nativePayload = buildJsonObject { put("source", "native") }
 
     @Before
     fun setUp() {
@@ -38,6 +39,15 @@ class StatelessMcpAdapterTest {
                 calls++
                 listOf(UIMessagePart.Text("called"))
             },
+            nativeTools = {
+                listOf(
+                    NativeMcpTool(
+                        name = "rikka.list_conversations",
+                        description = "List conversations",
+                        call = { nativePayload },
+                    ),
+                )
+            },
         )
     }
 
@@ -51,6 +61,7 @@ class StatelessMcpAdapterTest {
         assertEquals("private", payload["cacheScope"]!!.jsonPrimitive.content)
         assertEquals(0, payload["ttlMs"]!!.jsonPrimitive.int)
         assertEquals("a-tool", payload["tools"]!!.jsonArray.first().jsonObject["name"]!!.jsonPrimitive.content)
+        assertTrue(payload["tools"]!!.toString().contains("rikka.list_conversations"))
     }
 
     @Test
@@ -143,6 +154,23 @@ class StatelessMcpAdapterTest {
         assertEquals(HttpStatusCode.OK, result.status)
         assertEquals(-32003, result.body["error"]!!.jsonObject["code"]!!.jsonPrimitive.int)
         assertEquals(0, calls)
+    }
+
+    @Test
+    fun `native call returns native payload without delegated manager call`() = runBlocking {
+        val result = adapter.handle(
+            validHeaders("tools/call") + ("Mcp-Name" to "rikka.list_conversations"),
+            request("tools/call", buildJsonObject {
+                put("_meta", metadata())
+                put("name", "rikka.list_conversations")
+                put("arguments", buildJsonObject {})
+            }),
+            null,
+        )
+
+        assertEquals(HttpStatusCode.OK, result.status)
+        assertEquals(0, calls)
+        assertTrue(result.body["result"]!!.jsonObject["content"]!!.toString().contains("native"))
     }
 
     private fun validHeaders(method: String) = mapOf(
