@@ -16,7 +16,7 @@ import java.net.URI
 import kotlin.uuid.Uuid
 
 const val MCP_PROTOCOL_VERSION = "2026-07-28"
-private val STANDARD_MCP_PROTOCOL_VERSIONS = setOf("2025-03-26", "2025-06-18", MCP_PROTOCOL_VERSION)
+private val STANDARD_MCP_PROTOCOL_VERSIONS = setOf("2025-03-26", "2025-06-18", "2025-11-25", MCP_PROTOCOL_VERSION)
 private const val JSON_RPC_INVALID_REQUEST = -32600
 private const val MCP_HEADER_MISMATCH = -32020
 private const val MCP_UNSUPPORTED_VERSION = -32022
@@ -55,10 +55,13 @@ class StatelessMcpAdapter(
         }
 
         if (body["jsonrpc"].stringValue() != "2.0") return badRequest("jsonrpc must be 2.0")
-        if (body["id"] == null) return badRequest("id is required")
         val method = body["method"].stringValue()
             ?: return badRequest("method is required")
-        val params = body["params"]?.jsonObject ?: return badRequest("params must be an object")
+        if (body["id"] == null && method.startsWith("notifications/")) {
+            return StatelessMcpResponse(HttpStatusCode.Accepted, buildJsonObject {})
+        }
+        if (body["id"] == null) return badRequest("id is required")
+        val params = body["params"]?.jsonObject ?: buildJsonObject {}
         val meta = params["_meta"]?.jsonObject
         if (meta == null) {
             val version = params["protocolVersion"].stringValue()
