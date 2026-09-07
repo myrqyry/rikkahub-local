@@ -4,7 +4,7 @@
 
 **Goal:** Add an authenticated, stateless `POST /mcp` Streamable HTTP JSON-RPC adapter for the current assistant's MCP tools.
 
-**Architecture:** Keep protocol parsing and validation in a small pure Kotlin adapter that returns typed JSON-RPC envelopes. Mount one Ktor route inside the existing `/api` authentication branch, pass the existing `McpManager` through `WebApiModule` and `WebServerManager`, and delegate valid calls without introducing sessions, caches, or a second permission system.
+**Architecture:** Keep protocol parsing and validation in a small pure Kotlin adapter that returns typed JSON-RPC envelopes. Mount one root Ktor `POST /mcp` route inside the existing authentication decision, pass the existing `McpManager` through `WebApiModule` and `WebServerManager`, and delegate valid calls without introducing sessions, caches, or a second permission system.
 
 **Tech Stack:** Kotlin 2.4.0, kotlinx.serialization JSON, Ktor server routing/content negotiation, existing `McpManager` from `io.modelcontextprotocol:kotlin-sdk:0.14.0`, JUnit 4 app unit tests, adb acceptance.
 
@@ -157,7 +157,7 @@ git commit -m "feat: add stateless MCP request adapter"
 
 **Interfaces:**
 - Consumes: `StatelessMcpAdapter`, `McpManager`, existing `configureWebApi` arguments, and Ktor request/response APIs.
-- Produces: authenticated `POST /api/mcp` with JSON response behavior and no GET/DELETE route.
+- Produces: authenticated `POST /mcp` with JSON response behavior and no GET/DELETE route.
 
 - [ ] **Step 1: Write failing Ktor route tests**
 
@@ -187,7 +187,7 @@ fun `mcp route has no legacy get or delete behavior`() = testApplication {
 
 Run: `./gradlew :app:testDebugUnitTest --tests 'me.rerere.rikkahub.web.mcp.StatelessMcpRouteTest'`
 
-Expected: FAIL because `/api/mcp` is not mounted and `configureWebApi` has no manager parameter.
+Expected: FAIL because `/mcp` is not mounted and `configureWebApi` has no manager parameter.
 
 - [ ] **Step 3: Wire `McpManager` through the existing server startup**
 
@@ -239,7 +239,7 @@ Expected: install succeeds while preserving the existing package and forward is 
 
 - [ ] **Step 4: Exercise `tools/list` through the forwarded endpoint**
 
-Run an HTTP POST to `http://127.0.0.1:18080/api/mcp` with `Content-Type: application/json`, `Accept: application/json, text/event-stream`, `MCP-Protocol-Version: 2026-07-28`, `Mcp-Method: tools/list`, and a valid `_meta` object. Confirm HTTP 200, sorted tool names, `resultType=complete`, `ttlMs=0`, and `cacheScope=private`.
+Run an HTTP POST to `http://127.0.0.1:18080/mcp` with `Content-Type: application/json`, `Accept: application/json, text/event-stream`, `MCP-Protocol-Version: 2026-07-28`, `Mcp-Method: tools/list`, and a valid `_meta` object. Confirm HTTP 200, sorted tool names, `resultType=complete`, `ttlMs=0`, and `cacheScope=private`.
 
 - [ ] **Step 5: Exercise rejection paths and a valid call**
 
