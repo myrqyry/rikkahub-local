@@ -65,6 +65,25 @@ class StatelessMcpAdapterTest {
     }
 
     @Test
+    fun `standard MCP initialize does not require private envelope`() = runBlocking {
+        val result = adapter.handle(
+            mapOf("Content-Type" to "application/json", "Accept" to "application/json, text/event-stream"),
+            request("initialize", buildJsonObject {
+                put("protocolVersion", "2025-06-18")
+                put("capabilities", buildJsonObject {})
+                put("clientInfo", buildJsonObject {
+                    put("name", "standard-client")
+                    put("version", "1.0")
+                })
+            }),
+            null,
+        )
+
+        assertEquals(HttpStatusCode.OK, result.status)
+        assertEquals("2025-06-18", result.body["result"]!!.jsonObject["protocolVersion"]!!.jsonPrimitive.content)
+    }
+
+    @Test
     fun `tools list does not require Mcp Name`() = runBlocking {
         assertEquals(HttpStatusCode.OK, adapter.handle(validHeaders("tools/list"), request(), null).status)
     }

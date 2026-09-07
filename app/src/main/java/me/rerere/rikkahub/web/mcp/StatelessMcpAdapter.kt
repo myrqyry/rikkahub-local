@@ -16,6 +16,7 @@ import java.net.URI
 import kotlin.uuid.Uuid
 
 const val MCP_PROTOCOL_VERSION = "2026-07-28"
+private val STANDARD_MCP_PROTOCOL_VERSIONS = setOf("2025-03-26", "2025-06-18", MCP_PROTOCOL_VERSION)
 private const val JSON_RPC_INVALID_REQUEST = -32600
 private const val MCP_HEADER_MISMATCH = -32020
 private const val MCP_UNSUPPORTED_VERSION = -32022
@@ -58,7 +59,29 @@ class StatelessMcpAdapter(
         val method = body["method"].stringValue()
             ?: return badRequest("method is required")
         val params = body["params"]?.jsonObject ?: return badRequest("params must be an object")
-        val meta = params["_meta"]?.jsonObject ?: return badRequest("params._meta is required")
+        val meta = params["_meta"]?.jsonObject
+        if (meta == null) {
+            val version = params["protocolVersion"].stringValue()
+            if (method == "initialize") {
+                if (version !in STANDARD_MCP_PROTOCOL_VERSIONS) {
+                    return unsupportedProtocolVersion("unsupported protocol version: $version")
+                }
+                return initialize(body["id"]!!, version!!)
+            }
+            val headerVersion = headers["MCP-Protocol-Version"]
+                ?: return headerMismatch("MCP-Protocol-Version header is required")
+            if (headerVersion !in STANDARD_MCP_PROTOCOL_VERSIONS) {
+                return unsupportedProtocolVersion("unsupported protocol version: $headerVersion")
+            }
+            if (headers["Mcp-Method"] != null && headers["Mcp-Method"] != method) {
+                return headerMismatch("Mcp-Method must match method")
+            }
+            return when (method) {
+                "tools/list" -> listTools(body["id"]!!)
+                "tools/call" -> callTool(body["id"]!!, params, headers, requireNameHeader = false)
+                else -> StatelessMcpResponse(HttpStatusCode.NotFound, errorBody(-32601, "Method not found"))
+            }
+        }
         val bodyVersion = meta["io.modelcontextprotocol/protocolVersion"].stringValue()
             ?: return headerMismatch("protocol version metadata is required")
         meta["io.modelcontextprotocol/clientInfo"]?.let { clientInfoElement ->
@@ -91,10 +114,19 @@ class StatelessMcpAdapter(
 
         return when (method) {
             "tools/list" -> listTools(body["id"]!!)
-            "tools/call" -> callTool(body["id"]!!, params, headers)
+            "tools/call" -> callTool(body["id"]!!, params, headers, requireNameHeader = true)
             else -> error("unreachable")
         }
     }
+
+    private fun initialize(id: JsonElement, version: String) = ok(id, buildJsonObject {
+        put("protocolVersion", version)
+        put("capabilities", buildJsonObject { put("tools", buildJsonObject {}) })
+        put("serverInfo", buildJsonObject {
+            put("name", "rikkahub")
+            put("version", "local")
+        })
+    })
 
     private fun listTools(id: JsonElement): StatelessMcpResponse {
         val tools = availableTools().map { (_, _, tool) ->
@@ -114,10 +146,11 @@ class StatelessMcpAdapter(
         id: JsonElement,
         params: JsonObject,
         headers: Map<String, String>,
+        requireNameHeader: Boolean,
     ): StatelessMcpResponse {
         val name = params["name"].stringValue()
             ?: return invalidParams(id, "params.name is required")
-        if (headers["Mcp-Name"] != name) return headerMismatch("Mcp-Name must match params.name")
+        if (requireNameHeader && headers["Mcp-Name"] != name) return headerMismatch("Mcp-Name must match params.name")
         val args = params["arguments"]?.jsonObject
             ?: return invalidParams(id, "params.arguments must be an object")
         nativeTools().firstOrNull { it.name == name }?.let { tool ->
