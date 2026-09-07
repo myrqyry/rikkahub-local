@@ -21,6 +21,7 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import me.rerere.rikkahub.data.datastore.SettingsStore
+import me.rerere.rikkahub.data.ai.mcp.McpManager
 import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.data.repository.ConversationRepository
 import me.rerere.rikkahub.data.repository.FolderRepository
@@ -36,6 +37,7 @@ import me.rerere.rikkahub.web.routes.eventsRoutes
 import me.rerere.rikkahub.web.routes.filesRoutes
 import me.rerere.rikkahub.web.routes.folderRoutes
 import me.rerere.rikkahub.web.routes.settingsRoutes
+import me.rerere.rikkahub.web.mcp.statelessMcpRoute
 import java.security.MessageDigest
 import java.util.Date
 import java.util.UUID
@@ -62,9 +64,10 @@ fun Application.configureWebApi(
     context: Context,
     chatService: ChatService,
     conversationRepo: ConversationRepository,
-    folderRepo: FolderRepository,
-    settingsStore: SettingsStore,
-    filesManager: FilesManager
+     folderRepo: FolderRepository,
+     settingsStore: SettingsStore,
+     filesManager: FilesManager,
+     mcpManager: McpManager,
 ) {
     val jwtEnabled = settingsStore.settingsFlow.value.webServerJwtEnabled
 
@@ -169,6 +172,7 @@ fun Application.configureWebApi(
 
             if (jwtEnabled) {
                 authenticate("auth-jwt") {
+                    statelessMcpRoute(mcpManager)
                     conversationRoutes(chatService, conversationRepo, folderRepo, settingsStore)
                     folderRoutes(chatService, folderRepo, settingsStore)
                     eventsRoutes(chatService, conversationRepo, folderRepo, settingsStore)
@@ -177,6 +181,7 @@ fun Application.configureWebApi(
                     assetsRoutes(context)
                 }
             } else {
+                statelessMcpRoute(mcpManager)
                 conversationRoutes(chatService, conversationRepo, folderRepo, settingsStore)
                 folderRoutes(chatService, folderRepo, settingsStore)
                 eventsRoutes(chatService, conversationRepo, folderRepo, settingsStore)
