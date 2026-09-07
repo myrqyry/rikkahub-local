@@ -109,7 +109,7 @@ not cache tools, retain client sessions, or persist MCP-specific state.
 Focused tests cover request validation, header and `_meta` parity, optional
 `Mcp-Name` for `tools/list`, deterministic list output and cache fields,
 unknown-tool rejection, and delegation of valid calls. Tests use the real
-adapter logic rather than a mock MCP server.
+adapter logic rather than a simulated remote MCP server.
 
 Build checks include the focused app unit tests, `assembleDebug`, web UI
 typecheck, and web UI build. Device acceptance installs with `adb install -r`

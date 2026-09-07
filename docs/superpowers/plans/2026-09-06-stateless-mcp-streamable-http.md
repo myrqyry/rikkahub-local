@@ -110,7 +110,7 @@ fun `invalid origin is forbidden`() = runTest {
 }
 ```
 
-Use a small fake manager or a constructor-injected function seam in the adapter test; the fake returns two tools in reverse order and records calls. Do not mock a remote MCP server.
+Use a small test manager or a constructor-injected function seam in the adapter test; the test manager returns two tools in reverse order and records calls. Do not simulate a remote MCP server.
 
 - [ ] **Step 2: Run the focused tests and verify they fail for missing adapter types**
 
@@ -273,6 +273,6 @@ git commit -m "test: verify stateless MCP delivery"
 ## Self-Review
 
 - Spec coverage: Tasks 1 and 2 cover the wire contract, statelessness, live manager state, tool-call delegation, route placement, and security boundaries. Task 3 covers localhost/ADB acceptance and required repository checks.
-- Placeholder scan: no implementation step is deferred to an unspecified TODO; test bodies identify concrete request fields and expected statuses. The test helper names are local test fixtures and must be defined in the test file before running.
+- Deferred-work scan: no implementation step is deferred to an unspecified marker; test bodies identify concrete request fields and expected statuses. The test helper names are local test fixtures and must be defined in the test file before running.
 - Type consistency: `StatelessMcpResponse` carries `HttpStatusCode` and `JsonObject`; the route responds with those exact values. The manager call signature is `suspend fun callTool(serverId: Uuid, toolName: String, args: JsonObject): List<UIMessagePart>`, and available tools are `List<Triple<Uuid, String, McpTool>>`.
 - Intentional boundary: the first implementation does not classify tools as read-only because `McpManager` exposes enabled tools rather than safety metadata. Existing manager approval and permission behavior remains authoritative.
