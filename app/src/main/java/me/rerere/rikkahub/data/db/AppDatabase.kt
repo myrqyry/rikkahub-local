@@ -22,6 +22,8 @@ import me.rerere.rikkahub.data.db.dao.ScheduledJobRunDao
 import me.rerere.rikkahub.data.db.dao.SshHostDao
 import me.rerere.rikkahub.data.db.dao.TelegramChatDao
 import me.rerere.rikkahub.data.db.dao.WorkspaceDAO
+import me.rerere.rikkahub.data.db.dao.OpenCodeConnectionDAO
+import me.rerere.rikkahub.data.db.dao.OpenCodeWorkspaceRefDAO
 import me.rerere.rikkahub.data.rag.VectorDao
 import me.rerere.rikkahub.data.db.entity.ConversationEntity
 import me.rerere.rikkahub.data.db.entity.ContinuationCheckpointDao
@@ -39,6 +41,8 @@ import me.rerere.rikkahub.data.db.entity.ScheduledJobRunEntity
 import me.rerere.rikkahub.data.db.entity.SshHostEntity
 import me.rerere.rikkahub.data.db.entity.TelegramChatEntity
 import me.rerere.rikkahub.data.db.entity.WorkspaceEntity
+import me.rerere.rikkahub.data.db.entity.OpenCodeConnectionEntity
+import me.rerere.rikkahub.data.db.entity.OpenCodeWorkspaceRefEntity
 import me.rerere.rikkahub.data.db.entity.ZeroProcedureDao
 import me.rerere.rikkahub.data.db.entity.ZeroProcedureEntity
 import me.rerere.rikkahub.data.db.migrations.Migration_16_17
@@ -76,13 +80,15 @@ import me.rerere.rikkahub.workflow.db.WorkflowRunEntity
         AgentRun::class,
         AgentRunEvent::class,
         WorkspaceEntity::class,
+        OpenCodeConnectionEntity::class,
+        OpenCodeWorkspaceRefEntity::class,
         FolderEntity::class,
         VectorEntity::class,
         ZeroProcedureEntity::class,
         EvidenceEntity::class,
         ContinuationCheckpointEntity::class,
     ],
-    version = 34,
+    version = 35,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
@@ -113,6 +119,7 @@ import me.rerere.rikkahub.workflow.db.WorkflowRunEntity
         AutoMigration(from = 26, to = 27),
         // v28: RAG vector store table — manual migration (hand-written SQL, not AutoMigrationSpec)
         // AutoMigration(from = 27, to = 28) removed; Migration_27_28 is registered in addMigrations()
+        AutoMigration(from = 34, to = 35),
     ]
 )
 @TypeConverters(TokenUsageConverter::class)
@@ -146,6 +153,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun agentRunEventDao(): AgentRunEventDao
 
     abstract fun workspaceDao(): WorkspaceDAO
+
+    abstract fun openCodeConnectionDao(): OpenCodeConnectionDAO
+
+    abstract fun openCodeWorkspaceRefDao(): OpenCodeWorkspaceRefDAO
 
     abstract fun folderDao(): FolderDAO
 
