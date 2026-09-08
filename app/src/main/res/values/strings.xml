@@ -402,7 +402,7 @@
   <string name="imggen_page_generate_image">Generate Image</string>
   <string name="imggen_page_generation_count">Generation Count</string>
   <string name="imggen_page_generation_count_desc">Number of images to generate each time</string>
-    <string name="imggen_page_image_missing">Image file is missing, it may not have been restored from backup</string>
+  <string name="imggen_page_image_missing">Image file is missing, it may not have been restored from backup</string>
   <string name="imggen_page_image_saved_success">Image saved to gallery</string>
   <string name="imggen_page_model_selection">Model Selection</string>
   <string name="imggen_page_model_selection_desc">Select AI model for image generation</string>
@@ -1789,6 +1789,13 @@
   <string name="workspace_page_empty">No workspaces yet</string>
   <string name="workspace_page_empty_desc">Create one to use file tools and sandbox environments</string>
   <string name="workspace_page_name">Name</string>
+  <string name="workspace_page_section_local">Local</string>
+  <string name="workspace_page_section_opencode">OpenCode</string>
+  <string name="workspace_page_add_opencode">Add OpenCode connection</string>
+  <string name="workspace_opencode_status_online">Online</string>
+  <string name="workspace_opencode_status_unavailable">Unavailable</string>
+  <string name="workspace_opencode_status_error">Connection error</string>
+  <string name="workspace_opencode_status_unknown">Not checked</string>
   <string name="workspace_detail_title">Workspace Details</string>
   <string name="workspace_detail_tab_basic">Basic</string>
   <string name="workspace_detail_tab_files">Files</string>
@@ -2111,4 +2118,11 @@
   <string name="models_memory_unavailable">Memory fit unavailable</string>
   <string name="setting_home_models">Models</string>
   <string name="setting_home_models_desc">Manage available models, default assignments, and sources</string>
+  <string name="workspace_opencode_detail_title">OpenCode workspace</string>
+  <string name="workspace_opencode_detail_refresh">Refresh</string>
+  <string name="workspace_opencode_detail_no_session">No remote session is open.</string>
+  <string name="workspace_opencode_detail_start_session">Start session</string>
+  <string name="workspace_opencode_detail_message_hint">Message OpenCode</string>
+  <string name="workspace_opencode_detail_send">Send</string>
+  <string name="workspace_opencode_detail_abort">Abort session</string>
 </resources>

@@ -26,11 +26,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.theme.CustomColors
+import me.rerere.rikkahub.R
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -44,10 +46,10 @@ fun OpenCodeWorkspaceDetailPage(refId: String) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("OpenCode workspace") },
+                title = { Text(stringResource(R.string.workspace_opencode_detail_title)) },
                 navigationIcon = { BackButton() },
                 actions = {
-                    TextButton(onClick = vm::refresh, enabled = state.session != null && !state.loading) { Text("Refresh") }
+                    TextButton(onClick = vm::refresh, enabled = state.session != null && !state.loading) { Text(stringResource(R.string.workspace_opencode_detail_refresh)) }
                 },
                 colors = CustomColors.topBarColors,
             )
@@ -66,9 +68,9 @@ fun OpenCodeWorkspaceDetailPage(refId: String) {
                     modifier = Modifier.fillMaxWidth().padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text("No remote session is open.", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.workspace_opencode_detail_no_session), style = MaterialTheme.typography.titleMedium)
                     Button(onClick = vm::createSession, enabled = !state.loading) {
-                        if (state.loading) CircularProgressIndicator(modifier = Modifier.padding(4.dp)) else Text("Start session")
+                        if (state.loading) CircularProgressIndicator(modifier = Modifier.padding(4.dp)) else Text(stringResource(R.string.workspace_opencode_detail_start_session))
                     }
                 }
             } else {
@@ -94,15 +96,15 @@ fun OpenCodeWorkspaceDetailPage(refId: String) {
                         value = prompt,
                         onValueChange = { prompt = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("Message OpenCode") },
+                        placeholder = { Text(stringResource(R.string.workspace_opencode_detail_message_hint)) },
                         enabled = !state.sending,
                     )
                     Button(
                         onClick = { vm.send(prompt); prompt = "" },
                         enabled = prompt.isNotBlank() && !state.sending,
-                    ) { Text("Send") }
+                    ) { Text(stringResource(R.string.workspace_opencode_detail_send)) }
                 }
-                TextButton(onClick = vm::abort, modifier = Modifier.padding(horizontal = 12.dp)) { Text("Abort session") }
+                TextButton(onClick = vm::abort, modifier = Modifier.padding(horizontal = 12.dp)) { Text(stringResource(R.string.workspace_opencode_detail_abort)) }
             }
         }
     }

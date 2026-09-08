@@ -25,7 +25,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -44,6 +43,7 @@ import me.rerere.hugeicons.stroke.Add01
 import me.rerere.hugeicons.stroke.Delete01
 import me.rerere.hugeicons.stroke.Edit01
 import me.rerere.hugeicons.stroke.File02
+import me.rerere.hugeicons.stroke.Globe
 import me.rerere.hugeicons.stroke.MoreVertical
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.db.entity.WorkspaceEntity
@@ -94,21 +94,30 @@ fun WorkspacePage(vm: WorkspaceVM = koinViewModel()) {
             contentPadding = innerPadding + PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (workspaces.isEmpty()) {
+            if (workspaces.isEmpty() && openCodeWorkspaces.isEmpty()) {
                 item {
                     EmptyWorkspaceState()
                 }
             }
 
-            if (openCodeWorkspaces.isNotEmpty()) {
+            if (workspaces.isNotEmpty()) {
                 item {
-                    HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
-                    Text(
-                        text = "OpenCode",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(top = 12.dp),
+                    WorkspaceSectionHeader(stringResource(R.string.workspace_page_section_local))
+                }
+                items(workspaces, key = { it.id }) { workspace ->
+                    WorkspaceCard(
+                        workspace = workspace,
+                        onRename = { editTarget = workspace },
+                        onDelete = { deleteTarget = workspace },
+                        onOpen = { navController.navigate(Screen.WorkspaceDetail(workspace.id)) },
                     )
                 }
+            }
+
+            item {
+                WorkspaceSectionHeader(stringResource(R.string.workspace_page_section_opencode))
+            }
+            if (openCodeWorkspaces.isNotEmpty()) {
                 items(openCodeWorkspaces, key = { "opencode-${it.connection.id}-${it.reference?.id ?: "connection"}" }) { row ->
                      OpenCodeWorkspaceCard(
                           row = row,
@@ -126,17 +135,8 @@ fun WorkspacePage(vm: WorkspaceVM = koinViewModel()) {
 
             item {
                 TextButton(onClick = { showOpenCodeDialog = true }) {
-                    Text("Add OpenCode connection")
+                    Text(stringResource(R.string.workspace_page_add_opencode))
                 }
-            }
-
-            items(workspaces, key = { it.id }) { workspace ->
-                WorkspaceCard(
-                    workspace = workspace,
-                    onRename = { editTarget = workspace },
-                    onDelete = { deleteTarget = workspace },
-                    onOpen = { navController.navigate(Screen.WorkspaceDetail(workspace.id)) },
-                )
             }
         }
     }
@@ -205,6 +205,16 @@ fun WorkspacePage(vm: WorkspaceVM = koinViewModel()) {
 }
 
 @Composable
+private fun WorkspaceSectionHeader(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.secondary,
+        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+    )
+}
+
+@Composable
 private fun OpenCodeWorkspaceCard(row: OpenCodeWorkspaceRow, onOpen: (() -> Unit)?) {
     val reference = row.reference
     Card(
@@ -213,27 +223,56 @@ private fun OpenCodeWorkspaceCard(row: OpenCodeWorkspaceRow, onOpen: (() -> Unit
             .then(if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier),
         colors = CustomColors.cardColorsOnSurfaceContainer,
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = reference?.name ?: row.connection.name,
-                style = MaterialTheme.typography.titleSmallEmphasized,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = HugeIcons.Globe,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = MaterialTheme.colorScheme.primary,
             )
-            Text(
-                text = reference?.remoteDirectory ?: row.connection.baseUrl,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = row.connection.lastHealthStatus,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = reference?.name ?: row.connection.name,
+                    style = MaterialTheme.typography.titleSmallEmphasized,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = reference?.remoteDirectory ?: row.connection.baseUrl,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            ConnectionStatusLabel(row.connection.lastHealthStatus)
         }
     }
+}
+
+@Composable
+private fun ConnectionStatusLabel(status: String) {
+    val (label, color) = when (status) {
+        "HEALTHY" -> stringResource(R.string.workspace_opencode_status_online) to MaterialTheme.colorScheme.primary
+        "UNHEALTHY" -> stringResource(R.string.workspace_opencode_status_unavailable) to MaterialTheme.colorScheme.tertiary
+        "ERROR" -> stringResource(R.string.workspace_opencode_status_error) to MaterialTheme.colorScheme.error
+        else -> stringResource(R.string.workspace_opencode_status_unknown) to MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelMedium,
+        color = color,
+    )
 }
 
 @Composable
