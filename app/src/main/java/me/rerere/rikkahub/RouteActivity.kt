@@ -105,6 +105,7 @@ import me.rerere.rikkahub.ui.pages.extensions.PromptLibraryTab
 import me.rerere.rikkahub.ui.pages.extensions.skills.SkillDetailPage
 import me.rerere.rikkahub.ui.pages.extensions.skills.SkillsPage
 import me.rerere.rikkahub.ui.pages.extensions.workspace.WorkspaceDetailPage
+import me.rerere.rikkahub.ui.pages.extensions.workspace.OpenCodeWorkspaceDetailPage
 import me.rerere.rikkahub.ui.pages.extensions.workspace.WorkspacePage
 import me.rerere.rikkahub.ui.pages.extensions.workspace.WorkspaceTerminalPage
 import me.rerere.rikkahub.ui.pages.favorite.FavoritePage
@@ -660,6 +661,10 @@ class RouteActivity : ComponentActivity() {
                                 WorkspaceDetailPage(key.id)
                             }
 
+                            entry<Screen.OpenCodeWorkspaceDetail> { key ->
+                                OpenCodeWorkspaceDetailPage(key.refId)
+                            }
+
                             entry<Screen.WorkspaceTerminal> { key ->
                                 WorkspaceTerminalPage(key.id)
                             }
@@ -918,6 +923,9 @@ sealed interface Screen : NavKey {
 
     @Serializable
     data class WorkspaceDetail(val id: String) : Screen
+
+    @Serializable
+    data class OpenCodeWorkspaceDetail(val refId: String) : Screen
 
     @Serializable
     data class WorkspaceTerminal(val id: String) : Screen

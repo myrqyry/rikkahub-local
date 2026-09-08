@@ -18,6 +18,7 @@ import me.rerere.rikkahub.ui.pages.extensions.skills.SkillDetailVM
 import me.rerere.rikkahub.ui.pages.extensions.skills.SkillsVM
 import me.rerere.rikkahub.ui.pages.extensions.workspace.WorkspaceDetailVM
 import me.rerere.rikkahub.ui.pages.extensions.workspace.WorkspaceVM
+import me.rerere.rikkahub.ui.pages.extensions.workspace.OpenCodeWorkspaceDetailVM
 import me.rerere.rikkahub.ui.pages.setting.SettingVM
 import me.rerere.rikkahub.ui.pages.models.UnifiedModelsViewModel
 import me.rerere.rikkahub.ui.pages.setting.browser.SettingBrowserViewModel
@@ -87,6 +88,12 @@ val viewModelModule = module {
     }
     viewModelOf(::SkillDetailVM)
     viewModelOf(::WorkspaceVM)
+    viewModel<OpenCodeWorkspaceDetailVM> {
+        OpenCodeWorkspaceDetailVM(
+            refId = it.get(),
+            repository = get(),
+        )
+    }
     viewModel<WorkspaceDetailVM> {
         WorkspaceDetailVM(
             id = it.get(),

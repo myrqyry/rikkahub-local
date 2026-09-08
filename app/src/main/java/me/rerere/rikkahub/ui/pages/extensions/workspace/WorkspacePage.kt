@@ -25,6 +25,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -46,6 +47,8 @@ import me.rerere.hugeicons.stroke.File02
 import me.rerere.hugeicons.stroke.MoreVertical
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.db.entity.WorkspaceEntity
+import me.rerere.rikkahub.data.opencode.OpenCodeWorkspaceRow
+import me.rerere.rikkahub.data.opencode.OpenCodeProject
 import androidx.compose.ui.res.stringResource
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.ui.components.nav.BackButton
@@ -59,10 +62,15 @@ import org.koin.androidx.compose.koinViewModel
 fun WorkspacePage(vm: WorkspaceVM = koinViewModel()) {
     val navController = LocalNavController.current
     val workspaces by vm.workspaces.collectAsStateWithLifecycle()
+    val openCodeWorkspaces by vm.openCodeWorkspaces.collectAsStateWithLifecycle()
+    val openCodeProjects by vm.openCodeProjects.collectAsStateWithLifecycle()
+    val openCodeProjectError by vm.openCodeProjectError.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<WorkspaceEntity?>(null) }
     var deleteTarget by remember { mutableStateOf<WorkspaceEntity?>(null) }
+    var showOpenCodeDialog by rememberSaveable { mutableStateOf(false) }
+    var openCodeProjectConnectionId by rememberSaveable { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -92,6 +100,36 @@ fun WorkspacePage(vm: WorkspaceVM = koinViewModel()) {
                 }
             }
 
+            if (openCodeWorkspaces.isNotEmpty()) {
+                item {
+                    HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
+                    Text(
+                        text = "OpenCode",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                }
+                items(openCodeWorkspaces, key = { "opencode-${it.connection.id}-${it.reference?.id ?: "connection"}" }) { row ->
+                     OpenCodeWorkspaceCard(
+                          row = row,
+                          onOpen = {
+                              row.reference?.let { reference ->
+                                  navController.navigate(Screen.OpenCodeWorkspaceDetail(reference.id))
+                              } ?: run {
+                                  openCodeProjectConnectionId = row.connection.id
+                                  vm.discoverOpenCodeProjects(row.connection.id)
+                              }
+                          },
+                     )
+                }
+            }
+
+            item {
+                TextButton(onClick = { showOpenCodeDialog = true }) {
+                    Text("Add OpenCode connection")
+                }
+            }
+
             items(workspaces, key = { it.id }) { workspace ->
                 WorkspaceCard(
                     workspace = workspace,
@@ -101,6 +139,28 @@ fun WorkspacePage(vm: WorkspaceVM = koinViewModel()) {
                 )
             }
         }
+    }
+
+    if (showOpenCodeDialog) {
+        OpenCodeConnectionDialog(
+            onDismiss = { showOpenCodeDialog = false },
+            onConfirm = { name, url, credential ->
+                vm.createOpenCodeConnection(name, url, credential)
+                showOpenCodeDialog = false
+            },
+        )
+    }
+
+    if (openCodeProjects.isNotEmpty() || openCodeProjectError != null) {
+        OpenCodeProjectDialog(
+            projects = openCodeProjects,
+            error = openCodeProjectError,
+            onSelect = { project -> openCodeProjectConnectionId?.let { vm.selectOpenCodeProject(it, project) } },
+            onDismiss = {
+                openCodeProjectConnectionId = null
+                vm.clearOpenCodeProjects()
+            },
+        )
     }
 
     if (showAddDialog) {
@@ -142,6 +202,91 @@ fun WorkspacePage(vm: WorkspaceVM = koinViewModel()) {
     ) {
         Text(stringResource(R.string.workspace_page_delete_confirm))
     }
+}
+
+@Composable
+private fun OpenCodeWorkspaceCard(row: OpenCodeWorkspaceRow, onOpen: (() -> Unit)?) {
+    val reference = row.reference
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier),
+        colors = CustomColors.cardColorsOnSurfaceContainer,
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = reference?.name ?: row.connection.name,
+                style = MaterialTheme.typography.titleSmallEmphasized,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = reference?.remoteDirectory ?: row.connection.baseUrl,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = row.connection.lastHealthStatus,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun OpenCodeProjectDialog(
+    projects: List<OpenCodeProject>,
+    error: String?,
+    onSelect: (OpenCodeProject) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select OpenCode project") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                projects.forEach { project ->
+                    TextButton(onClick = { onSelect(project) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(project.name ?: project.directory, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                if (projects.isEmpty() && error == null) Text("No OpenCode projects found")
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } },
+    )
+}
+
+@Composable
+private fun OpenCodeConnectionDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String, String, String?) -> Unit,
+) {
+    var name by rememberSaveable { mutableStateOf("") }
+    var url by rememberSaveable { mutableStateOf("") }
+    var credential by rememberSaveable { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add OpenCode connection") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
+                OutlinedTextField(url, { url = it }, label = { Text("Server URL") }, singleLine = true)
+                OutlinedTextField(credential, { credential = it }, label = { Text("Credential (optional)") }, singleLine = true)
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(name.trim(), url.trim(), credential.takeIf { it.isNotBlank() }) },
+                enabled = name.isNotBlank() && url.isNotBlank(),
+            ) { Text(stringResource(R.string.common_save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } },
+    )
 }
 
 @Composable

@@ -21,12 +21,19 @@ import me.rerere.rikkahub.data.repository.FilesRepository
 import me.rerere.rikkahub.data.repository.GenMediaRepository
 import me.rerere.rikkahub.data.repository.MemoryRepository
 import me.rerere.rikkahub.data.repository.WorkspaceRepository
+import me.rerere.rikkahub.data.ai.net.withEgressGuard
+import me.rerere.rikkahub.data.opencode.OpenCodeHttpClient
+import me.rerere.rikkahub.data.opencode.OpenCodeSecretStore
+import me.rerere.rikkahub.data.opencode.RoomOpenCodeConnectionStore
+import me.rerere.rikkahub.data.opencode.OpenCodeConnectionStore
+import me.rerere.rikkahub.data.opencode.OpenCodeRepository
 import me.rerere.rikkahub.ui.pages.setting.components.QwenSemanticModelManager
 import me.rerere.workspace.ProotShellRunner
 import me.rerere.workspace.RootfsInstaller
 import me.rerere.workspace.WorkspaceBindMount
 import me.rerere.workspace.WorkspaceManager
 import org.koin.dsl.module
+import org.koin.core.qualifier.named
 
 val repositoryModule = module {
     single {
@@ -83,6 +90,20 @@ val repositoryModule = module {
 
     single {
         WorkspaceRepository(get(), get(), get(), get())
+    }
+
+    single<OpenCodeConnectionStore> { RoomOpenCodeConnectionStore(get(), get(), get()) }
+
+    single {
+        val httpClient: okhttp3.OkHttpClient = get(qualifier = org.koin.core.qualifier.named("opencode"))
+        val secretStore: OpenCodeSecretStore = get()
+        OpenCodeRepository(get()) { connection ->
+            OpenCodeHttpClient(
+                client = httpClient.withEgressGuard(allowPrivate = true),
+                baseUrl = connection.baseUrl,
+                credential = connection.authSecretRef?.let { secretStore.get(it) },
+            )
+        }
     }
 
     single {

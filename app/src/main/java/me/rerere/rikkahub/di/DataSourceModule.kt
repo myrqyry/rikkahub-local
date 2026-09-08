@@ -32,6 +32,8 @@ import me.rerere.rikkahub.data.grok.GrokOAuthManager
 import me.rerere.rikkahub.data.grok.GrokProvider
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.db.AppDatabase
+import me.rerere.rikkahub.data.db.dao.OpenCodeConnectionDAO
+import me.rerere.rikkahub.data.db.dao.OpenCodeWorkspaceRefDAO
 import me.rerere.rikkahub.data.db.fts.MessageFtsManager
 import me.rerere.rikkahub.data.db.fts.SimpleDictManager
 import me.rerere.rikkahub.data.db.migrations.Migration_27_28
@@ -72,6 +74,8 @@ import me.rerere.rikkahub.data.rag.VectorDao
 import me.rerere.rikkahub.data.sync.webdav.WebDavSync
 import me.rerere.search.SearchService
 import me.rerere.rikkahub.data.sync.S3Sync
+import me.rerere.rikkahub.data.opencode.AndroidOpenCodeSecretStore
+import me.rerere.rikkahub.data.opencode.OpenCodeSecretStore
 import me.rerere.rikkahub.skills.plugins.PluginManager
 import me.rerere.rikkahub.skills.plugins.SlashCommandRegistry
 import okhttp3.MediaType.Companion.toMediaType
@@ -174,6 +178,10 @@ val dataSourceModule = module {
     single {
         get<AppDatabase>().folderDao()
     }
+
+    single<OpenCodeConnectionDAO> { get<AppDatabase>().openCodeConnectionDao() }
+    single<OpenCodeWorkspaceRefDAO> { get<AppDatabase>().openCodeWorkspaceRefDao() }
+    single<OpenCodeSecretStore> { AndroidOpenCodeSecretStore(context = get(), json = get()) }
 
     single {
         get<AppDatabase>().vectorDao()
@@ -322,6 +330,17 @@ val dataSourceModule = module {
     }
 
     single<OkHttpClient>(named("grok")) {
+        OkHttpClient.Builder()
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.MINUTES)
+            .writeTimeout(120, TimeUnit.SECONDS)
+            .followSslRedirects(true)
+            .followRedirects(true)
+            .retryOnConnectionFailure(true)
+            .build()
+    }
+
+    single<OkHttpClient>(named("opencode")) {
         OkHttpClient.Builder()
             .connectTimeout(20, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.MINUTES)
