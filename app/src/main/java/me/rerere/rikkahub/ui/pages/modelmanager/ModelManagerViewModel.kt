@@ -30,6 +30,8 @@ import me.rerere.locallm.LocalRuntimePreferences
 import me.rerere.locallm.ModelInstall
 import me.rerere.locallm.ModelCatalog
 import me.rerere.locallm.ModelCatalogEntry
+import me.rerere.locallm.litert.LiteRtCatalog
+import me.rerere.locallm.litert.LiteRtModelDefaults
 import me.rerere.locallm.litert.image.FLUX2_KLEIN_MODEL
 import me.rerere.locallm.litert.image.Flux2KleinPackage
 import me.rerere.locallm.litert.image.Flux2KleinPackageStatus
@@ -141,12 +143,16 @@ class ModelManagerViewModel(
             return@launch
         }
         val fileName = ModelInstall.extractFileNameFromUrl(normalized)
-        if (!fileName.endsWith(".gguf", ignoreCase = true)) {
-            _errorMessage.value = "Stable Diffusion requires a .gguf model file"
+        if (runtimeForFileName(fileName) == null) {
+            _errorMessage.value = "Unsupported model file: expected .gguf or .litertlm"
             return@launch
         }
         executeDownload(normalized)
     }
+
+    /** Runtime a downloaded/imported file belongs to, from its extension. Null = unsupported. */
+    private fun runtimeForFileName(fileName: String): LocalRuntime? =
+        ModelInstall.runtimeForExtension(fileName.substringAfterLast('.', ""))
 
     fun importModelFromUri(uri: Uri) = viewModelScope.launch {
         var cleanupTarget: File? = null
@@ -154,10 +160,15 @@ class ModelManagerViewModel(
             val displayName = withContext(Dispatchers.IO) {
                 FileUtils.getFileNameFromUri(context, uri) ?: "model_${System.currentTimeMillis()}"
             }
-            val safeName = sanitizeGgufFileName(displayName)
+            val safeName = sanitizeModelFileName(displayName)
+            val targetRuntime = runtimeForFileName(safeName) ?: run {
+                _errorMessage.value = "Unsupported model file: expected .gguf or .litertlm"
+                return@launch
+            }
+            val extension = safeName.substringAfterLast('.', "")
             val targetFile = ModelInstall.targetFile(
                 ModelInstall.localModelsDir(context),
-                runtime,
+                targetRuntime,
                 safeName,
             )
             cleanupTarget = targetFile
@@ -170,14 +181,18 @@ class ModelManagerViewModel(
             val bytesRead = targetFile.inputStream().use { it.read(buf) }
             if (
                 bytesRead < 4 ||
-                !ModelInstall.isValidMagicForExtension("gguf", buf.copyOf(bytesRead))
+                !ModelInstall.isValidMagicForExtension(extension, buf.copyOf(bytesRead))
             ) {
                 targetFile.delete()
-                _errorMessage.value = "Invalid or corrupted GGUF model file"
+                _errorMessage.value = "Invalid or corrupted model file"
                 return@launch
             }
-            prefs.addInstalledModel(runtime, safeName, targetFile.absolutePath)
-            registerByClassification(safeName, targetFile)
+            if (targetRuntime == LocalRuntime.LiteRT) {
+                registerLiteRtModel(safeName, targetFile.absolutePath)
+            } else {
+                prefs.addInstalledModel(targetRuntime, safeName, targetFile.absolutePath)
+                registerByClassification(safeName, targetFile)
+            }
             cleanupTarget = null
         } catch (e: CancellationException) {
             cleanupTarget?.delete()
@@ -212,11 +227,11 @@ class ModelManagerViewModel(
 
     private suspend fun executeDownload(url: String) {
         val fileName = ModelInstall.extractFileNameFromUrl(url)
-        if (!fileName.endsWith(".gguf", ignoreCase = true)) {
-            _errorMessage.value = "Stable Diffusion requires a .gguf model file"
+        val targetRuntime = runtimeForFileName(fileName) ?: run {
+            _errorMessage.value = "Unsupported model file: expected .gguf or .litertlm"
             return
         }
-        val target = ModelInstall.targetFile(ModelInstall.localModelsDir(context), runtime, fileName)
+        val target = ModelInstall.targetFile(ModelInstall.localModelsDir(context), targetRuntime, fileName)
         try {
             collectDownloadProgress(url, fileName, target)
         } catch (e: CancellationException) {
@@ -244,7 +259,11 @@ class ModelManagerViewModel(
                 }
                 is ModelInstall.Progress.Done -> {
                     _downloadProgress.value = null
-                    registerByClassification(fileName, p.file)
+                    if (runtimeForFileName(fileName) == LocalRuntime.LiteRT) {
+                        registerLiteRtModel(fileName, p.file.absolutePath)
+                    } else {
+                        registerByClassification(fileName, p.file)
+                    }
                 }
                 is ModelInstall.Progress.Failed -> {
                     _downloadProgress.value = null
@@ -290,6 +309,30 @@ class ModelManagerViewModel(
         )
         settingsStore.update { settings ->
             ModelRegistration.register(settings, LLAMACPP_PROVIDER_ID, model, absolutePath)
+        }
+    }
+
+    /**
+     * Registers a `.litertlm` model under the LiteRT provider. Input modalities follow the
+     * curated config so vision models (SmolVLM2, FastVLM) surface as
+     * VISION/OCR-capable in the registry; text models stay TEXT-only.
+     */
+    private suspend fun registerLiteRtModel(fileName: String, absolutePath: String) {
+        prefs.addInstalledModel(LocalRuntime.LiteRT, fileName, absolutePath)
+        val config = LiteRtModelDefaults.forModelFile(fileName)
+        val inputModalities = buildList {
+            add(Modality.TEXT)
+            if (config.supportsImage) add(Modality.IMAGE)
+        }
+        val model = Model(
+            modelId = fileName,
+            displayName = LiteRtCatalog.findByModelFile(fileName)?.displayName ?: fileName,
+            type = ModelType.CHAT,
+            inputModalities = inputModalities,
+            outputModalities = listOf(Modality.TEXT),
+        )
+        settingsStore.update { settings ->
+            ModelRegistration.register(settings, LITERT_PROVIDER_ID, model, absolutePath)
         }
     }
 
@@ -348,7 +391,7 @@ class ModelManagerViewModel(
         }
     }
 
-    private fun sanitizeGgufFileName(displayName: String): String {
+    private fun sanitizeModelFileName(displayName: String): String {
         val leaf = displayName
             .substringAfterLast('/')
             .substringAfterLast('\\')
@@ -356,7 +399,7 @@ class ModelManagerViewModel(
             .replace(Regex("[^A-Za-z0-9._ ()+\\-]"), "_")
             .trim('.')
             .ifBlank { "model_${System.currentTimeMillis()}" }
-        return if (leaf.endsWith(".gguf", ignoreCase = true)) leaf else "$leaf.gguf"
+        return leaf
     }
 
     private fun copyTree(current: DocumentFile, targetRoot: File) {

@@ -36,7 +36,7 @@ object LiteRtModelDefaults {
     private val BUILT_IN: List<LiteRtModelConfig> = listOf(
         // Gemma-4-E2B-it — matches Google AI Edge Gallery's allowlist for this model file.
         // Vision works on Adreno 642L (Nothing Phone 1, Snapdragon 8 Gen 1) per the user's
-        // live Gallery test on 2026-05-19; both apps target litertlm 0.11.0.
+        // live Gallery test on 2026-05-19 (both apps were on litertlm 0.11.0 at the time).
         LiteRtModelConfig(
             modelFile = "gemma-4-E2B-it.litertlm",
             topK = 64,
@@ -175,6 +175,75 @@ object LiteRtModelDefaults {
             supportsSpeculativeDecoding = false,
             minDeviceMemoryGb = 8,
             sizeBytes = 1156342768L,
+        ),
+        // LFM2.5-1.2B-Instruct — compact tool-calling LLM. Not in Gallery's allowlist, so
+        // sampler params use the generic defaults; capabilities stay text+tool.
+        LiteRtModelConfig(
+            modelFile = "LFM2.5-1.2B-Instruct_int4.litertlm",
+            topK = 64,
+            topP = 0.95,
+            temperature = 1.0,
+            maxTokens = 4096,
+            maxContextLength = null,
+            preferredAccelerators = listOf("gpu", "cpu"),
+            visionAccelerator = null,
+            supportsImage = false,
+            supportsAudio = false,
+            supportsThinking = false,
+            supportsSpeculativeDecoding = false,
+            minDeviceMemoryGb = 6,
+            sizeBytes = 736015744L,
+        ),
+        // MiniCPM5-2B — tool-calling LLM with an optional thinking channel.
+        LiteRtModelConfig(
+            modelFile = "MiniCPM5-2B_int4.litertlm",
+            topK = 64,
+            topP = 0.95,
+            temperature = 1.0,
+            maxTokens = 4096,
+            maxContextLength = null,
+            preferredAccelerators = listOf("gpu", "cpu"),
+            visionAccelerator = null,
+            supportsImage = false,
+            supportsAudio = false,
+            supportsThinking = true,
+            supportsSpeculativeDecoding = false,
+            minDeviceMemoryGb = 6,
+            sizeBytes = 1553670064L,
+        ),
+        // PaddleOCR-VL-1.6 — dedicated document-OCR VLM (image input only).
+        LiteRtModelConfig(
+            modelFile = "PaddleOCR-VL-1.6.litertlm",
+            topK = 64,
+            topP = 0.95,
+            temperature = 1.0,
+            maxTokens = 4096,
+            maxContextLength = null,
+            preferredAccelerators = listOf("gpu", "cpu"),
+            visionAccelerator = "gpu",
+            supportsImage = true,
+            supportsAudio = false,
+            supportsThinking = false,
+            supportsSpeculativeDecoding = false,
+            minDeviceMemoryGb = 6,
+            sizeBytes = 1390305472L,
+        ),
+        // InternVL3-1B — small general-purpose VLM (image input only).
+        LiteRtModelConfig(
+            modelFile = "InternVL3-1B.litertlm",
+            topK = 64,
+            topP = 0.95,
+            temperature = 1.0,
+            maxTokens = 4096,
+            maxContextLength = null,
+            preferredAccelerators = listOf("gpu", "cpu"),
+            visionAccelerator = "gpu",
+            supportsImage = true,
+            supportsAudio = false,
+            supportsThinking = false,
+            supportsSpeculativeDecoding = false,
+            minDeviceMemoryGb = 6,
+            sizeBytes = 737314160L,
         ),
     )
 }

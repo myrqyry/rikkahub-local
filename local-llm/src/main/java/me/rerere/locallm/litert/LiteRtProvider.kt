@@ -207,7 +207,7 @@ class LiteRtProvider(
         // avoids the System.loadLibrary("qnn_delegate_jni") call on every generation.
         val cachedAccel = prefs.acceleratorFlow(LocalRuntime.LiteRT).first()
         // Honor the per-runtime force-CPU override. Default true after the LiteRT-LM
-        // 0.11.0 GPU/NNAPI native crashes; users opt back in via the settings toggle.
+        // GPU/NNAPI native crashes; users opt back in via the settings toggle.
         val forceCpu = prefs.forceCpu(LocalRuntime.LiteRT)
 
         // Per-model defaults curated to mirror Gallery's `model_allowlists/1_0_13.json`

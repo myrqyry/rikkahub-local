@@ -25,11 +25,10 @@ object LiteRtCatalog {
     /**
      * Curated picker list — order matters (top of list shown first).
      *
-     * These are links, not installers: each card opens the model's HuggingFace page
-     * (`sourceUrl`), and the user gets the file themselves — by copying the URL into the
-     * paste-install field, or downloading it and importing from the filesystem. The app never
-     * downloads a catalog model directly, so repo gating (401 for token-less downloads) is
-     * irrelevant to curation: a gated repo is still a perfectly good pick.
+     * Each card installs directly: the Install button downloads the referenced file into
+     * app storage and registers it, so the user does not have to fetch it manually. A card
+     * also keeps a link to the model's HuggingFace page for gated repos, whose token-less
+     * download returns 401 and must be fetched from the page instead.
      *
      * Curation criteria — an entry stays ONLY if BOTH hold:
      *  1. **Reachable model page.** The HF repo must exist and host the referenced .litertlm
@@ -37,8 +36,10 @@ object LiteRtCatalog {
      *     litert-community/gemma-4-E4B-it-litert-lm, litert-community/Qwen2.5-1.5B-Instruct,
      *     litert-community/functiongemma-270m-ft-mobile-actions (gated=auto, gemma license —
      *     tool-calling capable; gating is irrelevant under the link-only policy),
-     *     litert-community/SmolVLM2-500M, litert-community/FastVLM-0.5B (multimodal vision
-     *     models — OCR-capable, see tags).
+     *     litert-community/SmolVLM2-500M, litert-community/FastVLM-0.5B, litert-community/
+     *     PaddleOCR-VL-1.6, litert-community/InternVL3-1B (multimodal vision models —
+     *     OCR-capable, see tags), litert-community/LFM2.5-1.2B-Instruct,
+     *     litert-community/MiniCPM5-2B (tool-calling templates verified in the shipped bundle).
      *  2. **Tool-calling capable.** RikkaHub drives these models through the prompt-engineered
      *     tool protocol in LiteRtToolPrefix, so the model must be instruction-tuned for tool /
      *     function calling. Dropped on this rule: DeepSeek-R1-Distill-Qwen-1.5B (a reasoning
@@ -85,6 +86,26 @@ object LiteRtCatalog {
             recommended = false,
             tags = listOf("tool-calling"),
         ),
+        LiteRtCatalogEntry(
+            displayName = "LFM2.5-1.2B-Instruct",
+            modelId = "litert-community/LFM2.5-1.2B-Instruct",
+            modelFile = "LFM2.5-1.2B-Instruct_int4.litertlm",
+            description = "LiquidAI's LFM2.5-1.2B-Instruct ready for deployment on Android using LiteRT-LM. Compact and tool-calling capable — its chat template ships with tool support.",
+            sizeBytes = 736015744L,
+            minDeviceMemoryGb = 6,
+            recommended = false,
+            tags = listOf("tool-calling"),
+        ),
+        LiteRtCatalogEntry(
+            displayName = "MiniCPM5-2B",
+            modelId = "litert-community/MiniCPM5-2B",
+            modelFile = "MiniCPM5-2B_int4.litertlm",
+            description = "OpenBMB's MiniCPM5-2B ready for deployment on Android using LiteRT-LM. Native tool-calling support in the chat template, with an optional thinking channel.",
+            sizeBytes = 1553670064L,
+            minDeviceMemoryGb = 6,
+            recommended = false,
+            tags = listOf("tool-calling", "thinking"),
+        ),
         // Multimodal vision models — these double as on-device OCR: pick one as the OCR
         // model (Settings → Model → OCR) and images get transcribed locally instead of
         // hitting a cloud vision API. Not tool-tuned like the LLM entries above, so use
@@ -106,6 +127,26 @@ object LiteRtCatalog {
             description = "FastVLM-0.5B built for LiteRT-LM on Android. Fast, efficient multimodal vision model for on-device OCR and image understanding.",
             sizeBytes = 1156342768L,
             minDeviceMemoryGb = 8,
+            recommended = false,
+            tags = listOf("multimodal", "ocr"),
+        ),
+        LiteRtCatalogEntry(
+            displayName = "PaddleOCR-VL-1.6",
+            modelId = "litert-community/PaddleOCR-VL-1.6",
+            modelFile = "PaddleOCR-VL-1.6.litertlm",
+            description = "PaddleOCR-VL-1.6 for Android via LiteRT-LM. A dedicated document-OCR vision model — the strongest on-device pick for transcribing text from images and scans.",
+            sizeBytes = 1390305472L,
+            minDeviceMemoryGb = 6,
+            recommended = false,
+            tags = listOf("multimodal", "ocr"),
+        ),
+        LiteRtCatalogEntry(
+            displayName = "InternVL3-1B",
+            modelId = "litert-community/InternVL3-1B",
+            modelFile = "InternVL3-1B.litertlm",
+            description = "InternVL3-1B ready for Android via LiteRT-LM. Small general-purpose VLM for image understanding and OCR, with more capacity than the 500M-class models.",
+            sizeBytes = 737314160L,
+            minDeviceMemoryGb = 6,
             recommended = false,
             tags = listOf("multimodal", "ocr"),
         ),

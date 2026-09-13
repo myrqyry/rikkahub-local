@@ -144,7 +144,7 @@ class RikkaHubApp : Application() {
         runAgentRunBootRecovery()
 
         // Auto-recover from a prior native crash inside a local-runtime JNI lib
-        // (LiteRT-LM 0.11.0 has known SIGSEGVs on the GPU/NNAPI backend during
+        // (the LiteRT-LM GPU/NNAPI backend has known SIGSEGVs during
         // inference on Pixel Tensor-G). If we detect one, force the runtime to
         // CPU on the next load and stamp a recovery banner the LiteRT settings
         // page picks up — so users see "Recovered: switched to CPU" instead of
@@ -225,7 +225,7 @@ class RikkaHubApp : Application() {
                     Log.i(
                         TAG,
                         "invalidateLocalLlmDecisionsOnSdkUpgrade: SDK version changed — cleared " +
-                            "accelerator + vision-unavailable + crash-recovery for LiteRT (new=${prefs.currentSdkVersion})",
+                            "accelerator + vision-unavailable + crash-recovery + model compile caches for LiteRT (new=${prefs.currentSdkVersion})",
                     )
                 }
                 // Unconditionally wipe the visionUnavailable set on every app start. Stale

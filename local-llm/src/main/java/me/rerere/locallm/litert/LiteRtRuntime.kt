@@ -106,7 +106,7 @@ class LiteRtVisionUnavailableException(
 )
 
 /**
- * Wraps Google's LiteRT-LM runtime (com.google.ai.edge.litertlm:litertlm-android:0.11.0)
+ * Wraps Google's LiteRT-LM runtime (com.google.ai.edge.litertlm:litertlm-android:0.17.0)
  * for on-device inference of `.litertlm` model files.
  *
  * # Why this rewrite (vs. the simpler v22A original)

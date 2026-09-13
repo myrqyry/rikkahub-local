@@ -1053,7 +1053,7 @@ private fun ColumnScope.ProviderConfigureLiteRT(
 
     // GPU acceleration toggle. The default is now device-dependent (see
     // LocalRuntimePreferences.defaultForceCpu): ON for capable devices, OFF only for the
-    // Google Tensor crash class where LiteRT-LM 0.11.0's GPU/NNAPI backend SIGSEGVs during
+    // Google Tensor crash class where LiteRT-LM's GPU/NNAPI backend SIGSEGVs during
     // inference. The toggle still lets the user override either way; the crash sweep and
     // the runtime's GPU->CPU fallback backstop a wrong default.
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1156,6 +1156,43 @@ private fun ColumnScope.ProviderConfigureLiteRT(
         }
     }
 
+    // Curated one-tap catalog. Install downloads the .litertlm straight into app storage and
+    // registers it on this provider; installed/downloading state comes from the shared VM so
+    // the cards reflect real disk + provider state.
+    Text(
+        text = stringResource(R.string.local_llm_catalog_title),
+        style = MaterialTheme.typography.titleSmall,
+        modifier = Modifier.padding(top = 8.dp),
+    )
+    Text(
+        text = stringResource(R.string.local_llm_catalog_subtitle),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    val catalogContext = LocalContext.current
+    val installedFiles by vm.installedModelFiles.collectAsStateWithLifecycle()
+    val downloadingFile by vm.downloadingFile.collectAsStateWithLifecycle()
+    val downloadProgress by vm.downloadProgress.collectAsStateWithLifecycle()
+    vm.errorMessage.collectAsStateWithLifecycle().value?.let { message ->
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+    LiteRtCatalog.ENTRIES.forEach { entry ->
+        LiteRtCatalogEntryCard(
+            entry = entry,
+            installed = entry.modelFile in installedFiles,
+            downloadingPercent = if (downloadingFile == entry.modelFile) {
+                downloadProgress?.percent
+            } else {
+                null
+            },
+            onInstall = { vm.startManualDownload(entry.resolveUrl()) },
+            onOpenSource = { openModelSourceUrl(catalogContext, entry.sourceUrl) },
+        )
+    }
 }
 
 @Composable
@@ -1418,6 +1455,8 @@ private fun DoubleParamField(
 private fun LiteRtCatalogEntryCard(
     entry: LiteRtCatalogEntry,
     installed: Boolean,
+    downloadingPercent: Int?,
+    onInstall: () -> Unit,
     onOpenSource: () -> Unit,
 ) {
     Card(
@@ -1503,9 +1542,21 @@ private fun LiteRtCatalogEntryCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
+            if (downloadingPercent != null) {
+                LinearProgressIndicator(
+                    progress = { downloadingPercent / 100f },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = stringResource(R.string.local_llm_catalog_download_percent, downloadingPercent),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (installed) {
@@ -1516,8 +1567,12 @@ private fun LiteRtCatalogEntryCard(
                     )
                 } else {
                     Button(
-                        onClick = onOpenSource,
+                        onClick = onInstall,
+                        enabled = downloadingPercent == null,
                     ) {
+                        Text(stringResource(R.string.common_install))
+                    }
+                    TextButton(onClick = onOpenSource) {
                         Text(stringResource(R.string.local_llm_catalog_get_on_hf))
                     }
                 }

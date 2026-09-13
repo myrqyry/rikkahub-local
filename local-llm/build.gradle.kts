@@ -49,16 +49,18 @@ dependencies {
     implementation(libs.okhttp)
     // LiteRT-LM runtime: loads .litertlm model files produced by the LiteRT-LM toolchain.
     //
-    // Pinned to 0.11.0 to MATCH Google AI Edge Gallery's working configuration. Gallery
-    // ships 0.11.0 (gradle/libs.versions.toml in github.com/google-ai-edge/gallery) and
-    // successfully runs Gemma 4 multimodal on devices including Snapdragon 8 Gen 1
-    // (Nothing Phone 1 / Adreno 642L) where our prior 0.12.0 bump native-SIGSEGV'd inside
-    // liblitertlm_jni.so during vision-encoder init. Until we have an upstream signal
-    // that 0.12+ is safe on the device classes Gallery supports, we stay aligned with
-    // Gallery's reference build.
-    implementation("com.google.ai.edge.litertlm:litertlm-android:0.11.0")
-    // CompiledModel / Accelerator.NPU Kotlin API for on-device JIT task inference
-    // (same artifact the speech module already pins; must stay 2.1.5).
+    // Bumped 0.11.0 -> 0.17.0 (2026-09-09) to support newer litert-community models that
+    // native-SIGSEGV inside liblitertlm_jni.so (nativeCreateEngine) on 0.11.0. History: a
+    // prior 0.12.0 bump SIGSEGV'd during vision-encoder init on Snapdragon 8 Gen 1
+    // (Adreno), so 0.11.0 was pinned to match Google AI Edge Gallery's reference build.
+    // 0.17.0 is now the latest; re-verify Gemma 4 vision on Adreno-class devices before
+    // relying on it there.
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.17.0")
+    // CompiledModel / Accelerator.NPU Kotlin API for on-device JIT task inference.
+    // Stays 2.1.5: litert 2.2.0 splits into litert + litert-api, which both declare
+    // namespace com.google.ai.edge.litert and fail AGP manifest-merger validation. The
+    // .litertlm crash this bump targets lives in liblitertlm_jni.so (the artifact above),
+    // which does not depend on litert — so no litert bump is needed for it.
     implementation("com.google.ai.edge.litert:litert:2.1.5")
     // llama.cpp runtime via Llamatik: loads .gguf chat models. Pinned to 1.10.0 —
     // v1.9.1 contains PR #165 (generateStream emoji crash) and 1.10.0 is the latest.

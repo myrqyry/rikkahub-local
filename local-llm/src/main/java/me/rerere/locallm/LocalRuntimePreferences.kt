@@ -167,7 +167,28 @@ class LocalRuntimePreferences(private val context: Context) {
                 invalidated = true
             }
         }
+        if (invalidated) {
+            // The SDK writes per-model compile caches (xnnpack / mldrift) next to each model.
+            // They are SDK-version-specific: a cache produced by an older liblitertlm crashes
+            // the upgraded one at engine creation (native SIGSEGV in nativeCreateEngine). The
+            // installed-models map is safe to keep, but the caches must go so the new runtime
+            // recompiles cleanly. Best-effort: a failure just costs one cold recompile.
+            runCatching { clearRuntimeCompileCaches(runtime) }
+        }
         return invalidated
+    }
+
+    /** Delete SDK-generated compile caches (xnnpack / mldrift) for [runtime]'s model dir. */
+    private fun clearRuntimeCompileCaches(runtime: LocalRuntime) {
+        val dir = ModelInstall
+            .targetFile(ModelInstall.localModelsDir(context), runtime, "probe")
+            .parentFile ?: return
+        dir.listFiles()?.forEach { file ->
+            val name = file.name
+            if (file.isFile && (name.contains(".xnnpack_cache") || name.contains("_mldrift_"))) {
+                file.delete()
+            }
+        }
     }
 
     companion object {
@@ -175,7 +196,7 @@ class LocalRuntimePreferences(private val context: Context) {
          *  the dep without bumping this constant will leave stale CPU/vision-unavailable
          *  decisions live; bumping this constant without bumping the dep is harmless
          *  (just causes a one-time unnecessary re-probe). */
-        const val LITERTLM_SDK_VERSION: String = "0.11.0"
+        const val LITERTLM_SDK_VERSION: String = "0.17.0"
     }
 
     private fun decodeInstalledMap(raw: String?): Map<String, String> {

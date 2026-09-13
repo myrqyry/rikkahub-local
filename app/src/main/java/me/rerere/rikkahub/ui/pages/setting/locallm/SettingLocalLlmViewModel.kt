@@ -23,6 +23,7 @@ import me.rerere.ai.provider.LLAMACPP_PROVIDER_ID
 import me.rerere.locallm.AcceleratorProbe
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
+import me.rerere.locallm.litert.LiteRtCatalog
 import me.rerere.locallm.litert.LiteRtModelMetadata
 import me.rerere.locallm.MemoryGuard
 import me.rerere.locallm.ModelInstall
@@ -61,6 +62,11 @@ class SettingLocalLlmViewModel(
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    /** File name currently being downloaded, or null. Lets the catalog card show its own
+     *  progress bar without every card reacting to a global progress value. */
+    private val _downloadingFile = MutableStateFlow<String?>(null)
+    val downloadingFile: StateFlow<String?> = _downloadingFile.asStateFlow()
 
     private val _accelerator = MutableStateFlow<String?>(null)
     val accelerator: StateFlow<String?> = _accelerator.asStateFlow()
@@ -122,11 +128,11 @@ class SettingLocalLlmViewModel(
      * The default model URL for the runtime.
      *
      * LiteRT default: litert-community/Qwen2.5-1.5B-Instruct — q8 multi-prefill variant
-     * (~1.5 GB on disk). Present in Google Gallery's 1_0_13 allowlist, which is built
-     * against LiteRT-LM 0.11.0 — the same version we ship. Public and ungated (Apache-2.0).
+     * (~1.5 GB on disk). Present in Google Gallery's 1_0_13 allowlist (curated against
+     * LiteRT-LM 0.11.0; runs on the 0.17.0 we now ship). Public and ungated (Apache-2.0).
      *
      * paulsp94/Qwen3.5-2B-LiteRT-LM was dropped: that model is packaged for a different
-     * runtime version and throws FAILED_PRECONDITION: No KV cache inputs found on 0.11.0.
+     * runtime version and threw FAILED_PRECONDITION: No KV cache inputs found on 0.11.0.
      */
     private val defaultModelUrl: String =
         "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm"
@@ -446,6 +452,7 @@ class SettingLocalLlmViewModel(
     }
 
     private suspend fun collectDownloadProgress(url: String, fileName: String, target: java.io.File) {
+        _downloadingFile.value = fileName
         ModelInstall.download(httpClient, url, target).collect { p ->
             when (p) {
                 is ModelInstall.Progress.Started ->
@@ -458,10 +465,11 @@ class SettingLocalLlmViewModel(
                 }
                 is ModelInstall.Progress.Done -> {
                     _downloadProgress.value = null
+                    _downloadingFile.value = null
                     val caps = LiteRtModelMetadata.deriveCapabilities(fileName)
                     val model = Model(
                         modelId = fileName,
-                        displayName = fileName,
+                        displayName = LiteRtCatalog.findByModelFile(fileName)?.displayName ?: fileName,
                         inputModalities = caps.inputModalities,
                         abilities = caps.abilities,
                     )
@@ -473,6 +481,7 @@ class SettingLocalLlmViewModel(
                 }
                 is ModelInstall.Progress.Failed -> {
                     _downloadProgress.value = null
+                    _downloadingFile.value = null
                     _errorMessage.value = p.cause.message.orEmpty()
                 }
             }
