@@ -2,11 +2,13 @@ package me.rerere.rikkahub.ui.pages.setting
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -14,6 +16,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -29,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -42,6 +46,7 @@ import me.rerere.hugeicons.stroke.Alert01
 import me.rerere.hugeicons.stroke.Book03
 import me.rerere.hugeicons.stroke.Bookshelf01
 import me.rerere.hugeicons.stroke.Brain02
+import me.rerere.hugeicons.stroke.Cancel01
 import me.rerere.hugeicons.stroke.Clock02
 import me.rerere.hugeicons.stroke.Code
 import me.rerere.hugeicons.stroke.Connect
@@ -61,6 +66,7 @@ import me.rerere.hugeicons.stroke.McpServer
 import me.rerere.hugeicons.stroke.Megaphone01
 import me.rerere.hugeicons.stroke.MessageNotification01
 import me.rerere.hugeicons.stroke.Package
+import me.rerere.hugeicons.stroke.Search01
 import me.rerere.hugeicons.stroke.ServerStack01
 import me.rerere.hugeicons.stroke.Settings03
 import me.rerere.hugeicons.stroke.Shield01
@@ -102,6 +108,8 @@ internal data class SettingsHomeSection(
     val items: List<SettingsHomeItem>,
 )
 
+private val SettingsContentMaxWidth = 800.dp
+
 @Composable
 fun SettingPage(vm: SettingVM = koinViewModel()) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -113,6 +121,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
         value = filesManager.countChatFiles()
     }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    var searchExpanded by rememberSaveable { mutableStateOf(searchQuery.isNotBlank()) }
 
     if (settings.launchCount > 100 && (settings.launchCount - settings.sponsorAlertDismissedAt) >= 50) {
         AlertDialog(
@@ -470,38 +479,70 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                 title = { Text(stringResource(R.string.settings)) },
                 navigationIcon = { BackButton() },
                 scrollBehavior = scrollBehavior,
-                colors = CustomColors.topBarColors
+                colors = CustomColors.topBarColors,
+                actions = {
+                    IconButton(
+                        onClick = {
+                            if (searchExpanded && searchQuery.isNotBlank()) {
+                                searchQuery = ""
+                            } else {
+                                searchExpanded = !searchExpanded
+                            }
+                        },
+                    ) {
+                        Icon(
+                            imageVector = if (searchExpanded && searchQuery.isNotBlank()) {
+                                HugeIcons.Cancel01
+                            } else {
+                                HugeIcons.Search01
+                            },
+                            contentDescription = stringResource(R.string.setting_home_search_placeholder),
+                        )
+                    }
+                },
             )
         },
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = CustomColors.topBarColors.containerColor,
     ) { innerPadding ->
-        LazyColumn(
+        Box(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = innerPadding + PaddingValues(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            item("settingsSearch") {
-                SettingsSearchField(
-                    query = searchQuery,
-                    onQueryChange = { searchQuery = it },
-                )
-            }
-
-            if (settings.isNotConfigured() && searchQuery.isBlank()) {
-                item("providerWarning") {
-                    ProviderConfigWarningCard(navController)
+            LazyColumn(
+                // Cap the reading width and centre it on large screens (tablet,
+                // foldable, freeform). Below the cap this is a no-op, so phones
+                // are unchanged. 800.dp matches the chat input/content cap.
+                modifier = Modifier
+                    .widthIn(max = SettingsContentMaxWidth)
+                    .fillMaxSize(),
+                contentPadding = innerPadding + PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                if (searchExpanded) {
+                    item("settingsSearch") {
+                        SettingsSearchField(
+                            query = searchQuery,
+                            onQueryChange = { searchQuery = it },
+                        )
+                    }
                 }
-            }
 
-            if (filteredSections.isEmpty()) {
-                item("noResults") {
-                    SettingsNoResultsCard()
+                if (settings.isNotConfigured() && searchQuery.isBlank()) {
+                    item("providerWarning") {
+                        ProviderConfigWarningCard(navController)
+                    }
                 }
-            } else {
-                filteredSections.forEach { section ->
-                    item(section.id) {
-                        SettingsSectionCard(section)
+
+                if (filteredSections.isEmpty()) {
+                    item("noResults") {
+                        SettingsNoResultsCard()
+                    }
+                } else {
+                    filteredSections.forEach { section ->
+                        item(section.id) {
+                            SettingsSectionCard(section)
+                        }
                     }
                 }
             }
@@ -533,16 +574,13 @@ private fun SettingsSearchField(
             }
         },
         singleLine = true,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp),
+        modifier = Modifier.fillMaxWidth(),
     )
 }
 
 @Composable
 private fun SettingsSectionCard(section: SettingsHomeSection) {
     CardGroup(
-        modifier = Modifier.padding(horizontal = 8.dp),
         title = { Text(section.title) },
     ) {
         section.items.forEach { item ->
@@ -552,7 +590,7 @@ private fun SettingsSectionCard(section: SettingsHomeSection) {
                     Icon(
                         item.icon,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 },
                 supportingContent = { Text(item.description) },
@@ -566,9 +604,7 @@ private fun SettingsSectionCard(section: SettingsHomeSection) {
 @Composable
 private fun SettingsNoResultsCard() {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
@@ -612,9 +648,7 @@ internal fun SettingsHomeItem.matches(query: String): Boolean {
 @Composable
 private fun ProviderConfigWarningCard(navController: Navigator) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.errorContainer,
         ),
