@@ -4,7 +4,8 @@ project(litert_native_bridge LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Per-ABI prebuilt libLiteRt.so — extracted from the LiteRT Maven AAR
+# Bootstrapped by :app:bootstrapLiteRtNativeSdk from the pinned LiteRT Maven AAR
+# plus the matching upstream v2.1.5 C header tree.
 set(LITERT_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/litert_cc_sdk/${ANDROID_ABI})
 
 add_library(litert_native_bridge SHARED

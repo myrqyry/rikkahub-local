@@ -1,5 +1,6 @@
 import com.android.build.api.dsl.Packaging
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.gradle.api.tasks.Exec
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.io.FileInputStream
 import java.util.Properties
@@ -178,6 +179,30 @@ android {
         compilerOptions.optIn.add("kotlinx.coroutines.ExperimentalCoroutinesApi")
         // ExperimentalNavigation3Api was renamed/removed in newer navigation3 — opt-in is
         // no longer required and the marker class no longer exists in the runtime artifact.
+    }
+}
+
+val liteRtNativeSdkDir = layout.projectDirectory.dir("src/main/jni/litert/litert_cc_sdk")
+val bootstrapLiteRtNativeSdk = tasks.register<Exec>("bootstrapLiteRtNativeSdk") {
+    group = "build setup"
+    description = "Bootstrap the pinned LiteRT 2.1.5 native libraries and C headers"
+
+    val bootstrapScript = rootProject.file("scripts/bootstrap-litert-native-sdk.py")
+    inputs.file(bootstrapScript)
+    outputs.dir(liteRtNativeSdkDir)
+    outputs.upToDateWhen { false }
+
+    commandLine(
+        "python3",
+        bootstrapScript.absolutePath,
+        "--output",
+        liteRtNativeSdkDir.asFile.absolutePath,
+    )
+}
+
+tasks.configureEach {
+    if (name.startsWith("configureCMake") || name.startsWith("buildCMake")) {
+        dependsOn(bootstrapLiteRtNativeSdk)
     }
 }
 
