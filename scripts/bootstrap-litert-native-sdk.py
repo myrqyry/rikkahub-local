@@ -289,6 +289,8 @@ def checkout_headers(temp: Path, stage: Path) -> None:
     source = temp / "LiteRT"
     print(f"Fetching LiteRT headers from pinned commit {SOURCE_COMMIT}")
     run("git", "init", "-q", str(source))
+    # Keep worktree bytes identical to Git blobs on every host, including Windows.
+    run("git", "-C", str(source), "config", "core.autocrlf", "false")
     run("git", "-C", str(source), "remote", "add", "origin", SOURCE_REPOSITORY)
     run(
         "git",
