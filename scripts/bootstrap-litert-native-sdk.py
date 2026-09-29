@@ -38,52 +38,9 @@ SOURCE_REPOSITORY = "https://github.com/google-ai-edge/LiteRT.git"
 SOURCE_TAG = "v2.1.5"
 SOURCE_COMMIT = "9d26e89d88ef8785b6a1e54ec41ac8add215a125"
 SOURCE_TREE_GIT_SHA = "c4083fc765566a93fcb76cf355cc515be8bd3763"
+SOURCE_CONTENT_MANIFEST_SHA256 = "7ab48164696fd30a9801b608660e2f7522b63bf88bd2b957e748875a942eca5d"
 BUILD_CONFIG_SOURCE = "litert/build_common/config/build_config_gpu_npu.h"
 BUILD_CONFIG_SHA256 = "6e69a0cab0a4743d12c5c365784b0faed0d66e39f83b6abe0338e525e508e493"
-SOURCE_EXECUTABLES = frozenset(
-    (
-        "ats/ats_aot.sh",
-        "c/litert_runtime_c_api_so_symbol_test.sh",
-        "cc/dynamic_runtime/check_duplicate_symbols.sh",
-        "integration_test/cns_pull_model_provider.sh",
-        "integration_test/device_script_test.sh",
-        "integration_test/download_model_provider.sh",
-        "integration_test/dummy_model_provider.sh",
-        "integration_test/mobile_install.sh",
-        "js/apps/model_tester/serve.js",
-        "test/litert_c_api_dependency_test.sh",
-        "test/litert_compiler_plugin_symbol_test.sh",
-        "test/testdata/constant_output_tensor.tflite",
-        "test/testdata/group_norm_2_groups_op.tflite",
-        "test/testdata/island_partial.tflite",
-        "test/testdata/l2_norm_composite.tflite",
-        "test/testdata/mobilenet_v2_1.0_224.tflite",
-        "test/testdata/simple_add_dynamic_shape.tflite",
-        "test/testdata/simple_atan2_op.tflite",
-        "test/testdata/simple_ceil_op.tflite",
-        "test/testdata/simple_elu_op.tflite",
-        "test/testdata/simple_floor_op.tflite",
-        "test/testdata/simple_group_norm_op.tflite",
-        "test/testdata/simple_l2_norm.tflite",
-        "test/testdata/simple_log_softmax_op.tflite",
-        "test/testdata/simple_logical_or_op.tflite",
-        "test/testdata/simple_mirror_pad_reflect_op.tflite",
-        "test/testdata/simple_mirror_pad_symmetric_op.tflite",
-        "test/testdata/simple_reduceall_op.tflite",
-        "test/testdata/simple_reduceany_op.tflite",
-        "test/testdata/simple_reducemin_op.tflite",
-        "test/testdata/simple_relu0to1_op.tflite",
-        "test/testdata/simple_relu1_op.tflite",
-        "test/testdata/simple_round_op.tflite",
-        "test/testdata/simple_scatter_nd_op.tflite",
-        "test/testdata/simple_sign_op.tflite",
-        "test/testdata/simple_squeeze.tflite",
-        "test/testdata/simple_tile_op.tflite",
-        "test/testdata/simple_topk_op.tflite",
-        "test/testdata/sqrt_mean_mul_multiple.tflite",
-        "test/testdata/sqrt_mean_mul_ops.tflite",
-    )
-)
 
 # Only ABIs configured by app/build.gradle.kts are materialized and verified.
 LIBRARY_SHA256 = {
@@ -123,33 +80,23 @@ def git_blob_sha(path: Path) -> bytes:
     return hashlib.sha1(header + data).digest()
 
 
-def git_tree_sha(root: Path, relative_root: Path = Path()) -> str:
-    """Reconstruct Git's tree object ID for the copied LiteRT source tree."""
-    entries: list[tuple[bytes, bytes]] = []
-    for path in root.iterdir():
-        relative = relative_root / path.name
-        if relative.as_posix() == GENERATED_BUILD_CONFIG:
+def source_content_manifest_sha256(root: Path) -> str:
+    """Hash source paths plus Git blob IDs, independent of host file modes."""
+    digest = hashlib.sha256()
+    entries: list[tuple[str, Path]] = []
+    for path in root.rglob("*"):
+        if not path.is_file():
             continue
+        relative = path.relative_to(root).as_posix()
+        if relative == GENERATED_BUILD_CONFIG:
+            continue
+        entries.append((relative, path))
 
-        name = path.name.encode("utf-8")
-        if path.is_dir():
-            object_id = bytes.fromhex(git_tree_sha(path, relative))
-            mode = b"40000"
-            sort_key = name + b"/"
-        elif path.is_file():
-            object_id = git_blob_sha(path)
-            # File modes are pinned from the upstream Git tree rather than the
-            # host filesystem so verification is stable on Windows too.
-            mode = b"100755" if relative.as_posix() in SOURCE_EXECUTABLES else b"100644"
-            sort_key = name
-        else:
-            raise RuntimeError(f"unsupported file type in LiteRT source tree: {path}")
-
-        entries.append((sort_key, mode + b" " + name + b"\0" + object_id))
-
-    body = b"".join(entry for _, entry in sorted(entries, key=lambda item: item[0]))
-    header = f"tree {len(body)}\0".encode("ascii")
-    return hashlib.sha1(header + body).hexdigest()
+    for relative, path in sorted(entries, key=lambda item: item[0].encode("utf-8")):
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(git_blob_sha(path))
+    return digest.hexdigest()
 
 
 def run(*args: str, cwd: Path | None = None) -> None:
@@ -169,6 +116,7 @@ def expected_marker() -> dict[str, object]:
             "tag": SOURCE_TAG,
             "commit": SOURCE_COMMIT,
             "gitTree": SOURCE_TREE_GIT_SHA,
+            "contentManifestSha256": SOURCE_CONTENT_MANIFEST_SHA256,
         },
         "libraries": LIBRARY_SHA256,
         "buildConfig": {
@@ -205,12 +153,12 @@ def validate_output(output: Path, *, verbose: bool = False) -> tuple[bool, str]:
             return False, f"missing {header}"
 
     source_tree = output / "litert"
-    actual_tree_hash = git_tree_sha(source_tree)
-    if actual_tree_hash != SOURCE_TREE_GIT_SHA:
+    actual_manifest_hash = source_content_manifest_sha256(source_tree)
+    if actual_manifest_hash != SOURCE_CONTENT_MANIFEST_SHA256:
         return (
             False,
-            "LiteRT source tree mismatch: "
-            f"expected {SOURCE_TREE_GIT_SHA}, got {actual_tree_hash}",
+            "LiteRT source content manifest mismatch: "
+            f"expected {SOURCE_CONTENT_MANIFEST_SHA256}, got {actual_manifest_hash}",
         )
 
     generated_config = source_tree / GENERATED_BUILD_CONFIG
@@ -289,8 +237,12 @@ def checkout_headers(temp: Path, stage: Path) -> None:
     source = temp / "LiteRT"
     print(f"Fetching LiteRT headers from pinned commit {SOURCE_COMMIT}")
     run("git", "init", "-q", str(source))
-    # Keep worktree bytes identical to Git blobs on every host, including Windows.
+    # Keep checkout bytes canonical and ignore developer-global attribute rules.
+    attributes_file = temp / "empty-gitattributes"
+    attributes_file.write_text("", encoding="ascii")
     run("git", "-C", str(source), "config", "core.autocrlf", "false")
+    run("git", "-C", str(source), "config", "core.eol", "lf")
+    run("git", "-C", str(source), "config", "core.attributesFile", str(attributes_file))
     run("git", "-C", str(source), "remote", "add", "origin", SOURCE_REPOSITORY)
     run(
         "git",
@@ -328,6 +280,7 @@ def checkout_headers(temp: Path, stage: Path) -> None:
             f"expected {SOURCE_TREE_GIT_SHA}, got {actual_tree}"
         )
 
+    run("git", "-C", str(source), "diff", "--quiet", "HEAD", "--", "litert")
     shutil.copytree(source / "litert", stage / "litert")
 
     # Upstream generates this file from one of four checked-in configurations.
@@ -366,9 +319,14 @@ def atomic_install(stage: Path, output: Path) -> None:
 
 
 def bootstrap(output: Path) -> None:
-    ok, _ = validate_output(output, verbose=True)
+    ok, reason = validate_output(output, verbose=True)
     if ok:
         return
+    if output.exists():
+        print(
+            f"Existing LiteRT SDK failed verification ({reason}); rebuilding",
+            file=sys.stderr,
+        )
 
     output.parent.mkdir(parents=True, exist_ok=True)
     stage = output.with_name(f"{output.name}.staging-{uuid.uuid4().hex}")
@@ -413,14 +371,17 @@ def main() -> int:
     args = parser.parse_args()
 
     output = args.output.resolve()
-    if args.verify_only:
-        ok, reason = validate_output(output, verbose=True)
-        if not ok:
-            print(f"LiteRT native SDK verification failed: {reason}", file=sys.stderr)
-            return 1
-        return 0
-
     try:
+        if args.verify_only:
+            ok, reason = validate_output(output, verbose=True)
+            if not ok:
+                print(
+                    f"LiteRT native SDK verification failed: {reason}",
+                    file=sys.stderr,
+                )
+                return 1
+            return 0
+
         bootstrap(output)
     except (OSError, RuntimeError, subprocess.CalledProcessError, zipfile.BadZipFile) as exc:
         print(f"LiteRT native SDK bootstrap failed: {exc}", file=sys.stderr)

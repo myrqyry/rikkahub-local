@@ -44,6 +44,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
+          # The action default also requests retired "tools", which fails on sdkmanager 16.
           packages: platform-tools
 
       - name: Set up Gradle cache
@@ -117,6 +118,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
+          # The action default also requests retired "tools", which fails on sdkmanager 16.
           packages: platform-tools
 
       - name: Set up Gradle cache

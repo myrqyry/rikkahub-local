@@ -324,6 +324,9 @@ cd rikkahub-local
 ./gradlew :app:assembleDebug
 ```
 
+If Gradle cannot discover Python from its environment, pass an explicit interpreter with
+`-PlitertPython=/absolute/path/to/python3`.
+
 To install directly on a connected device:
 
 ```bash

@@ -4,6 +4,7 @@ import org.gradle.api.tasks.Exec
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.io.FileInputStream
 import java.util.Properties
+import java.util.concurrent.TimeUnit
 
 plugins {
     alias(libs.plugins.android.application)
@@ -184,30 +185,58 @@ android {
 
 val liteRtNativeSdkDir = layout.projectDirectory.dir("src/main/jni/litert/litert_cc_sdk")
 val pythonCommand = providers.provider {
+    val configuredPython = providers.gradleProperty("litertPython").orNull
     val isWindows = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
-    val candidates = if (isWindows) {
+    val candidates = if (configuredPython != null) {
+        listOf(listOf(configuredPython))
+    } else if (isWindows) {
         listOf(listOf("py", "-3"), listOf("python"), listOf("python3"))
     } else {
         listOf(listOf("python3"), listOf("python"))
     }
     val versionProbe = listOf(
         "-c",
-        "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)",
+        "import sys; print(sys.executable, sys.version.split()[0]); " +
+            "raise SystemExit(0 if sys.version_info >= (3, 10) else 1)",
     )
+    val failures = mutableListOf<String>()
 
     candidates.firstOrNull { candidate ->
+        val label = candidate.joinToString(" ")
         try {
             val process = ProcessBuilder(candidate + versionProbe)
                 .redirectErrorStream(true)
                 .start()
-            process.inputStream.bufferedReader().use { it.readText() }
-            process.waitFor() == 0
-        } catch (_: Exception) {
+            if (!process.waitFor(10, TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+                failures += "$label: timed out"
+                false
+            } else {
+                val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
+                if (process.exitValue() == 0) {
+                    true
+                } else {
+                    failures += "$label: " + output.ifBlank {
+                        "exited with ${process.exitValue()}"
+                    }
+                    false
+                }
+            }
+        } catch (exc: Exception) {
+            failures += "$label: ${exc.message ?: exc::class.simpleName}"
             false
         }
     } ?: throw GradleException(
-        "Python 3.10+ is required to bootstrap LiteRT. " +
-            "Install Python and ensure python3/python (or py -3 on Windows) is available.",
+        buildString {
+            append("Python 3.10+ is required to bootstrap LiteRT. ")
+            if (configuredPython != null) {
+                append("The -PlitertPython override failed. ")
+            } else {
+                append("Install Python or pass -PlitertPython=/path/to/python3. ")
+            }
+            append("Probe results: ")
+            append(failures.joinToString("; "))
+        },
     )
 }
 val bootstrapLiteRtNativeSdk = tasks.register<Exec>("bootstrapLiteRtNativeSdk") {
