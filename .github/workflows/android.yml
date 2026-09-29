@@ -101,14 +101,17 @@ jobs:
       - name: Enable KVM access for the runner user
         run: |
           if [ ! -e /dev/kvm ]; then
-            echo "::warning::/dev/kvm is unavailable; emulator acceleration may be unavailable"
-            exit 0
+            echo "::error::/dev/kvm is unavailable; hardware-accelerated emulator tests cannot run"
+            exit 1
           fi
           sudo chown root:kvm /dev/kvm
           sudo chmod 0660 /dev/kvm
           sudo setfacl -m "u:${USER}:rw" /dev/kvm
-          test -r /dev/kvm
-          test -w /dev/kvm
+          if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
+            ls -l /dev/kvm
+            echo "::error::runner user lacks read/write access to /dev/kvm"
+            exit 1
+          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
