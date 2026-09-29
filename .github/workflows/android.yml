@@ -42,7 +42,7 @@ jobs:
           cache-dependency-path: web-ui/pnpm-lock.yaml
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v4
@@ -98,6 +98,21 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Enable KVM access for the runner user
+        run: |
+          if [ ! -e /dev/kvm ]; then
+            echo "::error::/dev/kvm is unavailable; hardware-accelerated emulator tests cannot run"
+            exit 1
+          fi
+          sudo chown root:kvm /dev/kvm
+          sudo chmod 0660 /dev/kvm
+          sudo setfacl -m "u:${USER}:rw" /dev/kvm
+          if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
+            ls -l /dev/kvm
+            echo "::error::runner user lacks read/write access to /dev/kvm"
+            exit 1
+          fi
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -113,7 +128,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v4
