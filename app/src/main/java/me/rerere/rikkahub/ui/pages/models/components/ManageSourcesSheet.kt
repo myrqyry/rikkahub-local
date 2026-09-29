@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,6 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.rerere.hugeicons.HugeIcons
+import me.rerere.hugeicons.stroke.ArrowRight01
 import me.rerere.hugeicons.stroke.Cancel01
 import me.rerere.hugeicons.stroke.DragDropHorizontal
 import me.rerere.hugeicons.stroke.Search01
@@ -133,7 +133,7 @@ fun ManageSourcesSheet(
                         state = reorderableState,
                         key = provider.id
                     ) { isDragging ->
-                        ProviderItem(
+                        ProviderSummaryCard(
                             modifier = Modifier
                                 .scale(if (isDragging) 0.95f else 1f)
                                 .fillMaxWidth(),
@@ -214,23 +214,19 @@ internal fun configuredProviders(providers: List<ProviderSetting>): List<Provide
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ProviderItem(
+internal fun ProviderSummaryCard(
     provider: ProviderSetting,
     modifier: Modifier = Modifier,
-    dragHandle: @Composable () -> Unit,
+    dragHandle: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
-    onLongClick: () -> Unit = {},
+    onLongClick: (() -> Unit)? = null,
 ) {
     Card(
         modifier = modifier.combinedClickable(
             onClick = onClick,
             onLongClick = onLongClick,
         ),
-        colors = CardDefaults.cardColors(
-            containerColor = if (provider.enabled) {
-                CustomColors.listItemColors.containerColor
-            } else MaterialTheme.colorScheme.errorContainer,
-        ),
+        colors = CustomColors.cardColorsOnSurfaceContainer,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -283,7 +279,16 @@ private fun ProviderItem(
                     }
                 }
             }
-            dragHandle()
+            if (dragHandle != null) {
+                dragHandle()
+            } else {
+                Icon(
+                    imageVector = HugeIcons.ArrowRight01,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
