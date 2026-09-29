@@ -419,7 +419,8 @@ val appModule = module {
             folderRepo = get(),
             settingsStore = get(),
             filesManager = get(),
-            mcpManager = get()
+            mcpManager = get(),
+            localTools = get(),
         )
     }
 

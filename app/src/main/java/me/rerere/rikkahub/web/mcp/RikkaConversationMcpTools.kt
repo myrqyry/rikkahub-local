@@ -8,6 +8,7 @@ import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.jsonPrimitive
 import me.rerere.ai.core.InputSchema
+import me.rerere.ai.ui.UIMessagePart
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.repository.ConversationRepository
 import me.rerere.rikkahub.utils.JsonInstant
@@ -31,7 +32,7 @@ class RikkaConversationMcpTools(
             inputSchema = InputSchema.Obj(buildJsonObject {
                 put("limit", buildJsonObject { put("type", "integer") })
             }),
-            call = ::listConversations,
+            call = { arguments -> listOf(UIMessagePart.Text(listConversations(arguments).toString())) },
         ),
         NativeMcpTool(
             name = "rikka.get_conversation",
@@ -42,7 +43,7 @@ class RikkaConversationMcpTools(
                 },
                 required = listOf("id"),
             ),
-            call = ::getConversation,
+            call = { arguments -> listOf(UIMessagePart.Text(getConversation(arguments).toString())) },
         ),
     )
 

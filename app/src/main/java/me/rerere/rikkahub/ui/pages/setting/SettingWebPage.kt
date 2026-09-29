@@ -260,11 +260,38 @@ fun SettingWebPage() {
                                 onCheckedChange = { checked ->
                                     scope.launch {
                                         settingsStore.update {
-                                            it.copy(webServerJwtEnabled = checked)
+                                            it.copy(
+                                                webServerJwtEnabled = checked,
+                                                webServerMcpDeviceToolsEnabled =
+                                                    if (checked) it.webServerMcpDeviceToolsEnabled else false,
+                                            )
                                         }
                                     }
                                 },
                                 enabled = !serverState.isRunning && (settings.webServerJwtEnabled || accessPasswordText.isNotBlank()),
+                            )
+                        },
+                    )
+                    item(
+                        headlineContent = {
+                            Text(stringResource(R.string.setting_page_web_server_mcp_device_tools))
+                        },
+                        supportingContent = {
+                            Text(stringResource(R.string.setting_page_web_server_mcp_device_tools_desc))
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = settings.webServerMcpDeviceToolsEnabled,
+                                onCheckedChange = { checked ->
+                                    scope.launch {
+                                        settingsStore.update {
+                                            it.copy(webServerMcpDeviceToolsEnabled = checked)
+                                        }
+                                    }
+                                },
+                                enabled = !serverState.isRunning &&
+                                    settings.webServerJwtEnabled &&
+                                    accessPasswordText.isNotBlank(),
                             )
                         },
                     )
@@ -280,7 +307,9 @@ fun SettingWebPage() {
                                         settingsStore.update {
                                             it.copy(
                                                 webServerAccessPassword = value,
-                                                webServerJwtEnabled = it.webServerJwtEnabled && value.isNotBlank()
+                                                webServerJwtEnabled = it.webServerJwtEnabled && value.isNotBlank(),
+                                                webServerMcpDeviceToolsEnabled =
+                                                    it.webServerMcpDeviceToolsEnabled && value.isNotBlank(),
                                             )
                                         }
                                     }
@@ -339,6 +368,22 @@ fun SettingWebPage() {
                             headlineContent = { Text(stringResource(R.string.setting_page_web_server_local_address)) },
                             supportingContent = { Text(localUrl) },
                         )
+
+                        if (settings.webServerMcpDeviceToolsEnabled) {
+                            val mcpBaseUrl = if (!serverState.localhostOnly && serverState.address != null) {
+                                "http://${serverState.address}:$port"
+                            } else {
+                                localUrl
+                            }
+                            val mcpUrl = "$mcpBaseUrl/mcp"
+                            item(
+                                onClick = { copyUrl(mcpUrl) },
+                                headlineContent = {
+                                    Text(stringResource(R.string.setting_page_web_server_mcp_endpoint))
+                                },
+                                supportingContent = { Text(mcpUrl) },
+                            )
+                        }
                     }
                     item(
                         headlineContent = {

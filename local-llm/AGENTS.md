@@ -14,6 +14,7 @@ workspace boundaries, and the pure terminal execution/observation substrate.
 | `src/main/.../litert/terminal/` | Capability-gated process sessions, output observation, and receipts |
 | `src/main/.../litert/workspace/` | Workspace refs, shadow files, and command effect analysis |
 | `src/main/.../llamacpp/` | llama.cpp GGUF chat provider and prompt renderer (Llamatik bridge) |
+| `src/main/.../decision/` | typed System-One decision contract and local-first reasoning-tier policy |
 
 ## Deviations from Root
 

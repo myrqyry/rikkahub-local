@@ -28,3 +28,10 @@ Implement the agreed Models-page redesign on branch `aster/models-page-density` 
 3. Rename the top-level Retrieval filter to Embeddings.
 4. Separate acquisition (`+`) from recommended-model discovery.
 5. Run/inspect available CI/build validation and report anything not executable from this environment.
+
+## Meristem substrate
+- Adopted the existing project authorities into `.meristem/` without replacing them.
+- `.meristem/PROJECT.md` references `README.md`, root/module `AGENTS.md` files, and
+  `docs/references/architecture.md` as the relevant authorities.
+- `ACTIVE_WORK.md` now promotes this multi-step Models-page continuation state.
+- Meristem doctor passed after the substrate content was populated.

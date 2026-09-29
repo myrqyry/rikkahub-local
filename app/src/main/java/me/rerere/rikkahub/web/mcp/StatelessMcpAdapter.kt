@@ -33,7 +33,7 @@ data class NativeMcpTool(
     val name: String,
     val description: String? = null,
     val inputSchema: InputSchema? = null,
-    val call: suspend (JsonObject) -> JsonObject,
+    val call: suspend (JsonObject) -> List<UIMessagePart>,
 )
 
 class StatelessMcpAdapter(
@@ -158,8 +158,8 @@ class StatelessMcpAdapter(
             ?: return invalidParams(id, "params.arguments must be an object")
         nativeTools().firstOrNull { it.name == name }?.let { tool ->
             return try {
-                val payload = tool.call(args)
-                ok(id, jsonContentResult(payload))
+                val parts = tool.call(args)
+                ok(id, contentResult(parts))
             } catch (e: NativeMcpInvalidParamsException) {
                 invalidParams(id, e.message ?: "Invalid native tool arguments")
             } catch (e: Exception) {
@@ -200,12 +200,9 @@ class StatelessMcpAdapter(
         schema?.let { put("inputSchema", schemaJson(it)) }
     }
 
-    private fun jsonContentResult(payload: JsonObject) = buildJsonObject {
+    private fun contentResult(parts: List<UIMessagePart>) = buildJsonObject {
         put("resultType", "complete")
-        put("content", JsonArray(listOf(buildJsonObject {
-            put("type", "text")
-            put("text", payload.toString())
-        })))
+        put("content", JsonArray(parts.mapNotNull(::textContent)))
         put("isError", false)
     }
 

@@ -83,6 +83,26 @@ directly; it emits an `ActionPlan` that the deterministic layer compiles.
 dropping undeclared args). Lossy/semantic repairs are never silently applied. Only after
 deterministic repair does the system consider LLM repair, rejection, or execution.
 
+### System-One decision layer
+
+Constrained fuzzy judgments use the smallest capable reasoning tier:
+
+`deterministic -> local System One -> explicitly-approved remote System One -> generative`
+
+System-One work is limited to typed boolean, choice, and score questions over bounded
+state. It is appropriate for routing, relevance, rule checks, candidate judgments, and
+other decisions that do not require prose synthesis. Local is the primary fuzzy layer;
+remote decision services are optional fallbacks/benchmarks and must preserve the
+local/cloud data boundary.
+
+The typed contract and tier-selection policy live in
+`local-llm/src/main/java/me/rerere/locallm/decision/SystemOneDecision.kt`. A production
+local decision-model adapter is still pending; do not describe System One as live until
+real local inference is wired and evaluated.
+
+A System-One verdict is evidence, never authority. It cannot grant capabilities, bypass
+HARDLINE/approval, execute tools, or replace deterministic safety/policy gates.
+
 ### Shadow candidate evaluation
 
 `ShadowCandidateEvaluator` scores alternate candidate plans (alias-normalized,
@@ -132,6 +152,7 @@ the app. App-side implementations adapt them and are wired via DI (Koin):
 | `ZeroWorkflowExecutor`         | `WorkflowEngineZeroWorkflowExecutor` |
 | `WorkflowReceiptSink`          | `AgentRunWorkflowReceiptSink` |
 | `CapabilityGrantSource`        | `ToolApprovalCapabilityGrantSource` |
+| `SystemOneDecisionEngine`      | (pending local decision-model adapter; optional approved remote adapter) |
 | `ProcedureCache`               | (pending Room-backed repo)    |
 | `MicroAgentEventSink`          | (pending AgentRun trace sink) |
 
@@ -141,6 +162,7 @@ the app. App-side implementations adapt them and are wired via DI (Koin):
 | -------------------------- | ------ |
 | Typed intent (`ActionPlan`) | ✅ |
 | Deterministic compilation  | ✅ |
+| System-One decision layer   | 🟡 typed contract + local-first routing policy; production local model adapter pending |
 | Real user capability grants | ✅ |
 | Audit receipts             | ✅ |
 | Generated native UI        | 🟡 interactive component set (Form/Input/Toggle/Select/Progress/Link + render_ui lift) |

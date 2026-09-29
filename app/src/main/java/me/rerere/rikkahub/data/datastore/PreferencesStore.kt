@@ -183,6 +183,7 @@ class SettingsStore(
         val WEB_SERVER_JWT_ENABLED = booleanPreferencesKey("web_server_jwt_enabled")
         val WEB_SERVER_ACCESS_PASSWORD = stringPreferencesKey("web_server_access_password")
         val WEB_SERVER_LOCALHOST_ONLY = booleanPreferencesKey("web_server_localhost_only")
+        val WEB_SERVER_MCP_DEVICE_TOOLS_ENABLED = booleanPreferencesKey("web_server_mcp_device_tools_enabled")
         val ENABLE_TELEGRAM_PHOTO_TAGGING = booleanPreferencesKey("enable_telegram_photo_tagging")
 
         // AI logging
@@ -314,6 +315,7 @@ class SettingsStore(
                 webServerJwtEnabled = preferences[WEB_SERVER_JWT_ENABLED] == true,
                 webServerAccessPassword = preferences[WEB_SERVER_ACCESS_PASSWORD] ?: "",
                 webServerLocalhostOnly = preferences[WEB_SERVER_LOCALHOST_ONLY] == true,
+                webServerMcpDeviceToolsEnabled = preferences[WEB_SERVER_MCP_DEVICE_TOOLS_ENABLED] == true,
                 enableTelegramPhotoTagging = preferences[ENABLE_TELEGRAM_PHOTO_TAGGING] == true,
                 aiLogLevel = AiLogLevel.fromPreference(preferences[AI_LOG_LEVEL]),
                 backupReminderConfig = preferences[BACKUP_REMINDER_CONFIG]?.let {
@@ -582,6 +584,7 @@ class SettingsStore(
             preferences[WEB_SERVER_JWT_ENABLED] = settings.webServerJwtEnabled
             preferences[WEB_SERVER_ACCESS_PASSWORD] = settings.webServerAccessPassword
             preferences[WEB_SERVER_LOCALHOST_ONLY] = settings.webServerLocalhostOnly
+            preferences[WEB_SERVER_MCP_DEVICE_TOOLS_ENABLED] = settings.webServerMcpDeviceToolsEnabled
             preferences[ENABLE_TELEGRAM_PHOTO_TAGGING] = settings.enableTelegramPhotoTagging
             preferences[AI_LOG_LEVEL] = settings.aiLogLevel.preferenceName
             preferences[BACKUP_REMINDER_CONFIG] = JsonInstant.encodeToString(settings.backupReminderConfig)
@@ -745,6 +748,7 @@ data class Settings(
     val webServerJwtEnabled: Boolean = false,
     val webServerAccessPassword: String = "",
     val webServerLocalhostOnly: Boolean = false,
+    val webServerMcpDeviceToolsEnabled: Boolean = false,
     val enableTelegramPhotoTagging: Boolean = false,
     val aiLogLevel: AiLogLevel = AiLogLevel.INFO,
     val backupReminderConfig: BackupReminderConfig = BackupReminderConfig(),

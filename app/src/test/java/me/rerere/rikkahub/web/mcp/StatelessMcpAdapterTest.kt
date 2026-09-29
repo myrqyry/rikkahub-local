@@ -44,7 +44,7 @@ class StatelessMcpAdapterTest {
                     NativeMcpTool(
                         name = "rikka.list_conversations",
                         description = "List conversations",
-                        call = { nativePayload },
+                        call = { listOf(UIMessagePart.Text(nativePayload.toString())) },
                     ),
                 )
             },

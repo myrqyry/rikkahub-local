@@ -65,3 +65,7 @@ app/src/main/jni/litert/litert_cc_sdk/
 # Local agent artifacts and planning notes
 /.codebase-memory/
 /Meristem Mobile — Finish-the-Core Task List.md
+
+# meristem:local-ignore:start
+.meristem/local/
+# meristem:local-ignore:end

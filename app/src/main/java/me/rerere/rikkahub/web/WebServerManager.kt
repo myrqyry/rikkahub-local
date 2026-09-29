@@ -13,6 +13,7 @@ import kotlinx.coroutines.sync.withLock
 import me.rerere.rikkahub.AppScope
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.ai.mcp.McpManager
+import me.rerere.rikkahub.data.ai.tools.LocalTools
 import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.data.repository.ConversationRepository
 import me.rerere.rikkahub.data.repository.FolderRepository
@@ -44,6 +45,7 @@ class WebServerManager(
     private val settingsStore: SettingsStore,
     private val filesManager: FilesManager,
     private val mcpManager: McpManager,
+    private val localTools: LocalTools,
 ) {
     private var server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
     private val nsdRegistrar = NsdServiceRegistrar(context)
@@ -140,7 +142,16 @@ class WebServerManager(
                 return
             }
             server = startWebServer(port = port, host = host) {
-                configureWebApi(context, chatService, conversationRepo, folderRepo, settingsStore, filesManager, mcpManager)
+                configureWebApi(
+                    context,
+                    chatService,
+                    conversationRepo,
+                    folderRepo,
+                    settingsStore,
+                    filesManager,
+                    mcpManager,
+                    localTools,
+                )
             }.start(wait = false)
 
             _state.value = baseState.copy(isRunning = true)
