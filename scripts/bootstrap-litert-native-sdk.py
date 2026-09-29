@@ -37,10 +37,13 @@ MAVEN_AAR_SHA256 = "a162d1ddbdad87c002b7ec7eb31a703f2761335e693f292f94091b3569d8
 SOURCE_REPOSITORY = "https://github.com/google-ai-edge/LiteRT.git"
 SOURCE_TAG = "v2.1.5"
 SOURCE_COMMIT = "9d26e89d88ef8785b6a1e54ec41ac8add215a125"
+SOURCE_TREE_GIT_SHA = "c4083fc765566a93fcb76cf355cc515be8bd3763"
+BUILD_CONFIG_SOURCE = "litert/build_common/config/build_config_gpu_npu.h"
+BUILD_CONFIG_SHA256 = "6e69a0cab0a4743d12c5c365784b0faed0d66e39f83b6abe0338e525e508e493"
 
+# Only ABIs configured by app/build.gradle.kts are materialized and verified.
 LIBRARY_SHA256 = {
     "arm64-v8a": "366e3e040b00692158f9f8f9105870672c93348a3d8e9024120b40045a074b0b",
-    "armeabi-v7a": "836ee7a2321c9453f02658b6774fc4c5951716432b450ba6bc4e9a94fe524e6c",
     "x86_64": "6d5b2f35d536a3b2d38b26d26328cc9c259133ef2aa0413ec554cd7ef84f6604",
 }
 
@@ -56,7 +59,7 @@ REQUIRED_HEADERS = (
 )
 
 MARKER_NAME = ".bootstrap.json"
-MARKER_SCHEMA = 1
+MARKER_SCHEMA = 2
 
 
 def sha256_file(path: Path) -> str:
@@ -67,23 +70,47 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def sha256_tree(root: Path) -> str:
-    digest = hashlib.sha256()
-    for path in sorted(candidate for candidate in root.rglob("*") if candidate.is_file()):
-        relative = path.relative_to(root).as_posix()
-        if relative == "build_common/build_config.h":
+GENERATED_BUILD_CONFIG = "build_common/build_config.h"
+
+
+def git_blob_sha(path: Path) -> bytes:
+    data = path.read_bytes()
+    header = f"blob {len(data)}\0".encode("ascii")
+    return hashlib.sha1(header + data).digest()
+
+
+def git_tree_sha(root: Path, relative_root: Path = Path()) -> str:
+    """Reconstruct Git's tree object ID for the copied LiteRT source tree."""
+    entries: list[tuple[bytes, bytes]] = []
+    for path in root.iterdir():
+        relative = relative_root / path.name
+        if relative.as_posix() == GENERATED_BUILD_CONFIG:
             continue
-        digest.update(relative.encode("utf-8"))
-        digest.update(b"\\0")
-        digest.update(hashlib.sha256(path.read_bytes()).digest())
-    return digest.hexdigest()
+
+        name = path.name.encode("utf-8")
+        if path.is_dir():
+            object_id = bytes.fromhex(git_tree_sha(path, relative))
+            mode = b"40000"
+            sort_key = name + b"/"
+        elif path.is_file():
+            object_id = git_blob_sha(path)
+            mode = b"100755" if path.stat().st_mode & 0o111 else b"100644"
+            sort_key = name
+        else:
+            raise RuntimeError(f"unsupported file type in LiteRT source tree: {path}")
+
+        entries.append((sort_key, mode + b" " + name + b"\0" + object_id))
+
+    body = b"".join(entry for _, entry in sorted(entries, key=lambda item: item[0]))
+    header = f"tree {len(body)}\0".encode("ascii")
+    return hashlib.sha1(header + body).hexdigest()
 
 
 def run(*args: str, cwd: Path | None = None) -> None:
     subprocess.run(args, cwd=cwd, check=True)
 
 
-def expected_marker(source_tree_sha256: str, build_config_sha256: str) -> dict[str, object]:
+def expected_marker() -> dict[str, object]:
     return {
         "schema": MARKER_SCHEMA,
         "litertVersion": LITERT_VERSION,
@@ -95,12 +122,12 @@ def expected_marker(source_tree_sha256: str, build_config_sha256: str) -> dict[s
             "repository": SOURCE_REPOSITORY,
             "tag": SOURCE_TAG,
             "commit": SOURCE_COMMIT,
-            "treeSha256": source_tree_sha256,
+            "gitTree": SOURCE_TREE_GIT_SHA,
         },
         "libraries": LIBRARY_SHA256,
         "buildConfig": {
-            "source": "litert/build_common/config/build_config_gpu_npu.h",
-            "sha256": build_config_sha256,
+            "source": BUILD_CONFIG_SOURCE,
+            "sha256": BUILD_CONFIG_SHA256,
         },
     }
 
@@ -115,15 +142,7 @@ def validate_output(output: Path, *, verbose: bool = False) -> tuple[bool, str]:
     except (OSError, json.JSONDecodeError) as exc:
         return False, f"invalid marker: {exc}"
 
-    source_marker = marker.get("source") if isinstance(marker, dict) else None
-    config_marker = marker.get("buildConfig") if isinstance(marker, dict) else None
-    stored_tree_hash = source_marker.get("treeSha256") if isinstance(source_marker, dict) else None
-    stored_config_hash = config_marker.get("sha256") if isinstance(config_marker, dict) else None
-    if not isinstance(stored_tree_hash, str) or len(stored_tree_hash) != 64:
-        return False, "bootstrap marker is missing the LiteRT source-tree checksum"
-    if not isinstance(stored_config_hash, str) or len(stored_config_hash) != 64:
-        return False, "bootstrap marker is missing the generated build-config checksum"
-    if marker != expected_marker(stored_tree_hash, stored_config_hash):
+    if marker != expected_marker():
         return False, "bootstrap marker does not match the pinned LiteRT inputs"
 
     for abi, expected_hash in LIBRARY_SHA256.items():
@@ -140,12 +159,16 @@ def validate_output(output: Path, *, verbose: bool = False) -> tuple[bool, str]:
             return False, f"missing {header}"
 
     source_tree = output / "litert"
-    actual_tree_hash = sha256_tree(source_tree)
-    if actual_tree_hash != stored_tree_hash:
-        return False, "LiteRT source/header tree checksum mismatch"
+    actual_tree_hash = git_tree_sha(source_tree)
+    if actual_tree_hash != SOURCE_TREE_GIT_SHA:
+        return (
+            False,
+            "LiteRT source tree mismatch: "
+            f"expected {SOURCE_TREE_GIT_SHA}, got {actual_tree_hash}",
+        )
 
-    generated_config = source_tree / "build_common/build_config.h"
-    if sha256_file(generated_config) != stored_config_hash:
+    generated_config = source_tree / GENERATED_BUILD_CONFIG
+    if sha256_file(generated_config) != BUILD_CONFIG_SHA256:
         return False, "generated LiteRT build_config.h checksum mismatch"
 
     if verbose:
@@ -247,30 +270,31 @@ def checkout_headers(temp: Path, stage: Path) -> None:
             f"LiteRT source commit mismatch: expected {SOURCE_COMMIT}, got {actual_commit}"
         )
 
+    actual_tree = subprocess.check_output(
+        ["git", "-C", str(source), "rev-parse", "HEAD:litert"],
+        text=True,
+    ).strip()
+    if actual_tree != SOURCE_TREE_GIT_SHA:
+        raise RuntimeError(
+            "LiteRT source tree mismatch: "
+            f"expected {SOURCE_TREE_GIT_SHA}, got {actual_tree}"
+        )
+
     shutil.copytree(source / "litert", stage / "litert")
 
     # Upstream generates this file from one of four checked-in configurations.
     # The v2.1.5 BUILD target's default selects GPU+NPU, matching the Android AAR.
-    config = stage / "litert/build_common/config/build_config_gpu_npu.h"
-    generated = stage / "litert/build_common/build_config.h"
+    config = stage / BUILD_CONFIG_SOURCE
+    generated = stage / "litert" / GENERATED_BUILD_CONFIG
     if not config.is_file():
         raise RuntimeError(f"LiteRT source is missing {config}")
     shutil.copy2(config, generated)
 
 
 def write_marker(stage: Path) -> None:
-    source_tree = stage / "litert"
-    generated_config = source_tree / "build_common/build_config.h"
     marker = stage / MARKER_NAME
     marker.write_text(
-        json.dumps(
-            expected_marker(
-                sha256_tree(source_tree),
-                sha256_file(generated_config),
-            ),
-            indent=2,
-            sort_keys=True,
-        ) + "\n",
+        json.dumps(expected_marker(), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
 
@@ -294,9 +318,8 @@ def atomic_install(stage: Path, output: Path) -> None:
 
 
 def bootstrap(output: Path) -> None:
-    ok, _ = validate_output(output)
+    ok, _ = validate_output(output, verbose=True)
     if ok:
-        validate_output(output, verbose=True)
         return
 
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -311,7 +334,7 @@ def bootstrap(output: Path) -> None:
             checkout_headers(temp, stage)
             write_marker(stage)
 
-            ok, reason = validate_output(stage, verbose=True)
+            ok, reason = validate_output(stage)
             if not ok:
                 raise RuntimeError(f"staged LiteRT SDK failed verification: {reason}")
 
@@ -320,9 +343,10 @@ def bootstrap(output: Path) -> None:
             if stage.exists():
                 shutil.rmtree(stage, ignore_errors=True)
 
-    ok, reason = validate_output(output, verbose=True)
-    if not ok:
-        raise RuntimeError(f"installed LiteRT SDK failed verification: {reason}")
+    print(
+        f"LiteRT native SDK {LITERT_VERSION} verified and installed at {output} "
+        f"(source {SOURCE_COMMIT[:12]})"
+    )
 
 
 def main() -> int:
@@ -342,11 +366,10 @@ def main() -> int:
 
     output = args.output.resolve()
     if args.verify_only:
-        ok, reason = validate_output(output, verbose=False)
+        ok, reason = validate_output(output, verbose=True)
         if not ok:
             print(f"LiteRT native SDK verification failed: {reason}", file=sys.stderr)
             return 1
-        validate_output(output, verbose=True)
         return 0
 
     try:

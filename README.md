@@ -311,6 +311,7 @@ The repository is functional but experimental. Large parts of the agent system a
 - Android SDK 37
 - Android NDK with CMake 3.22.1 support
 - Git with submodule support
+- Python 3.10+ (used to bootstrap the pinned LiteRT native SDK)
 - An Android 8.0+ device or emulator
 
 The project currently builds `arm64-v8a`, `x86_64`, and universal debug APKs. The application ID is `excp.rikkahub.local`, so it can coexist with upstream RikkaHub.

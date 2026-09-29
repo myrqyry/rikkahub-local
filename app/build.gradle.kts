@@ -183,6 +183,33 @@ android {
 }
 
 val liteRtNativeSdkDir = layout.projectDirectory.dir("src/main/jni/litert/litert_cc_sdk")
+val pythonCommand = providers.provider {
+    val isWindows = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
+    val candidates = if (isWindows) {
+        listOf(listOf("py", "-3"), listOf("python"), listOf("python3"))
+    } else {
+        listOf(listOf("python3"), listOf("python"))
+    }
+    val versionProbe = listOf(
+        "-c",
+        "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)",
+    )
+
+    candidates.firstOrNull { candidate ->
+        try {
+            val process = ProcessBuilder(candidate + versionProbe)
+                .redirectErrorStream(true)
+                .start()
+            process.inputStream.bufferedReader().use { it.readText() }
+            process.waitFor() == 0
+        } catch (_: Exception) {
+            false
+        }
+    } ?: throw GradleException(
+        "Python 3.10+ is required to bootstrap LiteRT. " +
+            "Install Python and ensure python3/python (or py -3 on Windows) is available.",
+    )
+}
 val bootstrapLiteRtNativeSdk = tasks.register<Exec>("bootstrapLiteRtNativeSdk") {
     group = "build setup"
     description = "Bootstrap the pinned LiteRT 2.1.5 native libraries and C headers"
@@ -190,14 +217,17 @@ val bootstrapLiteRtNativeSdk = tasks.register<Exec>("bootstrapLiteRtNativeSdk") 
     val bootstrapScript = rootProject.file("scripts/bootstrap-litert-native-sdk.py")
     inputs.file(bootstrapScript)
     outputs.dir(liteRtNativeSdkDir)
-    outputs.upToDateWhen { false }
 
-    commandLine(
-        "python3",
-        bootstrapScript.absolutePath,
-        "--output",
-        liteRtNativeSdkDir.asFile.absolutePath,
-    )
+    doFirst {
+        commandLine(
+            pythonCommand.get() +
+                listOf(
+                    bootstrapScript.absolutePath,
+                    "--output",
+                    liteRtNativeSdkDir.asFile.absolutePath,
+                ),
+        )
+    }
 }
 
 tasks.configureEach {
