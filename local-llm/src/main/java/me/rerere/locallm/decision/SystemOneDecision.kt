@@ -9,7 +9,13 @@ package me.rerere.locallm.decision
 data class DecisionRequest(
     val state: String,
     val questions: List<DecisionQuestion>,
-)
+) {
+    init {
+        require(questions.map { it.id }.distinct().size == questions.size) {
+            "decision question ids must be unique"
+        }
+    }
+}
 
 /** Typed question shapes supported by a decision-only backend. */
 sealed interface DecisionQuestion {
@@ -81,7 +87,63 @@ data class DecisionResult(
     val answers: Map<String, DecisionAnswer>,
     val provider: String,
     val latencyMs: Long,
-)
+) {
+    init {
+        require(provider.isNotBlank()) { "decision provider must not be blank" }
+        require(latencyMs >= 0) { "decision latency must be non-negative" }
+    }
+
+    /**
+     * Validates backend output against the exact typed request that produced it.
+     *
+     * A decision backend is not trusted to enforce the request schema itself. This
+     * boundary rejects missing/extra answers, answer-type mismatches, and values or
+     * probability keys outside the declared choice/score domain before a caller can
+     * route on the result.
+     */
+    fun validateAgainst(request: DecisionRequest): DecisionResult {
+        val questionsById = request.questions.associateBy { it.id }
+        require(answers.keys == questionsById.keys) {
+            "decision answers must match request question ids"
+        }
+
+        answers.forEach { (id, answer) ->
+            when (val question = questionsById.getValue(id)) {
+                is DecisionQuestion.Boolean -> {
+                    require(answer is DecisionAnswer.Boolean) {
+                        "answer for '$id' must be boolean"
+                    }
+                }
+
+                is DecisionQuestion.Choice -> {
+                    require(answer is DecisionAnswer.Choice) {
+                        "answer for '$id' must be a choice"
+                    }
+                    require(answer.value in question.options) {
+                        "choice answer for '$id' must be one of the declared options"
+                    }
+                    require(answer.probabilities.keys.all { it in question.options }) {
+                        "choice probabilities for '$id' must use declared options"
+                    }
+                }
+
+                is DecisionQuestion.Score -> {
+                    require(answer is DecisionAnswer.Score) {
+                        "answer for '$id' must be a score"
+                    }
+                    require(answer.value in question.min..question.max) {
+                        "score answer for '$id' must be inside the declared range"
+                    }
+                    require(answer.probabilities.keys.all { it in question.min..question.max }) {
+                        "score probabilities for '$id' must stay inside the declared range"
+                    }
+                }
+            }
+        }
+
+        return this
+    }
+}
 
 /**
  * Runtime seam for a local or explicitly-approved remote decision backend.
