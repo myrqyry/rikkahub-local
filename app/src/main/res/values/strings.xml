@@ -643,7 +643,7 @@
   <string name="setting_asr_configure_base_url">Base URL</string>
   <string name="setting_asr_configure_sample_rate">Sample Rate</string>
   <string name="setting_asr_configure_segment_duration">Segment Duration</string>
-  <string name="setting_asr_configure_mimo_api_key_desc">Xiaomi MiMo API key (sk-xxx for pay-as-you-go, tp-xxx for token plan)</string>
+  <string name="setting_asr_configure_mimo_api_key_desc">Xiaomi MiMo API key (sk- prefix for pay-as-you-go, tp- prefix for token plan)</string>
   <string name="setting_asr_configure_mimo_base_url_desc">MiMo OpenAI-compatible base URL. Use https://api.xiaomimimo.com/v1 for sk- keys, https://token-plan-cn.xiaomimimo.com/v1 for tp- keys</string>
   <string name="setting_asr_configure_mimo_model_desc">MiMo ASR model name, e.g. mimo-v2.5-asr</string>
   <string name="setting_asr_configure_mimo_language_desc">Optional language hint: auto, zh, or en. Leave empty to use server default (auto)</string>
@@ -2117,8 +2117,8 @@
   <string name="models_advanced">Advanced</string>
   <string name="models_memory_fit_now">Fits now</string>
   <string name="models_memory_needs_more">Needs more memory · %1$d MB required, %2$d MB available</string>
-  <string name="models_memory_checking">Checking memory fit</string>
-  <string name="models_memory_unavailable">Memory fit unavailable</string>
+  <string name="models_memory_checking">Checking memory compatibility</string>
+  <string name="models_memory_unavailable">Memory compatibility unavailable</string>
   <string name="setting_home_models">Models</string>
   <string name="setting_home_models_desc">Manage available models, default assignments, and sources</string>
   <string name="workspace_opencode_detail_title">OpenCode workspace</string>
