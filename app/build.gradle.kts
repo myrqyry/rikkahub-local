@@ -196,12 +196,13 @@ val pythonCommand = providers.provider {
     }
     val versionProbe = listOf(
         "-c",
-        "import sys; print(sys.executable, sys.version.split()[0]); " +
+        "import sys; print(sys.executable); print(sys.version.split()[0]); " +
             "raise SystemExit(0 if sys.version_info >= (3, 10) else 1)",
     )
     val failures = mutableListOf<String>()
+    var resolvedCommand: List<String>? = null
 
-    candidates.firstOrNull { candidate ->
+    for (candidate in candidates) {
         val label = candidate.joinToString(" ")
         try {
             val process = ProcessBuilder(candidate + versionProbe)
@@ -210,23 +211,31 @@ val pythonCommand = providers.provider {
             if (!process.waitFor(10, TimeUnit.SECONDS)) {
                 process.destroyForcibly()
                 failures += "$label: timed out"
-                false
-            } else {
-                val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
-                if (process.exitValue() == 0) {
-                    true
-                } else {
-                    failures += "$label: " + output.ifBlank {
-                        "exited with ${process.exitValue()}"
-                    }
-                    false
+                continue
+            }
+
+            val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
+            if (process.exitValue() == 0) {
+                val executable = output.lineSequence()
+                    .firstOrNull { it.isNotBlank() }
+                    ?.trim()
+                if (executable.isNullOrEmpty()) {
+                    failures += "$label: probe returned no interpreter path"
+                    continue
                 }
+                resolvedCommand = listOf(executable)
+                break
+            }
+
+            failures += "$label: " + output.ifBlank {
+                "exited with ${process.exitValue()}"
             }
         } catch (exc: Exception) {
             failures += "$label: ${exc.message ?: exc::class.simpleName}"
-            false
         }
-    } ?: throw GradleException(
+    }
+
+    resolvedCommand ?: throw GradleException(
         buildString {
             append("Python 3.10+ is required to bootstrap LiteRT. ")
             if (configuredPython != null) {

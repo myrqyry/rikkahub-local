@@ -280,7 +280,15 @@ def checkout_headers(temp: Path, stage: Path) -> None:
             f"expected {SOURCE_TREE_GIT_SHA}, got {actual_tree}"
         )
 
-    run("git", "-C", str(source), "diff", "--quiet", "HEAD", "--", "litert")
+    changed_paths = subprocess.check_output(
+        ["git", "-C", str(source), "diff", "--name-only", "HEAD", "--", "litert"],
+        text=True,
+    ).splitlines()
+    if changed_paths:
+        shown = ", ".join(changed_paths[:10])
+        suffix = "" if len(changed_paths) <= 10 else f" (+{len(changed_paths) - 10} more)"
+        raise RuntimeError(f"LiteRT checkout differs from pinned Git objects: {shown}{suffix}")
+
     shutil.copytree(source / "litert", stage / "litert")
 
     # Upstream generates this file from one of four checked-in configurations.
