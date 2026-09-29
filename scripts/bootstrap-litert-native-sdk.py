@@ -40,6 +40,50 @@ SOURCE_COMMIT = "9d26e89d88ef8785b6a1e54ec41ac8add215a125"
 SOURCE_TREE_GIT_SHA = "c4083fc765566a93fcb76cf355cc515be8bd3763"
 BUILD_CONFIG_SOURCE = "litert/build_common/config/build_config_gpu_npu.h"
 BUILD_CONFIG_SHA256 = "6e69a0cab0a4743d12c5c365784b0faed0d66e39f83b6abe0338e525e508e493"
+SOURCE_EXECUTABLES = frozenset(
+    (
+        "ats/ats_aot.sh",
+        "c/litert_runtime_c_api_so_symbol_test.sh",
+        "cc/dynamic_runtime/check_duplicate_symbols.sh",
+        "integration_test/cns_pull_model_provider.sh",
+        "integration_test/device_script_test.sh",
+        "integration_test/download_model_provider.sh",
+        "integration_test/dummy_model_provider.sh",
+        "integration_test/mobile_install.sh",
+        "js/apps/model_tester/serve.js",
+        "test/litert_c_api_dependency_test.sh",
+        "test/litert_compiler_plugin_symbol_test.sh",
+        "test/testdata/constant_output_tensor.tflite",
+        "test/testdata/group_norm_2_groups_op.tflite",
+        "test/testdata/island_partial.tflite",
+        "test/testdata/l2_norm_composite.tflite",
+        "test/testdata/mobilenet_v2_1.0_224.tflite",
+        "test/testdata/simple_add_dynamic_shape.tflite",
+        "test/testdata/simple_atan2_op.tflite",
+        "test/testdata/simple_ceil_op.tflite",
+        "test/testdata/simple_elu_op.tflite",
+        "test/testdata/simple_floor_op.tflite",
+        "test/testdata/simple_group_norm_op.tflite",
+        "test/testdata/simple_l2_norm.tflite",
+        "test/testdata/simple_log_softmax_op.tflite",
+        "test/testdata/simple_logical_or_op.tflite",
+        "test/testdata/simple_mirror_pad_reflect_op.tflite",
+        "test/testdata/simple_mirror_pad_symmetric_op.tflite",
+        "test/testdata/simple_reduceall_op.tflite",
+        "test/testdata/simple_reduceany_op.tflite",
+        "test/testdata/simple_reducemin_op.tflite",
+        "test/testdata/simple_relu0to1_op.tflite",
+        "test/testdata/simple_relu1_op.tflite",
+        "test/testdata/simple_round_op.tflite",
+        "test/testdata/simple_scatter_nd_op.tflite",
+        "test/testdata/simple_sign_op.tflite",
+        "test/testdata/simple_squeeze.tflite",
+        "test/testdata/simple_tile_op.tflite",
+        "test/testdata/simple_topk_op.tflite",
+        "test/testdata/sqrt_mean_mul_multiple.tflite",
+        "test/testdata/sqrt_mean_mul_ops.tflite",
+    )
+)
 
 # Only ABIs configured by app/build.gradle.kts are materialized and verified.
 LIBRARY_SHA256 = {
@@ -94,7 +138,9 @@ def git_tree_sha(root: Path, relative_root: Path = Path()) -> str:
             sort_key = name + b"/"
         elif path.is_file():
             object_id = git_blob_sha(path)
-            mode = b"100755" if path.stat().st_mode & 0o111 else b"100644"
+            # File modes are pinned from the upstream Git tree rather than the
+            # host filesystem so verification is stable on Windows too.
+            mode = b"100755" if relative.as_posix() in SOURCE_EXECUTABLES else b"100644"
             sort_key = name
         else:
             raise RuntimeError(f"unsupported file type in LiteRT source tree: {path}")
