@@ -196,7 +196,7 @@ val pythonCommand = providers.provider {
     }
     val versionProbe = listOf(
         "-c",
-        "import sys; print(sys.executable); print(sys.version.split()[0]); " +
+        "import sys; print('EXE=' + sys.executable); print('VERSION=' + sys.version.split()[0]); " +
             "raise SystemExit(0 if sys.version_info >= (3, 10) else 1)",
     )
     val failures = mutableListOf<String>()
@@ -217,10 +217,11 @@ val pythonCommand = providers.provider {
             val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
             if (process.exitValue() == 0) {
                 val executable = output.lineSequence()
-                    .firstOrNull { it.isNotBlank() }
+                    .firstOrNull { it.startsWith("EXE=") }
+                    ?.removePrefix("EXE=")
                     ?.trim()
                 if (executable.isNullOrEmpty()) {
-                    failures += "$label: probe returned no interpreter path"
+                    failures += "$label: probe returned no tagged interpreter path"
                     continue
                 }
                 resolvedCommand = listOf(executable)
