@@ -148,8 +148,8 @@ fun ModelAssignmentsSection(
                     if (enableSuggestion) {
                         val row = AssignmentRow("Suggestion model", null, suggestionModelId, true, onSuggestionModelSelected)
                         val candidates = compatibleAssignments(ModelRole.CHAT, models)
-                            AssignmentItem(
-                                row = row,
+                        AssignmentItem(
+                            row = row,
                                 candidates = candidates,
                                 allModels = models,
                                 repairState = repairState,
