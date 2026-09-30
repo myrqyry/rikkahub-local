@@ -1,8 +1,10 @@
 import com.android.build.api.dsl.Packaging
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.gradle.api.tasks.Exec
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.io.FileInputStream
 import java.util.Properties
+import java.util.concurrent.TimeUnit
 
 plugins {
     alias(libs.plugins.android.application)
@@ -178,6 +180,98 @@ android {
         compilerOptions.optIn.add("kotlinx.coroutines.ExperimentalCoroutinesApi")
         // ExperimentalNavigation3Api was renamed/removed in newer navigation3 — opt-in is
         // no longer required and the marker class no longer exists in the runtime artifact.
+    }
+}
+
+val liteRtNativeSdkDir = layout.projectDirectory.dir("src/main/jni/litert/litert_cc_sdk")
+val pythonCommand = providers.provider {
+    val configuredPython = providers.gradleProperty("litertPython").orNull
+    val isWindows = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
+    val candidates = if (configuredPython != null) {
+        listOf(listOf(configuredPython))
+    } else if (isWindows) {
+        listOf(listOf("py", "-3"), listOf("python"), listOf("python3"))
+    } else {
+        listOf(listOf("python3"), listOf("python"))
+    }
+    val versionProbe = listOf(
+        "-c",
+        "import sys; print('EXE=' + sys.executable); print('VERSION=' + sys.version.split()[0]); " +
+            "raise SystemExit(0 if sys.version_info >= (3, 10) else 1)",
+    )
+    val failures = mutableListOf<String>()
+    var resolvedCommand: List<String>? = null
+
+    for (candidate in candidates) {
+        val label = candidate.joinToString(" ")
+        try {
+            val process = ProcessBuilder(candidate + versionProbe)
+                .redirectErrorStream(true)
+                .start()
+            if (!process.waitFor(10, TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+                failures += "$label: timed out"
+                continue
+            }
+
+            val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
+            if (process.exitValue() == 0) {
+                val executable = output.lineSequence()
+                    .firstOrNull { it.startsWith("EXE=") }
+                    ?.removePrefix("EXE=")
+                    ?.trim()
+                if (executable.isNullOrEmpty()) {
+                    failures += "$label: probe returned no tagged interpreter path"
+                    continue
+                }
+                resolvedCommand = listOf(executable)
+                break
+            }
+
+            failures += "$label: " + output.ifBlank {
+                "exited with ${process.exitValue()}"
+            }
+        } catch (exc: Exception) {
+            failures += "$label: ${exc.message ?: exc::class.simpleName}"
+        }
+    }
+
+    resolvedCommand ?: throw GradleException(
+        buildString {
+            append("Python 3.10+ is required to bootstrap LiteRT. ")
+            if (configuredPython != null) {
+                append("The -PlitertPython override failed. ")
+            } else {
+                append("Install Python or pass -PlitertPython=/path/to/python3. ")
+            }
+            append("Probe results: ")
+            append(failures.joinToString("; "))
+        },
+    )
+}
+val bootstrapLiteRtNativeSdk = tasks.register<Exec>("bootstrapLiteRtNativeSdk") {
+    group = "build setup"
+    description = "Bootstrap the pinned LiteRT 2.1.5 native libraries and C headers"
+
+    val bootstrapScript = rootProject.file("scripts/bootstrap-litert-native-sdk.py")
+    inputs.file(bootstrapScript)
+    outputs.dir(liteRtNativeSdkDir)
+
+    doFirst {
+        commandLine(
+            pythonCommand.get() +
+                listOf(
+                    bootstrapScript.absolutePath,
+                    "--output",
+                    liteRtNativeSdkDir.asFile.absolutePath,
+                ),
+        )
+    }
+}
+
+tasks.configureEach {
+    if (name.startsWith("configureCMake") || name.startsWith("buildCMake")) {
+        dependsOn(bootstrapLiteRtNativeSdk)
     }
 }
 
