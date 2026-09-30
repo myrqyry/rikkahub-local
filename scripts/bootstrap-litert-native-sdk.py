@@ -133,7 +133,7 @@ def validate_output(output: Path, *, verbose: bool = False) -> tuple[bool, str]:
 
     try:
         marker = json.loads(marker_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         return False, f"invalid marker: {exc}"
 
     if marker != expected_marker():
