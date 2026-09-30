@@ -3,61 +3,72 @@
 
 ## Outcome
 
-Complete and verify the current MCP/device-tool and constrained-routing work without
-disturbing existing Android state or unrelated provider/model behavior.
-
-## Why it matters
-
-The current working tree contains a cross-cutting implementation spanning the
-stateless MCP HTTP path, device MCP tools, web settings/server wiring, local-LLM
-decision routing, related tests/docs, and supporting local agent skills. These
-changes need coherent verification before they are treated as complete.
+Finish verification of the landed device-MCP and constrained-routing substrate,
+then harden the typed System-One boundary before a concrete decision backend is
+allowed to influence routing.
 
 ## Current state
 
-**Branch context:** `HEAD` is `master` at `1b025681`, equal to `origin/master`; no
-branch-only commits exist.
+**Base:** `master` is at `b54875eb` after `11d3b1fe feat: add device MCP and
+routing substrate`. The repository state observed before this branch was clean and
+synchronized with `origin/master`.
 
-**Current working tree:** there are no staged changes. Unstaged edits include
-preferences, dependency wiring, web settings/server and MCP adapter/route code,
-strings, tests, and the architecture reference. Untracked work includes device MCP
-tools/tests/docs, local-LLM decision code/tests, supporting `.agents/skills/` files,
-and `opencode.jsonc`. The Meristem substrate is now repaired with a private local
-state lane.
+**This branch:** `aster/system-one-validation-2026-09-28` adds request/result
+validation for the System-One contract and focused regression coverage.
 
-**Verification state:** no validation has been run against this current dirty tree
-as part of substrate initialization. The ignored `SESSION-STATE.md` contains older
-Models-page decisions and is not evidence that the current MCP/routing work is
-complete.
+**Submodules:** both repository pins are valid and reachable:
+
+- `material3/material-color-utilities` -> `6fd88eb3e95ba1d457842e2a2bf847d06b3a018a`
+- `third_party/stable-diffusion.cpp` -> `d2ccecd0f17b2e9dc062e158246d33962fb0dd9d`
+
+The local checkout used for inspection had those submodules uninitialized, which
+explained the local Material 3 unresolved references and missing Stable Diffusion
+CMake source. The GitHub Android workflow performs recursive submodule checkout.
 
 ## Locked decisions
 
 - Preserve installed app data, persistent storage, application identity, and
   existing model/provider lifecycle behavior.
-- Keep MCP authorization, route handling, and device-tool boundaries explicit;
-  do not create silent success or unsafe fallback paths.
-- Keep the current uncommitted implementation distinguishable from already-landed
-  branch history until tests/builds verify it.
+- Device MCP stays a narrow capability export layered on top of the active
+  assistant's already-enabled local tools.
+- Remote device export remains authenticated, explicitly opted in, and limited by
+  the hard remote-safe allowlist until a dedicated remote grant/approval flow exists.
+- System-One engines remain side-effect free and never own capability authority.
+- Malformed decision output must fail at the typed request/result boundary before
+  callers can route on it.
 
-## Constraints / do-not-regress
+## Verification evidence
 
-- Follow root and nearest-module `AGENTS.md` rules, especially persistent-data
-  preservation and verification reporting.
+Observed locally before this branch:
+
+- `:local-llm:testDebugUnitTest --tests me.rerere.locallm.decision.SystemOneDecisionTest`
+  completed successfully.
+- A broader local debug build could not be treated as source evidence because the
+  two git submodules were not initialized.
+- No adb device or local AVD was available for UI-tree, screenshot, or logcat QA.
+
+GitHub CI on this branch is the clean verification path because it performs
+recursive submodule checkout and runs:
+
+1. full unit tests
+2. lint
+3. debug APK assembly
+4. targeted API-35 migration instrumentation on a disposable emulator
 
 ## Current objective
 
-1. Inspect and finish the current stateless MCP/device-tool and routing changes.
-2. Run the narrowest relevant tests, then broader build/type validation as practical.
-3. Verify the real runtime path and report unverified device behavior or remaining
-   integration gaps before claiming completion.
+1. Validate System-One results against the exact typed request: unique question IDs,
+   exact answer IDs, matching answer types, declared choice membership, and declared
+   score ranges.
+2. Let GitHub CI verify the clean recursive-submodule checkout.
+3. Keep physical-device/UI-flow verification explicitly unclaimed until an adb target
+   is available.
 
-## Verification
+## Remaining runtime verification
 
-Verification is incomplete. The initializer and doctor have been run, but no build,
-unit test, lint, or device check has been run against the current dirty tree.
+The MCP UI/runtime path still needs an adb target for end-to-end validation of:
 
-## Open uncertainty
+`Web Server -> JWT auth -> Expose device tools -> /mcp -> rikka.device.*`
 
-The intended final scope, test/device availability, and whether all untracked
-supporting files belong in the eventual change remain to be confirmed by the next
-implementation/verification pass.
+Do not describe that flow as device-verified until UI-tree/logcat/runtime evidence
+has been captured.
