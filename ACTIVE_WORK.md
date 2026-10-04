@@ -26,9 +26,8 @@ and `opencode.jsonc`. The Meristem substrate is now repaired with a private loca
 state lane.
 
 **Verification state:** no validation has been run against this current dirty tree
-as part of substrate initialization. The ignored `SESSION-STATE.md` contains older
-Models-page decisions and is not evidence that the current MCP/routing work is
-complete.
+as part of substrate initialization. Older Models-page session notes are historical
+and are not evidence that the current MCP/routing work is complete.
 
 ## Locked decisions
 

@@ -863,8 +863,7 @@ private fun ColumnScope.ProviderConfigureAICore(
     )
 
     // Release-stage radio. PREVIEW pulls a higher-quality but more flappy build of Gemini
-    // Nano; STABLE is the default. Spec details in
-    // docs/superpowers/specs/2026-05-04-aicore-provider-design.md.
+    // Nano; STABLE is the default.
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.setting_provider_aicore_release_stage), modifier = Modifier.weight(1f))
         SingleChoiceSegmentedButtonRow {
