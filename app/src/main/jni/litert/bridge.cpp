@@ -29,7 +29,7 @@ Java_me_rerere_locallm_LiteRtNativeBridge_nativeInit(
   }
 
   LiteRtModel model;
-  if (LiteRtCreateModelFromFile(env_handle, path, &model) != kLiteRtStatusOk) {
+  if (LiteRtCreateModelFromFile(path, &model) != kLiteRtStatusOk) {
     LiteRtDestroyEnvironment(env_handle);
     env->ReleaseStringUTFChars(model_path, path);
     return 0;
