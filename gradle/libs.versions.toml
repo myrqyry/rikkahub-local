@@ -36,8 +36,7 @@ tflite = "2.16.1"
 kotlinx-datetime = "0.8.0"
 ksp = "2.3.4"
 paging = "3.5.0"
-lucide-icons = "1.1.0"
-huge-icons = "1.3"
+mingcute-icons = "3.0.2"
 image-viewer = "1.1.0-alpha.7"
 jsoup = "1.22.2"
 zxing = "3.5.4"
@@ -132,8 +131,7 @@ kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 onnxruntime-android = { module = "com.microsoft.onnxruntime:onnxruntime-android", version.ref = "onnxruntime" }
 tensorflow-lite = { group = "org.tensorflow", name = "tensorflow-lite", version.ref = "tflite" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
-lucide-icons = { group = "com.composables", name = "icons-lucide", version.ref = "lucide-icons" }
-huge-icons = { group = "com.github.rikkahub", name = "hugeicons-compose", version.ref = "huge-icons" }
+mingcute-icons = { group = "com.maifee.mingcute", name = "mingcute-icons", version.ref = "mingcute-icons" }
 image-viewer = { group = "com.jvziyaoyao.scale", name = "image-viewer", version.ref = "image-viewer" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }

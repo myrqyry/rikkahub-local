@@ -1,12 +1,6 @@
 package me.rerere.rikkahub.ui.pages.chat
 
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Folder01
-import me.rerere.hugeicons.stroke.Forward02
-import me.rerere.hugeicons.stroke.Pin
-import me.rerere.hugeicons.stroke.PinOff
-import me.rerere.hugeicons.stroke.Refresh01
-import me.rerere.hugeicons.stroke.Delete01
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background

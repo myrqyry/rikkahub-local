@@ -55,17 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import me.rerere.rikkahub.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.composables.icons.lucide.ChevronDown
-import com.composables.icons.lucide.ChevronRight
-import com.composables.icons.lucide.FilePen
-import com.composables.icons.lucide.FileText
-import com.composables.icons.lucide.Folder
-import com.composables.icons.lucide.FolderOpen
-import com.composables.icons.lucide.Lucide
-import com.composables.icons.lucide.Play
-import com.composables.icons.lucide.Plus
-import com.composables.icons.lucide.Trash2
-import com.composables.icons.lucide.X
+import me.rerere.rikkahub.ui.icons.MingcuteIcons
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
@@ -112,7 +102,7 @@ fun SkillDetailPage(skillName: String) {
                 actions = {
                     IconButton(onClick = { showTester = true }) {
                         Icon(
-                            imageVector = Lucide.Play,
+                            imageVector = MingcuteIcons.Play,
                             contentDescription = stringResource(R.string.skill_tester_title),
                         )
                     }
@@ -128,7 +118,7 @@ fun SkillDetailPage(skillName: String) {
                 exit = fadeOut() + scaleOut(),
             ) {
                 FloatingActionButton(onClick = { showAddDialog = true }) {
-                    Icon(Lucide.Plus, contentDescription = null)
+                    Icon(MingcuteIcons.Add01, contentDescription = null)
                 }
             }
         },
@@ -230,7 +220,7 @@ private fun SkillTesterSheet(skillName: String, onDismiss: () -> Unit) {
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = onDismiss) {
-                    Icon(Lucide.X, contentDescription = stringResource(R.string.cancel))
+                    Icon(MingcuteIcons.Cancel01, contentDescription = stringResource(R.string.cancel))
                 }
             }
 
@@ -366,7 +356,7 @@ private fun FileItem(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = Lucide.FileText,
+                imageVector = MingcuteIcons.File02,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.primary,
@@ -386,7 +376,7 @@ private fun FileItem(
             )
             IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
                 Icon(
-                    imageVector = Lucide.FilePen,
+                    imageVector = MingcuteIcons.FileEdit,
                     contentDescription = stringResource(R.string.edit),
                     modifier = Modifier.size(16.dp),
                 )
@@ -394,7 +384,7 @@ private fun FileItem(
             if (skillFile.relativePath != "SKILL.md") {
                 IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
                     Icon(
-                        imageVector = Lucide.Trash2,
+                        imageVector = MingcuteIcons.Delete01,
                         contentDescription = stringResource(R.string.delete),
                         modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.error,
@@ -428,13 +418,13 @@ private fun DirItem(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Icon(
-                    imageVector = if (expanded) Lucide.ChevronDown else Lucide.ChevronRight,
+                    imageVector = if (expanded) MingcuteIcons.ArrowDown01 else MingcuteIcons.ArrowRight01,
                     contentDescription = null,
                     modifier = Modifier.size(14.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Icon(
-                    imageVector = if (expanded) Lucide.FolderOpen else Lucide.Folder,
+                    imageVector = MingcuteIcons.Folder01,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.tertiary,

@@ -1,5 +1,6 @@
 package me.rerere.rikkahub.browser
 
+import me.rerere.rikkahub.ui.icons.MingcuteIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -37,12 +38,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.ArrowLeft01
-import me.rerere.hugeicons.stroke.ArrowRight01
-import me.rerere.hugeicons.stroke.Cancel01
-import me.rerere.hugeicons.stroke.MoreVertical
-import me.rerere.hugeicons.stroke.Refresh01
 import me.rerere.rikkahub.R
 
 /**
@@ -140,7 +135,7 @@ fun BrowserAddressBar(
         navigationIcon = {
             IconButton(onClick = onClose) {
                 Icon(
-                    imageVector = HugeIcons.Cancel01,
+                    imageVector = MingcuteIcons.Cancel01,
                     contentDescription = stringResource(R.string.browser_address_bar_close),
                 )
             }
@@ -148,26 +143,26 @@ fun BrowserAddressBar(
         actions = {
             IconButton(onClick = onBack, enabled = canGoBack) {
                 Icon(
-                    imageVector = HugeIcons.ArrowLeft01,
+                    imageVector = MingcuteIcons.ArrowLeft01,
                     contentDescription = stringResource(R.string.browser_address_bar_back),
                 )
             }
             IconButton(onClick = onForward, enabled = canGoForward) {
                 Icon(
-                    imageVector = HugeIcons.ArrowRight01,
+                    imageVector = MingcuteIcons.ArrowRight01,
                     contentDescription = stringResource(R.string.browser_address_bar_forward),
                 )
             }
             IconButton(onClick = onRefresh) {
                 Icon(
-                    imageVector = HugeIcons.Refresh01,
+                    imageVector = MingcuteIcons.Refresh01,
                     contentDescription = stringResource(R.string.browser_address_bar_refresh),
                 )
             }
             Box {
                 IconButton(onClick = { menuExpanded = true }) {
                     Icon(
-                        imageVector = HugeIcons.MoreVertical,
+                        imageVector = MingcuteIcons.MoreVertical,
                         contentDescription = stringResource(R.string.browser_address_bar_more),
                     )
                 }

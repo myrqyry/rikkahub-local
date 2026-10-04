@@ -314,9 +314,8 @@ dependencies {
     // Reorderable (https://github.com/Calvin-LL/Reorderable/)
     implementation(libs.reorderable)
 
-    // lucide icons
-    implementation(libs.lucide.icons)
-    implementation(libs.huge.icons)
+    // MingCute provides tintable Android VectorDrawables used by the Compose icon facade.
+    implementation(libs.mingcute.icons)
 
     // image viewer
     implementation(libs.image.viewer)

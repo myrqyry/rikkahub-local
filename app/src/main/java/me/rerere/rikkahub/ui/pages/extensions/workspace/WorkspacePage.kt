@@ -38,13 +38,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Add01
-import me.rerere.hugeicons.stroke.Delete01
-import me.rerere.hugeicons.stroke.Edit01
-import me.rerere.hugeicons.stroke.File02
-import me.rerere.hugeicons.stroke.Globe
-import me.rerere.hugeicons.stroke.MoreVertical
+import me.rerere.rikkahub.ui.icons.MingcuteIcons
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.db.entity.WorkspaceEntity
 import me.rerere.rikkahub.data.opencode.OpenCodeWorkspaceRow
@@ -83,7 +77,7 @@ fun WorkspacePage(vm: WorkspaceVM = koinViewModel()) {
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(HugeIcons.Add01, contentDescription = null)
+                Icon(MingcuteIcons.Add01, contentDescription = null)
             }
         },
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -230,7 +224,7 @@ private fun OpenCodeWorkspaceCard(row: OpenCodeWorkspaceRow, onOpen: (() -> Unit
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = HugeIcons.Globe,
+                imageVector = MingcuteIcons.Globe,
                 contentDescription = null,
                 modifier = Modifier.size(22.dp),
                 tint = MaterialTheme.colorScheme.primary,
@@ -338,7 +332,7 @@ private fun EmptyWorkspaceState() {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Icon(
-            imageVector = HugeIcons.File02,
+            imageVector = MingcuteIcons.File02,
             contentDescription = null,
             modifier = Modifier.size(48.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -381,7 +375,7 @@ private fun WorkspaceCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    imageVector = HugeIcons.File02,
+                    imageVector = MingcuteIcons.File02,
                     contentDescription = null,
                     modifier = Modifier.size(22.dp),
                     tint = MaterialTheme.colorScheme.primary,
@@ -408,7 +402,7 @@ private fun WorkspaceCard(
                 }
                 Box {
                     IconButton(onClick = { menuExpanded = true }) {
-                        Icon(HugeIcons.MoreVertical, contentDescription = null)
+                        Icon(MingcuteIcons.MoreVertical, contentDescription = null)
                     }
                     DropdownMenu(
                         expanded = menuExpanded,
@@ -416,7 +410,7 @@ private fun WorkspaceCard(
                     ) {
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.common_rename)) },
-                            leadingIcon = { Icon(HugeIcons.Edit01, contentDescription = null) },
+                            leadingIcon = { Icon(MingcuteIcons.Edit01, contentDescription = null) },
                             onClick = {
                                 menuExpanded = false
                                 onRename()
@@ -426,7 +420,7 @@ private fun WorkspaceCard(
                             text = { Text(stringResource(R.string.common_delete), color = MaterialTheme.colorScheme.error) },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = HugeIcons.Delete01,
+                                    imageVector = MingcuteIcons.Delete01,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.error,
                                 )

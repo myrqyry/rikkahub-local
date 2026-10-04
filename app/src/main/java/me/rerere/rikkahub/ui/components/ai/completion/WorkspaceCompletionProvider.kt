@@ -2,9 +2,7 @@ package me.rerere.rikkahub.ui.components.ai.completion
 
 import androidx.compose.ui.text.TextRange
 import kotlinx.coroutines.CancellationException
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.File02
-import me.rerere.hugeicons.stroke.Folder01
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.data.repository.WorkspaceRepository
 import me.rerere.workspace.WorkspaceFileEntry
 import me.rerere.workspace.WorkspaceStorageArea
@@ -36,7 +34,7 @@ class WorkspaceCompletionProvider(
                 ChatCompletionItem(
                     label = path,
                     insertText = if (entry.isDirectory) "@$path/" else "@$path ",
-                    icon = if (entry.isDirectory) HugeIcons.Folder01 else HugeIcons.File02,
+                    icon = if (entry.isDirectory) HugeIcons.Folder01Res else HugeIcons.File02Res,
                     sortScore = score,
                 )
             }

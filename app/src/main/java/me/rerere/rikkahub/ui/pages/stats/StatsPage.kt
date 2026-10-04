@@ -1,11 +1,6 @@
 package me.rerere.rikkahub.ui.pages.stats
 
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.ChartColumn
-import me.rerere.hugeicons.stroke.Cpu
-import me.rerere.hugeicons.stroke.Message01
-import me.rerere.hugeicons.stroke.Rocket01
-import me.rerere.hugeicons.stroke.Zap
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement

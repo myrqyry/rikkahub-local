@@ -89,17 +89,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.rerere.ai.ui.ImageAspectRatio
 import me.rerere.common.android.appTempFolder
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Add01
-import me.rerere.hugeicons.stroke.ArrowUp02
-import me.rerere.hugeicons.stroke.Cancel01
-import me.rerere.hugeicons.stroke.Colors
-import me.rerere.hugeicons.stroke.Copy01
-import me.rerere.hugeicons.stroke.Delete01
-import me.rerere.hugeicons.stroke.FloppyDisk
-import me.rerere.hugeicons.stroke.Image03
-import me.rerere.hugeicons.stroke.Sparkles
-import me.rerere.hugeicons.stroke.Tools
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.Settings
 import me.rerere.rikkahub.data.files.FileUtils

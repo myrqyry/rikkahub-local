@@ -1,7 +1,6 @@
 package me.rerere.rikkahub.ui.pages.developer
 
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.FileScript
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues

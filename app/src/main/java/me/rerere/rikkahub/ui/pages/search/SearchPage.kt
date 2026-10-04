@@ -1,8 +1,6 @@
 package me.rerere.rikkahub.ui.pages.search
 
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Refresh01
-import me.rerere.hugeicons.stroke.Sorting01
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column

@@ -4,7 +4,6 @@ import me.rerere.locallm.LocalRuntime
 import me.rerere.rikkahub.data.modelregistry.ModelCapability
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -19,7 +18,7 @@ class ModelCapabilityUiTest {
     fun everyCapabilityHasLabelAndIcon() {
         ModelCapability.entries.forEach { capability ->
             assertTrue("labelRes for $capability", capability.labelRes != 0)
-            assertNotNull("icon for $capability", capability.icon)
+            assertTrue("iconRes for $capability", capability.iconRes != 0)
         }
     }
 

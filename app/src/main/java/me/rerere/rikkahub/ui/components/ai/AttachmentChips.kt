@@ -34,11 +34,7 @@ import androidx.compose.ui.util.fastForEach
 import androidx.core.net.toUri
 import coil3.compose.AsyncImage
 import me.rerere.ai.ui.UIMessagePart
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Cancel01
-import me.rerere.hugeicons.stroke.Files02
-import me.rerere.hugeicons.stroke.MusicNote03
-import me.rerere.hugeicons.stroke.Video01
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.ui.hooks.ChatInputState
 import org.koin.compose.koinInject

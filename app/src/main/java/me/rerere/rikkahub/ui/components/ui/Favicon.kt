@@ -18,8 +18,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Link01
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 @Composable

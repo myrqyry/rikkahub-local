@@ -32,18 +32,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.ArrowRight01
-import me.rerere.hugeicons.stroke.Settings03
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
 import me.rerere.rikkahub.data.modelregistry.ModelProviderDescriptor
 import me.rerere.rikkahub.ui.components.ui.AutoAIIcon
 import me.rerere.rikkahub.ui.components.ui.Tag
 import me.rerere.rikkahub.ui.components.ui.TagType
-import me.rerere.rikkahub.ui.pages.models.icon
+import me.rerere.rikkahub.ui.pages.models.iconRes
 import me.rerere.rikkahub.ui.theme.CustomColors
 
 @Composable
@@ -280,7 +279,7 @@ private fun CompactModelRow(
                 val capabilities = model.capabilities.sortedBy { it.name }
                 capabilities.take(4).forEach { capability ->
                     Icon(
-                        imageVector = capability.icon,
+                        painter = painterResource(capability.iconRes),
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,

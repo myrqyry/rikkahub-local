@@ -1,17 +1,6 @@
 package me.rerere.rikkahub.ui.pages.extensions
 
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Book01
-import me.rerere.hugeicons.stroke.ArrowDown01
-import me.rerere.hugeicons.stroke.Download01
-import me.rerere.hugeicons.stroke.FileDownload
-import me.rerere.hugeicons.stroke.FileImport
-import me.rerere.hugeicons.stroke.Add01
-import me.rerere.hugeicons.stroke.Tools
-import me.rerere.hugeicons.stroke.Share03
-import me.rerere.hugeicons.stroke.Delete01
-import me.rerere.hugeicons.stroke.MagicWand01
-import me.rerere.hugeicons.stroke.Cancel01
+import me.rerere.rikkahub.ui.icons.MingcuteIcons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -165,13 +154,13 @@ internal fun PromptPageContent(
             NavigationBarItem(
                 selected = pagerState.currentPage == 0,
                 label = { Text(stringResource(R.string.prompt_page_mode_injection_tab)) },
-                icon = { Icon(HugeIcons.MagicWand01, null) },
+                icon = { Icon(MingcuteIcons.MagicWand01, null) },
                 onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
             )
             NavigationBarItem(
                 selected = pagerState.currentPage == 1,
                 label = { Text(stringResource(R.string.prompt_page_lorebook_tab)) },
-                icon = { Icon(HugeIcons.Book01, null) },
+                icon = { Icon(MingcuteIcons.Book01, null) },
                 onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
             )
         }
@@ -278,7 +267,7 @@ private fun ModeInjectionTab(
                 .offset(y = -ScreenOffset),
             leadingContent = {
                 IconButton(onClick = { importer.importFromFile() }) {
-                    Icon(HugeIcons.FileImport, null)
+                    Icon(MingcuteIcons.FileImport, null)
                 }
             },
         ) {
@@ -287,7 +276,7 @@ private fun ModeInjectionTab(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(HugeIcons.Add01, null)
+                    Icon(MingcuteIcons.Add01, null)
                     AnimatedVisibility(expanded) {
                         Row {
                             Spacer(modifier = Modifier.size(8.dp))
@@ -334,7 +323,7 @@ private fun ModeInjectionCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { scope.launch { swipeState.reset() } }) {
-                    Icon(HugeIcons.Cancel01, null)
+                    Icon(MingcuteIcons.Cancel01, null)
                 }
                 FilledIconButton(onClick = {
                     scope.launch {
@@ -342,7 +331,7 @@ private fun ModeInjectionCard(
                         swipeState.reset()
                     }
                 }) {
-                    Icon(HugeIcons.Delete01, stringResource(R.string.prompt_page_delete))
+                    Icon(MingcuteIcons.Delete01, stringResource(R.string.prompt_page_delete))
                 }
             }
         },
@@ -388,10 +377,10 @@ private fun ModeInjectionCard(
                     }
                 }
                 IconButton(onClick = { showExportDialog = true }) {
-                    Icon(HugeIcons.Share03, stringResource(R.string.export_title))
+                    Icon(MingcuteIcons.Share03, stringResource(R.string.export_title))
                 }
                 IconButton(onClick = onEdit) {
-                    Icon(HugeIcons.Tools, stringResource(R.string.prompt_page_edit))
+                    Icon(MingcuteIcons.Tools, stringResource(R.string.prompt_page_edit))
                 }
             }
         }
@@ -426,7 +415,7 @@ private fun ModeInjectionEditSheet(
                     onDismiss()
                 }
             }) {
-                Icon(HugeIcons.ArrowDown01, null)
+                Icon(MingcuteIcons.ArrowDown01, null)
             }
         }
     ) {
@@ -691,7 +680,7 @@ private fun LorebookTab(
                 .offset(y = -ScreenOffset),
             leadingContent = {
                 IconButton(onClick = { importer.importFromFile() }) {
-                    Icon(HugeIcons.FileImport, null)
+                    Icon(MingcuteIcons.FileImport, null)
                 }
             },
         ) {
@@ -700,7 +689,7 @@ private fun LorebookTab(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(HugeIcons.Add01, null)
+                    Icon(MingcuteIcons.Add01, null)
                     AnimatedVisibility(expanded) {
                         Row {
                             Spacer(modifier = Modifier.size(8.dp))
@@ -747,7 +736,7 @@ private fun LorebookCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { scope.launch { swipeState.reset() } }) {
-                    Icon(HugeIcons.Cancel01, null)
+                    Icon(MingcuteIcons.Cancel01, null)
                 }
                 FilledIconButton(onClick = {
                     scope.launch {
@@ -755,7 +744,7 @@ private fun LorebookCard(
                         swipeState.reset()
                     }
                 }) {
-                    Icon(HugeIcons.Delete01, stringResource(R.string.prompt_page_delete))
+                    Icon(MingcuteIcons.Delete01, stringResource(R.string.prompt_page_delete))
                 }
             }
         },
@@ -812,10 +801,10 @@ private fun LorebookCard(
                     }
                 }
                 IconButton(onClick = { showExportDialog = true }) {
-                    Icon(HugeIcons.Share03, stringResource(R.string.export_title))
+                    Icon(MingcuteIcons.Share03, stringResource(R.string.export_title))
                 }
                 IconButton(onClick = onEdit) {
-                    Icon(HugeIcons.Tools, stringResource(R.string.prompt_page_edit))
+                    Icon(MingcuteIcons.Tools, stringResource(R.string.prompt_page_edit))
                 }
             }
         }
@@ -858,7 +847,7 @@ private fun LorebookEditSheet(
                     onDismiss()
                 }
             }) {
-                Icon(HugeIcons.ArrowDown01, null)
+                Icon(MingcuteIcons.ArrowDown01, null)
             }
         }
     ) {
@@ -918,7 +907,7 @@ private fun LorebookEditSheet(
                     IconButton(onClick = {
                         entryEditState.open(PromptInjection.RegexInjection())
                     }) {
-                        Icon(HugeIcons.Add01, stringResource(R.string.prompt_page_add_entry))
+                        Icon(MingcuteIcons.Add01, stringResource(R.string.prompt_page_add_entry))
                     }
                 }
 
@@ -1001,10 +990,10 @@ private fun RegexInjectionEntryCard(
                 }
             }
             IconButton(onClick = onEdit) {
-                Icon(HugeIcons.Tools, stringResource(R.string.prompt_page_edit))
+                Icon(MingcuteIcons.Tools, stringResource(R.string.prompt_page_edit))
             }
             IconButton(onClick = onDelete) {
-                Icon(HugeIcons.Delete01, stringResource(R.string.prompt_page_delete))
+                Icon(MingcuteIcons.Delete01, stringResource(R.string.prompt_page_delete))
             }
         }
     }
@@ -1097,7 +1086,7 @@ private fun RegexInjectionEditDialog(
                                     },
                                     modifier = Modifier.size(16.dp)
                                 ) {
-                                    Icon(HugeIcons.Cancel01, null, modifier = Modifier.size(12.dp))
+                                    Icon(MingcuteIcons.Cancel01, null, modifier = Modifier.size(12.dp))
                                 }
                             }
                         )
@@ -1123,7 +1112,7 @@ private fun RegexInjectionEditDialog(
                             }
                         }
                     ) {
-                        Icon(HugeIcons.Add01, stringResource(R.string.prompt_page_add))
+                        Icon(MingcuteIcons.Add01, stringResource(R.string.prompt_page_add))
                     }
                 }
 

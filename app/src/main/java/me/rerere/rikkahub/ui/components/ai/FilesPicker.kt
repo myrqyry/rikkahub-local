@@ -52,18 +52,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Job
 import me.rerere.ai.provider.ProviderSetting
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Camera01
-import me.rerere.hugeicons.stroke.Codesandbox
-import me.rerere.hugeicons.stroke.ComputerTerminal01
-import me.rerere.hugeicons.stroke.Files02
-import me.rerere.hugeicons.stroke.Folder01
-import me.rerere.hugeicons.stroke.Image02
-import me.rerere.hugeicons.stroke.MusicNote03
-import me.rerere.hugeicons.stroke.Package
-import me.rerere.hugeicons.stroke.Package01
-import me.rerere.hugeicons.stroke.Settings02
-import me.rerere.hugeicons.stroke.Video01
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.ai.mcp.McpManager

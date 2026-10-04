@@ -27,12 +27,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.ArrowLeft01
-import me.rerere.hugeicons.stroke.ArrowRight01
-import me.rerere.hugeicons.stroke.Delete01
-import me.rerere.hugeicons.stroke.Edit01
+import me.rerere.rikkahub.ui.icons.MingcuteIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.modelregistry.ModelLifecycle
@@ -65,7 +62,7 @@ fun ModelDetailPage(
                     title = { Text(stringResource(R.string.models_title)) },
                     navigationIcon = {
                         IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(HugeIcons.ArrowLeft01, stringResource(R.string.back))
+                            Icon(MingcuteIcons.ArrowLeft01, stringResource(R.string.back))
                         }
                     },
                 )
@@ -89,7 +86,7 @@ fun ModelDetailPage(
                 title = { Text(model.displayName) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(HugeIcons.ArrowLeft01, stringResource(R.string.back))
+                        Icon(MingcuteIcons.ArrowLeft01, stringResource(R.string.back))
                     }
                 },
                 actions = {
@@ -98,10 +95,10 @@ fun ModelDetailPage(
                             renaming = true
                             renameText = model.displayName
                         }) {
-                            Icon(HugeIcons.Edit01, stringResource(R.string.local_llm_rename))
+                            Icon(MingcuteIcons.Edit01, stringResource(R.string.local_llm_rename))
                         }
                         IconButton(onClick = { pendingDelete = true }) {
-                            Icon(HugeIcons.Delete01, stringResource(R.string.local_llm_delete))
+                            Icon(MingcuteIcons.Delete01, stringResource(R.string.local_llm_delete))
                         }
                     }
                 },
@@ -131,7 +128,7 @@ fun ModelDetailPage(
                             headlineContent = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
-                                        imageVector = cap.icon,
+                                         painter = painterResource(cap.iconRes),
                                         contentDescription = null,
                                         modifier = Modifier.size(18.dp),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -217,7 +214,7 @@ fun ModelDetailPage(
                             item(
                                 headlineContent = { Text(stringResource(R.string.models_provider_settings)) },
                                 onClick = { navController.navigate(Screen.SettingProviderDetail(source.providerId)) },
-                                trailingContent = { Icon(HugeIcons.ArrowRight01, null) },
+                                trailingContent = { Icon(MingcuteIcons.ArrowRight01, null) },
                             )
                         }
                     }

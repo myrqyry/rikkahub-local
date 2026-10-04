@@ -4,14 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import android.widget.Toast
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Book02
-import me.rerere.hugeicons.stroke.Book04
-import me.rerere.hugeicons.stroke.Earth
-import me.rerere.hugeicons.stroke.File02
-import me.rerere.hugeicons.stroke.Image02
-import me.rerere.hugeicons.stroke.Search01
-import me.rerere.hugeicons.stroke.Wrench01
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement

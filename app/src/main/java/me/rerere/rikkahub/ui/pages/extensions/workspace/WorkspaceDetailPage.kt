@@ -54,18 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.ArrowTurnBackward
-import me.rerere.hugeicons.stroke.Bash
-import me.rerere.hugeicons.stroke.ComputerTerminal01
-import me.rerere.hugeicons.stroke.Delete01
-import me.rerere.hugeicons.stroke.File02
-import me.rerere.hugeicons.stroke.FileImport
-import me.rerere.hugeicons.stroke.Folder01
-import me.rerere.hugeicons.stroke.MoreVertical
-import me.rerere.hugeicons.stroke.Refresh01
-import me.rerere.hugeicons.stroke.Settings03
-import me.rerere.hugeicons.stroke.Share08
+import me.rerere.rikkahub.ui.icons.MingcuteIcons
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.ai.tools.resolveWorkspaceToolApproval
 import me.rerere.rikkahub.data.db.entity.WorkspaceEntity
@@ -139,17 +128,17 @@ fun WorkspaceDetailPage(id: String) {
                     if (pagerState.currentPage == 1) {
                         IconButton(onClick = { filePicker.launch(arrayOf("*/*")) }) {
                             Icon(
-                                HugeIcons.FileImport,
+                                MingcuteIcons.FileImport,
                                 contentDescription = stringResource(R.string.workspace_detail_import_file),
                             )
                         }
                     }
                     IconButton(onClick = { vm.refresh() }) {
-                        Icon(HugeIcons.Refresh01, contentDescription = null)
+                        Icon(MingcuteIcons.Refresh01, contentDescription = null)
                     }
                     if (state.workspace?.shellStatus != WorkspaceShellStatus.DISABLED.name) {
                         IconButton(onClick = { navController.navigate(Screen.WorkspaceTerminal(id)) }) {
-                            Icon(HugeIcons.ComputerTerminal01, contentDescription = null)
+                            Icon(MingcuteIcons.ComputerTerminal01, contentDescription = null)
                         }
                     }
                 },
@@ -161,13 +150,13 @@ fun WorkspaceDetailPage(id: String) {
                 NavigationBarItem(
                     selected = pagerState.currentPage == 0,
                     label = { Text(stringResource(R.string.workspace_detail_tab_basic)) },
-                    icon = { Icon(HugeIcons.Settings03, contentDescription = null) },
+                    icon = { Icon(MingcuteIcons.Settings03, contentDescription = null) },
                     onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
                 )
                 NavigationBarItem(
                     selected = pagerState.currentPage == 1,
                     label = { Text(stringResource(R.string.workspace_detail_tab_files)) },
-                    icon = { Icon(HugeIcons.File02, contentDescription = null) },
+                    icon = { Icon(MingcuteIcons.File02, contentDescription = null) },
                     onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
                 )
             }
@@ -330,7 +319,7 @@ private fun WorkspaceBasicPage(
                         enabled = workspace != null && !installing,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Icon(HugeIcons.Bash, contentDescription = null)
+                        Icon(MingcuteIcons.Bash, contentDescription = null)
                         Text(
                             text = installButtonText,
                             modifier = Modifier.padding(start = 8.dp),
@@ -625,7 +614,7 @@ private fun WorkspacePathBar(
             enabled = canGoUp,
             onClick = onGoUp,
         ) {
-            Icon(HugeIcons.ArrowTurnBackward, contentDescription = null)
+            Icon(MingcuteIcons.ArrowTurnBackward, contentDescription = null)
         }
         Text(
             text = path.ifBlank { "/" },
@@ -661,7 +650,7 @@ private fun WorkspaceFileCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = if (entry.isDirectory) HugeIcons.Folder01 else HugeIcons.File02,
+                imageVector = if (entry.isDirectory) MingcuteIcons.Folder01 else MingcuteIcons.File02,
                 contentDescription = null,
                 modifier = Modifier.size(22.dp),
                 tint = if (entry.isDirectory) {
@@ -692,7 +681,7 @@ private fun WorkspaceFileCard(
             }
             Box {
                 IconButton(onClick = { menuExpanded = true }) {
-                    Icon(HugeIcons.MoreVertical, contentDescription = null)
+                    Icon(MingcuteIcons.MoreVertical, contentDescription = null)
                 }
                 DropdownMenu(
                     expanded = menuExpanded,
@@ -703,7 +692,7 @@ private fun WorkspaceFileCard(
                             text = { Text(stringResource(R.string.common_export)) },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = HugeIcons.FileImport,
+                                    imageVector = MingcuteIcons.FileImport,
                                     contentDescription = null,
                                 )
                             },
@@ -716,7 +705,7 @@ private fun WorkspaceFileCard(
                             text = { Text(stringResource(R.string.common_share)) },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = HugeIcons.Share08,
+                                    imageVector = MingcuteIcons.Share08,
                                     contentDescription = null,
                                 )
                             },
@@ -730,7 +719,7 @@ private fun WorkspaceFileCard(
                         text = { Text(stringResource(R.string.common_delete), color = MaterialTheme.colorScheme.error) },
                         leadingIcon = {
                             Icon(
-                                imageVector = HugeIcons.Delete01,
+                                imageVector = MingcuteIcons.Delete01,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.error,
                             )
@@ -756,7 +745,7 @@ private fun EmptyDirectoryState() {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Icon(
-            imageVector = HugeIcons.Folder01,
+            imageVector = MingcuteIcons.Folder01,
             contentDescription = null,
             modifier = Modifier.size(48.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,

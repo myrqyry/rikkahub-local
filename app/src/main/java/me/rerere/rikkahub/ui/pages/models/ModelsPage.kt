@@ -37,15 +37,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlin.uuid.Uuid
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Add01
-import me.rerere.hugeicons.stroke.ArrowLeft01
-import me.rerere.hugeicons.stroke.ArrowRight01
-import me.rerere.hugeicons.stroke.Cancel01
-import me.rerere.hugeicons.stroke.Search01
+import me.rerere.rikkahub.ui.icons.MingcuteIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.modelregistry.ModelRole
@@ -145,7 +141,7 @@ fun ModelsPage(
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(HugeIcons.ArrowLeft01, stringResource(R.string.back))
+                        Icon(MingcuteIcons.ArrowLeft01, stringResource(R.string.back))
                     }
                 },
                 actions = {
@@ -160,9 +156,9 @@ fun ModelsPage(
                     ) {
                         Icon(
                             imageVector = if (searchExpanded && query.isNotBlank()) {
-                                HugeIcons.Cancel01
+                                MingcuteIcons.Cancel01
                             } else {
-                                HugeIcons.Search01
+                                MingcuteIcons.Search01
                             },
                             contentDescription = stringResource(
                                 if (providerFocused) R.string.setting_provider_page_search_providers
@@ -171,7 +167,7 @@ fun ModelsPage(
                         )
                     }
                     IconButton(onClick = { showAddSheet = true }) {
-                        Icon(HugeIcons.Add01, stringResource(R.string.models_add))
+                        Icon(MingcuteIcons.Add01, stringResource(R.string.models_add))
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -200,7 +196,7 @@ fun ModelsPage(
                                 )
                             )
                         },
-                        leadingIcon = { Icon(HugeIcons.Search01, null) },
+                        leadingIcon = { Icon(MingcuteIcons.Search01, null) },
                         singleLine = true,
                         shape = CircleShape,
                     )
@@ -324,7 +320,7 @@ private fun ModelAssignmentsPage(
                 title = { Text(stringResource(R.string.models_used_by_default)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(HugeIcons.ArrowLeft01, stringResource(R.string.back))
+                        Icon(MingcuteIcons.ArrowLeft01, stringResource(R.string.back))
                     }
                 },
                 colors = CustomColors.topBarColors,
@@ -384,7 +380,7 @@ private fun DefaultAssignmentsStatus(
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Icon(
-                    imageVector = HugeIcons.ArrowRight01,
+                    imageVector = MingcuteIcons.ArrowRight01,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -399,7 +395,7 @@ private fun DefaultAssignmentsStatus(
                                 horizontalArrangement = Arrangement.spacedBy(5.dp),
                             ) {
                                 Icon(
-                                    imageVector = row.role.capability().icon,
+                                    painter = painterResource(row.role.capability().iconRes),
                                     contentDescription = null,
                                     modifier = Modifier.size(14.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,

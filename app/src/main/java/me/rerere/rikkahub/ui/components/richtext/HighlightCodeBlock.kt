@@ -61,14 +61,7 @@ import me.rerere.highlight.HighlightTextColorPalette
 import me.rerere.highlight.Highlighter
 import me.rerere.highlight.LocalHighlighter
 import me.rerere.highlight.buildHighlightText
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.ArrowDown01
-import me.rerere.hugeicons.stroke.ArrowUp01
-import me.rerere.hugeicons.stroke.Code
-import me.rerere.hugeicons.stroke.Copy01
-import me.rerere.hugeicons.stroke.Download04
-import me.rerere.hugeicons.stroke.Eye
-import me.rerere.hugeicons.stroke.View
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.ui.components.webview.WebView

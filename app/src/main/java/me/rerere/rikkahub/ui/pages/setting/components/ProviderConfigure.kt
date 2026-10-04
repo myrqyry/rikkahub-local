@@ -58,10 +58,7 @@ import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.HorizontalDivider
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.OpenRouterRouting
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Cancel01
-import me.rerere.hugeicons.stroke.Delete01
-import me.rerere.hugeicons.stroke.Edit01
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dokar.sonner.ToastType
 import me.rerere.ai.provider.ClaudePromptCacheTtl
@@ -76,14 +73,11 @@ import me.rerere.locallm.task.TaskLibraryCatalog
 import me.rerere.locallm.task.TaskLibraryCatalogEntry
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.DEFAULT_PROVIDERS
-import me.rerere.hugeicons.stroke.View
-import me.rerere.hugeicons.stroke.ViewOff
 import me.rerere.rikkahub.ui.context.LocalToaster
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.ai.StableDiffusionBridge
 import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.pages.setting.locallm.SettingLocalLlmViewModel
-import me.rerere.hugeicons.stroke.ArrowRight01
 import androidx.compose.foundation.shape.RoundedCornerShape
 import me.rerere.rikkahub.ui.theme.JetbrainsMono
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull

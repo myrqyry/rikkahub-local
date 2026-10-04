@@ -3,7 +3,7 @@
     <shortcut
         android:shortcutId="camera"
         android:enabled="true"
-        android:icon="@drawable/ic_lucide_camera"
+        android:icon="@drawable/mgc_camera_line"
         android:shortcutShortLabel="@string/shortcut_take_picture"
         android:shortcutLongLabel="@string/shortcut_take_picture">
         <intent
