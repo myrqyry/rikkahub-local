@@ -1,8 +1,7 @@
 # Changelog
 
 All notable changes to RikkaHub Local are documented here. RikkaHub Local does
-not publish numbered releases yet; entries below are grouped by the local
-implementation milestones described in `docs/superpowers/`.
+not publish numbered releases yet; entries below are grouped by local implementation milestones.
 
 ## 2026-08-05 — Agent roadmap completion
 

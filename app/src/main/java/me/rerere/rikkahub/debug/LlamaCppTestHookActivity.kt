@@ -35,7 +35,7 @@ import java.io.File
  * then streams a reply through [LlamaCppProvider.streamText] and logs per-chunk deltas.
  * Optional [EXTRA_CANCEL_AFTER_MS] cancels the stream mid-generation to exercise
  * cancellation. An Activity is used instead of a BroadcastReceiver because the Android 17
- * preview on the test device stalls the broadcast queue (see SESSION-STATE.md).
+ * preview on the test device stalls the broadcast queue.
  */
 class LlamaCppTestHookActivity : Activity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
