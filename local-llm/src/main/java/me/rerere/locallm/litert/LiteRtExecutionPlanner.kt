@@ -124,15 +124,14 @@ object LiteRtExecutionPlanner {
         return buildList {
             preferences.forEach { raw ->
                 when (normalize(raw)) {
-                    // Preserve RikkaHub's proven Qualcomm/QNN and NNAPI ladder around
-                    // Gallery's generic "gpu" preference.
+                    // Preserve RikkaHub's proven Qualcomm/QNN preference around Gallery's
+                    // generic "gpu" preference. LiteRT-LM 0.17.0 has no NNAPI backend.
                     "GPU" -> {
                         add("QNN")
                         add("GPU")
                     }
                     "CPU" -> add("CPU")
                     "QNN" -> add("QNN")
-                    "NNAPI" -> add("NNAPI")
                     "NPU" -> add("NPU")
                     else -> Unit
                 }

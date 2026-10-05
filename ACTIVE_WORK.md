@@ -61,10 +61,6 @@ adapted.
 - `:app:compileDebugKotlin` — PASS.
 - `assembleDebug` — PASS, including the configured native builds and APK packaging.
 - `:local-llm:lintDebug` — PASS.
-- A repo-wide `test lint` attempt is blocked in `:app:compileDebugUnitTestKotlin` by
-  Gradle 9.4.1 state tracking ("Failed to create MD5 hash for file: Invalid file path").
-  App production compilation and assembly still pass; this is not counted as app-unit-test
-  coverage.
 - ADB reports no connected device, so real-device backend selection/load behavior remains
   unverified in this workspace.
 

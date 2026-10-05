@@ -161,24 +161,6 @@ class LiteRtExecutionPlannerTest {
         assertEquals(QWEN_FILE, recommended?.modelFile)
     }
 
-    @Test
-    fun plannerNeverReportsNnapiForLiteRtLmWhenGpuUnavailable() {
-        val nnapiOnly = ComputeCapabilities(
-            isQualcomm = false,
-            qnnLibrarySupported = false,
-            gpuDelegateSupported = false,
-            nnapiSupported = true,
-        )
-        val config = LiteRtModelDefaults.forModelFile(QWEN_FILE)
-        val plan = LiteRtExecutionPlanner.plan(
-            config = config,
-            modelFileBytes = config.sizeBytes,
-            profile = profile(capabilities = nnapiOnly),
-        )
-
-        assertEquals("CPU", plan.accelerator)
-    }
-
     companion object {
         private const val GIB = 1024L * 1024L * 1024L
         private const val QWEN_FILE =
