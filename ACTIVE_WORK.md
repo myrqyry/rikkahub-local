@@ -32,7 +32,7 @@ adapted.
 - Runtime model swaps release the old Engine/Conversation before re-reading live memory,
   avoiding false refusals caused by reclaimable native/KV memory.
 - Runtime now refuses unsafe loads before native engine creation when the model cannot
-  fit the live free-memory + headroom budget, with a user-readable provider error.
+  stay within the live free-memory + headroom budget, with a user-readable provider error.
 - "Install default" now chooses between curated recommended catalog artifacts from the
   current device profile instead of always hardcoding Qwen. Under low-memory pressure it
   prefers the smaller fitting recommended model.

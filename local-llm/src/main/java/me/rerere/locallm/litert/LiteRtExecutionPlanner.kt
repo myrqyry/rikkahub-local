@@ -61,7 +61,7 @@ object LiteRtExecutionPlanner {
     /**
      * Pick a general-chat default from entries explicitly curated as recommended.
      *
-     * Hard filter: the model must fit current free RAM. Published total-RAM minimums are
+     * Hard filter: the model must stay within the current free-RAM budget. Published total-RAM minimums are
      * advisory: prefer entries whose band matches the device, but don't reject a model when
      * live memory evidence says it fits. If Android reports low-memory pressure, prefer the
      * smaller fitting model instead of greedily selecting the largest one.

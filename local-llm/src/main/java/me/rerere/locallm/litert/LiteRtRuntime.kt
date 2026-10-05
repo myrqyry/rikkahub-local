@@ -109,7 +109,7 @@ class LiteRtVisionUnavailableException(
 
 /**
  * Refusal raised before native engine creation when live free-memory evidence says the
- * model cannot fit with the runtime headroom budget. This is intentionally checked after
+ * model exceeds the runtime headroom budget. This is intentionally checked after
  * any prior engine is released, so model switching does not count reclaimable native RAM
  * against the next model.
  */
@@ -518,7 +518,7 @@ class LiteRtRuntime(private val context: Context) {
             val classified = classifyEngineError(modelPath, firstError)
             // Vision executor failed (typically Adreno 7xx + OEM linker namespace blocking
             // libvndksupport.so → OpenCL discovery fails → OpenGL fallback hits the 0.11
-            // `CreateSharedMemoryManager` UNIMPLEMENTED stub; upstream issue #2292). The
+            // `CreateSharedMemoryManager` UNIMPLEMENTED path; upstream issue #2292). The
             // text path is fine on this device, so retry once with the vision backend off.
             // The provider catches the typed exception we surface after the retry and
             // persists the "vision unavailable" flag so subsequent loads skip the doomed
@@ -1011,7 +1011,7 @@ class LiteRtRuntime(private val context: Context) {
          * source file path in the SDK's native stack), but in practice the error can also
          * surface as `vision_litert` truncated, `CreateSharedMemoryManager is not
          * implemented` (the upstream root cause on Adreno 7xx + One UI / OriginOS), or
-         * `gpu_backend_opengl.cc` (the file that hosts the stub). Match any of those.
+         * `gpu_backend_opengl.cc` (the file that hosts the unimplemented path). Match any of those.
          */
         internal fun isVisionExecutorError(joinedMessage: String): Boolean =
             joinedMessage.contains("vision_litert", ignoreCase = true) ||
