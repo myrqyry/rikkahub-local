@@ -21,9 +21,11 @@ import me.rerere.ai.provider.LITERT_PROVIDER_ID
 import me.rerere.ai.provider.STABLE_DIFFUSION_PROVIDER_ID
 import me.rerere.ai.provider.LLAMACPP_PROVIDER_ID
 import me.rerere.locallm.AcceleratorProbe
+import me.rerere.locallm.ExecutionProfileProbe
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
 import me.rerere.locallm.litert.LiteRtCatalog
+import me.rerere.locallm.litert.LiteRtExecutionPlanner
 import me.rerere.locallm.litert.LiteRtModelMetadata
 import me.rerere.locallm.MemoryGuard
 import me.rerere.locallm.ModelInstall
@@ -125,16 +127,14 @@ class SettingLocalLlmViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     /**
-     * The default model URL for the runtime.
+     * Conservative fallback when the execution-profile planner cannot select a curated
+     * recommended LiteRT entry. Normal "Install default" chooses from the catalog using
+     * live memory evidence; this keeps the old known-good Qwen path as a last resort.
      *
-     * LiteRT default: litert-community/Qwen2.5-1.5B-Instruct — q8 multi-prefill variant
-     * (~1.5 GB on disk). Present in Google Gallery's 1_0_13 allowlist (curated against
-     * LiteRT-LM 0.11.0; runs on the 0.17.0 we now ship). Public and ungated (Apache-2.0).
-     *
-     * paulsp94/Qwen3.5-2B-LiteRT-LM was dropped: that model is packaged for a different
-     * runtime version and threw FAILED_PRECONDITION: No KV cache inputs found on 0.11.0.
+     * Qwen2.5-1.5B-Instruct is the q8 multi-prefill variant (~1.5 GB on disk), present in
+     * Google Gallery's 1_0_13 allowlist and public/ungated (Apache-2.0).
      */
-    private val defaultModelUrl: String =
+    private val fallbackDefaultModelUrl: String =
         "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm"
 
     /** Currently only LiteRT is wired; the helper exists so a future runtime can fan out
@@ -270,10 +270,14 @@ class SettingLocalLlmViewModel(
         _taskAccelerator.value = prefs.taskAcceleratorFlow().first()
     }
 
-    private suspend fun probeAndCache(): String {
+    private suspend fun probeAndCache(refresh: Boolean = false): String {
         val forceCpuNow = prefs.forceCpu(runtime)
         val accel = when (runtime) {
-            LocalRuntime.LiteRT -> AcceleratorProbe.probeLiteRt(context, forceCpu = forceCpuNow)
+            LocalRuntime.LiteRT -> AcceleratorProbe.probeLiteRt(
+                context = context,
+                forceCpu = forceCpuNow,
+                refresh = refresh,
+            )
             LocalRuntime.StableDiffusion -> "CPU"
             LocalRuntime.LlamaCpp -> "CPU"
         }
@@ -290,7 +294,7 @@ class SettingLocalLlmViewModel(
             prefs.setForceCpu(runtime, force)
             prefs.clearAccelerator(runtime)
             _accelerator.value = null
-            probeAndCache()
+            probeAndCache(refresh = !force)
         }
     }
 
@@ -330,7 +334,7 @@ class SettingLocalLlmViewModel(
         viewModelScope.launch {
             prefs.clearAccelerator(runtime)
             _accelerator.value = null
-            probeAndCache()
+            probeAndCache(refresh = true)
         }
     }
 
@@ -347,8 +351,29 @@ class SettingLocalLlmViewModel(
     fun startDefaultDownload() {
         _errorMessage.value = null
         viewModelScope.launch {
-            val url = defaultModelUrl
-            val mem = MemoryGuard.canLoad(context, modelFileBytes = estimatedSize(runtime))
+            val (url, _, mem) = if (runtime == LocalRuntime.LiteRT) {
+                val profile = ExecutionProfileProbe.capture(context)
+                val entry = LiteRtExecutionPlanner.recommend(
+                    entries = LiteRtCatalog.ENTRIES,
+                    profile = profile,
+                )
+                if (entry != null) {
+                    Triple(
+                        entry.resolveUrl(),
+                        entry.sizeBytes,
+                        MemoryGuard.decide(entry.sizeBytes, profile.availableMemoryBytes),
+                    )
+                } else {
+                    Triple(
+                        fallbackDefaultModelUrl,
+                        estimatedSize(runtime),
+                        MemoryGuard.decide(estimatedSize(runtime), profile.availableMemoryBytes),
+                    )
+                }
+            } else {
+                val bytes = estimatedSize(runtime)
+                Triple(fallbackDefaultModelUrl, bytes, MemoryGuard.canLoad(context, modelFileBytes = bytes))
+            }
             if (mem is MemoryGuard.Decision.TooLarge) {
                 _errorMessage.value = context.getString(
                     R.string.local_llm_insufficient_memory_format,

@@ -54,36 +54,53 @@ object AcceleratorProbe {
      *   the "Try GPU acceleration" toggle off, OR when the auto-recovery sweep saw a
      *   prior native crash inside liblitertlm and flipped the flag for us.
      */
-    fun probeLiteRt(context: Context, forceCpu: Boolean = false): String {
-        if (forceCpu) return "CPU"
+    @Volatile
+    private var cachedLiteRtCapabilities: ComputeCapabilities? = null
+
+    /**
+     * Capture the raw LiteRT capability evidence independently from policy.
+     *
+     * The snapshot is cached for this process because probing QNN attempts a JNI library load.
+     * Settings -> Re-detect passes [refresh] to deliberately rebuild it after a driver/runtime
+     * change. Runtime fallback remains the final truth when a nominally supported backend fails.
+     */
+    @Synchronized
+    fun probeLiteRtCapabilities(
+        context: Context,
+        refresh: Boolean = false,
+    ): ComputeCapabilities {
+        if (!refresh) cachedLiteRtCapabilities?.let { return it }
+
         val isQualcomm = Build.HARDWARE.contains("qcom", ignoreCase = true) ||
             Build.MANUFACTURER.equals("Qualcomm", ignoreCase = true)
         val qnnLibrarySupported = isQualcomm && runCatching {
             // The QNN delegate is bundled in the LiteRT-LM AAR (litertlm-android). Attempting to
             // load it eagerly fails fast on non-Qualcomm devices or where the right ABI is absent.
-            // A failed load leaves the class loader in a partially-initialised state for that
-            // library name, but Android's JNI loader is idempotent for subsequent real loads of the
-            // same name by the actual runtime — the side effect is acceptable.
             System.loadLibrary("qnn_delegate_jni")
             true
         }.getOrDefault(false)
-        // FEATURE_OPENGLES_EXTENSION_PACK is a reasonable proxy for GPU-delegate capability but
-        // is only advisory — the LiteRT-LM runtime may still fail to initialise the GPU backend
-        // at model-load time even if this returns true. The AcceleratorProbe is therefore
-        // intentionally optimistic: prefer GPU when the feature flag suggests it's present, and
-        // let the runtime's own error path trigger a re-probe if load fails.
+        // FEATURE_OPENGLES_EXTENSION_PACK is advisory. Native engine initialization remains
+        // authoritative and can still fall back when the device advertises support incorrectly.
         val gpuDelegateSupported = context.packageManager.hasSystemFeature(
             PackageManager.FEATURE_OPENGLES_EXTENSION_PACK,
         )
         val nnapiSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1
-        return pickLiteRt(
-            ComputeCapabilities(
-                isQualcomm = isQualcomm,
-                qnnLibrarySupported = qnnLibrarySupported,
-                gpuDelegateSupported = gpuDelegateSupported,
-                nnapiSupported = nnapiSupported,
-            )
-        )
+
+        return ComputeCapabilities(
+            isQualcomm = isQualcomm,
+            qnnLibrarySupported = qnnLibrarySupported,
+            gpuDelegateSupported = gpuDelegateSupported,
+            nnapiSupported = nnapiSupported,
+        ).also { cachedLiteRtCapabilities = it }
+    }
+
+    fun probeLiteRt(
+        context: Context,
+        forceCpu: Boolean = false,
+        refresh: Boolean = false,
+    ): String {
+        if (forceCpu) return "CPU"
+        return pickLiteRt(probeLiteRtCapabilities(context, refresh = refresh))
     }
 
     /** True when the device can run task models on the NPU via JIT: SDK >= 31 AND the

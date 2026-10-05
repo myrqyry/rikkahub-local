@@ -15,6 +15,8 @@ workspace boundaries, and the pure terminal execution/observation substrate.
 | `src/main/.../litert/workspace/` | Workspace refs, shadow files, and command effect analysis |
 | `src/main/.../llamacpp/` | llama.cpp GGUF chat provider and prompt renderer (Llamatik bridge) |
 | `src/main/.../decision/` | typed System-One decision contract and local-first reasoning-tier policy |
+| `src/main/.../litert/compute/DeviceExecutionProfile.kt` | measured memory + accelerator capability snapshot |
+| `src/main/.../litert/LiteRtExecutionPlanner.kt` | pure model/backend admission and recommendation policy |
 
 ## Deviations from Root
 

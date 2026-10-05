@@ -721,6 +721,19 @@ class LiteRtProvider(
      * users on a chat surface.
      */
     private fun translateSdkError(t: Throwable, effectiveMaxNumTokens: Int): Throwable {
+        if (t is LiteRtInsufficientMemoryException) {
+            val needMiB = t.requiredFreeBytes / (1024L * 1024L)
+            val modelMiB = t.modelFileBytes / (1024L * 1024L)
+            val availableMiB = t.availableMemoryBytes / (1024L * 1024L)
+            return RuntimeException(
+                "Not enough free memory to load this local model safely. " +
+                    "The $modelMiB MiB model needs about $needMiB MiB free including runtime " +
+                    "headroom, but Android currently reports $availableMiB MiB available. " +
+                    "Close memory-heavy apps or choose a smaller local model.",
+                t,
+            )
+        }
+
         // Typed exception from the runtime — the structural diagnosis already happened.
         // Vision-unavailable here means BOTH "GPU vision tried and failed" AND "text-only
         // retry also failed", i.e. the model truly cannot load on this device's chip class

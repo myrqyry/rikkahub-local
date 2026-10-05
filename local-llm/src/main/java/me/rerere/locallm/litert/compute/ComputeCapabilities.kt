@@ -14,13 +14,14 @@ data class ComputeCapabilities(
 )
 
 /**
- * Decision function for the LiteRT-LM runtime. QNN (Qualcomm) wins, then GPU,
- * then NNAPI; CPU last. Pure and JVM-testable.
+ * Decision function for the LiteRT-LM runtime. The 0.17.0 SDK exposes CPU, GPU,
+ * NPU/QNN and GOOGLE_TENSOR backends — not an NNAPI backend. QNN (Qualcomm) wins,
+ * then GPU, then CPU. Returning "NNAPI" here used to be misleading because
+ * LiteRtRuntime mapped unknown labels to Backend.CPU while persisting "NNAPI".
  */
 fun pickLiteRt(caps: ComputeCapabilities): String = when {
     caps.isQualcomm && caps.qnnLibrarySupported -> "QNN"
     caps.gpuDelegateSupported -> "GPU"
-    caps.nnapiSupported -> "NNAPI"
     else -> "CPU"
 }
 

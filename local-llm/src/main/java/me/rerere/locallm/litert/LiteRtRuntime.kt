@@ -28,8 +28,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import me.rerere.locallm.AcceleratorProbe
+import me.rerere.locallm.ExecutionProfileProbe
+import me.rerere.locallm.litert.compute.MemoryAdmission
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.util.concurrent.CancellationException
 import java.util.concurrent.TimeUnit
 
@@ -103,6 +105,22 @@ class LiteRtVisionUnavailableException(
 ) : RuntimeException(
     "LiteRT vision encoder failed to initialise on this device's GPU: ${cause.message}",
     cause,
+)
+
+/**
+ * Refusal raised before native engine creation when live free-memory evidence says the
+ * model cannot fit with the runtime headroom budget. This is intentionally checked after
+ * any prior engine is released, so model switching does not count reclaimable native RAM
+ * against the next model.
+ */
+class LiteRtInsufficientMemoryException(
+    val modelPath: String,
+    val modelFileBytes: Long,
+    val availableMemoryBytes: Long,
+    val requiredFreeBytes: Long,
+) : RuntimeException(
+    "Not enough free memory for LiteRT model: need $requiredFreeBytes bytes free " +
+        "for a $modelFileBytes-byte model, but only $availableMemoryBytes bytes are available.",
 )
 
 /**
@@ -375,12 +393,22 @@ class LiteRtRuntime(private val context: Context) {
         topP: Double = 0.95,
         temperature: Double = 1.0,
     ): LoadOutcome = mutex.withLock {
-        // Use in-session fallback if a prior GPU→CPU retry already succeeded this session.
-        // forceCpu wins over a non-null preferredAccel.
-        val accel = if (forceCpu) "CPU"
-        else sessionFallbackAccelerator
-            ?: preferredAccel
-            ?: AcceleratorProbe.probeLiteRt(context)
+        val modelFile = File(modelPath)
+        val modelConfig = LiteRtModelDefaults.forModelFile(modelFile.name)
+        val modelFileBytes = modelFile.length().takeIf { it > 0L } ?: modelConfig.sizeBytes
+
+        // Build one measured execution profile instead of selecting the accelerator from a
+        // disconnected cached label. A persisted/session fallback is still useful evidence,
+        // but the planner revalidates it against the capabilities this process can observe.
+        val initialProfile = ExecutionProfileProbe.capture(context)
+        val initialPlan = LiteRtExecutionPlanner.plan(
+            config = modelConfig,
+            modelFileBytes = modelFileBytes,
+            profile = initialProfile,
+            cachedAccelerator = sessionFallbackAccelerator ?: preferredAccel,
+            forceCpu = forceCpu,
+        )
+        val accel = initialPlan.accelerator
 
         // Probe the file for speculative-decoding support BEFORE building the engine.
         val supportsSpeculativeDecoding = try {
@@ -454,6 +482,33 @@ class LiteRtRuntime(private val context: Context) {
         try { current?.conversation?.close() } catch (_: Throwable) {}
         try { current?.engine?.close() } catch (_: Throwable) {}
         loaded = null
+
+        // Re-read live memory AFTER releasing the old native engine. Checking before this
+        // point would incorrectly reject a model switch because reclaimable engine/KV-cache
+        // memory was still counted as unavailable.
+        val postReleasePlan = LiteRtExecutionPlanner.plan(
+            config = modelConfig,
+            modelFileBytes = modelFileBytes,
+            profile = ExecutionProfileProbe.capture(context),
+            cachedAccelerator = accel,
+            forceCpu = forceCpu,
+        )
+        val memoryAdmission = postReleasePlan.memoryAdmission
+        if (memoryAdmission is MemoryAdmission.TooLarge) {
+            throw LiteRtInsufficientMemoryException(
+                modelPath = modelPath,
+                modelFileBytes = memoryAdmission.modelFileBytes,
+                availableMemoryBytes = memoryAdmission.availMemBytes,
+                requiredFreeBytes = memoryAdmission.requiredFreeBytes,
+            )
+        }
+        if (postReleasePlan.warnings.isNotEmpty()) {
+            android.util.Log.w(
+                "LiteRtRuntime",
+                "Execution profile warning(s) for ${modelFile.name}: " +
+                    postReleasePlan.warnings.joinToString(),
+            )
+        }
 
         // Try the preferred accelerator first; fall back to CPU if it isn't already CPU.
         val firstAttempt = runCatching {

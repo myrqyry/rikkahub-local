@@ -3,60 +3,74 @@
 
 ## Outcome
 
-Complete and verify the current MCP/device-tool and constrained-routing work without
-disturbing existing Android state or unrelated provider/model behavior.
-
-## Why it matters
-
-The current working tree contains a cross-cutting implementation spanning the
-stateless MCP HTTP path, device MCP tools, web settings/server wiring, local-LLM
-decision routing, related tests/docs, and supporting local agent skills. These
-changes need coherent verification before they are treated as complete.
+Harden RikkaHub Local's Android inference selection around a measured execution
+profile: device memory + probed accelerator capabilities -> model suitability ->
+runtime/backend plan. Preserve the existing capability broker, System-One,
+agent-runtime, memory, provider/model, and installed-data boundaries.
 
 ## Current state
 
-**Branch context:** `HEAD` is `master` at `1b025681`, equal to `origin/master`; no
-branch-only commits exist.
+**Branch:** `aster/device-execution-profile`, branched from
+`aster/provider-model-surface-polish@64c1a34e`.
 
-**Current working tree:** there are no staged changes. Unstaged edits include
-preferences, dependency wiring, web settings/server and MCP adapter/route code,
-strings, tests, and the architecture reference. Untracked work includes device MCP
-tools/tests/docs, local-LLM decision code/tests, supporting `.agents/skills/` files,
-and `opencode.jsonc`. The Meristem substrate is now repaired with a private local
-state lane.
+**Reference:** Brownie's device/model selection was inspected as an external comparison.
+RikkaHub's existing authority, memory, agent-runtime, scheduled-job, and provider
+boundaries were kept. Only the useful execution-profile/model-selection mechanism was
+adapted.
 
-**Verification state:** no validation has been run against this current dirty tree
-as part of substrate initialization. Older Models-page session notes are historical
-and are not evidence that the current MCP/routing work is complete.
+## Implemented
+
+- Added `DeviceExecutionProfile`: live total/available RAM, Android low-memory state,
+  and measured accelerator capabilities in one snapshot.
+- Added pure/JVM-testable `LiteRtExecutionPlanner` for model admission,
+  recommendation, and backend choice.
+- Refactored `AcceleratorProbe` to expose process-cached capability evidence with an
+  explicit refresh path instead of mixing probing and policy.
+- Revalidate persisted/session accelerator choices against current capabilities.
+- Corrected LiteRT-LM backend truth: SDK 0.17.0 has no NNAPI backend, so LiteRT no longer
+  reports NNAPI while silently executing CPU. Generic/task adapters may still use NNAPI.
+- Runtime model swaps release the old Engine/Conversation before re-reading live memory,
+  avoiding false refusals caused by reclaimable native/KV memory.
+- Runtime now refuses unsafe loads before native engine creation when the model cannot
+  fit the live free-memory + headroom budget, with a user-readable provider error.
+- "Install default" now chooses between curated recommended catalog artifacts from the
+  current device profile instead of always hardcoding Qwen. Under low-memory pressure it
+  prefers the smaller fitting recommended model.
+- Catalog minimum-RAM bands remain advisory ranking evidence; live available RAM is the
+  hard admission signal.
+- Did not invent adaptive quantization: Q4/Q8 switching remains future work until
+  matching verified artifacts exist.
+- Documented the execution-profile seam in architecture, local module guidance, and
+  Meristem decisions.
 
 ## Locked decisions
 
-- Preserve installed app data, persistent storage, application identity, and
-  existing model/provider lifecycle behavior.
-- Keep MCP authorization, route handling, and device-tool boundaries explicit;
-  do not create silent success or unsafe fallback paths.
-- Keep the current uncommitted implementation distinguishable from already-landed
-  branch history until tests/builds verify it.
-
-## Constraints / do-not-regress
-
-- Follow root and nearest-module `AGENTS.md` rules, especially persistent-data
-  preservation and verification reporting.
-
-## Current objective
-
-1. Inspect and finish the current stateless MCP/device-tool and routing changes.
-2. Run the narrowest relevant tests, then broader build/type validation as practical.
-3. Verify the real runtime path and report unverified device behavior or remaining
-   integration gaps before claiming completion.
+- Do not replace RikkaHub's agent runtime, memory proposal boundary, capability broker,
+  System-One ladder, scheduled-jobs subsystem, or existing provider lifecycle.
+- Persisted accelerator choices are evidence of a prior resolved path, not permanent
+  truth.
+- A runtime fallback is degraded execution and must not be reported as proof the
+  preferred backend worked.
+- Preserve installed app data and model files.
 
 ## Verification
 
-Verification is incomplete. The initializer and doctor have been run, but no build,
-unit test, lint, or device check has been run against the current dirty tree.
+- `git diff --check` — PASS.
+- Focused execution-planner / compute / memory tests — PASS.
+- `:local-llm:testDebugUnitTest` — PASS: 463 tests, 0 failures, 0 errors, 0 skipped.
+- `:app:compileDebugKotlin` — PASS.
+- `assembleDebug` — PASS, including the configured native builds and APK packaging.
+- `:local-llm:lintDebug` — PASS.
+- A repo-wide `test lint` attempt is blocked in `:app:compileDebugUnitTestKotlin` by
+  Gradle 9.4.1 state tracking ("Failed to create MD5 hash for file: Invalid file path").
+  App production compilation and assembly still pass; this is not counted as app-unit-test
+  coverage.
+- ADB reports no connected device, so real-device backend selection/load behavior remains
+  unverified in this workspace.
 
-## Open uncertainty
+## Follow-up
 
-The intended final scope, test/device availability, and whether all untracked
-supporting files belong in the eventual change remain to be confirmed by the next
-implementation/verification pass.
+- On the next connected Android device run, verify the selected backend and model-load
+  receipt against the actual runtime outcome.
+- Add verified alternate quantized artifacts to the catalog before enabling adaptive
+  Q4/Q8 selection.
