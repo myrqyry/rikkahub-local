@@ -1,6 +1,8 @@
 package me.rerere.rikkahub.data.modelregistry
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -184,6 +186,14 @@ class SettingsModelRegistry(
             ?: error("Unknown model: $modelId")
         val source = model.source as? ModelSource.Local
             ?: error("Cloud models cannot be removed from the local registry")
+        if (source.runtime == LocalRuntime.LiteRT &&
+            modelId == FLUX2_KLEIN_MODEL.id.toString()
+        ) {
+            // The FLUX entry refers to an on-disk directory, not a single installedModels
+            // file. Delete it before deregistering; otherwise the UI claims space was freed
+            // while the multi-GB package stays on disk. Other providers' files are untouched.
+            withContext(Dispatchers.IO) { fluxPackage.deleteInstalledFiles() }
+        }
         val removedPaths = source.files.mapNotNull { localPreferences.installedModels(source.runtime)[it] }
         source.files.forEach { localPreferences.removeInstalledModel(source.runtime, it) }
         settingsStore.update { settings ->

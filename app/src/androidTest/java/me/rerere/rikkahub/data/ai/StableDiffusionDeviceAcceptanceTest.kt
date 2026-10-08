@@ -52,7 +52,7 @@ class StableDiffusionDeviceAcceptanceTest {
     }
 
     @Test
-    fun `local generation produces expected pixels and warm session regenerates`() {
+    fun localGenerationProducesExpectedPixelsAndWarmSessionRegenerates() {
         val model = findSmallModelFile()
         assumeTrue("No Stable Diffusion model file installed; skipping device acceptance test", model != null)
 
