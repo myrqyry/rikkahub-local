@@ -61,7 +61,10 @@ dependencies {
     // namespace com.google.ai.edge.litert and fail AGP manifest-merger validation. The
     // .litertlm crash this bump targets lives in liblitertlm_jni.so (the artifact above),
     // which does not depend on litert — so no litert bump is needed for it.
-    implementation("com.google.ai.edge.litert:litert:2.1.5")
+    implementation("com.google.ai.edge.litert:litert:2.3.0")
+    // LiteRT 2.3 splits API/JNI and GPU delegate into separate Android artifacts.
+    implementation("com.google.ai.edge.litert:litert-api:2.3.0")
+    implementation("com.google.ai.edge.litert:litert-gpu:2.3.0")
     // llama.cpp runtime via Llamatik: loads .gguf chat models.
     // 1.10.1 fixes repeated embedding calls failing on stale KV cache (PR #171).
     // Upstream release verified 2026-10-07; Android GGUF inference still requires

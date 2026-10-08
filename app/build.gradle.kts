@@ -382,7 +382,10 @@ dependencies {
     implementation(project(":workspace"))
     // LiteRT CompiledModel / Accelerator.NPU Kotlin API — same 2.1.5 pin as :speech
     // (the org.tensorflow.lite.* drop-in lives in this AAR, so no duplicate-class risk).
-    implementation("com.google.ai.edge.litert:litert:2.1.5")
+    implementation("com.google.ai.edge.litert:litert:2.3.0")
+    // LiteRT 2.3 splits API/JNI and GPU delegate into separate Android artifacts.
+    implementation("com.google.ai.edge.litert:litert-api:2.3.0")
+    implementation("com.google.ai.edge.litert:litert-gpu:2.3.0")
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar", "*.aar"))))
     implementation(kotlin("reflect"))
 
