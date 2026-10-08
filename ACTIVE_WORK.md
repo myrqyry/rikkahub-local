@@ -70,3 +70,14 @@ adapted.
   receipt against the actual runtime outcome.
 - Add verified alternate quantized artifacts to the catalog before enabling adaptive
   Q4/Q8 selection.
+
+## Connected Pixel 10 Pro probe — 2026-10-07 (read-only, not native inference qualification)
+
+- ADB on `yuzu-mint` now sees a physical **Pixel 10 Pro**, Tensor G5, arm64-v8a, Android **17** (API **37**). This supersedes the no-device observation in the prior Verification section without rewriting that historical result.
+- The installed `excp.rikkahub.local.debug` application is version 2.4.1 / code 171, last updated 2026-09-29. The current working branch is newer; the installed APK cannot validate the new `DeviceExecutionProfile` / `LiteRtExecutionPlanner` integration.
+- The debug app still holds existing LiteRT bundles including LFM2.5-1.2B-Instruct INT4, InternVL3-1B, and PaddleOCR-VL-1.6. None were changed, removed, or redownloaded.
+- **Device artifact observation:** installed `LFM2.5-1.2B-Instruct_int4.litertlm` is exactly 736015744 bytes and hashes to SHA-256 `a28b5c59ac204e2e51c1f98d2d6db6982f0e12da59a268fe498edcb33237e906`. The published manifest fetched 2026-10-07 from HF repo revision `a986969f90e60e694169b22e38b60a86e65c0448` describes a CPU-only variant of the *same filename and size*, but lists SHA-256 `96041e6c72b1d2e9b73a122870606bbf18a3819bf14c43c3f2b74685ed62c24d`. This is **not the same verified artifact**; it may be an older conversion, but corruption was not ruled out. Do not project the current manifest's backend claims onto the installed file without identifying its source revision.
+- Device `/data` had about 1,044,696 KiB free, battery 39% at inspection. Existing user app storage is substantial. **No `adb install -r`, cache pruning, data migration, model load, or inference execution** was attempted: with the near-full filesystem and older installed APK, that would introduce unnecessary data/migration and native-cache risks.
+- Host validation on current source: `./gradlew :local-llm:testDebugUnitTest --tests 'me.rerere.locallm.litert.LiteRtExecutionPlannerTest' --console=plain` — **PASS** (exit 0, BUILD SUCCESSFUL in 40s). This validates pure planner tests, not actual Android backend selection or generated output.
+
+**Next safe qualification gate:** preserve/verify installed-data backup according to the project's upgrade rules; obtain enough free device storage for an in-place debug update and native/cache headroom without deleting existing user data automatically; reconcile model file provenance against an immutable HF revision/checksum; then exercise a controlled LiteRT-LM load, generation and release with explicit backend/fallback, memory, and first-token/output receipts. Keep native Android and Lil Tart browser evidence separate.
