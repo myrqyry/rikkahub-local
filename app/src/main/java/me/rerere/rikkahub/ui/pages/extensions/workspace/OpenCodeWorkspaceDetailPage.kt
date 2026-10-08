@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -41,6 +42,11 @@ fun OpenCodeWorkspaceDetailPage(refId: String) {
     val vm: OpenCodeWorkspaceDetailVM = koinViewModel(parameters = { parametersOf(refId) })
     val state by vm.state.collectAsStateWithLifecycle()
     var prompt by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(state.acknowledgedRevision) {
+        if (state.acknowledgedRevision > 0 && prompt == state.acknowledgedPrompt) {
+            prompt = ""
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -127,7 +133,7 @@ fun OpenCodeWorkspaceDetailPage(refId: String) {
                         enabled = !state.sending,
                     )
                     Button(
-                        onClick = { vm.send(prompt); prompt = "" },
+                        onClick = { vm.send(prompt) },
                         enabled = prompt.isNotBlank() && !state.sending,
                     ) { Text(stringResource(R.string.workspace_opencode_detail_send)) }
                 }

@@ -16,6 +16,8 @@ data class OpenCodeWorkspaceDetailState(
     val messages: List<OpenCodeMessage> = emptyList(),
     val loading: Boolean = false,
     val sending: Boolean = false,
+    val acknowledgedPrompt: String? = null,
+    val acknowledgedRevision: Long = 0,
     val error: String? = null,
 )
 
@@ -108,6 +110,12 @@ class OpenCodeWorkspaceDetailVM(
             _state.value = _state.value.copy(sending = true, error = null)
             try {
                 repository.prompt(refId, session.id, prompt)
+                // The request is acknowledged only after the server returns successfully.
+                // Preserve the draft on ambiguous transport failures so it is not lost.
+                _state.value = _state.value.copy(
+                    acknowledgedPrompt = prompt,
+                    acknowledgedRevision = _state.value.acknowledgedRevision + 1,
+                )
                 // Reload server-owned messages; synthetic local IDs duplicate durable
                 // messages and obscure whether a prompt really reached the server.
                 try {
