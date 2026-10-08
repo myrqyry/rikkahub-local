@@ -277,29 +277,32 @@ class LiteRtProvider(
         //
         // Populate the snapshot before handing the engine the call, clear it in the
         // finally below so concurrent requests cannot see each other's tools.
-        LiteRtToolBridgeRegistry.setForRequest(params.tools)
-        val nativeTools = if (params.tools.isNotEmpty()) listOf(toolProvider) else emptyList()
+        // An opt-in math/reasoning-only model must not inherit the agent's tool
+        // authority or native ToolSet just because the user has enabled tools.
+        val availableTools = if (config.supportsToolCalling) params.tools else emptyList()
+        LiteRtToolBridgeRegistry.setForRequest(availableTools)
+        val nativeTools = if (availableTools.isNotEmpty()) listOf(toolProvider) else emptyList()
         Log.i(
             TAG,
-            "tool bridge: ${params.tools.size} tool(s) registered for this request " +
-                "(${params.tools.joinToString(",") { it.name }.take(200)}…)",
+            "tool bridge: ${availableTools.size} tool(s) registered for this request " +
+                "(${availableTools.joinToString(",") { it.name }.take(200)}…)",
         )
         // For models that still need a per-tool catalogue in the system prompt (small
         // local models that benefit from explicit name + description listing alongside
         // SDK tool registration), build a compact reference block. This is descriptive
         // text only; the model invokes tools through the bridge, NOT by emitting
         // <tool_call> blocks.
-        val toolReference = if (params.tools.isNotEmpty()) {
+        val toolReference = if (availableTools.isNotEmpty()) {
             buildString {
-                append("You have ${params.tools.size} tools available. ")
+                append("You have ${availableTools.size} tools available. ")
                 append("Call runTool(name, argsJson) with one of these names to use them:\n")
-                params.tools.take(60).forEach { tool ->
+                availableTools.take(60).forEach { tool ->
                     val firstLineDesc = tool.description.lineSequence().firstOrNull()
                         ?.trim().orEmpty().take(80)
                     append("- ${tool.name}: $firstLineDesc\n")
                 }
-                if (params.tools.size > 60) {
-                    append("(…and ${params.tools.size - 60} more tools available — ")
+                if (availableTools.size > 60) {
+                    append("(…and ${availableTools.size - 60} more tools available — ")
                     append("call runTool with their names directly when needed.)\n")
                 }
             }
@@ -383,7 +386,7 @@ class LiteRtProvider(
                 // call grammar so Gemma actually invokes runTool(...) via the bridge
                 // instead of producing free-form "I can't do that" text. OFF for plain
                 // chat turns to avoid biasing normal language.
-                constrainedDecoding = params.tools.isNotEmpty(),
+                constrainedDecoding = availableTools.isNotEmpty(),
                 topK = providerSetting.topK ?: config.topK,
                 topP = providerSetting.topP ?: config.topP,
                 temperature = providerSetting.temperature ?: config.temperature,

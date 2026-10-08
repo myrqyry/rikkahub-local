@@ -12,9 +12,16 @@ data class LiteRtCatalogEntry(
     val minDeviceMemoryGb: Int,
     val recommended: Boolean = false, // Marks the "default first pick" — Gemma3-1B-IT for low RAM, Gemma-4-E2B for capable
     val tags: List<String> = emptyList(), // ["multimodal", "thinking", "speculative-decoding"] — for chips in UI
+    /** When a publisher calls many files model.litertlm, use a unique app-local name. */
+    val sourceFile: String = modelFile,
+    /** Immutable Git revision for a verified artifact; null retains existing main behavior. */
+    val sourceRevision: String? = null,
+    /** Hash of the actual remote bytes; required for newly pinned special-purpose models. */
+    val sha256: String? = null,
 ) {
     /** Pre-built download URL on HuggingFace's `resolve` path. Same format ModelInstall already validates. */
-    fun resolveUrl(): String = "https://huggingface.co/$modelId/resolve/main/$modelFile"
+    fun resolveUrl(): String =
+        "https://huggingface.co/$modelId/resolve/${sourceRevision ?: "main"}/$sourceFile"
     /** Where the user obtains this model — shown in the catalog UI and opened via ACTION_VIEW. */
     val sourceUrl: String get() = "https://huggingface.co/$modelId"
     /** Lookup the matching config defaults. */
@@ -40,10 +47,10 @@ object LiteRtCatalog {
      *     PaddleOCR-VL-1.6, litert-community/InternVL3-1B (multimodal vision models —
      *     OCR-capable, see tags), litert-community/LFM2.5-1.2B-Instruct,
      *     litert-community/MiniCPM5-2B (tool-calling templates verified in the shipped bundle).
-     *  2. **Tool-calling capable.** RikkaHub drives these models through the prompt-engineered
-     *     tool protocol in LiteRtToolPrefix, so the model must be instruction-tuned for tool /
-     *     function calling. Dropped on this rule: DeepSeek-R1-Distill-Qwen-1.5B (a reasoning
-     *     distillation — it does not emit the <tool_call> blocks the agent loop depends on).
+     *  2. **Capability labels must be accurate.** General agent defaults require tool-calling,
+     *     but explicitly opted-in reasoning-only models may appear when native tools are
+     *     disabled, they are never auto-recommended, and a model file's verified identity
+     *     is preserved. DeepSeek-R1-Distill is still excluded from the general-agent set.
      */
     val ENTRIES: List<LiteRtCatalogEntry> = listOf(
         LiteRtCatalogEntry(
@@ -105,6 +112,19 @@ object LiteRtCatalog {
             minDeviceMemoryGb = 6,
             recommended = false,
             tags = listOf("tool-calling", "thinking"),
+        ),
+        LiteRtCatalogEntry(
+            displayName = "VibeThinker-3B (reasoning only)",
+            modelId = "litert-community/VibeThinker-3B",
+            modelFile = "VibeThinker-3B-int4.litertlm",
+            sourceFile = "model.litertlm",
+            sourceRevision = "7790b109a7861b2f6982ccc9877d27faba57a712",
+            sha256 = "7885496ccd8f70680474e66e88eccfdc966c1870a39b5fdbea837f897e4742a0",
+            description = "Optional 3B math/code reasoner (int4, 4K context). Allow at least 2048 output tokens. No tool calling; not an agent default. GPU reported on Galaxy S26, unverified on this Pixel.",
+            sizeBytes = 2059236272L,
+            minDeviceMemoryGb = 8,
+            recommended = false,
+            tags = listOf("thinking", "no-tools", "math"),
         ),
         // Multimodal vision models — these double as on-device OCR: pick one as the OCR
         // model (Settings → Model → OCR) and images get transcribed locally instead of

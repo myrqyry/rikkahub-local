@@ -25,6 +25,8 @@ import me.rerere.locallm.ExecutionProfileProbe
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
 import me.rerere.locallm.litert.LiteRtCatalog
+import me.rerere.locallm.litert.LiteRtCatalogEntry
+import me.rerere.locallm.VerifiedModelArtifact
 import me.rerere.locallm.litert.LiteRtExecutionPlanner
 import me.rerere.locallm.litert.LiteRtModelMetadata
 import me.rerere.locallm.MemoryGuard
@@ -435,6 +437,14 @@ class SettingLocalLlmViewModel(
         }
     }
 
+    /** Curated model identity is separate from its Hugging Face filename.
+     * Pinned entries must be verified before the app registers the model.
+     * Manual URL imports remain available and explicitly unverified. */
+    fun startCatalogDownload(entry: LiteRtCatalogEntry) {
+        _errorMessage.value = null
+        viewModelScope.launch { executeDownload(entry.resolveUrl(), entry) }
+    }
+
     fun startManualDownload(url: String) {
         // Normalise HuggingFace blob URLs → resolve URLs before validation and download.
         // A user pasting the HF viewer URL (/blob/main/<file>) gets a 200 OK that returns
@@ -453,8 +463,8 @@ class SettingLocalLlmViewModel(
      * Streams progress into [_downloadProgress], registers the finished file in
      * [LocalRuntimePreferences] and the provider's models list, then calls [refreshFromDisk].
      */
-    private suspend fun executeDownload(url: String) {
-        val fileName = ModelInstall.extractFileNameFromUrl(url)
+    private suspend fun executeDownload(url: String, entry: LiteRtCatalogEntry? = null) {
+        val fileName = entry?.modelFile ?: ModelInstall.extractFileNameFromUrl(url)
         val baseDir = ModelInstall.localModelsDir(context)
         val target = ModelInstall.targetFile(baseDir, runtime, fileName)
         // Belt-and-braces against any future throw from inside the flow layers we
@@ -464,7 +474,7 @@ class SettingLocalLlmViewModel(
         // propagate through .collect{} to this Main-context coroutine and crash the
         // process. Treat any non-cancellation throw as a download failure.
         try {
-            collectDownloadProgress(url, fileName, target)
+            collectDownloadProgress(url, fileName, target, entry)
         } catch (cancel: kotlinx.coroutines.CancellationException) {
             // Cancellation is normal — user navigated away or hit Cancel. Don't surface.
             _downloadProgress.value = null
@@ -476,9 +486,17 @@ class SettingLocalLlmViewModel(
         }
     }
 
-    private suspend fun collectDownloadProgress(url: String, fileName: String, target: java.io.File) {
+    private suspend fun collectDownloadProgress(
+        url: String,
+        fileName: String,
+        target: java.io.File,
+        entry: LiteRtCatalogEntry? = null,
+    ) {
         _downloadingFile.value = fileName
-        ModelInstall.download(httpClient, url, target).collect { p ->
+        // Special-purpose external models are keyed by their pinned revision,
+        // app-local filename, complete byte length and SHA-256.
+        val verified = entry?.sha256?.let { VerifiedModelArtifact(entry.sizeBytes, it) }
+        ModelInstall.download(httpClient, url, target, verified).collect { p ->
             when (p) {
                 is ModelInstall.Progress.Started ->
                     _downloadProgress.value = Progress(0, 0L, p.totalBytes)

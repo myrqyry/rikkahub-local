@@ -37,7 +37,8 @@ object LiteRtModelMetadata {
             if (config.supportsImage) add(Modality.IMAGE)
         }
         val abilities = buildList {
-            if (LiteRtModelDefaults.isCurated(modelFile)) add(ModelAbility.TOOL)
+            if (LiteRtModelDefaults.isCurated(modelFile) && config.supportsToolCalling)
+                add(ModelAbility.TOOL)
             if (config.supportsThinking) add(ModelAbility.REASONING)
         }
         return Capabilities(modalities, abilities)

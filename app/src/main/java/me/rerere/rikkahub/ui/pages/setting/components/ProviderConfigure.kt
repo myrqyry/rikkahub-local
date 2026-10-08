@@ -1183,7 +1183,7 @@ private fun ColumnScope.ProviderConfigureLiteRT(
             } else {
                 null
             },
-            onInstall = { vm.startManualDownload(entry.resolveUrl()) },
+            onInstall = { vm.startCatalogDownload(entry) },
             onOpenSource = { openModelSourceUrl(catalogContext, entry.sourceUrl) },
         )
     }

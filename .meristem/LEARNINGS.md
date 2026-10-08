@@ -27,3 +27,13 @@ Use entries like:
 **Recommended behavior:** Treat manifests as untrusted *candidate metadata* until the file identity is pinned to the source revision and verified. Route backend selection through the existing measured `LiteRtExecutionPlanner`, never replace it or the current LiteRT-LM SDK just to read a manifest. For any curated download, bind partial state to immutable repo/revision/file identity, validate size/hash before promotion, check `Content-Range` for resumed transfers, and add a negative corruption/hash test. A shipped-model runtime/device test is a separate gate.
 
 **Validation status:** observed (code and live external manifest); corruption hypothesis unvalidated; no connected ADB device; no runtime changes made.
+
+## 2026-10-08 — Generic model.litertlm names and cached HF file pages are unsafe deployment identities
+
+**Signal / failure:** VibeThinker-3B publishes `model.litertlm` rather than a unique filename; a cached Hugging Face viewer showed the previous LFS SHA, while the current 2026-10-07 pinned revision publishes a different GPU-rewritten graph, hash, and file size.
+
+**Mechanism:** Treating `/resolve/main/model.litertlm` or a generic basename as a stable artifact can conflate source revision, partial bytes and locally installed models. An advertised reasoning ability also cannot be silently promoted into native tool use. The original author explicitly warns against agent/function-calling applications.
+
+**Recommended behavior:** Preserve `repo + immutable revision + source filename + local unique filename + size + SHA256` as separate fields. Hash complete staged bytes before rename, reject a mismatched partial range, and never delete an existing user-owned target for pinned catalog installs. Use a no-tools model profile and avoid selecting specialized models as general defaults. Keep published GPU benchmark claims separate from actual target-device execution proof.
+
+**Validation status:** source verified live via HF API and manifest; deterministic installation/metadata tests; host Android build only. Full model and Pixel execution not tested.
