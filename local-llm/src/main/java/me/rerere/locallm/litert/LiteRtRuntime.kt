@@ -124,7 +124,7 @@ class LiteRtInsufficientMemoryException(
 )
 
 /**
- * Wraps Google's LiteRT-LM runtime (com.google.ai.edge.litertlm:litertlm-android:0.17.0)
+ * Wraps Google's LiteRT-LM runtime (currently litertlm-android:0.18.0)
  * for on-device inference of `.litertlm` model files.
  *
  * # Why this rewrite (vs. the simpler v22A original)
@@ -167,6 +167,12 @@ class LiteRtRuntime(private val context: Context) {
 
     private val mutex = Mutex()
     private var loaded: LoadedModel? = null
+
+    /** Only the active native turn may be cancelled by Stop. Native callbacks
+     * may arrive after a Flow collector has gone away. */
+    private class ActiveNativeTurn(val gate: NativeTurnGate, val conversation: Conversation)
+
+    @Volatile private var activeTurn: ActiveNativeTurn? = null
 
     /**
      * In-session fallback accelerator. If the preferred/probed accelerator failed and we
@@ -306,7 +312,7 @@ class LiteRtRuntime(private val context: Context) {
         var conversationSpec: ConversationSpec,
         val engine: Engine,
         var conversation: Conversation,
-        /** Captured from `Capabilities.hasSpeculativeDecodingSupport()` at engine build
+        /** Captured from `ModelInfo.Llm.hasSpeculativeDecodingSupport()` at engine build
          *  time. Persisted so we can surface it on warm-reuse paths too. */
         val fileSupportsSpeculativeDecoding: Boolean,
         /** True iff [engineKey.speculativeDecoding] was true at engine.initialize() time.
@@ -874,6 +880,10 @@ class LiteRtRuntime(private val context: Context) {
             }
 
             val conv = instance.conversation
+            val turnGate = NativeTurnGate()
+            val currentTurn = ActiveNativeTurn(turnGate, conv)
+            val nativeTerminalSignal = kotlinx.coroutines.CompletableDeferred<Unit>()
+            lastTelemetry = null // Never reuse performance metrics from an earlier turn.
             // Build Contents in Gallery's order: images and audio first, text last.
             val contentList = mutableListOf<Content>()
             for (image in images) contentList.add(Content.ImageBytes(image.toPngByteArray()))
@@ -889,54 +899,127 @@ class LiteRtRuntime(private val context: Context) {
             val callStartedNs = System.nanoTime()
             var firstMessageNs: Long = 0L
             var lastCumulative = ""
-            conv.sendMessageAsync(
-                Contents.of(contentList),
-                object : MessageCallback {
-                    override fun onMessage(message: Message) {
-                        if (firstMessageNs == 0L) firstMessageNs = System.nanoTime()
-                        message.channels["thought"]?.let { thinking ->
-                            if (thinking.isNotEmpty()) onThinking?.invoke(thinking)
+            activeTurn = currentTurn
+            try {
+                conv.sendMessageAsync(
+                    Contents.of(contentList),
+                    object : MessageCallback {
+                        override fun onMessage(message: Message) {
+                            if (!turnGate.acceptsOutput) return
+                            if (firstMessageNs == 0L) firstMessageNs = System.nanoTime()
+                            message.channels["thought"]?.let { thinking ->
+                                if (thinking.isNotEmpty()) onThinking?.invoke(thinking)
+                            }
+                            val text = message.toString()
+                            if (text.isNotEmpty()) {
+                                lastCumulative = text
+                                trySend(text)
+                            }
                         }
-                        val text = message.toString()
-                        if (text.isNotEmpty()) {
-                            lastCumulative = text
-                            trySend(text)
+                        override fun onDone() {
+                            val terminal = turnGate.nativeTerminal()
+                            nativeTerminalSignal.complete(Unit)
+                            when (terminal) {
+                                NativeTurnGate.Terminal.Duplicate -> return
+                                NativeTurnGate.Terminal.Cancelled -> {
+                                    // A native onDone racing Stop is NOT a successful turn.
+                                    close()
+                                    return
+                                }
+                                NativeTurnGate.Terminal.Active -> Unit
+                            }
+                            // The Conversation's KV cache now holds [history…] + the assistant
+                            // turn just generated. Record that so the NEXT call can warm-continue
+                            // if it is a clean single-turn append. Mutating [processed] here is
+                            // safe: the mutex is held for this whole streamTurns invocation.
+                            instance.processed.clear()
+                            instance.processed.addAll(historySignatures)
+                            instance.processed.add(turnSignature(ROLE_ASSISTANT, lastCumulative))
+                            // Stamp telemetry for the provider to read + persist.
+                            val endNs = System.nanoTime()
+                            val prefillMs = if (firstMessageNs > 0L)
+                                (firstMessageNs - callStartedNs) / 1_000_000L else 0L
+                            val decodeMs = if (firstMessageNs > 0L)
+                                (endNs - firstMessageNs) / 1_000_000L else 0L
+                            lastTelemetry = StreamTelemetry(
+                                prefillMs = prefillMs,
+                                decodeMs = decodeMs,
+                                inputCharCount = telemetryInputChars,
+                                outputCharCount = lastCumulative.length,
+                                specDecodingEngaged = instance.speculativeDecodingEngaged,
+                            )
+                            instance.lastUseAtMs = android.os.SystemClock.elapsedRealtime()
+                            close()
                         }
+                        override fun onError(throwable: Throwable) {
+                            val terminal = turnGate.nativeTerminal()
+                            nativeTerminalSignal.complete(Unit)
+                            when (terminal) {
+                                NativeTurnGate.Terminal.Duplicate -> return
+                                NativeTurnGate.Terminal.Cancelled -> {
+                                    // Collection/Stop already invalidated the cache. Do not
+                                    // mutate state from a late callback of an abandoned turn.
+                                    close()
+                                    return
+                                }
+                                NativeTurnGate.Terminal.Active -> Unit
+                            }
+                            // The KV-cache state is now unknown — force the next turn cold.
+                            instance.processed.clear()
+                            lastTelemetry = null
+                            instance.lastUseAtMs = android.os.SystemClock.elapsedRealtime()
+                            if (throwable is CancellationException) close() else close(throwable)
+                        }
+                    },
+                    emptyMap(),
+                )
+                awaitClose {
+                    // onDone/onError close the channel after declaring a native terminal.
+                    // If the collector instead stops early (navigation, request cancelled,
+                    // first()/take(), etc.), cancel native inference explicitly. Without
+                    // this, inference continues outside the abandoned Flow and can race
+                    // the next request when the mutex is released.
+                    if (turnGate.requestCancellation()) {
+                        runCatching { conv.cancelProcess() }
+                            .onFailure { android.util.Log.w("LiteRtRuntime", "Failed to cancel abandoned turn", it) }
                     }
-                    override fun onDone() {
-                        // The Conversation's KV cache now holds [history…] + the assistant
-                        // turn just generated. Record that so the NEXT call can warm-continue
-                        // if it is a clean single-turn append. Mutating [processed] here is
-                        // safe: the mutex is held for this whole streamTurns invocation.
+                    if (turnGate.wasCancelled) {
+                        // Handles both cancellation of the Flow collector and explicit
+                        // Stop. This runs before the mutex is released; late native
+                        // callbacks must not mutate a future turn's cache state.
                         instance.processed.clear()
-                        instance.processed.addAll(historySignatures)
-                        instance.processed.add(turnSignature(ROLE_ASSISTANT, lastCumulative))
-                        // Stamp telemetry for the provider to read + persist.
-                        val endNs = System.nanoTime()
-                        val prefillMs = if (firstMessageNs > 0L)
-                            (firstMessageNs - callStartedNs) / 1_000_000L else 0L
-                        val decodeMs = if (firstMessageNs > 0L)
-                            (endNs - firstMessageNs) / 1_000_000L else 0L
-                        lastTelemetry = StreamTelemetry(
-                            prefillMs = prefillMs,
-                            decodeMs = decodeMs,
-                            inputCharCount = telemetryInputChars,
-                            outputCharCount = lastCumulative.length,
-                            specDecodingEngaged = instance.speculativeDecodingEngaged,
-                        )
+                        lastTelemetry = null
                         instance.lastUseAtMs = android.os.SystemClock.elapsedRealtime()
-                        close()
                     }
-                    override fun onError(throwable: Throwable) {
-                        // The KV-cache state is now unknown — force the next turn cold.
-                        instance.processed.clear()
-                        instance.lastUseAtMs = android.os.SystemClock.elapsedRealtime()
-                        if (throwable is CancellationException) close() else close(throwable)
+                    if (activeTurn === currentTurn) activeTurn = null
+                }
+            } finally {
+                // sendMessageAsync can throw synchronously before any callback or
+                // awaitClose is registered. Never leave a stale Stop target or
+                // falsely keep the warm KV cache in that case.
+                if (turnGate.requestCancellation()) {
+                    instance.processed.clear()
+                    lastTelemetry = null
+                    runCatching { conv.cancelProcess() }
+                }
+                if (turnGate.wasCancelled) {
+                    // Gallery's 2026-10-08 fix establishes that native cancellation
+                    // finishes asynchronously on the inference worker. Give it a
+                    // bounded grace period before releasing the model mutex and
+                    // allowing the next request to reuse the conversation.
+                    val nativeStopped = kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                        kotlinx.coroutines.withTimeoutOrNull(5_000L) {
+                            nativeTerminalSignal.await()
+                            true
+                        } ?: false
                     }
-                },
-                emptyMap(),
-            )
-            awaitClose { /* SDK callback already closed the channel above. */ }
+                    if (!nativeStopped) android.util.Log.w(
+                        "LiteRtRuntime",
+                        "Native generation did not acknowledge cancellation in 5s; warm KV cache invalidated",
+                    )
+                }
+                if (activeTurn === currentTurn) activeTurn = null
+            }
         } } finally {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 runCatching { hintSession?.close() }
@@ -953,7 +1036,16 @@ class LiteRtRuntime(private val context: Context) {
      * generating. Does NOT tear down the Engine or Conversation; the runtime stays warm.
      */
     fun stop() {
-        try { loaded?.conversation?.cancelProcess() } catch (_: Throwable) {}
+        // Mark the active turn *before* asking native inference to cancel:
+        // onDone may race the cancellation and must never populate a warm
+        // assistant-turn signature from a stopped response.
+        val active = activeTurn ?: return
+        if (active.gate.requestCancellation()) {
+            try { active.conversation.cancelProcess() }
+            catch (e: Exception) {
+                android.util.Log.w("LiteRtRuntime", "Failed to stop native generation", e)
+            }
+        }
     }
 
     /**
