@@ -5,6 +5,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import me.rerere.reranker.QwenReranker
 
 data class EmbeddingIndexStatus(
@@ -27,6 +29,11 @@ class EmbeddingRepository(
     private val rerankerProvider: () -> QwenReranker? = { null },
 ) {
     private val searchEngine = LocalVectorSearchEngine()
+    // Previously the persisted RAG vectors were only loaded by an explicit
+    // loadFromDatabase() caller; there was no caller in the app. On first
+    // search, and on backend selection changes, rehydrate that embedding space.
+    private val hydrationMutex = Mutex()
+    @Volatile private var hydratedSpaceId: String? = null
 
     suspend fun indexDocument(id: String, text: String, metadata: JsonObject): Boolean {
         val backend = backendProvider() ?: return false
@@ -56,7 +63,11 @@ class EmbeddingRepository(
         finalTopK: Int = 5,
     ): List<LocalVectorSearchEngine.ScoredMatch> {
         val backend = backendProvider() ?: return emptyList()
-        val result = backend.embed(query) ?: return emptyList()
+        // Different embedding models have incompatible vector spaces. Reload
+        // matching persisted vectors before searching, rather than searching an
+        // empty/previous-model in-memory index after app restart or selection.
+        ensureLoaded(backend)
+        val result = backend.embedQuery(query) ?: return emptyList()
         val candidates = searchEngine.search(
             queryEmbedding = result.embedding,
             embeddingSpaceId = backend.embeddingSpaceId,
@@ -102,20 +113,37 @@ class EmbeddingRepository(
     }
 
     suspend fun loadFromDatabase() {
-        searchEngine.clear()
         val backend = backendProvider() ?: return
-        for (entity in vectorDao.getAll()) {
+        hydrationMutex.withLock { hydrate(backend) }
+    }
+
+    private suspend fun ensureLoaded(backend: EmbeddingBackend) {
+        if (hydratedSpaceId == backend.embeddingSpaceId) return
+        hydrationMutex.withLock {
+            if (hydratedSpaceId != backend.embeddingSpaceId) hydrate(backend)
+        }
+    }
+
+    /** Caller holds hydrationMutex. Only vectors for this exact model space. */
+    private suspend fun hydrate(backend: EmbeddingBackend) {
+        val rows = vectorDao.getAll()
+        searchEngine.clear()
+        for (entity in rows) {
             if (entity.embeddingSpaceId != backend.embeddingSpaceId ||
-                entity.embeddingDimension <= 0
+                entity.embeddingDimension <= 0 ||
+                entity.embedding.size.toLong() != entity.embeddingDimension.toLong() * 4L
             ) continue
+            val embedding = bytesToFloatArray(entity.embedding)
+            if (embedding.any { !it.isFinite() }) continue
             searchEngine.addVector(
                 id = entity.id,
-                embedding = bytesToFloatArray(entity.embedding),
+                embedding = embedding,
                 metadata = json.parseToJsonElement(entity.metadata).jsonObject,
                 embeddingSpaceId = entity.embeddingSpaceId,
                 embeddingDimension = entity.embeddingDimension,
             )
         }
+        hydratedSpaceId = backend.embeddingSpaceId
     }
 
     companion object {

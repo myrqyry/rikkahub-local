@@ -127,6 +127,8 @@ val repositoryModule = module {
                 ) is QwenSemanticModelManager.ModelStatus.Ready
                 when (val source = resolveRagEmbeddingSource(settings, embedderDir, localReady)) {
                     is RagEmbeddingSource.LocalQwen -> QwenEmbeddingBackend(source.modelDir)
+                    RagEmbeddingSource.LocalEmbeddingGemma2 ->
+                        me.rerere.rikkahub.data.rag.EmbeddingGemma2Backend(context)
                     is RagEmbeddingSource.Provider ->
                         ProviderEmbeddingBackend(get(), source.providerSetting, source.model)
                     null -> null

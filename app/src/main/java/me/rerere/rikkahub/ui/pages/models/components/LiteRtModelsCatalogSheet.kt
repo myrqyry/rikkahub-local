@@ -29,6 +29,7 @@ import me.rerere.rikkahub.ui.pages.modelmanager.LiteRtGalleryAsset
 import me.rerere.rikkahub.ui.pages.modelmanager.LiteRtModelsGallery
 import me.rerere.rikkahub.ui.pages.modelmanager.ModelManagerViewModel
 import me.rerere.rikkahub.ui.pages.modelmanager.PpOcrVerifiedPackage
+import me.rerere.rikkahub.data.rag.EmbeddingGemma2Model
 
 /** Curated upstream model list, with actual artifact discovery before each download. */
 @Composable
@@ -40,12 +41,14 @@ internal fun LiteRtModelsCatalogSheet(
     // Re-read file status after an asset is removed, even if model selection is unchanged.
     val galleryVersion by viewModel.galleryVersion.collectAsStateWithLifecycle()
     val ppOcrSelected by viewModel.ppOcrSelected.collectAsStateWithLifecycle()
+    val embeddingGemma2Selected by viewModel.embeddingGemma2Selected.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<LiteRtGalleryModel?>(null) }
     var deleting by remember { mutableStateOf<LiteRtGalleryAsset?>(null) }
     var removeVerifiedOcr by remember { mutableStateOf(false) }
+    var removeEmbeddings by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -94,6 +97,48 @@ internal fun LiteRtModelsCatalogSheet(
                     onClick = { removeVerifiedOcr = true },
                     enabled = !downloadInProgress,
                 ) { Text("Remove downloaded OCR package") }
+            }
+            val embeddingGemmaReady = remember(context, galleryVersion, downloadInProgress) {
+                EmbeddingGemma2Model.present(context)
+            }
+            val embeddingGemmaFileExists = remember(context, galleryVersion, downloadInProgress) {
+                EmbeddingGemma2Model.file(context).exists()
+            }
+            Text("EmbeddingGemma 2 · local RAG", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "270M text/code embedding model · 157 MiB · 768-dimensional vectors. " +
+                    "Downloaded and verified separately from chat models. Switching embedding " +
+                    "models requires reindexing existing documents.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (!embeddingGemmaReady && !embeddingGemmaFileExists) {
+                Button(
+                    onClick = viewModel::downloadEmbeddingGemma2,
+                    enabled = !downloadInProgress,
+                ) { Text("Download EmbeddingGemma 2 (text)") }
+            } else if (embeddingGemma2Selected) {
+                Text("EmbeddingGemma 2 selected for RAG. Reindex prior documents to search them.",
+                    style = MaterialTheme.typography.bodySmall)
+                TextButton(
+                    onClick = viewModel::chooseDefaultRagEmbeddings,
+                    enabled = !downloadInProgress,
+                ) { Text("Return to default RAG embedding choice") }
+            } else {
+                if (embeddingGemmaReady) {
+                    Button(
+                        onClick = viewModel::selectEmbeddingGemma2,
+                        enabled = !downloadInProgress,
+                    ) { Text("Use EmbeddingGemma 2 for RAG") }
+                } else {
+                    Text("Existing file has an incomplete size. Remove it before retrying.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error)
+                }
+                TextButton(
+                    onClick = { removeEmbeddings = true },
+                    enabled = !downloadInProgress,
+                ) { Text("Remove downloaded EmbeddingGemma 2") }
             }
             OutlinedTextField(
                 value = query,
@@ -200,6 +245,22 @@ internal fun LiteRtModelsCatalogSheet(
                 }
             }
         }
+    }
+    if (removeEmbeddings) {
+        AlertDialog(
+            onDismissRequest = { removeEmbeddings = false },
+            title = { Text("Remove EmbeddingGemma 2?") },
+            text = { Text("Delete only the downloaded text embedding model file? Existing RAG vectors remain in the database.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.removeEmbeddingGemma2()
+                    removeEmbeddings = false
+                }) { Text("Remove") }
+            },
+            dismissButton = {
+                TextButton(onClick = { removeEmbeddings = false }) { Text("Cancel") }
+            },
+        )
     }
     if (removeVerifiedOcr) {
         AlertDialog(
