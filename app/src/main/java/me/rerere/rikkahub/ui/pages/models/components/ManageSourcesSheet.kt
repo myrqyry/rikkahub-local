@@ -47,6 +47,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.rikkahub.R
+import me.rerere.rikkahub.data.datastore.withoutProvider
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.ui.components.ui.AutoAIIcon
 import me.rerere.rikkahub.ui.components.ui.Tag
@@ -176,14 +177,7 @@ fun ManageSourcesSheet(
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            vm.updateSettings(
-                                settings.copy(
-                                    providers = settings.providers.filter { it.id != target.id },
-                                    deletedBuiltInProviderIds =
-                                        if (target.builtIn) settings.deletedBuiltInProviderIds + target.id
-                                        else settings.deletedBuiltInProviderIds,
-                                )
-                            )
+                            vm.updateSettings(settings.withoutProvider(target))
                             providerToDelete = null
                         }
                     ) {

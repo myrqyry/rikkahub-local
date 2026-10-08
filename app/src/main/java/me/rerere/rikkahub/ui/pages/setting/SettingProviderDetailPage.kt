@@ -93,6 +93,7 @@ import me.rerere.ai.provider.TextGenerationParams
 import me.rerere.ai.registry.ModelRegistry
 import me.rerere.ai.ui.UIMessage
 import me.rerere.rikkahub.R
+import me.rerere.rikkahub.data.datastore.withoutProvider
 import me.rerere.rikkahub.ui.components.ai.ModelAbilityTag
 import me.rerere.rikkahub.ui.components.ai.ModelModalityTag
 import me.rerere.rikkahub.ui.components.ai.ModelSelector
@@ -153,10 +154,7 @@ fun SettingProviderDetailPage(id: Uuid, vm: SettingVM = koinViewModel()) {
         vm.updateSettings(newSettings)
     }
     val onDelete = {
-        val newSettings = settings.copy(
-            providers = settings.providers - provider
-        )
-        vm.updateSettings(newSettings)
+        vm.updateSettings(settings.withoutProvider(provider))
         navController.popBackStack()
     }
 
@@ -313,14 +311,12 @@ private fun SettingProviderConfigPage(
 
             Spacer(Modifier.weight(1f))
 
-            if (!internalProvider.builtIn) {
-                IconButton(
-                    onClick = {
-                        showDeleteDialog = true
-                    },
-                ) {
-                    Icon(HugeIcons.Delete01, null)
-                }
+            // Built-in providers are removable too: confirmed removal writes a
+            // tombstone so PreferencesStore cannot silently re-add them.
+            IconButton(
+                onClick = { showDeleteDialog = true },
+            ) {
+                Icon(HugeIcons.Delete01, contentDescription = stringResource(R.string.delete))
             }
 
             IconButton(
