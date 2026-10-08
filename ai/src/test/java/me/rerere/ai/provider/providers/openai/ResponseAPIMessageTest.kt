@@ -2,6 +2,10 @@ package me.rerere.ai.provider.providers.openai
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import me.rerere.ai.core.InputSchema
+import me.rerere.ai.core.Tool
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -414,6 +418,41 @@ class ResponseAPIMessageTest {
                 requestBody["reasoning"]?.jsonObject?.get("effort")?.jsonPrimitive?.content,
             )
         }
+    }
+
+    @Test
+    fun `response api keeps optional tool arguments optional with strict false`() {
+        val tool = Tool(
+            name = "get_weather",
+            description = "Weather lookup",
+            parameters = {
+                InputSchema.Obj(
+                    properties = buildJsonObject {
+                        put("city", buildJsonObject { put("type", "string") })
+                        put("units", buildJsonObject { put("type", "string") })
+                    },
+                    required = listOf("city"),
+                )
+            },
+            execute = { emptyList() },
+        )
+        val request = invokeBuildRequestBody(
+            providerSetting = ProviderSetting.OpenAI(baseUrl = "https://api.openai.com/v1"),
+            messages = listOf(UIMessage.user("weather")),
+            params = TextGenerationParams(
+                model = Model(
+                    modelId = "test-model",
+                    abilities = listOf(ModelAbility.TOOL),
+                ),
+                tools = listOf(tool),
+            ),
+        )
+        val serialized = request["tools"]!!.jsonArray.single().jsonObject
+        assertEquals("false", serialized["strict"]!!.jsonPrimitive.content)
+        assertEquals("get_weather", serialized["name"]!!.jsonPrimitive.content)
+        val schema = serialized["parameters"]!!.jsonObject
+        assertTrue("city is required", schema["required"]!!.jsonArray.any { it.jsonPrimitive.content == "city" })
+        assertFalse("units must remain optional", schema["required"]!!.jsonArray.any { it.jsonPrimitive.content == "units" })
     }
 
     // ==================== Helper Functions ====================

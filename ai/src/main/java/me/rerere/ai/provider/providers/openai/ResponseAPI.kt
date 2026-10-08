@@ -258,6 +258,11 @@ class ResponseAPI(
                                     tool.parameters()
                                 )
                             )
+                            // The Responses API assumes strict function schemas by
+                            // default. Our tool schemas intentionally contain optional
+                            // fields; strict normalization otherwise makes them required
+                            // and the model invents 0 / "" / [] instead of omitting them.
+                            put("strict", false)
                         })
                     }
                 }
