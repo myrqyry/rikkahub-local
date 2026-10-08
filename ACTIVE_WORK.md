@@ -81,3 +81,10 @@ adapted.
 - Host validation on current source: `./gradlew :local-llm:testDebugUnitTest --tests 'me.rerere.locallm.litert.LiteRtExecutionPlannerTest' --console=plain` — **PASS** (exit 0, BUILD SUCCESSFUL in 40s). This validates pure planner tests, not actual Android backend selection or generated output.
 
 **Next safe qualification gate:** preserve/verify installed-data backup according to the project's upgrade rules; obtain enough free device storage for an in-place debug update and native/cache headroom without deleting existing user data automatically; reconcile model file provenance against an immutable HF revision/checksum; then exercise a controlled LiteRT-LM load, generation and release with explicit backend/fallback, memory, and first-token/output receipts. Keep native Android and Lil Tart browser evidence separate.
+
+## Connected-device storage recovery — 2026-10-07
+
+- User authorized clearing only the rebuildable InternVL3-1B and PaddleOCR-VL-1.6 LiteRT acceleration caches. Before deletion, verified the debug app process was not running and listed each exact file.
+- Removed five explicitly named generated caches (InternVL XNNPACK; PaddleOCR vision-encoder mldrift program/weight, vision-adapter XNNPACK, and main XNNPACK); did **not** clear app data, caches for LFM2.5, model bundles, configuration, databases, TTS, llama.cpp, or FLUX files.
+- Read-only post-check confirmed all three original `.litertlm` bundles are still present and LFM2.5 acceleration caches remain. `adb shell df -k /data` showed free space increase from **475968 KiB** immediately before cleanup to **3090488 KiB** afterward (~2.49 GiB net observed; concurrent Android storage activity may affect this delta). Five removed files themselves were roughly 2.07 GiB.
+- App remains the September 29 debug install. No replacement APK was installed and no model generation was attempted. Future safe device testing should first ensure adequate space and data backup, then perform an in-place update and capture real backend/output evidence.
