@@ -62,9 +62,11 @@ dependencies {
     // .litertlm crash this bump targets lives in liblitertlm_jni.so (the artifact above),
     // which does not depend on litert — so no litert bump is needed for it.
     implementation("com.google.ai.edge.litert:litert:2.1.5")
-    // llama.cpp runtime via Llamatik: loads .gguf chat models. Pinned to 1.10.0 —
-    // v1.9.1 contains PR #165 (generateStream emoji crash) and 1.10.0 is the latest.
-    implementation("com.llamatik:library:1.10.0")
+    // llama.cpp runtime via Llamatik: loads .gguf chat models.
+    // 1.10.1 fixes repeated embedding calls failing on stale KV cache (PR #171).
+    // Upstream release verified 2026-10-07; Android GGUF inference still requires
+    // an actual installed model and on-device runtime qualification.
+    implementation("com.llamatik:library:1.10.1")
     // Raw org.tensorflow.lite.Interpreter for the PP-OCRv5 det/rec graphs (the 
     // task-vision/-audio AARs were dropped: their jni libs are 4KB-aligned, which
     // Android 15+ 16KB-page devices reject at install; task inference now runs via
