@@ -1,46 +1,66 @@
 package me.rerere.locallm.ocr
 
 import kotlinx.coroutines.runBlocking
+import me.rerere.locallm.ocr.compiled.PpocrDetector
+import me.rerere.locallm.ocr.compiled.PpocrRecognizer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
-import org.tensorflow.lite.Interpreter
-
-class FakeInterpreterFactory(private val mode: String) : PpOcrEngine.InterpreterFactory {
-    // Interpreter is final in tensorflow-lite:2.14.0, so a fake instance cannot subclass it.
-    // Both engine tests exercise the missing-file branch, which returns before create() is called,
-    // so a throwing body is all the fake needs to satisfy the seam.
-    override fun create(path: String): Interpreter =
-        throw UnsupportedOperationException("fake factory: no model file on JVM ($mode, $path)")
-}
+import org.junit.rules.TemporaryFolder
 
 class PpOcrEngineTest {
+    @get:Rule val files = TemporaryFolder()
+
     @Test
-    fun `throws when det graph file missing`() {
-        val engine = PpOcrEngine(object : PpOcrEngine.InterpreterFactory {
-            override fun create(path: String): Interpreter =
-                throw UnsupportedOperationException("should not be reached")
-        })
-        val ex = runBlocking { runCatching { engine.recognize("/img.png", "/det_missing.tflite", "/rec_fp16.tflite") } }
-            .exceptionOrNull()
-        assertTrue(ex is PpOcrEngineException)
-        assertTrue(ex!!.message!!.contains("detection"))
+    fun missingDetectionGraphFailsBeforeExecution() {
+        val exception = runBlocking {
+            runCatching {
+                PpOcrEngine().recognize("/img.png", "/missing-det.tflite", "/rec.tflite")
+            }.exceptionOrNull()
+        }
+        assertTrue(exception is PpOcrEngineException)
+        assertTrue(exception!!.message!!.contains("detection"))
     }
 
     @Test
-    fun `returns text when graphs run`() {
-        val engine = PpOcrEngine(FakeInterpreterFactory("ok"))
-        val text = runBlocking { runCatching { engine.recognize("/img.png", "/det.tflite", "/rec.tflite") } }.getOrNull()
-        assertEquals("", text ?: "") // missing files -> PpOcrEngineException -> null; must not throw
+    fun missingDictionaryFailsBeforeLoadingNativeModel() {
+        val det = files.newFile(PpocrDetector.MODEL)
+        val rec = files.newFile(PpocrRecognizer.MODEL)
+        val exception = runBlocking {
+            runCatching { PpOcrEngine().recognize("/image.png", det.path, rec.path) }
+                .exceptionOrNull()
+        }
+        assertTrue(exception is PpOcrEngineException)
+        assertTrue(exception!!.message!!.contains("dictionary"))
     }
 
     @Test
-    fun `recognize falls back to interpreter when npu factory returns null`() {
-        val engine = PpOcrEngine(
-            interpreterFactory = FakeInterpreterFactory("ok"),
-            npuDetFactory = { null },
-        )
-        val text = runBlocking { runCatching { engine.recognize("/img.png", "/det.tflite", "/rec.tflite") } }.getOrNull()
-        assertEquals("", text ?: "") // NPU unavailable -> interpreter path -> missing files -> null; must not throw
+    fun ctcRemovesBlanksAndAdjacentRepeatsButRetainsRepeatAfterBlank() {
+        val chars = arrayOf("", "A", "B", " ")
+        fun scores(vararg best: Int): FloatArray = FloatArray(best.size * chars.size) { at ->
+            if (at % chars.size == best[at / chars.size]) 9f else -1f
+        }
+        assertEquals("AB", PpocrRecognizer.decode(scores(1, 1, 0, 2, 2), chars))
+        assertEquals("AA", PpocrRecognizer.decode(scores(1, 0, 1), chars))
+        assertEquals("A B", PpocrRecognizer.decode(scores(1, 3, 2), chars))
+    }
+
+    @Test
+    fun detectorExtractsMultipleRegionsInsteadOfOneEnclosingCrop() {
+        val scores = FloatArray(PpocrDetector.SIZE * PpocrDetector.SIZE)
+        for (y in 50..64) for (x in 30..100) scores[y * PpocrDetector.SIZE + x] = 0.99f
+        for (y in 220..238) for (x in 200..310) scores[y * PpocrDetector.SIZE + x] = 0.99f
+        val boxes = PpocrDetector.boxes(scores)
+        assertEquals(2, boxes.size)
+        assertTrue(boxes.first().y1 < boxes.last().y0)
+    }
+
+    @Test
+    fun detectorIgnoresNoiseBelowMinimumRegionSize() {
+        val scores = FloatArray(PpocrDetector.SIZE * PpocrDetector.SIZE)
+        scores[5 * PpocrDetector.SIZE + 5] = 1f
+        assertEquals(0, PpocrDetector.boxes(scores).size)
     }
 }

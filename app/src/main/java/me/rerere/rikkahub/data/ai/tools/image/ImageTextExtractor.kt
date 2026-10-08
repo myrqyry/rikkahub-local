@@ -102,11 +102,13 @@ class ImageTextExtractor(
         if (providerSetting is ProviderSetting.TaskOcrLocal) {
             return try {
                 val engine = ocrEngine?.invoke() ?: get<PpOcrEngine>()
-                val text = engine.recognize(
-                    imagePath = media.stablePath,
-                    detPath = providerSetting.detModelPath,
-                    recPath = providerSetting.recModelPath,
-                )
+                val text = withTimeoutOrNull(timeoutMillis) {
+                    engine.recognize(
+                        imagePath = media.stablePath,
+                        detPath = providerSetting.detModelPath,
+                        recPath = providerSetting.recModelPath,
+                    )
+                } ?: return failure("provider_failed", media)
                 ImageTextExtractionResult(
                     success = true,
                     text = text,

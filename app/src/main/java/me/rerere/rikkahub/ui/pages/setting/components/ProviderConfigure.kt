@@ -920,9 +920,10 @@ private fun ColumnScope.ProviderConfigureTaskOcr(
     )
 
     Text(
-        text = "On-device PP-OCRv5 text recognition. Copy both model URLs from " +
-            "Local Task Library models below, import the files via the LiteRT import picker, " +
-            "then paste their paths here. No images leave the device.",
+        text = "Use Models → Add → LiteRT-Models gallery → Download verified PP-OCRv5 package, " +
+            "then choose Use for OCR. The installer verifies both graphs and the CTC dictionary. " +
+            "Advanced: custom paths can still be set above; all three files must share one folder. " +
+            "No images leave the device.",
         style = MaterialTheme.typography.labelSmall,
         modifier = Modifier.fillMaxWidth(),
     )

@@ -73,6 +73,147 @@ class ModelManagerViewModel(
     private val _galleryVersion = MutableStateFlow(0)
     val galleryVersion: StateFlow<Int> = _galleryVersion.asStateFlow()
 
+    val ppOcrSelected: StateFlow<Boolean> = settingsStore.settingsFlow
+        .map { settings ->
+            settings.providers.filterIsInstance<ProviderSetting.TaskOcrLocal>().any { provider ->
+                provider.enabled &&
+                    provider.detModelPath == PpOcrVerifiedPackage.target(context, PpOcrVerifiedPackage.files[0]).absolutePath &&
+                    provider.recModelPath == PpOcrVerifiedPackage.target(context, PpOcrVerifiedPackage.files[1]).absolutePath &&
+                    provider.models.any {
+                        it.modelId == PpOcrVerifiedPackage.MODEL_ID && it.id == settings.ocrModelId
+                    }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun downloadVerifiedPpOcr() {
+        if (_downloadProgress.value != null) return
+        _errorMessage.value = null
+        _downloadProgress.value = Progress(0, 0, PpOcrVerifiedPackage.totalBytes)
+        viewModelScope.launch {
+            try {
+                val remaining = PpOcrVerifiedPackage.files.filter { asset ->
+                    !PpOcrVerifiedPackage.target(context, asset).exists()
+                }.sumOf { it.bytes }
+                val available = withContext(Dispatchers.IO) {
+                    StatFs(context.filesDir.absolutePath).availableBytes
+                }
+                check(available > remaining + 256L * 1024 * 1024) {
+                    "Not enough storage for the complete OCR package and a 256 MB reserve"
+                }
+                var complete = 0L
+                for (asset in PpOcrVerifiedPackage.files) {
+                    val target = PpOcrVerifiedPackage.target(context, asset)
+                    if (target.exists()) {
+                        check(withContext(Dispatchers.IO) {
+                            PpOcrVerifiedPackage.verify(target, asset)
+                        }) {
+                            "Existing ${asset.name} failed SHA-256 verification; remove it deliberately before retrying"
+                        }
+                        complete += asset.bytes
+                        continue
+                    }
+                    var failure: Throwable? = null
+                    var finished = false
+                    ModelInstall.download(httpClient, asset.url, target).collect { p ->
+                        when (p) {
+                            is ModelInstall.Progress.Started -> Unit
+                            is ModelInstall.Progress.Tick -> {
+                                val bytes = complete + p.bytesRead
+                                _downloadProgress.value = Progress(
+                                    ((bytes * 100L) / PpOcrVerifiedPackage.totalBytes).toInt().coerceIn(0, 100),
+                                    bytes,
+                                    PpOcrVerifiedPackage.totalBytes,
+                                )
+                            }
+                            is ModelInstall.Progress.Failed -> failure = p.cause
+                            is ModelInstall.Progress.Done -> {
+                                if (!withContext(Dispatchers.IO) {
+                                    PpOcrVerifiedPackage.verify(p.file, asset)
+                                }) {
+                                    p.file.delete()
+                                    failure = IllegalStateException(
+                                        "${asset.name} did not match the publisher's bytes and SHA-256"
+                                    )
+                                } else {
+                                    finished = true
+                                }
+                            }
+                        }
+                    }
+                    failure?.let { cause ->
+                        throw IllegalStateException(
+                            "OCR download failed (${asset.name}): ${cause.message}", cause
+                        )
+                    }
+                    check(finished) { "OCR download did not complete: ${asset.name}" }
+                    complete += asset.bytes
+                }
+                check(withContext(Dispatchers.IO) {
+                    PpOcrVerifiedPackage.verified(context)
+                }) { "OCR package is incomplete or failed verification" }
+                _galleryVersion.value += 1
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "OCR download failed"
+            } finally {
+                _downloadProgress.value = null
+            }
+        }
+    }
+
+    fun removeVerifiedPpOcr() {
+        if (_downloadProgress.value != null) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val directory = PpOcrVerifiedPackage.directory(context).canonicalFile
+                val inUse = settingsStore.settingsFlow.value.providers
+                    .filterIsInstance<ProviderSetting.TaskOcrLocal>()
+                    .any { provider ->
+                        provider.detModelPath == File(directory, PpOcrVerifiedPackage.files[0].name).absolutePath ||
+                            provider.recModelPath == File(directory, PpOcrVerifiedPackage.files[1].name).absolutePath
+                    }
+                check(!inUse) {
+                    "This OCR package is configured in a provider. Remove that model/provider configuration before deleting its files."
+                }
+                for (asset in PpOcrVerifiedPackage.files) {
+                    val target = PpOcrVerifiedPackage.target(context, asset)
+                    check(target.canonicalFile.parentFile == directory &&
+                        !java.nio.file.Files.isSymbolicLink(target.toPath())
+                    ) { "Refusing to remove an OCR file outside the package" }
+                    if (target.exists()) check(target.isFile && target.delete()) {
+                        "Could not remove ${asset.name}"
+                    }
+                }
+                _galleryVersion.value += 1
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Could not remove OCR package"
+            }
+        }
+    }
+
+    /** Explicitly opt into using the verified package for the OCR model role. */
+    fun selectVerifiedPpOcr() {
+        if (_downloadProgress.value != null) return
+        viewModelScope.launch {
+            try {
+                check(withContext(Dispatchers.IO) { PpOcrVerifiedPackage.verified(context) }) {
+                    "The detector, recognizer and dictionary must all pass SHA-256 verification"
+                }
+                val det = PpOcrVerifiedPackage.target(context, PpOcrVerifiedPackage.files[0]).absolutePath
+                val rec = PpOcrVerifiedPackage.target(context, PpOcrVerifiedPackage.files[1]).absolutePath
+                settingsStore.update { settings ->
+                    settings.withPpOcrSelected(det, rec)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Cannot select PP-OCRv5"
+            }
+        }
+    }
+
     fun inspectGalleryModel(model: LiteRtGalleryModel) {
         galleryLookup?.cancel()
         _galleryDiscovery.value = GalleryDiscovery(modelSlug = model.slug, loading = true)

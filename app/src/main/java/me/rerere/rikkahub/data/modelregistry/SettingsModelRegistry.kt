@@ -229,6 +229,14 @@ class SettingsModelRegistry(
             else -> null
         }
         val inferred = ModelCapabilityInference.infer(model)
+        val isTaskOcr = provider is ProviderSetting.TaskOcrLocal
+        val taskOcr = provider as? ProviderSetting.TaskOcrLocal
+        val ocrPaths = taskOcr?.let {
+            listOf(it.detModelPath, it.recModelPath, File(it.recModelPath).parentFile?.resolve("ppocrv5_dict.txt")?.absolutePath.orEmpty())
+        }.orEmpty()
+        val ocrReady = ocrPaths.size == 3 && ocrPaths.all { path ->
+            path.isNotBlank() && File(path).isFile && File(path).length() > 0L
+        }
         val isFlux = provider is ProviderSetting.LiteRtLocal && model.modelId == FLUX2_KLEIN_MODEL.modelId
         val fluxStatus = if (isFlux) fluxPackage.validate().status else null
         val files = if (isFlux) {
@@ -236,16 +244,25 @@ class SettingsModelRegistry(
         } else {
             runtime?.let { localFiles[it].orEmpty().keys.filter { file -> file == model.modelId } }.orEmpty()
         }
-        val installed = if (isFlux) fluxPackage.root.exists() else files.isNotEmpty()
-        val capabilities = inferred.verified
+        val installed = if (isTaskOcr) ocrReady
+            else if (isFlux) fluxPackage.root.exists()
+            else files.isNotEmpty()
+        val capabilities = inferred.verified +
+            (if (isTaskOcr) setOf(ModelCapability.OCR) else emptySet())
         return ModelDescriptor(
             id = modelId(model),
             displayName = model.displayName.ifBlank { model.modelId },
-            source = runtime?.let { ModelSource.Local(it, files) }
-                ?: ModelSource.Cloud(provider.id.toString(), model.modelId),
+            source = if (isTaskOcr) {
+                ModelSource.Local(LocalRuntime.LiteRT, ocrPaths.map { File(it).name })
+            } else {
+                runtime?.let { ModelSource.Local(it, files) }
+                    ?: ModelSource.Cloud(provider.id.toString(), model.modelId)
+            },
             capabilities = capabilities,
             enabledCapabilities = capabilities - disabledCapabilities,
-            lifecycle = if (isFlux) {
+            lifecycle = if (isTaskOcr) {
+                if (ocrReady) ModelLifecycle.READY else ModelLifecycle.ERROR
+            } else if (isFlux) {
                 when (fluxStatus) {
                     Flux2KleinPackageStatus.Ready -> ModelLifecycle.READY
                     null -> ModelLifecycle.AVAILABLE

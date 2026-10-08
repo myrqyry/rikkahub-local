@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -27,6 +28,7 @@ import me.rerere.rikkahub.ui.pages.modelmanager.LiteRtGalleryModel
 import me.rerere.rikkahub.ui.pages.modelmanager.LiteRtGalleryAsset
 import me.rerere.rikkahub.ui.pages.modelmanager.LiteRtModelsGallery
 import me.rerere.rikkahub.ui.pages.modelmanager.ModelManagerViewModel
+import me.rerere.rikkahub.ui.pages.modelmanager.PpOcrVerifiedPackage
 
 /** Curated upstream model list, with actual artifact discovery before each download. */
 @Composable
@@ -37,10 +39,13 @@ internal fun LiteRtModelsCatalogSheet(
     val repositoryState by viewModel.galleryDiscovery.collectAsStateWithLifecycle()
     // Re-read file status after an asset is removed, even if model selection is unchanged.
     val galleryVersion by viewModel.galleryVersion.collectAsStateWithLifecycle()
+    val ppOcrSelected by viewModel.ppOcrSelected.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<LiteRtGalleryModel?>(null) }
     var deleting by remember { mutableStateOf<LiteRtGalleryAsset?>(null) }
+    var removeVerifiedOcr by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -57,6 +62,39 @@ internal fun LiteRtModelsCatalogSheet(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (selected == null) {
+            // Functional PP-OCRv5 path, separate from the general source-only
+            // catalog. Three revision-pinned and hashed files are required.
+            val ocrReady = remember(context, galleryVersion, downloadInProgress) {
+                PpOcrVerifiedPackage.present(context)
+            }
+            Text("PP-OCRv5 · verified OCR package", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "Google LiteRT Model Zoo: detector, recognizer and text dictionary " +
+                    "(~26 MiB). Downloads are pinned and SHA-256 checked. " +
+                    "Enabling OCR requires an explicit second tap.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (!ocrReady) {
+                Button(
+                    onClick = viewModel::downloadVerifiedPpOcr,
+                    enabled = !downloadInProgress,
+                ) { Text("Download verified PP-OCRv5 package") }
+            } else if (ppOcrSelected) {
+                Text(
+                    "PP-OCRv5 is selected as your on-device OCR model.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                Button(
+                    onClick = viewModel::selectVerifiedPpOcr,
+                    enabled = !downloadInProgress,
+                ) { Text("Use PP-OCRv5 for OCR") }
+                TextButton(
+                    onClick = { removeVerifiedOcr = true },
+                    enabled = !downloadInProgress,
+                ) { Text("Remove downloaded OCR package") }
+            }
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
@@ -162,6 +200,22 @@ internal fun LiteRtModelsCatalogSheet(
                 }
             }
         }
+    }
+    if (removeVerifiedOcr) {
+        AlertDialog(
+            onDismissRequest = { removeVerifiedOcr = false },
+            title = { Text("Remove PP-OCRv5 package?") },
+            text = { Text("Remove only the three verified PP-OCRv5 files from RikkaHub?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.removeVerifiedPpOcr()
+                    removeVerifiedOcr = false
+                }) { Text("Remove") }
+            },
+            dismissButton = {
+                TextButton(onClick = { removeVerifiedOcr = false }) { Text("Cancel") }
+            },
+        )
     }
     deleting?.let { asset ->
         val entry = selected
