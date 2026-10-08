@@ -6,7 +6,6 @@ import android.os.Build
 import android.os.PerformanceHintManager
 import android.os.Process
 import com.google.ai.edge.litertlm.Backend
-import com.google.ai.edge.litertlm.ModelInfo
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Conversation
@@ -380,7 +379,7 @@ class LiteRtRuntime(private val context: Context) {
      *
      * Returns the resolved accelerator label that was actually used.
      */
-    @OptIn(ExperimentalApi::class) // ExperimentalFlags.* + Capabilities.hasSpeculativeDecodingSupport
+    @OptIn(ExperimentalApi::class) // ExperimentalFlags.* + ModelInfo metadata probe
     suspend fun ensureLoaded(
         modelPath: String,
         preferredAccel: String? = null,
@@ -416,22 +415,37 @@ class LiteRtRuntime(private val context: Context) {
         )
         val accel = initialPlan.accelerator
 
-        // Probe the file for speculative-decoding support BEFORE building the engine.
-        val supportsSpeculativeDecoding = try {
-            ModelInfo.from(modelPath).use { info ->
-                (info as? ModelInfo.Llm)?.hasSpeculativeDecodingSupport() == true
-            }
-        } catch (_: Throwable) {
-            false
-        }
+        // Gallery's current model-bundle introspection: distinguish file-declared
+        // capabilities from curated catalog assumptions. A metadata failure or an
+        // UNKNOWN bundle retains the existing fallback, never falsely claims denial.
+        val fileCapabilities = LiteRtFileIntrospector.inspect(modelPath)
+        val fileExecution = fileCapabilities?.executionPlan(
+            requestedImage = supportImage,
+            requestedAudio = supportAudio,
+            requestedMaxNumTokens = maxNumTokens,
+        ) ?: LiteRtFileCapabilities.ExecutionPlan(
+            image = supportImage,
+            audio = supportAudio,
+            maxNumTokens = maxNumTokens,
+        )
+        val supportsSpeculativeDecoding = fileCapabilities?.speculativeDecoding == true
         val effectiveSpeculativeDecoding = speculativeDecoding && supportsSpeculativeDecoding
+        fileCapabilities?.let { evidence ->
+            android.util.Log.i(
+                "LiteRtRuntime",
+                "Bundle declares kind=${evidence.kind} vision=${evidence.vision} " +
+                    "audio=${evidence.audio} tools=${evidence.toolCalling} " +
+                    "thinking=${evidence.thinking} backends=${evidence.textBackends} " +
+                    "context=${evidence.maxContextTokens} minRuntime=${evidence.minRuntimeVersion}",
+            )
+        }
 
         val desiredEngineKey = EngineKey(
             modelPath = modelPath,
             accelerator = accel,
-            maxNumTokens = maxNumTokens,
-            supportImage = supportImage,
-            supportAudio = supportAudio,
+            maxNumTokens = fileExecution.maxNumTokens,
+            supportImage = fileExecution.image,
+            supportAudio = fileExecution.audio,
             speculativeDecoding = effectiveSpeculativeDecoding,
             visionAccelerator = visionAccelerator,
         )
@@ -461,6 +475,7 @@ class LiteRtRuntime(private val context: Context) {
                 return@withLock LoadOutcome(
                     accelerator = accel,
                     visionEnabled = current.engineKey.supportImage,
+                    audioEnabled = current.engineKey.supportAudio,
                     visionFellBackToTextOnly = false,
                     fileSupportsSpeculativeDecoding = current.fileSupportsSpeculativeDecoding,
                     speculativeDecodingEngaged = current.speculativeDecodingEngaged,
@@ -480,6 +495,7 @@ class LiteRtRuntime(private val context: Context) {
             return@withLock LoadOutcome(
                 accelerator = accel,
                 visionEnabled = current.engineKey.supportImage,
+                audioEnabled = current.engineKey.supportAudio,
                 visionFellBackToTextOnly = false,
                 fileSupportsSpeculativeDecoding = current.fileSupportsSpeculativeDecoding,
                 speculativeDecodingEngaged = current.speculativeDecodingEngaged,
@@ -650,6 +666,7 @@ class LiteRtRuntime(private val context: Context) {
         LoadOutcome(
             accelerator = loadResult.accelerator,
             visionEnabled = loadResult.supportImage,
+            audioEnabled = desiredEngineKey.supportAudio,
             visionFellBackToTextOnly = desiredEngineKey.supportImage && !loadResult.supportImage,
             fileSupportsSpeculativeDecoding = supportsSpeculativeDecoding,
             speculativeDecodingEngaged = effectiveSpeculativeDecoding,
@@ -677,8 +694,9 @@ class LiteRtRuntime(private val context: Context) {
     data class LoadOutcome(
         val accelerator: String,
         val visionEnabled: Boolean,
+        val audioEnabled: Boolean,
         val visionFellBackToTextOnly: Boolean,
-        /** True iff `Capabilities.hasSpeculativeDecodingSupport()` returned true for the
+        /** True iff `ModelInfo.Llm.hasSpeculativeDecodingSupport()` returned true for the
          *  model file. */
         val fileSupportsSpeculativeDecoding: Boolean,
         /** True iff the caller requested speculative decoding AND the file supports it

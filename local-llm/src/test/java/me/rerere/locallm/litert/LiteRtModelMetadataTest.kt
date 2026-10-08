@@ -60,10 +60,10 @@ class LiteRtModelMetadataTest {
     }
 
     @Test
-    fun `unknown HF-URL-pasted model falls back to text + tool`() {
+    fun `unknown HF-URL-pasted model does not invent native tool support`() {
         val caps = LiteRtModelMetadata.deriveCapabilities("some-random-model-i-pasted.litertlm")
         assertEquals(listOf(Modality.TEXT), caps.inputModalities)
-        assertEquals(listOf(ModelAbility.TOOL), caps.abilities)
+        assertEquals(emptyList<ModelAbility>(), caps.abilities)
     }
 
     @Test

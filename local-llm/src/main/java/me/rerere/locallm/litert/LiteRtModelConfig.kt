@@ -28,6 +28,10 @@ object LiteRtModelDefaults {
             ?: BUILT_IN.firstOrNull { it.modelFile == modelFile }
             ?: FALLBACK
 
+    fun isCurated(modelFile: String): Boolean =
+        FunctionGemmaMobileActionsProfile.runtimeConfigFor(modelFile) != null ||
+            BUILT_IN.any { it.modelFile == modelFile }
+
     private val FALLBACK = LiteRtModelConfig(
         modelFile = "<unknown>",
         sizeBytes = 0L,

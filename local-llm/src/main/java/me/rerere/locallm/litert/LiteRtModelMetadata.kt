@@ -10,8 +10,9 @@ import me.rerere.ai.provider.ModelAbility
  * LiteRT catalog instead of the cloud model definitions.
  *
  * For unknown files (HF-URL-pasted models that aren't in our catalog), falls back to the
- * safest assumption: TEXT-only input, TOOL ability (LiteRT-supported models are typically
- * tool-tuned; DeepSeek-R1-Distill was excluded for this reason).
+ * safest assumption: TEXT-only input with no asserted TOOL/REASONING ability.
+ * A custom model may support tools, but an unknown filename cannot prove it.
+ * Existing user overrides remain preserved by [mergeAdditive].
  */
 object LiteRtModelMetadata {
 
@@ -26,9 +27,8 @@ object LiteRtModelMetadata {
      * Mapping rules (matches [LiteRtModelConfig]):
      *   - `supportsImage = true`  -> add Modality.IMAGE.
      *   - `supportsThinking = true` -> add ModelAbility.REASONING.
-     *   - ModelAbility.TOOL is always added (every model we ship through the LiteRT
-     *     catalog is tool-tuned; the agent loop depends on it; DeepSeek-R1-Distill was
-     *     deliberately removed from the catalog because it isn't tool-tuned).
+     *   - ModelAbility.TOOL is added only for a curated known model. Never infer
+     *     tool support for arbitrary imported files solely from the LiteRT format.
      */
     fun deriveCapabilities(modelFile: String): Capabilities {
         val config = LiteRtModelDefaults.forModelFile(modelFile)
@@ -37,7 +37,7 @@ object LiteRtModelMetadata {
             if (config.supportsImage) add(Modality.IMAGE)
         }
         val abilities = buildList {
-            add(ModelAbility.TOOL)
+            if (LiteRtModelDefaults.isCurated(modelFile)) add(ModelAbility.TOOL)
             if (config.supportsThinking) add(ModelAbility.REASONING)
         }
         return Capabilities(modalities, abilities)

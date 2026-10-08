@@ -458,13 +458,37 @@ class LiteRtProvider(
             // them why; otherwise it's a silent no-op (text-only model, no attachment).
             emptyList()
         }
-        val turnAudio: List<ByteArray> = if (config.supportsAudio) {
-            lastUser?.parts
-                ?.filterIsInstance<UIMessagePart.Audio>()
-                ?.mapNotNull { it.audioBytes(context) }
-                .orEmpty()
+        val userAudioParts = lastUser?.parts
+            ?.filterIsInstance<UIMessagePart.Audio>()
+            .orEmpty()
+        val turnAudio: List<ByteArray> = if (outcome.audioEnabled) {
+            userAudioParts.mapNotNull { it.audioBytes(context) }
         } else {
             emptyList()
+        }
+        if (userAudioParts.isNotEmpty() && config.supportsAudio && !outcome.audioEnabled) {
+            emit(
+                MessageChunk(
+                    id = streamId,
+                    model = params.model.modelId,
+                    choices = listOf(
+                        UIMessageChoice(
+                            index = 0,
+                            delta = UIMessage(
+                                role = MessageRole.ASSISTANT,
+                                parts = listOf(
+                                    UIMessagePart.Text(
+                                        "[Audio attachment wasn't sent: this model bundle " +
+                                            "does not declare an audio encoder.]\n\n"
+                                    )
+                                ),
+                            ),
+                            message = null,
+                            finishReason = null,
+                        )
+                    ),
+                )
+            )
         }
         if (turnImages.isNotEmpty() || turnAudio.isNotEmpty()) {
             Log.i(

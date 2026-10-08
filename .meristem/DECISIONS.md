@@ -51,3 +51,17 @@ The planner is evidence/policy, not capability authority. Runtime fallback is re
 `local-llm/.../litert/compute/DeviceExecutionProfile.kt`; `local-llm/.../litert/LiteRtExecutionPlanner.kt`; `ExecutionProfileProbe.kt`; `LiteRtRuntime.ensureLoaded`; `docs/references/architecture.md`.
 
 **Supersedes:** none
+
+## 2026-10-08 — LiteRT model capabilities require bundle evidence and device execution receipts
+
+**Decision:** On a selected .litertlm chat model, inspect the official LiteRT-LM 0.18.0 `ModelInfo` when possible. A positive LLM bundle declaration can restrict actual image/audio encoder initialization and constrain the model's requested maximum tokens; an embedding-only bundle is not accepted by the chat engine. An unrecognized or uninspectable legacy bundle falls back to curated catalog settings rather than treating unknown as unsupported. An unknown model filename does *not* independently prove TOOL support for newly registered models.
+
+**Why:** Filename/catalog estimates were used as if they were built-in features of every downloaded model, and arbitrary Hugging Face imports were labelled tool-capable. Gallery's modern `OnDeviceEmbedder` now reads `ModelInfo` to constrain execution; LiteRT-LM introduced a richer model file metadata contract in 0.18.0.
+
+**Alternatives considered:** Trust only filenames, automatically enable every advertised modality, treat any metadata parse failure as a negative result, or populate device capability results directly from the model header. Each would conflate at least two evidence levels.
+
+**Constraints / consequences:** Bundle-declared support is **not** hardware/backend availability, verified native inference, native tool execution or user authorization. Current installed user overrides remain intact; additive migrations never remove existing manually set capabilities. The model import/download path still needs immutable, hash-verified artifacts before parsing untrusted arbitrary files for UI registration, so bundle introspection currently happens lazily on selected engine load. Audio/vision are only forwarded after post-load execution gates. Core LiteRT 2.3.0 remains a separate, unqualified branch. Pixel validation of LiteRT-LM 0.18.0 remains outstanding while ADB is disconnected.
+
+**Evidence / references:** `local-llm/src/main/java/me/rerere/locallm/litert/LiteRtFileCapabilities.kt`, `LiteRtRuntime.ensureLoaded`, `LiteRtModelMetadata`, `LiteRtProvider`; official `google-ai-edge/LiteRT-LM` v0.18.0 `ModelInfo.kt`; `google-ai-edge/gallery` 1.0.20 `OnDeviceEmbedder.kt`. Host tests/build: `/tmp/rikkahub-modelinfo-integrated-20261008.log` (full local-llm JVM unit test task, app and instrumented APK assemble successful). No device claim.
+
+**Supersedes:** none
