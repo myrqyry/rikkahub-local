@@ -205,7 +205,7 @@ kotlin {
 
 dependencies {
     // Explicit compile dependency for EmbeddingEngine; already shipped via :local-llm.
-    implementation("com.google.ai.edge.litertlm:litertlm-android:0.17.0")
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.process)
