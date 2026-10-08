@@ -10,11 +10,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -46,10 +45,18 @@ fun OpenCodeWorkspaceDetailPage(refId: String) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.workspace_opencode_detail_title)) },
+                title = { Text(state.session?.title?.takeIf { it.isNotBlank() }
+                    ?: stringResource(R.string.workspace_opencode_detail_title)) },
                 navigationIcon = { BackButton() },
                 actions = {
-                    TextButton(onClick = vm::refresh, enabled = state.session != null && !state.loading) { Text(stringResource(R.string.workspace_opencode_detail_refresh)) }
+                    if (state.session != null) {
+                        TextButton(onClick = vm::openSessionPicker, enabled = !state.loading && !state.sending) {
+                            Text(stringResource(R.string.workspace_opencode_detail_switch_session))
+                        }
+                    }
+                    TextButton(onClick = vm::refresh, enabled = !state.loading && !state.sending) {
+                        Text(stringResource(R.string.workspace_opencode_detail_refresh))
+                    }
                 },
                 colors = CustomColors.topBarColors,
             )
@@ -64,13 +71,33 @@ fun OpenCodeWorkspaceDetailPage(refId: String) {
                 Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp))
             }
             if (state.session == null) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(24.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text(stringResource(R.string.workspace_opencode_detail_no_session), style = MaterialTheme.typography.titleMedium)
-                    Button(onClick = vm::createSession, enabled = !state.loading) {
-                        if (state.loading) CircularProgressIndicator(modifier = Modifier.padding(4.dp)) else Text(stringResource(R.string.workspace_opencode_detail_start_session))
+                    item {
+                        Text(stringResource(R.string.workspace_opencode_detail_no_session), style = MaterialTheme.typography.titleMedium)
+                    }
+                    item {
+                        Button(onClick = vm::createSession, enabled = !state.loading) {
+                            Text(stringResource(R.string.workspace_opencode_detail_start_session))
+                        }
+                    }
+                    if (state.loading) item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
+                    if (state.sessions.isNotEmpty()) {
+                        item {
+                            Text(stringResource(R.string.workspace_opencode_detail_recent_sessions), style = MaterialTheme.typography.titleSmall)
+                        }
+                        items(state.sessions, key = { it.id }) { session ->
+                            OutlinedButton(
+                                onClick = { vm.selectSession(session) },
+                                enabled = !state.loading,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(session.title?.takeIf { it.isNotBlank() } ?: session.id)
+                            }
+                        }
                     }
                 }
             } else {

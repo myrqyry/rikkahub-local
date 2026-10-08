@@ -2125,6 +2125,8 @@
   <string name="workspace_opencode_detail_refresh">Refresh</string>
   <string name="workspace_opencode_detail_no_session">No remote session is open.</string>
   <string name="workspace_opencode_detail_start_session">Start session</string>
+  <string name="workspace_opencode_detail_switch_session">Sessions</string>
+  <string name="workspace_opencode_detail_recent_sessions">Recent sessions</string>
   <string name="workspace_opencode_detail_message_hint">Message OpenCode</string>
   <string name="workspace_opencode_detail_send">Send</string>
   <string name="workspace_opencode_detail_abort">Abort session</string>

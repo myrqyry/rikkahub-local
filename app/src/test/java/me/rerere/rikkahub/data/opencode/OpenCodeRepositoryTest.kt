@@ -22,6 +22,8 @@ class OpenCodeRepositoryTest {
         val repository = OpenCodeRepository(store) { client }
 
         assertEquals(OpenCodeSession("session", "Demo", "/work/demo"), repository.createSession(reference.id))
+        assertEquals(listOf(OpenCodeSession("session", "Demo", "/work/demo")), repository.listSessions(reference.id))
+        assertEquals("/work/demo", client.listDirectory)
         assertEquals(listOf(OpenCodeMessage("m1", "assistant", "hello")), repository.getMessages(reference.id, "session"))
         assertEquals(OpenCodeMessage("m2", "assistant", "done"), repository.prompt(reference.id, "session", "hi"))
         assertTrue(repository.abortSession(reference.id, "session"))
@@ -120,10 +122,14 @@ class OpenCodeRepositoryTest {
     private class FakeClient : OpenCodeClient {
         var promptText: String? = null
         var abortedSession: String? = null
+        var listDirectory: String? = null
         override suspend fun health() = OpenCodeHealth(true, "1.0")
         override suspend fun listProjects() = emptyList<OpenCodeProject>()
         override suspend fun createSession(directory: String?) = OpenCodeSession("session", "Demo", directory)
-        override suspend fun listSessions(directory: String?) = emptyList<OpenCodeSession>()
+        override suspend fun listSessions(directory: String?): List<OpenCodeSession> {
+            listDirectory = directory
+            return listOf(OpenCodeSession("session", "Demo", directory))
+        }
         override suspend fun getSession(sessionId: String, directory: String?) = OpenCodeSession(sessionId, directory = directory)
         override suspend fun getMessages(sessionId: String, directory: String?) = listOf(OpenCodeMessage("m1", "assistant", "hello"))
         override suspend fun prompt(sessionId: String, directory: String?, text: String): OpenCodeMessage {

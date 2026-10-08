@@ -78,6 +78,11 @@ class OpenCodeRepository(
         ).also { store.saveWorkspaceRef(it) }
     }
 
+    suspend fun listSessions(refId: String): List<OpenCodeSession> {
+        val ref = requireRef(refId)
+        return client(requireConnection(ref.connectionId)).listSessions(ref.remoteDirectory)
+    }
+
     suspend fun createSession(refId: String): OpenCodeSession {
         val ref = requireRef(refId)
         return client(requireConnection(ref.connectionId)).createSession(ref.remoteDirectory)

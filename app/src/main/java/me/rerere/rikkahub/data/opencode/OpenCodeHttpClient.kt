@@ -46,7 +46,10 @@ internal class OpenCodeHttpClient(
         post("/session", directoryQuery(directory), buildJsonObject {}).jsonObject.toSession()
 
     override suspend fun listSessions(directory: String?): List<OpenCodeSession> =
-        get("/session", directoryQuery(directory)).arrayItems().map { it.toSession() }
+        get("/session", directoryQuery(directory) + ("limit" to "30"))
+            .arrayItems()
+            .map { it.toSession() }
+            .filter { directory == null || it.directory == directory }
 
     override suspend fun getSession(sessionId: String, directory: String?): OpenCodeSession =
         get("/session/${sessionId.pathSegment()}", directoryQuery(directory)).jsonObject.toSession()
@@ -112,10 +115,16 @@ internal class OpenCodeHttpClient(
     )
 
     private fun JsonObject.toMessageOrNull(): OpenCodeMessage? {
-        val id = string("id") ?: return null
-        val role = string("role") ?: get("info")?.jsonObject?.string("role") ?: "assistant"
-        val text = string("text") ?: get("parts")?.jsonArray?.joinToString("") { part -> part.jsonObject.string("text").orEmpty() }
-            ?: return null
+        // OpenCode V2 returns { info: { id, role }, parts: [...] }, while older
+        // servers may keep id and role directly on the message.
+        val info = get("info") as? JsonObject
+        val id = string("id") ?: info?.string("id") ?: return null
+        val role = string("role") ?: info?.string("role") ?: "assistant"
+        // Reasoning, tool calls, and other parts must not be displayed as text.
+        val parts = (get("parts") as? JsonArray)?.mapNotNull { part ->
+            (part as? JsonObject)?.takeIf { it.string("type") == "text" }?.string("text")
+        }
+        val text = string("text") ?: parts?.takeIf { it.isNotEmpty() }?.joinToString("") ?: return null
         return OpenCodeMessage(id, role, text)
     }
 
