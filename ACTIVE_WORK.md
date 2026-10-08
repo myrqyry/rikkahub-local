@@ -200,3 +200,10 @@ adapted.
   elimination. More consequential than latest MD3 visual refresh, and
   requires a separate tested migration/worktree due custom persistence keys.
 - No automatic upstream merge; no push or device changes.
+
+## LiteRT-LM 0.18.0 SDK cache-marker consistency — 2026-10-08
+
+- Follow-up to the pinned 0.18.0 Kotlin API upgrade: `LocalRuntimePreferences.LITERTLM_SDK_VERSION` was left at 0.17.0 while both `local-llm` and `app` depend on 0.18.0. Startup `maybeInvalidateOnSdkUpgrade` therefore missed invalidation for persisted 0.17.0 SDK markers. Bumped the marker to 0.18.0 and factored the pure change predicate into `shouldInvalidateSdkVersion`. Removed an obsolete Gradle comment.
+- Added `LocalRuntimePreferencesSdkVersionTest` to cover null/older/current markers and assert that both module Gradle dependencies stay synchronized with the persisted marker (2/2 focused). This is a *host-only* test of migration admission/version consistency, not proof of Android DataStore cleanup or native backend correctness.
+- Verified `./gradlew :local-llm:testDebugUnitTest :app:compileDebugKotlin --console=plain --max-workers=2`: **BUILD SUCCESSFUL in 3m 5s**, full JUnit XML **490 tests / 66 suites / 0 failures / 0 errors / 0 skips**. `git diff --check` passed. Existing unrelated Gradle/Kotlin deprecation warnings remain.
+- **No APK install, phone cache deletion, model changes or push**. On a future in-place 0.18.0 app update from persisted 0.17.0, the existing app-start path is expected to invalidate SDK-coupled decisions and delete only recognized generated XNNPACK/ML Drift cache files, potentially requiring substantial cold compilation/storage. This device behavior, cache cleanup success and genuine GPU inference remain unverified. Preserve app state/backup and inspect available storage before device qualification.

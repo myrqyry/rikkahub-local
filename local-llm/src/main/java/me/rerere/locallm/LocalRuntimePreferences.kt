@@ -155,7 +155,7 @@ class LocalRuntimePreferences(private val context: Context) {
         var invalidated = false
         context.localRuntimeDataStore.edit { prefs ->
             val stored = prefs[sdkVersionKey(runtime)]
-            if (stored != currentSdkVersion) {
+            if (shouldInvalidateSdkVersion(stored)) {
                 // Clear the three keys whose meaning is SDK-coupled. We DON'T clear
                 // forceCpuKey (it's an explicit user preference, not an inferred one),
                 // maxNumTokensOverrideKey (user-set override), or the installed-models
@@ -196,7 +196,11 @@ class LocalRuntimePreferences(private val context: Context) {
          *  the dep without bumping this constant will leave stale CPU/vision-unavailable
          *  decisions live; bumping this constant without bumping the dep is harmless
          *  (just causes a one-time unnecessary re-probe). */
-        const val LITERTLM_SDK_VERSION: String = "0.17.0"
+        const val LITERTLM_SDK_VERSION: String = "0.18.0"
+
+        /** One-shot migration decision; keep in sync with the pinned runtime artifact. */
+        internal fun shouldInvalidateSdkVersion(storedVersion: String?): Boolean =
+            storedVersion != LITERTLM_SDK_VERSION
     }
 
     private fun decodeInstalledMap(raw: String?): Map<String, String> {

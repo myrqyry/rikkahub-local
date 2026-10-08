@@ -53,8 +53,7 @@ dependencies {
     // native-SIGSEGV inside liblitertlm_jni.so (nativeCreateEngine) on 0.11.0. History: a
     // prior 0.12.0 bump SIGSEGV'd during vision-encoder init on Snapdragon 8 Gen 1
     // (Adreno), so 0.11.0 was pinned to match Google AI Edge Gallery's reference build.
-    // 0.17.0 is now the latest; re-verify Gemma 4 vision on Adreno-class devices before
-    // relying on it there.
+    // Re-verify Gemma 4 vision on Adreno-class devices before relying on it there.
     // Updated to 0.18.0 (2026-10-08): Capabilities was removed in favor of
     // ModelInfo.Llm; app and local-llm must resolve exactly the same revision.
     // Compilation qualified; runtime/Pixel verification still pending.
