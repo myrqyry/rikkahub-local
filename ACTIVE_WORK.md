@@ -184,3 +184,19 @@ adapted.
 - Full combined `./gradlew :local-llm:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest` initially FAILED at the unrelated `MicroAgentEventMeshTest.queueOverflowReportedWhenBoundedCapacityExhausted` (488 cases, one assertion at line 261). This event-mesh test predates the model changes and appears scheduling-sensitive; **cause not independently proven**. Do not erase this observed failure.
 - That exact event-mesh test PASSED when run in isolation together with `:app:assembleDebug` and `:app:assembleDebugAndroidTest` (`/tmp/rikkahub-vibethinker-isolated-flake-build-20261008.log`: BUILD SUCCESSFUL). Then `./gradlew :local-llm:testDebugUnitTest` passed the complete suite in `/tmp/rikkahub-vibethinker-unit-suite-rerun-20261008.log`: JUnit **488 tests / 65 suites / 0 failures / 0 errors / 0 skipped** (including 6 VerifiedModelInstallTest + 3 VibeThinkerCatalogTest). This establishes build and host test coverage, not a live 2GB download or Pixel inference.
 - Latest pinned model metadata was reconfirmed live via Hugging Face API after the build: revision `7790b109a7861b2f6982ccc9877d27faba57a712`, byte length `2059236272`, SHA `7885496ccd8f70680474e66e88eccfdc966c1870a39b5fdbea837f897e4742a0`.
+
+## Upstream RikkaHub / Agent review and focused backports — 2026-10-08
+
+- Source inspection + ordered candidates in `.meristem/upstream-review-2026-10-08.md`.
+- Ported mainline 2026-10-03 OpenAI Responses tool optional-schema fix
+  (`strict: false`); focused request test, full AI JVM unit test and app debug
+  build all passed (`/tmp/rikkahub-upstream-response-strict-full-20261008.log`).
+- Ported Agent 2026-09-24 file-copy source-stream lifetime fix; app debug
+  build passed, but file descriptor regression test is **not run** because
+  `:app:compileDebugUnitTestKotlin` hits Gradle 9.4.1 'Invalid file path'
+  while hashing its output; separate diagnostics in review. Never mark test
+  passed or device-verified.
+- Next upstream merge target: settings-store concurrency+stale snapshot
+  elimination. More consequential than latest MD3 visual refresh, and
+  requires a separate tested migration/worktree due custom persistence keys.
+- No automatic upstream merge; no push or device changes.

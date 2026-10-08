@@ -1,6 +1,9 @@
 package me.rerere.rikkahub.data.ai.tools.local
 
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.Paths
+import org.junit.Assume
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
@@ -32,6 +35,39 @@ class FileManagerToolTest {
 
     @get:Rule
     val tmp = TemporaryFolder()
+
+    @Test fun `early destination error closes file manager source descriptor`() {
+        // Linux /proc exposes a direct observable receipt of leaked streams.
+        // Other JVM hosts skip the OS-specific part, while normal copy tests
+        // below continue to cover file behavior.
+        Assume.assumeTrue(File("/proc/self/fd").isDirectory)
+        val source = tmp.newFile("copy-source-leak-check.bin")
+        source.writeText("source must remain intact")
+        val destination = tmp.newFile("copy-existing-destination.bin")
+        destination.writeText("do not overwrite")
+        fun openSourceDescriptors(): Long =
+            Files.list(Paths.get("/proc/self/fd")).use { listing ->
+                listing.filter { fd ->
+                    runCatching {
+                        Files.readSymbolicLink(fd).toString() == source.absolutePath
+                    }.getOrDefault(false)
+                }.count()
+            }
+        val before = openSourceDescriptors()
+        repeat(4) {
+            val result = moveOrCopyContent(
+                NULL_CONTEXT,
+                source.absolutePath,
+                destination.absolutePath,
+                JsonObject(emptyMap()),
+                deleteSrc = false,
+            ).filterIsInstance<UIMessagePart.Text>().first().text
+            assertEquals("destination_exists", Json.parseToJsonElement(result).jsonObject["error"]?.jsonPrimitive?.content)
+        }
+        assertEquals("source stream must close even on early destination refusal", before, openSourceDescriptors())
+        assertEquals("source must remain intact", source.readText())
+        assertEquals("do not overwrite", destination.readText())
+    }
 
     // ========== PathSafetyGuard integration via tools ==========
 
