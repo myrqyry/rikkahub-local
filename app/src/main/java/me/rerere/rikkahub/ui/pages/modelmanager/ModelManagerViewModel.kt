@@ -2,6 +2,7 @@ package me.rerere.rikkahub.ui.pages.modelmanager
 
 import android.content.Context
 import android.net.Uri
+import android.os.StatFs
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
@@ -9,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -44,6 +46,13 @@ import kotlin.uuid.Uuid
 
 data class Progress(val percent: Int, val bytesRead: Long, val totalBytes: Long?)
 
+data class GalleryDiscovery(
+    val modelSlug: String? = null,
+    val loading: Boolean = false,
+    val assets: List<LiteRtGalleryAsset> = emptyList(),
+    val error: String? = null,
+)
+
 class ModelManagerViewModel(
     private val context: Context,
     private val prefs: LocalRuntimePreferences,
@@ -56,6 +65,128 @@ class ModelManagerViewModel(
 
     val catalogEntries: List<SdCatalogEntry> = SdCatalog.ENTRIES
     val unifiedCatalog: List<ModelCatalogEntry> = ModelCatalog.entries
+
+    val liteRtGallery: List<LiteRtGalleryModel> = LiteRtModelsGallery.load(context)
+    private val _galleryDiscovery = MutableStateFlow(GalleryDiscovery())
+    val galleryDiscovery: StateFlow<GalleryDiscovery> = _galleryDiscovery.asStateFlow()
+    private var galleryLookup: Job? = null
+    private val _galleryVersion = MutableStateFlow(0)
+    val galleryVersion: StateFlow<Int> = _galleryVersion.asStateFlow()
+
+    fun inspectGalleryModel(model: LiteRtGalleryModel) {
+        galleryLookup?.cancel()
+        _galleryDiscovery.value = GalleryDiscovery(modelSlug = model.slug, loading = true)
+        galleryLookup = viewModelScope.launch {
+            try {
+                val files = LiteRtModelsGallery.discover(httpClient, model)
+                _galleryDiscovery.value = GalleryDiscovery(modelSlug = model.slug, assets = files)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _galleryDiscovery.value = GalleryDiscovery(
+                    modelSlug = model.slug,
+                    error = e.message ?: "Could not inspect repository files",
+                )
+            }
+        }
+    }
+
+    fun galleryFileDownloaded(model: LiteRtGalleryModel, asset: LiteRtGalleryAsset): Boolean {
+        val file = LiteRtModelsGallery.targetFile(context, model, asset)
+        return file.isFile && file.length() > 0 &&
+            (asset.sizeBytes == null || file.length() == asset.sizeBytes)
+    }
+
+    /** Remove only one downloaded, non-runnable gallery artifact after UI confirmation. */
+    fun deleteGalleryAsset(model: LiteRtGalleryModel, asset: LiteRtGalleryAsset) {
+        if (asset.isRunnableLiteRtLm) {
+            _errorMessage.value = "Remove installed chat models from the Models page"
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val root = File(
+                    context.getExternalFilesDir(null) ?: context.filesDir,
+                    "local-models/litert-gallery",
+                ).canonicalFile
+                val target = LiteRtModelsGallery.targetFile(context, model, asset)
+                check(target.canonicalFile.toPath().startsWith(root.toPath())) {
+                    "Refusing to remove anything outside downloaded gallery files"
+                }
+                check(!java.nio.file.Files.isSymbolicLink(target.toPath())) {
+                    "Refusing to remove linked files"
+                }
+                if (target.exists()) {
+                    check(target.isFile && target.delete()) { "Could not remove gallery file" }
+                }
+                _galleryVersion.value += 1
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Could not delete downloaded file"
+            }
+        }
+    }
+
+    fun downloadGalleryAsset(model: LiteRtGalleryModel, asset: LiteRtGalleryAsset) {
+        if (_downloadProgress.value != null) return
+        if (_galleryDiscovery.value.modelSlug != model.slug ||
+            asset !in _galleryDiscovery.value.assets
+        ) {
+            _errorMessage.value = "Choose an asset from the repository file list first"
+            return
+        }
+        // Claim the download slot before dispatching; double taps cannot start two writers.
+        _downloadProgress.value = Progress(0, 0, asset.sizeBytes)
+        _errorMessage.value = null
+        viewModelScope.launch {
+            val target = LiteRtModelsGallery.targetFile(context, model, asset)
+            try {
+                check(!target.exists()) {
+                    "Already downloaded: ${target.name}. Remove it through file management before downloading again."
+                }
+                asset.sizeBytes?.let { bytes ->
+                    val available = StatFs(context.filesDir.absolutePath).availableBytes
+                    check(available > bytes + 256L * 1024 * 1024) {
+                        "Not enough free space for this model and a 256 MB safety reserve"
+                    }
+                }
+                ModelInstall.download(httpClient, asset.downloadUrl, target).collect { progress ->
+                    when (progress) {
+                        is ModelInstall.Progress.Started ->
+                            _downloadProgress.value = Progress(0, 0, progress.totalBytes)
+                        is ModelInstall.Progress.Tick -> {
+                            val size = progress.totalBytes
+                            _downloadProgress.value = Progress(
+                                if (size != null && size > 0) (progress.bytesRead * 100 / size).toInt() else 0,
+                                progress.bytesRead,
+                                size,
+                            )
+                        }
+                        is ModelInstall.Progress.Failed ->
+                            _errorMessage.value = progress.cause.message ?: "Download failed"
+                        is ModelInstall.Progress.Done -> {
+                            if (!withContext(Dispatchers.IO) {
+                                LiteRtModelsGallery.verify(progress.file, asset)
+                            }) {
+                                progress.file.delete()
+                                error("Downloaded size or SHA-256 differs from repository metadata")
+                            }
+                            if (asset.isRunnableLiteRtLm) {
+                                registerLiteRtModel(target.name, target.absolutePath)
+                            }
+                            // Other formats remain files, not registered as an unsupported
+                            // 'ready' chat model. Their download location is shown in the UI.
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Model download failed"
+            } finally {
+                _downloadProgress.value = null
+            }
+        }
+    }
 
     private val fluxPackageRoot = fluxPackage.root
     private val _fluxStatus = MutableStateFlow<Flux2KleinPackageStatus>(

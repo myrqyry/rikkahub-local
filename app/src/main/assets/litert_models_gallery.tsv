@@ -1,0 +1,104 @@
+# john-rocky/LiteRT-Models README model table snapshot, 2026-10-07; 102 rows
+# Source commit: 15c41a55bc68caea11b684c10bfe081cff411c08
+YOLO11n	Object detection	Pixel 8a	18+ FPS, live camera	https://github.com/john-rocky/LiteRT-Models/releases/download/v1/yolo11n.tflite
+YOLO26n	Object detection			https://github.com/john-rocky/LiteRT-Models/releases/download/v1/yolo26n.tflite
+RF-DETR Nano	Object detection (DETR, live camera)	Pixel 8a	~110 ms/frame (~9 fps)	https://huggingface.co/litert-community/RF-DETR-Nano-LiteRT
+RT-DETRv2-S	Object detection (DETR, still image)	Pixel 8a	~615 ms/frame	https://huggingface.co/litert-community/RT-DETRv2-S-LiteRT
+D-FINE-S	Object detection (DETR, still image)			https://huggingface.co/litert-community/D-FINE-S-LiteRT
+SSDLite320 MobileNetV3	Object detection	Pixel 8a	~30 FPS, live camera	https://huggingface.co/mlboydaisuke/ssdlite320-mobilenetv3-litert
+YOLO + DeepSORT (OSNet)	Multi-object tracking			https://github.com/john-rocky/LiteRT-Models/releases/download/v3/osnet_x0_25.tflite
+MoViNet-A0 (streaming)	Video action recognition			https://huggingface.co/litert-community/MoViNet-A0-Stream-LiteRT
+PIDNet-S	Semantic segmentation (Cityscapes)	Galaxy S26	16.20 ms (NPU 5.48)	https://huggingface.co/litert-community/PIDNet-S-Cityscapes-LiteRT
+YOLO26n-pose	Pose estimation			https://github.com/john-rocky/LiteRT-Models/releases/download/v2/yolo26n_pose.tflite
+RTMPose-s	Pose estimation (17 keypoints)	Pixel 8a	~4 ms	https://huggingface.co/litert-community/RTMPose-s-LiteRT
+RTMW-m	Whole-body pose (133 keypoints)	Pixel 8a	~6 ms	https://huggingface.co/litert-community/RTMW-m-WholeBody-LiteRT
+RTMPose-Hand	Hand pose (21 keypoints)	Pixel 8a	~4 ms	https://huggingface.co/litert-community/RTMPose-Hand-LiteRT
+RTMPose-Animal	Animal pose (AP-10K)	Pixel 8a	~5 ms	https://huggingface.co/litert-community/RTMPose-Animal-AP10K-LiteRT
+DewarpNet	Document dewarping	Galaxy S26	17.64 ms (NPU 4.99)	https://huggingface.co/litert-community/DewarpNet-LiteRT
+Ultra-Fast-Lane-Detection	Lane detection	Pixel 8a	~20 ms	https://huggingface.co/litert-community/Ultra-Fast-Lane-Detection-LiteRT
+TwinLiteNet	Drivable area + lanes	Pixel 8a	~44 ms	https://huggingface.co/litert-community/TwinLiteNet-LiteRT
+EDSR (×4)	Super-resolution ×4	Pixel 8a	~23 ms	https://huggingface.co/litert-community/EDSR-x4-LiteRT
+DehazeFormer-MCT	Image dehazing	Pixel 8a	~255 ms/frame	https://huggingface.co/litert-community/DehazeFormer-MCT-LiteRT
+Cloth Segmentation (U²-Net)	Clothing segmentation	Pixel 8a	~88 ms	https://huggingface.co/litert-community/Cloth-Segmentation-U2Net-LiteRT
+U²-Net Portrait	Portrait sketch	Pixel 8a	~12 ms	https://huggingface.co/litert-community/U2Net-Portrait-Sketch-LiteRT
+Silent-Face (MiniFASNetV2)	Face liveness / anti-spoofing	Pixel 8a	~5 ms	https://huggingface.co/litert-community/Silent-Face-Anti-Spoofing-LiteRT
+6DRepNet	Head pose	Galaxy S26	8.18 ms (NPU 1.74)	https://huggingface.co/litert-community/6DRepNet-HeadPose-LiteRT
+SINet-V2	Camouflaged object detection	Galaxy S26	12.39 ms (NPU 3.08)	https://huggingface.co/litert-community/SINet-V2-Camouflage-LiteRT
+DM-Count	Crowd counting			https://huggingface.co/litert-community/DM-Count-Crowd-LiteRT
+YOLACT-ResNet50	Instance segmentation	Pixel 8a	~41 ms	https://huggingface.co/litert-community/YOLACT-ResNet50-LiteRT
+MobileSAM	Tap-to-segment (SAM)			https://github.com/john-rocky/LiteRT-Models/releases/download/v1/mobilesam_encoder.tflite
+SAM 2.1 (Hiera-Tiny)	Tap-to-segment (SAM 2.1)	Pixel 8a	610 ms encoder / 76 ms decoder	https://huggingface.co/mlboydaisuke/SAM2-hiera-tiny-LiteRT
+EdgeTAM (SAM2)	Tap-to-segment (SAM 2, mobile)	Pixel 8a	~110–220 ms encoder / ~60 ms decoder	https://huggingface.co/mlboydaisuke/EdgeTAM-LiteRT
+EdgeTAM Video	Video object tracking (SAM 2 memory)	Pixel 8a	~0.45 s/frame	https://huggingface.co/mlboydaisuke/EdgeTAM-LiteRT
+RMBG-1.4 (ISNet)	Background removal			https://github.com/john-rocky/LiteRT-Models/releases/download/v1/rmbg14.tflite
+ormbg	Background removal (Apache-2.0)	Pixel 8a	246 ms (1024², run + readback)	https://huggingface.co/litert-community/ormbg-LiteRT
+DIS (IS-Net)	High-precision cutout	Galaxy S26	72.43 ms (NPU 24.21)	https://huggingface.co/litert-community/DIS-ISNet-LiteRT
+MODNet	Portrait matting	Pixel 8a	~79 ms/frame	https://huggingface.co/litert-community/MODNet-LiteRT
+LaMa-Dilated	Inpainting			https://github.com/john-rocky/LiteRT-Models/releases/download/v1/lama_dilated.tflite
+MI-GAN	Inpainting / object removal	Pixel 8a	~6 ms (512²)	https://huggingface.co/litert-community/MI-GAN-512-Places2-LiteRT
+CLIP ViT-B/32	Zero-shot classification			https://github.com/john-rocky/LiteRT-Models/releases/download/v2/clip_image_encoder.tflite
+Places365 ResNet18	Scene recognition	Pixel 8a	~2 ms	https://huggingface.co/litert-community/Places365-ResNet18-LiteRT
+DINOv2 ViT-S/14	Dense features (PCA visualization)	Galaxy S26	53.58 ms (NPU 86.00)	https://huggingface.co/litert-community/DINOv2-ViT-S14-LiteRT
+DSINE	Surface normal estimation			https://github.com/john-rocky/LiteRT-Models/releases/download/v2/dsine.tflite
+Parakeet (FastConformer-CTC)	Speech recognition	Pixel 8a	~0.4 s per 16 s window	https://huggingface.co/litert-community/Parakeet-tdt-ctc-110m-LiteRT
+Whisper-tiny	Speech recognition			https://github.com/john-rocky/LiteRT-Models/releases/download/v2/whisper_encoder.tflite
+wav2vec2-CTC	Speech recognition (CTC, single pass)	Pixel 8a	~22 ms per 10 s clip	https://huggingface.co/litert-community/wav2vec2-base-960h-CTC-LiteRT
+Kokoro-82M	Text-to-speech (EN / JA)	Pixel 8a (CPU)	RTF 0.60	https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/onnx/model_fp16.onnx
+Matcha-TTS	Text-to-speech (FFT-free)	Pixel 8a	RTF ~0.8	https://huggingface.co/litert-community/Matcha-TTS
+Dia2-1B	Dialogue text-to-speech	Pixel 8a (CPU)	~190 s per 4 s utterance	https://github.com/john-rocky/LiteRT-Models/tree/main/dia2
+VibeVoice-Realtime-0.5B	Streaming text-to-speech			https://github.com/john-rocky/LiteRT-Models/tree/main/vibevoice
+Pocket TTS (Kyutai)	Text-to-speech (flow-matching LM, GPU)	Pixel 8a	RTF ~1.0	https://huggingface.co/mlboydaisuke/Pocket-TTS-LiteRT
+KittenTTS nano 0.8	Text-to-speech (dynamic length)			https://github.com/john-rocky/LiteRT-Models/tree/main/kittentts
+Inflect-Nano-v2	Text-to-speech (exact streaming)	Mac	25–32 ms first chunk	https://github.com/john-rocky/LiteRT-Models/tree/main/inflect
+Sopro v2 turbo	Text-to-speech (zero-shot voice cloning, EN / PT / FR / DE)	Galaxy S26 GPU (acoustic + encoders) + CPU (AR, vocoder); Pixel 8a pending	TTFA 2.07 s, RTF 0.41 (S26, release)	https://huggingface.co/litert-community/sopro-v2-turbo
+SmolVLM-256M	Vision-language model			https://github.com/john-rocky/LiteRT-Models/releases/download/v2/smolvlm_vision.tflite
+SmolVLA	Vision-language-action robot policy	Galaxy S26	207 ms per 50-step action chunk (GPU)	https://github.com/john-rocky/LiteRT-Models/tree/main/smolvla
+RWKV-7 World 0.1B	Text generation (RNN LM, whole forward on GPU)	Pixel 8a	~18 ms/token	https://huggingface.co/litert-community/RWKV-7-World-0.1B-LiteRT
+Whisper + SmolLM2 + Kokoro	Voice assistant pipeline	Pixel 8a	~5 s per turn, end-to-end	https://github.com/john-rocky/LiteRT-Models/tree/main/voiceassistant
+DAC 16kHz	Neural audio codec	Pixel 8a	RTF ≈ 0.82	https://huggingface.co/mlboydaisuke/DAC-16kHz-LiteRT
+Mimi (Kyutai)	Neural audio codec (streaming)	Pixel 8a	RTF ≈ 0.35	https://huggingface.co/litert-community/Mimi
+wav2vec2 Keyword Spotting	Keyword spotting	Pixel 8a	~19 ms per 1 s clip	https://huggingface.co/litert-community/wav2vec2-keyword-spotting
+PANNs CNN14	Audio tagging (AudioSet)	Pixel 8a	~0.22 s per 10 s clip	https://huggingface.co/litert-community
+CREPE	Pitch detection	Pixel 8a	~75 ms/frame	https://huggingface.co/litert-community
+TIGER-DnR	Audio source separation	Pixel 8a	~4.5 s per 12.06 s chunk per stem	https://huggingface.co/litert-community
+pyannote 3.1 stack	Speaker diarization	Pixel 8a	~1.2 ms per embedding window	https://huggingface.co/litert-community
+Nemotron-3-Diarization	Speaker diarization (streaming, up to 8 speakers)	Galaxy S26	171 ms per 0.72 s step (RTF 0.24, FP32)	https://huggingface.co/litert-community/Nemotron-3-Diarization-LiteRT
+CMGAN	Speech enhancement	Pixel 8a	~20 ms per 2 s chunk	https://huggingface.co/litert-community
+Basic Pitch	Music transcription (audio → MIDI)	Pixel 8a	~4.4 ms per 2 s window	https://huggingface.co/litert-community
+XFeat	Image matching (local features)	Pixel 8a	~0.4 ms per 640×480 image	https://huggingface.co/litert-community
+CLIPSeg	Text-prompted segmentation	Pixel 8a	~8.7 ms text + ~8.2 ms vision	https://huggingface.co/litert-community
+RAM++	Image tagging (open vocabulary)	Pixel 8a	~2 s per photo	https://huggingface.co/litert-community
+NIMA	Image quality assessment	Pixel 8a	~173 ms	https://huggingface.co/litert-community
+Vision-RWKV (VRWKV-S)	Image classification	Pixel 8a	~28 ms	https://huggingface.co/litert-community/Vision-RWKV-S-LiteRT
+PlantNet-300K	Fine-grained classification (plants)	Galaxy S26	3.34 ms (NPU 0.89)	https://huggingface.co/litert-community/PlantNet-300K-ResNet18-LiteRT
+3DDFA_V2	3D face alignment			https://huggingface.co/litert-community
+BiSeNet	Face parsing	Galaxy S26	25.05 ms (NPU 7.01)	https://huggingface.co/litert-community/BiSeNet-Face-Parsing-LiteRT
+HSEmotion	Facial emotion recognition	Pixel 8a	~2 ms	https://huggingface.co/litert-community/HSEmotion-B0-LiteRT
+PP-OCRv5	OCR	Pixel 8a	~9 ms detector + ~9 ms recognizer	https://huggingface.co/litert-community/PP-OCRv5-LiteRT
+Real-ESRGAN x4v3	Super-resolution ×4	Galaxy S26	12.30 ms (NPU 3.29)	https://github.com/john-rocky/LiteRT-Models/releases/download/v1/real_esrgan_x4v3.tflite
+GFPGAN v1.4	Blind face restoration			https://huggingface.co/litert-community/GFPGAN-v1.4-LiteRT
+MoGe-2 ViT-S	Monocular geometry (points, normals, depth)	Pixel 8a	~522 ms	https://github.com/john-rocky/LiteRT-Models/releases/download/v3/moge.tflite
+Depth Anything 3 Small	Monocular depth	Pixel 8a	~1.8 s/image	https://huggingface.co/mlboydaisuke/Depth-Anything-3-Small-LiteRT
+Metric3D v2 ViT-S	Metric depth	Pixel 8a	~44 ms	https://huggingface.co/mlboydaisuke/Metric3D-v2-LiteRT
+TIPSv2-B/14 DPT	Depth + normals + segmentation	Pixel 8a	~0.9 s/image	https://huggingface.co/litert-community/TIPSv2-B14-DPT-LiteRT
+YuNet	Face detection	Pixel 8a	~4 ms (640²)	https://huggingface.co/litert-community/YuNet-Face-LiteRT
+RTMPose-Face	Face alignment (98 keypoints)	Pixel 8a	~4 ms	https://huggingface.co/litert-community/RTMPose-Face-WFLW-LiteRT
+L2CS-Net	Gaze estimation	Pixel 8a	~3 ms	https://huggingface.co/litert-community/L2CS-Gaze360-LiteRT
+UniSal	Saliency prediction	Pixel 8a	~3 ms (256²)	https://huggingface.co/litert-community/UniSal-Saliency-LiteRT
+M-LSD-tiny	Line detection	Pixel 8a	~2 ms	https://huggingface.co/litert-community/M-LSD-tiny-LiteRT
+Fast Neural Style	Style transfer (4 styles)	Pixel 8a	~9 ms (256²)	https://huggingface.co/litert-community/Fast-Neural-Style-LiteRT
+CPGA-Net	Low-light enhancement	Pixel 8a	~2 ms (256²)	https://huggingface.co/litert-community/CPGA-Net-LowLight-LiteRT
+NAFNet	Deblur / denoise	Pixel 8a	~42 ms (256²)	https://huggingface.co/litert-community/NAFNet-GoPro-width32-LiteRT
+Qwen3-Embedding-0.6B	Text embedding (RAG)	Pixel 8a	~390 ms per embedding	https://huggingface.co/litert-community/Qwen3-Embedding-0.6B-LiteRT
+Qwen3-Reranker-0.6B	Text reranking (RAG)			https://huggingface.co/litert-community/Qwen3-Reranker-0.6B-LiteRT
+Laya Multilingual	Text classification / triage with request-time questions (EN / JA)	Galaxy S26	51 ms per question (GPU), 36 ms (NPU)	https://huggingface.co/litert-community/Laya-Multilingual-LiteRT
+Laya English + typed-decisions	English text classification / typed decisions with request-time questions (ModernBERT-large)	Galaxy S26	123 ms per question (GPU), 66 ms (NPU)	https://huggingface.co/litert-community/Laya-English-LiteRT
+Julia-1	Typed decisions: choice / score / yes-no questions about a text (EN)	Galaxy S26	82 ms per question (GPU FP32)	https://huggingface.co/litert-community/Julia-1-LiteRT
+Open Decision (DeBERTa-v3-large)	Typed decisions: choice / score / yes-no questions about a text (EN), one forward pass per request	Galaxy S26	697 ms per 512-token request (GPU FP32, 3 questions)	https://huggingface.co/litert-community/Open-Decision-DeBERTa-v3-Large-LiteRT
+ModernBERT-Ja-310M Decision	Japanese typed decisions: choice / score / yes-no questions about a text, one graph call per candidate	Galaxy S26	229 ms per 256-token pair (GPU FP32), 42 ms (NPU)	https://huggingface.co/mlboydaisuke/ModernBERT-Ja-310M-Decision-LiteRT
+GLiClass-Edge v3.0	Zero-shot text classification (EN): up to 25 labels scored in one forward pass, single- or multi-label	Galaxy S26	5.8 ms per request at 128 tokens, 8.3 ms at 256 (GPU FP32)	https://huggingface.co/litert-community/GLiClass-Edge-v3.0-LiteRT
+Kev-0.8B	Typed decisions: choice / score / yes-no questions about a text or JSON state, calibrated probabilities (EN)	Galaxy S26	102 ms per question at the 128-token window, a 3-question request in 367 ms (GPU); 66 ms and 298 ms (NPU)	https://huggingface.co/litert-community/Kev-0.8B-LiteRT
+Falcon3-3B-Instruct	LLM chat (LiteRT-LM)	iPhone 17 Pro	~27 tok/s	https://huggingface.co/mlboydaisuke/Falcon3-3B-Instruct-LiteRT
+Llama-3.2-3B-Instruct	LLM chat (LiteRT-LM)	iPhone 17 Pro	~18.5 tok/s	https://huggingface.co/mlboydaisuke/Llama-3.2-3B-Instruct-LiteRT
+Ministral-3-3B-Instruct-2512	LLM chat (LiteRT-LM)	iPhone 17 Pro	~17.6 tok/s	https://huggingface.co/mlboydaisuke/Ministral-3-3B-Instruct-2512-LiteRT
+SmolLM3-3B	LLM chat (LiteRT-LM)	iPhone 17 Pro	~22.5 tok/s	https://huggingface.co/mlboydaisuke/SmolLM3-3B-LiteRT

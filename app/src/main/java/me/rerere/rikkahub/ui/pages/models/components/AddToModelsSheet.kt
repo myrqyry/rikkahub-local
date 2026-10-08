@@ -58,6 +58,7 @@ enum class AddModelsMode {
     ROOT,
     PROVIDER,
     HUGGING_FACE,
+    LITERT_MODELS,
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -127,6 +128,11 @@ fun AddToModelsSheet(
                                 onClick = { mode = AddModelsMode.HUGGING_FACE },
                             )
                             AddChoiceRow(
+                                title = "LiteRT-Models gallery",
+                                subtitle = "Browse 102 community models, then choose actual downloadable files",
+                                onClick = { mode = AddModelsMode.LITERT_MODELS },
+                            )
+                            AddChoiceRow(
                                 title = stringResource(R.string.models_add_local_file),
                                 subtitle = stringResource(R.string.models_add_local_file_desc),
                                 onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
@@ -177,6 +183,17 @@ fun AddToModelsSheet(
                                     )
                                 }
                             }
+                        }
+
+                        AddModelsMode.LITERT_MODELS -> {
+                            SheetSubpageHeader(
+                                title = "LiteRT-Models gallery",
+                                onBack = { mode = AddModelsMode.ROOT },
+                            )
+                            LiteRtModelsCatalogSheet(
+                                viewModel = viewModel,
+                                downloadInProgress = downloadProgress != null,
+                            )
                         }
 
                         AddModelsMode.HUGGING_FACE -> {
