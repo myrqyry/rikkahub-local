@@ -12,19 +12,18 @@ The provider catalog pins spybyscript/scyllasband at
 0c44c02f1cad9c108ba44c520a5925495fdf7e67 and independently verifies
 SHA-256 of all 16 files before inference. CPU LiteRT inference is used.
 
-## Native library separation
+## Shared native LiteRT 2.3.0 upgrade
 
-- RikkaHub's existing LiteRT 2.1.5 stays under SONAME libLiteRt.so.
-- Scylla requires LiteRT 2.2.0. Its warmup failed on the Pixel with 2.1.5
-  (g2p status 500), so a generic shared-library replacement is not safe.
-- speech/scripts/stage_scylla_litert.py downloads Google 2.2.0 prebuilts,
-  validates source SHA-256 and uses patchelf to set SONAME libScyllaLiteRt.so.
-- CMake links Scylla's native runtime against the isolated SONAME.
-- Generated binaries in speech/src/main/jniLibs are git-ignored. Build hosts
-  need Python 3, patchelf, Android NDK 28.2.13676358, and first-build
-  access to the upstream Google binaries. CI installs these requirements.
-- Do not silently choose one library via pickFirst or upgrade RikkaHub's
-  shared LiteRT 2.1.5 runtime as part of this TTS integration.
+- RikkaHub and Scylla both link the exact LiteRT 2.3.0 binary from Google's
+  Maven AAR, using the matching v2.3.0 C++ SDK release headers.
+- The upgrade removes the temporary separate LiteRT 2.2.0 ELF SONAME
+  introduced while RikkaHub was pinned to 2.1.5. That older combination was
+  necessary because Scylla G2P failed with 2.1.5 (status 500) on the Pixel.
+- scripts/stage_litert_230.py verifies both the Maven AAR and C++ SDK archive
+  using SHA-256, stages the two production ABIs, and is invoked before
+  app/speech CMake native builds. No binary downloads are committed to git.
+- LiteRT-LM 0.18.0 is a separate engine and has its own tests. Legacy
+  TensorFlow Lite Interpreter v2.16.1 migration remains separate.
 
 ## Physical-device evidence (2026-10-12)
 

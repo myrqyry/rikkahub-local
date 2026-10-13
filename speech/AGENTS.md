@@ -20,6 +20,6 @@ manual custom `.tflite` imports.
 
 - No deviations — follow root conventions.
 
-Scylla uses a separately renamed LiteRT 2.2.0 ELF SONAME so it can coexist with
-RikkaHub's LiteRT 2.1.5. See src/main/scyllasband/UPSTREAM.md. Never merge
-or pick-first the two native versions by filename.
+Scylla shares the pinned LiteRT 2.3.0 Maven C native runtime with RikkaHub's
+CompiledModel consumers; :app:stageLiteRtSdk provides matching C headers.
+See src/main/scyllasband/UPSTREAM.md for provenance and compatibility gates.

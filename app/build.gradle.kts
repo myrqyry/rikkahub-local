@@ -12,6 +12,20 @@ plugins {
     id("jacoco")
 }
 
+// Stage matching LiteRT 2.3.0 C headers and Maven-native libraries before CMake.
+// This task is also required by :speech for its shared Scylla native linkage.
+val stageLiteRtSdk by tasks.registering(Exec::class) {
+    commandLine("python3", rootProject.file("scripts/stage_litert_230.py").absolutePath)
+    inputs.file(rootProject.file("scripts/stage_litert_230.py"))
+    outputs.files(
+        file("src/main/jni/litert/litert_cc_sdk/arm64-v8a/libLiteRt.so"),
+        file("src/main/jni/litert/litert_cc_sdk/x86_64/libLiteRt.so"),
+        file("src/main/jni/litert/litert_cc_sdk/.bootstrap.json"),
+        file("src/main/jni/litert/litert_cc_sdk/litert/build_common/build_config.h.in"),
+    )
+    outputs.dir(file("src/main/jni/litert/litert_cc_sdk/litert/c"))
+}
+
 android {
     namespace = "me.rerere.rikkahub"
     compileSdk = 37
@@ -380,9 +394,10 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":material3"))
     implementation(project(":workspace"))
-    // LiteRT CompiledModel / Accelerator.NPU Kotlin API — same 2.1.5 pin as :speech
+    // LiteRT CompiledModel / Accelerator.NPU API; GPU accelerator is separate since 2.3.0
     // (the org.tensorflow.lite.* drop-in lives in this AAR, so no duplicate-class risk).
-    implementation("com.google.ai.edge.litert:litert:2.1.5")
+    implementation("com.google.ai.edge.litert:litert:2.3.0")
+    implementation("com.google.ai.edge.litert:litert-gpu:2.3.0")
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar", "*.aar"))))
     implementation(kotlin("reflect"))
 
@@ -421,4 +436,12 @@ tasks.register("jacocoTestReport", JacocoReport::class) {
         }
     )
     executionData.setFrom(fileTree("build/outputs/unit_test_code_coverage/debugUnitTest"))
+}
+
+// Reproducible C API staging for CI and clean developer clones.
+tasks.configureEach {
+    if (name.startsWith("configureCMake") || name.contains("JniLibFolders") ||
+        name.contains("NativeLibs")) {
+        dependsOn(stageLiteRtSdk)
+    }
 }

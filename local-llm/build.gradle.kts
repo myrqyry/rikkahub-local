@@ -59,11 +59,9 @@ dependencies {
     // Compilation qualified; runtime/Pixel verification still pending.
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
     // CompiledModel / Accelerator.NPU Kotlin API for on-device JIT task inference.
-    // Stays 2.1.5: litert 2.2.0 splits into litert + litert-api, which both declare
-    // namespace com.google.ai.edge.litert and fail AGP manifest-merger validation. The
-    // .litertlm crash this bump targets lives in liblitertlm_jni.so (the artifact above),
-    // which does not depend on litert — so no litert bump is needed for it.
-    implementation("com.google.ai.edge.litert:litert:2.1.5")
+    // LiteRT 2.3.0 fixes the AGP 9 namespace conflict from 2.2.0.
+    // LiteRT-LM 0.18.0 is an independent engine and remains pinned separately.
+    implementation("com.google.ai.edge.litert:litert:2.3.0")
     // llama.cpp runtime via Llamatik: loads .gguf chat models.
     // 1.10.1 fixes repeated embedding calls failing on stale KV cache (PR #171).
     // Upstream release verified 2026-10-07; Android GGUF inference still requires

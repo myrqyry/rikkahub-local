@@ -6,20 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// Scylla native runtime is isolated from RikkaHub's existing LiteRT 2.1.5.
-// Build host stages verified 2.2.0 binaries with a separate ELF SONAME.
-val scyllaStageRoot = file("src/main/jniLibs")
-val stageScyllaLiteRt by tasks.registering(Exec::class) {
-    commandLine(
-        "python3", file("scripts/stage_scylla_litert.py").absolutePath,
-        "--output", scyllaStageRoot.absolutePath,
-    )
-    inputs.file("scripts/stage_scylla_litert.py")
-    outputs.files(
-        file("src/main/jniLibs/arm64-v8a/libScyllaLiteRt.so"),
-        file("src/main/jniLibs/x86_64/libScyllaLiteRt.so"),
-    )
-}
+// Scylla links the same LiteRT 2.3.0 native runtime as app and CompiledModel.
 
 
 android {
@@ -32,7 +19,7 @@ android {
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         externalNativeBuild {
             cmake {
-                arguments += "-DSCYLLASBAND_STAGE_ROOT=${scyllaStageRoot.absolutePath}"
+
             }
         }
 
@@ -96,7 +83,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.onnxruntime.android)
-    implementation("com.google.ai.edge.litert:litert:2.1.5")
+    implementation("com.google.ai.edge.litert:litert:2.3.0")
 
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
@@ -110,11 +97,10 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 }
 
-// Native configure must not run until the correct staged SONAME exists.
-// JNI merges must likewise include the isolated library.
+// The shared SDK is staged by :app; no second LiteRT binary is packaged.
 tasks.configureEach {
     if (name.startsWith("configureCMake") || name.contains("JniLibFolders") ||
         name.contains("NativeLibs")) {
-        dependsOn(stageScyllaLiteRt)
+        dependsOn(":app:stageLiteRtSdk")
     }
 }
