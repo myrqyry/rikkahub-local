@@ -62,7 +62,7 @@ class CronJobWorkerLlmAwaitTest {
     }
 
     @Test
-    fun `naive pattern returns null on BOTH success and timeout — documents the bug`() = runBlocking {
+    fun `naive pattern returns null on BOTH success and timeout - documents the bug`() = runBlocking {
         // Success path: predicate matches the null value → block returns null.
         val successFlow = MutableStateFlow<Job?>(null)
         val finishedOnSuccess = withTimeoutOrNull(1_000L) { successFlow.first { it == null } }
