@@ -21,6 +21,8 @@ internal object ScyllasBandNative {
         language: String?,
         delivery: String?,
         steps: Int,
+        speed: Float,
+        sampler: Int,
         seed: Long,
         hasSeed: Boolean,
         listener: ScyllasBandNativeChunkListener,

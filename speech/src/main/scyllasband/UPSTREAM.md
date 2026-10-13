@@ -37,3 +37,38 @@ both turns: 12, then Photosynthesis.
 These tests validate native speech, stream output and native coexistence.
 They do not independently establish interactive settings-UI behavior or
 background playback under Android battery management.
+
+## Borrowed synthesis controls from Wyoming bridge — 2026-10-13
+
+Compared https://github.com/allenbenz/scyllasbandv2-wyoming at
+`ad96c5e59741c3b6cf668d525e62cb1958bb457e`, an ONNX/Wyoming/Home
+Assistant adaptation. We did **not** introduce its server, ONNX runtime,
+Docker installation, model weights, or Wyoming protocol into Android.
+
+Transferred just its useful user-configurable **synthesis parameters**:
+- Model speaking-speed scale (0.5–1.5), native `ScyllasBandRequest.speed`;
+- Model flow-step override (0 = bundle default; Android UI 0–16), native
+  `ScyllasBandRequest.steps`;
+- Euler / Heun / bundle-default sampler selection through the public C enum.
+
+These are backed by the already-vendored Scylla native C++ and Android JNI.
+Defaults remain speed=1.0, steps=0 and sampler=DEFAULT for saved providers.
+The model remains the same SHA-verified 164 MB LiteRT bundle and LiteRT 2.3.0.
+
+**Why other concepts weren't transplanted:** The Wyoming adapter cuts audio into
+~200-ms network frames. RikkaHub's current TtsSynthesizer collects an entire
+utterance to `TTSResponse` before AudioPlayer invokes ExoPlayer, so smaller
+`AudioChunk` packets *alone* cannot improve first-audio latency. Real live
+playback would require a separately validated playback-architecture change.
+Wyoming's `whisper` flag isn't available through the native Scylla implementation
+(the vendored C++ explicitly rejects it). V1's prefix-latent carryover and
+emotion axes are a different model/version, not options of our v2 LiteRT graph.
+
+**Physical proof:** Pixel 10 Pro passed `ScyllaTtsProviderDeviceTest` with the
+same Ink/en_gb sentence and deterministic seed, Euler+4 steps at speed=1.2
+(135,168 bytes) and speed=1.0 (165,888 bytes), then Heun+4 steps at speed=1.0
+(165,888 bytes, real PCM). Native engine session resets and terminal chunk
+checks passed. :speech:testDebugUnitTest 97/97; :app:testDebugUnitTest 1458/1458;
+:app:assembleDebug and :app:assembleDebugAndroidTest passed. Compose controls
+compiled, but their on-screen tap flow and perceptual quality weren't separately
+verified. This is not an empirical claim that Heun is always better than Euler.

@@ -26,6 +26,7 @@ import org.scyllasband.android.ScyllasBand
 import org.scyllasband.android.ScyllasBandAccelerator
 import org.scyllasband.android.ScyllasBandDelivery
 import org.scyllasband.android.ScyllasBandSegmentSettings
+import org.scyllasband.android.ScyllasBandSampler
 
 /** Native LiteRT TTS. Audio is synthesized on CPU and delivered as real PCM chunks. */
 class ScyllaTTSProvider : TTSProvider<TTSProviderSetting.ScyllaTts> {
@@ -91,6 +92,14 @@ class ScyllaTTSProvider : TTSProvider<TTSProviderSetting.ScyllaTts> {
                         text = text,
                         settings = settings,
                         seed = providerSetting.seed,
+                        speed = providerSetting.speed,
+                        steps = providerSetting.steps,
+                        sampler = when (providerSetting.sampler) {
+                            "default" -> ScyllasBandSampler.DEFAULT
+                            "euler" -> ScyllasBandSampler.EULER
+                            "heun" -> ScyllasBandSampler.HEUN
+                            else -> error("Unsupported sampler: ${providerSetting.sampler}")
+                        },
                         onChunkStarted = { _, _, _ -> isActive },
                         onAudioChunk = { samples, index, count ->
                             isActive && trySendBlocking(

@@ -71,7 +71,7 @@ class ScyllasBand private constructor(
     /**
      * Speaks [text] one sentence at a time. [onChunkStarted] reports the sentence about to be spoken and
      * [onAudioChunk] receives its mono float PCM at [ScyllasBandBundleInfo.sampleRate]; consecutive chunks
-     * join directly. A callback returns false to stop. [steps] 0 uses the bundle default (8 Heun steps).
+     * join directly. A callback returns false to stop. [steps] 0 uses the bundle default; [sampler] uses the bundle default when DEFAULT.
      * Returns false when the request was stopped by a callback or [cancel].
      */
     @Synchronized
@@ -80,11 +80,14 @@ class ScyllasBand private constructor(
         settings: ScyllasBandSegmentSettings,
         seed: Long? = null,
         steps: Int = 0,
+        speed: Float = 1f,
+        sampler: ScyllasBandSampler = ScyllasBandSampler.DEFAULT,
         onChunkStarted: (chunkIndex: Int, chunkCount: Int, chunkText: String?) -> Boolean,
         onAudioChunk: (samples: FloatArray, chunkIndex: Int, chunkCount: Int) -> Boolean,
     ): Boolean {
         require(text.isNotBlank()) { "Segment text must not be blank" }
-        require(steps >= 0) { "steps must not be negative" }
+        require(steps in 0..32) { "steps must be between 0 and 32" }
+        require(speed.isFinite() && speed in 0.5f..1.5f) { "speed must be between 0.5 and 1.5" }
         val info = checkNotNull(bundleInfo) { "Call initialize() before synthesis" }
         val voice = info.voices.firstOrNull { it.id == settings.voiceId }
             ?: error("Unknown Scylla's Band voice: ${settings.voiceId}")
@@ -98,6 +101,8 @@ class ScyllasBand private constructor(
             settings.language,
             settings.delivery.spec(),
             steps,
+            speed,
+            sampler.code,
             seed ?: 0L,
             seed != null,
             object : ScyllasBandNativeChunkListener {

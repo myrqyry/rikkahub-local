@@ -411,9 +411,16 @@ sealed class TTSProviderSetting {
         val valence: Float = 2f,
         val assertiveness: Float = 2f,
         val seed: Long? = null,
+        // Defaults preserve the behavior of previously saved Scylla providers.
+        val speed: Float = 1f,
+        val steps: Int = 0, // 0 = bundle default.
+        val sampler: String = "default",
     ) : TTSProviderSetting() {
         init {
             require(listOf(energy, tension, valence, assertiveness).all { it.isFinite() && it in 0f..4f })
+            require(speed.isFinite() && speed in 0.5f..1.5f) { "Scylla speed must be within 0.5..1.5" }
+            require(steps in 0..32) { "Scylla flow steps must be within 0..32 (0 = default)" }
+            require(sampler in setOf("default", "euler", "heun")) { "Unknown Scylla sampler: $sampler" }
         }
         override fun copyProvider(id: Uuid, name: String): TTSProviderSetting =
             copy(id = id, name = name)

@@ -202,6 +202,8 @@ Java_org_scyllasband_android_ScyllasBandNative_synthesizeStreaming(
     jstring language,
     jstring delivery,
     jint steps,
+    jfloat speed,
+    jint sampler,
     jlong seed,
     jboolean has_seed,
     jobject listener
@@ -250,6 +252,12 @@ Java_org_scyllasband_android_ScyllasBandNative_synthesizeStreaming(
     request.language = language_chars.get();
     request.delivery = delivery_chars.get();
     request.steps = steps;
+    request.speed = speed;
+    if (sampler < SCYLLASBAND_SAMPLER_DEFAULT || sampler > SCYLLASBAND_SAMPLER_EULER) {
+        throw_java(environment, "Invalid Scylla sampler");
+        return JNI_FALSE;
+    }
+    request.sampler = static_cast<ScyllasBandSampler>(sampler);
     request.seed = static_cast<uint64_t>(seed);
     request.has_seed = has_seed == JNI_TRUE ? 1 : 0;
 

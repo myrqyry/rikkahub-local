@@ -64,6 +64,11 @@ data class ScyllasBandDelivery(
     }
 }
 
+/** Scylla's native sampler enum, matching the public C ABI. */
+enum class ScyllasBandSampler(internal val code: Int) {
+    DEFAULT(0), HEUN(1), EULER(2),
+}
+
 data class ScyllasBandSegmentSettings(
     val voiceId: String,
     val language: String,

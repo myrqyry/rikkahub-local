@@ -2874,6 +2874,55 @@ private fun ScyllaTTSConfiguration(
             onValueChange(setting.copy(energy = 2f, tension = 2f, valence = 2f, assertiveness = 2f))
         }) { Text("Reset to neutral") }
     }
+    FormItem(
+        label = { Text("Voice generation") },
+        description = { Text("Adapted from the Wyoming Scylla server: speech pace and generation quality, not audio playback speed.") },
+    ) {
+        ScyllaDeliverySlider("Speaking speed", setting.speed, 0.5f..1.5f) {
+            onValueChange(setting.copy(speed = it))
+        }
+        Text("Flow steps: ${if (setting.steps == 0) "Bundle default" else setting.steps.toString()}")
+        Slider(
+            value = setting.steps.toFloat(),
+            onValueChange = { onValueChange(setting.copy(steps = it.roundToInt().coerceIn(0, 16))) },
+            valueRange = 0f..16f,
+            steps = 15,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        var samplerMenuOpen by remember { mutableStateOf(false) }
+        ExposedDropdownMenuBox(
+            expanded = samplerMenuOpen,
+            onExpandedChange = { samplerMenuOpen = !samplerMenuOpen },
+        ) {
+            OutlinedTextField(
+                value = when (setting.sampler) {
+                    "euler" -> "Euler (fewer graph evaluations)"
+                    "heun" -> "Heun (more graph evaluations)"
+                    else -> "Bundle default"
+                },
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Sampler") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(samplerMenuOpen) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+            )
+            ExposedDropdownMenu(expanded = samplerMenuOpen, onDismissRequest = { samplerMenuOpen = false }) {
+                listOf(
+                    "default" to "Bundle default",
+                    "euler" to "Euler (fewer evaluations)",
+                    "heun" to "Heun (more evaluations)",
+                ).forEach { (sampler, label) ->
+                    DropdownMenuItem(text = { Text(label) }, onClick = {
+                        samplerMenuOpen = false
+                        onValueChange(setting.copy(sampler = sampler))
+                    })
+                }
+            }
+        }
+        OutlinedButton(onClick = {
+            onValueChange(setting.copy(speed = 1f, steps = 0, sampler = "default"))
+        }) { Text("Use model defaults") }
+    }
     FormItem(label = { Text("Noise seed") }, description = { Text("Optional repeatability; blank is random.") }) {
         OutlinedTextField(
             value = setting.seed?.toString().orEmpty(),
