@@ -112,10 +112,15 @@ internal class OpenCodeHttpClient(
     )
 
     private fun JsonObject.toMessageOrNull(): OpenCodeMessage? {
-        val id = string("id") ?: return null
-        val role = string("role") ?: get("info")?.jsonObject?.string("role") ?: "assistant"
-        val text = string("text") ?: get("parts")?.jsonArray?.joinToString("") { part -> part.jsonObject.string("text").orEmpty() }
-            ?: return null
+        // OpenCode's session message API returns { info: { id, role, ... }, parts: [...] }.
+        // Accept the older flat shape too, but prefer the canonical nested metadata.
+        val info = get("info") as? JsonObject
+        val id = info?.string("id") ?: string("id") ?: return null
+        val role = info?.string("role") ?: string("role") ?: "assistant"
+        val text = string("text") ?: (get("parts") as? JsonArray)?.mapNotNull { element ->
+            val part = element as? JsonObject ?: return@mapNotNull null
+            if (part.string("type") == "text") part.string("text") else null
+        }?.joinToString("") ?: return null
         return OpenCodeMessage(id, role, text)
     }
 

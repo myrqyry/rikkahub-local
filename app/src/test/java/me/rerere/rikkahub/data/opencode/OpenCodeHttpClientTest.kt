@@ -62,6 +62,47 @@ class OpenCodeHttpClientTest {
         assertEquals(OpenCodeMessage("m1", "user", "hello"), OpenCodeHttpClient(client, "http://opencode.test", null).getMessages("s1", "/repo").single())
     }
 
+    @Test
+    fun messagesReadCanonicalInfoAndOnlyVisibleTextParts() = runBlocking {
+        // Shape observed from the running OpenCode compatibility server's /session/{id}/message API.
+        val payload = """
+            [
+              {
+                "info": {"id": "message-1", "sessionID": "session-1", "role": "assistant"},
+                "parts": [
+                  {"id": "reason-1", "type": "reasoning", "text": "not answer text"},
+                  {"id": "part-1", "type": "text", "text": "Hello "},
+                  {"id": "tool-1", "type": "tool", "state": {"status": "completed"}},
+                  {"id": "part-2", "type": "text", "text": "there"}
+                ]
+              },
+              {"info": {"id": "message-2", "role": "user"}, "parts": [{"type": "text", "text": "Hi"}]},
+              {"info": {"id": "message-3", "role": "assistant"}, "parts": [{"type": "tool", "state": {"status": "completed"}}]}
+            ]
+        """.trimIndent()
+        val api = OpenCodeHttpClient(clientReturning(200, payload), "http://opencode.test", null)
+
+        assertEquals(
+            listOf(
+                OpenCodeMessage("message-1", "assistant", "Hello there"),
+                OpenCodeMessage("message-2", "user", "Hi"),
+                OpenCodeMessage("message-3", "assistant", ""),
+            ),
+            api.getMessages("session-1", "/work"),
+        )
+    }
+
+    @Test
+    fun promptReadsCanonicalNestedResponse() = runBlocking {
+        val client = clientReturning(
+            200,
+            """{"info":{"id":"reply-1","role":"assistant"},"parts":[{"type":"text","text":"Done"}]}""",
+        )
+        val api = OpenCodeHttpClient(client, "http://opencode.test", null)
+
+        assertEquals(OpenCodeMessage("reply-1", "assistant", "Done"), api.prompt("session-1", "/work", "Go"))
+    }
+
     private fun clientReturning(code: Int, body: String): OkHttpClient =
         OkHttpClient.Builder().addInterceptor(Interceptor { chain -> response(chain, code, body) }).build()
 
