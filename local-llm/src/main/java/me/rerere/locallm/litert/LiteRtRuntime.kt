@@ -916,6 +916,7 @@ class LiteRtRuntime(private val context: Context) {
             val telemetryInputChars = inputText.length
             val callStartedNs = System.nanoTime()
             var firstMessageNs: Long = 0L
+            val streamText = LiteRtStreamTextAccumulator()
             var lastCumulative = ""
             activeTurn = currentTurn
             try {
@@ -928,10 +929,13 @@ class LiteRtRuntime(private val context: Context) {
                             message.channels["thought"]?.let { thinking ->
                                 if (thinking.isNotEmpty()) onThinking?.invoke(thinking)
                             }
-                            val text = message.toString()
-                            if (text.isNotEmpty()) {
-                                lastCumulative = text
-                                trySend(text)
+                            // LiteRT-LM sends NEW chunks, not cumulative snapshots.
+                            // RikkaHub consumers expect cumulative text; replacing it with each
+                            // chunk made the final answer only the last token (e.g. "ellow").
+                            val chunk = message.toString()
+                            if (chunk.isNotEmpty()) {
+                                lastCumulative = streamText.append(chunk)
+                                trySend(lastCumulative)
                             }
                         }
                         override fun onDone() {
