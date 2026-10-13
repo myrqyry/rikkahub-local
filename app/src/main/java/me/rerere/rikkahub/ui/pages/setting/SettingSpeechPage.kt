@@ -768,6 +768,7 @@ private fun TTSProviderItem(
                             is TTSProviderSetting.KittenTts -> "Kitten TTS"
                             is TTSProviderSetting.Qwen3Tts -> "Qwen3 TTS"
                             is TTSProviderSetting.MatchaTts -> "Matcha TTS"
+                            is TTSProviderSetting.ScyllaTts -> "Scylla's Band"
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

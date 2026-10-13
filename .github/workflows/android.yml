@@ -44,6 +44,12 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install pinned native build requirements
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends patchelf
+          sdkmanager "ndk;28.2.13676358"
+
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v4
 
@@ -114,6 +120,12 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Install pinned native build requirements
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends patchelf
+          sdkmanager "ndk;28.2.13676358"
 
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v4

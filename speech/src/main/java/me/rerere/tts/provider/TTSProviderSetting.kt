@@ -398,6 +398,27 @@ sealed class TTSProviderSetting {
         ): TTSProviderSetting = copy(id = id, name = name)
     }
 
+    @Serializable
+    @SerialName("scyllasband-tts")
+    data class ScyllaTts(
+        override var id: Uuid = Uuid.random(),
+        override var name: String = "Scylla's Band (Local)",
+        val modelPath: String = "",
+        val voice: String = "scylla",
+        val language: String = "en_us",
+        val energy: Float = 2f,
+        val tension: Float = 2f,
+        val valence: Float = 2f,
+        val assertiveness: Float = 2f,
+        val seed: Long? = null,
+    ) : TTSProviderSetting() {
+        init {
+            require(listOf(energy, tension, valence, assertiveness).all { it.isFinite() && it in 0f..4f })
+        }
+        override fun copyProvider(id: Uuid, name: String): TTSProviderSetting =
+            copy(id = id, name = name)
+    }
+
     companion object {
         val Types by lazy {
             listOf(
@@ -417,6 +438,7 @@ sealed class TTSProviderSetting {
                 KittenTts::class,
                 Qwen3Tts::class,
                 MatchaTts::class,
+                ScyllaTts::class,
             )
         }
     }

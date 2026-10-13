@@ -39,7 +39,11 @@ object LocalTtsModelManager {
             ?: throw IllegalStateException("Not a folder: $treeUri")
         val fileByName = mutableMapOf<String, DocumentFile>()
         requiredFiles.forEach { name ->
-            root.findFile(name)?.let { fileByName[name] = it }
+            val parts = name.split('/')
+            val document = parts.fold(root as DocumentFile?) { folder, part ->
+                folder?.findFile(part)
+            }
+            if (document?.isFile == true) fileByName[name] = document
         }
         val missing = requiredFiles - fileByName.keys
         require(missing.isEmpty()) {
@@ -47,8 +51,9 @@ object LocalTtsModelManager {
         }
         val dest = engineDir(context, engine)
         fileByName.forEach { (name, doc) ->
+            val target = File(dest, name).also { it.parentFile?.mkdirs() }
             context.contentResolver.openInputStream(doc.uri)?.use { input ->
-                File(dest, name).outputStream().use { output -> input.copyTo(output) }
+                target.outputStream().use { output -> input.copyTo(output) }
             } ?: throw IllegalStateException("Could not read $name from picked folder")
         }
         dest
@@ -69,7 +74,11 @@ object LocalTtsModelManager {
     ): File = withContext(Dispatchers.IO) {
         val dest = engineDir(context, engine)
         fileUrls.forEachIndexed { index, (url, fileName) ->
+            require(!fileName.startsWith('/') && fileName.split('/').none { it == ".." || it.isBlank() }) {
+                "Invalid local TTS bundle path: $fileName"
+            }
             val target = File(dest, fileName)
+            target.parentFile?.mkdirs()
             ModelInstall.download(httpClient, url, target).collect { p ->
                 when (p) {
                     is ModelInstall.Progress.Started -> onProgress(0)

@@ -20,6 +20,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,9 +51,11 @@ import me.rerere.tts.pocket.PocketTtsBundle
 import me.rerere.tts.pocket.PocketTtsCatalog
 import me.rerere.tts.provider.TTSProviderSetting
 import me.rerere.tts.qwen3.Qwen3TtsCatalog
+import me.rerere.tts.scylla.ScyllaTtsCatalog
 import okhttp3.OkHttpClient
 import org.koin.compose.koinInject
 import java.io.File
+import kotlin.math.roundToInt
 
 @Composable
 fun TTSProviderConfigure(
@@ -74,7 +77,8 @@ fun TTSProviderConfigure(
                     it == TTSProviderSetting.PocketTts::class ||
                     it == TTSProviderSetting.KittenTts::class ||
                     it == TTSProviderSetting.Qwen3Tts::class ||
-                    it == TTSProviderSetting.MatchaTts::class
+                    it == TTSProviderSetting.MatchaTts::class ||
+                    it == TTSProviderSetting.ScyllaTts::class
             }
             val cloud = types.filter {
                 it != TTSProviderSetting.SystemTTS::class &&
@@ -82,7 +86,8 @@ fun TTSProviderConfigure(
                     it != TTSProviderSetting.PocketTts::class &&
                     it != TTSProviderSetting.KittenTts::class &&
                     it != TTSProviderSetting.Qwen3Tts::class &&
-                    it != TTSProviderSetting.MatchaTts::class
+                    it != TTSProviderSetting.MatchaTts::class &&
+                    it != TTSProviderSetting.ScyllaTts::class
             }
             local + cloud
         }
@@ -113,6 +118,7 @@ fun TTSProviderConfigure(
                         is TTSProviderSetting.KittenTts -> "Kitten TTS (Local)"
                         is TTSProviderSetting.Qwen3Tts -> "Qwen3 TTS (Local)"
                         is TTSProviderSetting.MatchaTts -> "Matcha TTS (Local)"
+                        is TTSProviderSetting.ScyllaTts -> "Scylla's Band (Local)"
                     },
                     onValueChange = {},
                     readOnly = true,
@@ -148,6 +154,7 @@ fun TTSProviderConfigure(
                                         TTSProviderSetting.KittenTts::class -> "Kitten TTS (Local)"
                                         TTSProviderSetting.Qwen3Tts::class -> "Qwen3 TTS (Local)"
                                         TTSProviderSetting.MatchaTts::class -> "Matcha TTS (Local)"
+                                        TTSProviderSetting.ScyllaTts::class -> "Scylla's Band (Local)"
                                         else -> providerClass.simpleName ?: "Unknown"
                                     }
                                 )
@@ -234,6 +241,11 @@ fun TTSProviderConfigure(
                                         name = "Matcha TTS (Local)"
                                     )
 
+                                    TTSProviderSetting.ScyllaTts::class -> TTSProviderSetting.ScyllaTts(
+                                        id = setting.id,
+                                        name = "Scylla's Band (Local)"
+                                    )
+
                                     else -> setting
                                 }
                                 onValueChange(newSetting)
@@ -277,6 +289,7 @@ fun TTSProviderConfigure(
             is TTSProviderSetting.KittenTts -> KittenTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.Qwen3Tts -> Qwen3TTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.MatchaTts -> MatchaTTSConfiguration(setting, onValueChange)
+            is TTSProviderSetting.ScyllaTts -> ScyllaTTSConfiguration(setting, onValueChange)
         }
     }
 }
@@ -2690,4 +2703,200 @@ private suspend fun copyModelToAppDir(context: Context, uri: Uri, subDir: String
         } ?: return@withContext null
         target
     } catch (_: Exception) { null }
+}
+
+@Composable
+private fun ScyllaTTSConfiguration(
+    setting: TTSProviderSetting.ScyllaTts,
+    onValueChange: (TTSProviderSetting) -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val httpClient = koinInjectOkHttp()
+    val toaster = LocalToaster.current
+    var downloading by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf(0) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val installed = setting.modelPath.isNotBlank() &&
+        LocalTtsModelManager.missingFiles(
+            File(setting.modelPath), ScyllaTtsCatalog.requiredFiles,
+        ).isEmpty()
+
+    val folderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            runCatching {
+                val dir = LocalTtsModelManager.importBundleFromTree(
+                    context, "scyllasband", uri, ScyllaTtsCatalog.requiredFiles,
+                )
+                val invalid = withContext(Dispatchers.IO) { ScyllaTtsCatalog.verify(dir) }
+                check(invalid.isEmpty()) { "Invalid Scylla files: ${invalid.take(3).joinToString()}" }
+                dir
+            }.onSuccess {
+                onValueChange(setting.copy(modelPath = it.absolutePath))
+            }.onFailure {
+                error = it.message
+                toaster.show(error ?: "Scylla import failed", type = ToastType.Error)
+            }
+        }
+    }
+
+    FormItem(
+        label = { Text("Scylla's Band v2 — local LiteRT") },
+        description = { Text("Offline, ten voices, 24 kHz speech. Model bundle ~164 MB.") },
+    ) {
+        OutlinedTextField(
+            value = setting.modelPath,
+            onValueChange = { onValueChange(setting.copy(modelPath = it)) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Model bundle directory") },
+            singleLine = true,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                enabled = !downloading,
+                onClick = {
+                    scope.launch {
+                        downloading = true
+                        error = null
+                        try {
+                            val dir = LocalTtsModelManager.downloadBundle(
+                                context, httpClient, "scyllasband",
+                                ScyllaTtsCatalog.downloadPairs(),
+                                onProgress = { progress = it },
+                            )
+                            val invalid = withContext(Dispatchers.IO) { ScyllaTtsCatalog.verify(dir) }
+                            check(invalid.isEmpty()) {
+                                "Scylla bundle checksum failed: ${invalid.take(3).joinToString()}"
+                            }
+                            onValueChange(setting.copy(modelPath = dir.absolutePath))
+                            toaster.show("Scylla's Band installed", type = ToastType.Success)
+                        } catch (cause: Throwable) {
+                            error = cause.message ?: "Scylla download failed"
+                            toaster.show(error!!, type = ToastType.Error)
+                        } finally {
+                            downloading = false
+                        }
+                    }
+                },
+            ) { Text(if (installed) "Verify / redownload" else "Download model") }
+            OutlinedButton(onClick = { folderPicker.launch(null) }) { Text("Import folder") }
+            OutlinedButton(onClick = { openModelSourceUrl(context, ScyllaTtsCatalog.sourceUrl) }) {
+                Text("Source")
+            }
+        }
+        if (installed) Text("Bundle files present", color = MaterialTheme.colorScheme.primary)
+        if (downloading) {
+            LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth())
+            Text("Downloading: $progress% of current file")
+        }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    }
+
+    var voiceMenuOpen by remember { mutableStateOf(false) }
+    FormItem(
+        label = { Text("Voice") },
+        description = { Text("Choose from the ten embedded speaker identities.") },
+    ) {
+        ExposedDropdownMenuBox(
+            expanded = voiceMenuOpen,
+            onExpandedChange = { voiceMenuOpen = !voiceMenuOpen },
+        ) {
+            OutlinedTextField(
+                value = setting.voice.replaceFirstChar { it.uppercase() },
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(voiceMenuOpen) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+            )
+            ExposedDropdownMenu(expanded = voiceMenuOpen, onDismissRequest = { voiceMenuOpen = false }) {
+                ScyllaTtsCatalog.voiceIds.forEach { voice ->
+                    DropdownMenuItem(
+                        text = { Text(voice.replaceFirstChar { it.uppercase() }) },
+                        onClick = {
+                            voiceMenuOpen = false
+                            val language = setting.language.takeIf {
+                                it in ScyllaTtsCatalog.supportedLanguages(voice)
+                            } ?: ScyllaTtsCatalog.defaultLanguage(voice)
+                            onValueChange(setting.copy(voice = voice, language = language))
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    var languageMenuOpen by remember { mutableStateOf(false) }
+    FormItem(label = { Text("Language / accent") }) {
+        ExposedDropdownMenuBox(
+            expanded = languageMenuOpen,
+            onExpandedChange = { languageMenuOpen = !languageMenuOpen },
+        ) {
+            OutlinedTextField(
+                value = setting.language,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(languageMenuOpen) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+            )
+            ExposedDropdownMenu(expanded = languageMenuOpen, onDismissRequest = { languageMenuOpen = false }) {
+                ScyllaTtsCatalog.supportedLanguages(setting.voice).forEach { language ->
+                    DropdownMenuItem(text = { Text(language) }, onClick = {
+                        languageMenuOpen = false
+                        onValueChange(setting.copy(language = language))
+                    })
+                }
+            }
+        }
+    }
+
+    FormItem(
+        label = { Text("Delivery") },
+        description = { Text("Four independently adjustable emotional delivery axes. 2 is neutral.") },
+    ) {
+        ScyllaDeliverySlider("Energy", setting.energy, 1.4f..2.3f) {
+            onValueChange(setting.copy(energy = it))
+        }
+        ScyllaDeliverySlider("Tension", setting.tension, 1f..2.4f) {
+            onValueChange(setting.copy(tension = it))
+        }
+        ScyllaDeliverySlider("Valence", setting.valence, 1.4f..2.2f) {
+            onValueChange(setting.copy(valence = it))
+        }
+        ScyllaDeliverySlider("Assertiveness", setting.assertiveness, 1.8f..2.4f) {
+            onValueChange(setting.copy(assertiveness = it))
+        }
+        OutlinedButton(onClick = {
+            onValueChange(setting.copy(energy = 2f, tension = 2f, valence = 2f, assertiveness = 2f))
+        }) { Text("Reset to neutral") }
+    }
+    FormItem(label = { Text("Noise seed") }, description = { Text("Optional repeatability; blank is random.") }) {
+        OutlinedTextField(
+            value = setting.seed?.toString().orEmpty(),
+            onValueChange = {
+                onValueChange(setting.copy(seed = it.trim().takeIf(String::isNotBlank)?.toLongOrNull()))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Seed") },
+            singleLine = true,
+        )
+    }
+}
+
+@Composable
+private fun ScyllaDeliverySlider(
+    name: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onChange: (Float) -> Unit,
+) {
+    Text("$name: ${"%.1f".format(value)}")
+    Slider(
+        value = value.coerceIn(range.start, range.endInclusive),
+        onValueChange = { onChange((it * 10f).roundToInt() / 10f) },
+        valueRange = range,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }

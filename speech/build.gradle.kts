@@ -6,17 +6,43 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Scylla native runtime is isolated from RikkaHub's existing LiteRT 2.1.5.
+// Build host stages verified 2.2.0 binaries with a separate ELF SONAME.
+val scyllaStageRoot = file("src/main/jniLibs")
+val stageScyllaLiteRt by tasks.registering(Exec::class) {
+    commandLine(
+        "python3", file("scripts/stage_scylla_litert.py").absolutePath,
+        "--output", scyllaStageRoot.absolutePath,
+    )
+    inputs.file("scripts/stage_scylla_litert.py")
+    outputs.files(
+        file("src/main/jniLibs/arm64-v8a/libScyllaLiteRt.so"),
+        file("src/main/jniLibs/x86_64/libScyllaLiteRt.so"),
+    )
+}
+
+
 android {
     namespace = "me.rerere.speech"
+    ndkVersion = "28.2.13676358"
     compileSdk = 37
 
     defaultConfig {
         minSdk = 26
+        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
+        externalNativeBuild {
+            cmake {
+                arguments += "-DSCYLLASBAND_STAGE_ROOT=${scyllaStageRoot.absolutePath}"
+            }
+        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }
 
+    externalNativeBuild {
+        cmake { path = file("src/main/cpp/CMakeLists.txt") }
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -82,4 +108,13 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+}
+
+// Native configure must not run until the correct staged SONAME exists.
+// JNI merges must likewise include the isolated library.
+tasks.configureEach {
+    if (name.startsWith("configureCMake") || name.contains("JniLibFolders") ||
+        name.contains("NativeLibs")) {
+        dependsOn(stageScyllaLiteRt)
+    }
 }
