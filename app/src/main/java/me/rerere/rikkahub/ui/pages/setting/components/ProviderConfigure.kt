@@ -3,6 +3,7 @@ package me.rerere.rikkahub.ui.pages.setting.components
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
@@ -26,6 +27,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -64,6 +67,12 @@ import com.dokar.sonner.ToastType
 import me.rerere.ai.provider.ClaudePromptCacheTtl
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.locallm.LocalRuntime
+import me.rerere.locallm.LocalRuntimePreferences
+import me.rerere.locallm.llamacpp.GgufAutoTuner
+import me.rerere.locallm.llamacpp.GgufTuningPolicy
+import me.rerere.locallm.llamacpp.GgufTuningStore
+import java.io.File
+import kotlinx.coroutines.launch
 import me.rerere.locallm.SdCatalog
 import me.rerere.locallm.SdCatalogEntry
 import me.rerere.locallm.litert.LiteRtCatalog
@@ -960,6 +969,8 @@ private fun ColumnScope.ProviderConfigureLlamaCpp(
         style = MaterialTheme.typography.labelSmall,
         modifier = Modifier.fillMaxWidth(),
     )
+
+    GgufTuningPanel()
 }
 
 @Composable
@@ -1748,4 +1759,152 @@ private fun InstalledModelRow(
             },
         )
     }
+}
+
+/**
+ * Optional measurement loop. Applying a result changes only the selected model's
+ * GGUF generation settings, and never modifies another runtime or the default provider.
+ */
+@Composable
+private fun GgufTuningPanel() {
+    val context = LocalContext.current
+    val prefs = remember(context) { LocalRuntimePreferences(context.applicationContext) }
+    val store = remember(context) { GgufTuningStore(context.applicationContext) }
+    val models by prefs.installedModelsFlow(LocalRuntime.LlamaCpp)
+        .collectAsStateWithLifecycle(initialValue = emptyMap())
+    val records by store.records().collectAsStateWithLifecycle(initialValue = emptyMap())
+    val scope = rememberCoroutineScope()
+    var selectedId by remember { mutableStateOf<String?>(null) }
+    var selectorOpen by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf("") }
+    var failure by remember { mutableStateOf<String?>(null) }
+    val modelId = selectedId?.takeIf { it in models } ?: models.keys.sorted().firstOrNull()
+    val file = modelId?.let { models[it] }?.let(::File)
+    val saved = if (modelId != null && file?.isFile == true) {
+        records[modelId]?.takeIf { record ->
+            runCatching { record.fingerprint == GgufTuningPolicy.fingerprint(file) }
+                .getOrDefault(false)
+        }
+    } else null
+
+    HorizontalDivider()
+    Text("GGUF performance tuning", style = MaterialTheme.typography.titleSmall)
+    Text(
+        "Optional device benchmark: compares thread counts using real generated output. " +
+            "Results are measured characters/second and first-output latency, not tokenizer " +
+            "tokens/second. Your current settings stay active until you tap Apply.",
+        style = MaterialTheme.typography.bodySmall,
+    )
+    if (modelId == null) {
+        Text("Install a GGUF chat model first. No tuning model will be downloaded automatically.",
+            style = MaterialTheme.typography.bodySmall)
+        return
+    }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(
+            onClick = { selectorOpen = true },
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Model: $modelId", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        DropdownMenu(
+            expanded = selectorOpen,
+            onDismissRequest = { selectorOpen = false },
+        ) {
+            models.keys.sorted().forEach { id ->
+                DropdownMenuItem(text = { Text(id) }, onClick = {
+                    selectedId = id
+                    selectorOpen = false
+                    failure = null
+                    progress = ""
+                })
+            }
+        }
+    }
+    if (file?.isFile != true) {
+        Text("The registered model file is missing. Reinstall it before tuning.",
+            color = MaterialTheme.colorScheme.error)
+        return
+    }
+    saved?.let { record ->
+        val baseline = record.baseline
+        val winning = record.winner
+        Text(
+            "Baseline: ${baseline.config.threads} threads · " +
+                "${"%.1f".format(baseline.codepointsPerSecond)} chars/s · " +
+                "${"%.0f".format(baseline.firstOutputMs)} ms to first output",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            "Measured winner: ${winning.config.threads} threads · " +
+                "${"%.1f".format(winning.codepointsPerSecond)} chars/s · " +
+                "${"%.0f".format(winning.firstOutputMs)} ms to first output" +
+                if (record.applied) " · Applied" else " · Not applied",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        record.samples.sortedBy { it.config.threads }.forEach { sample ->
+            Text(
+                "${sample.config.threads} threads · " +
+                    "${"%.1f".format(sample.codepointsPerSecond)} chars/s · " +
+                    "${"%.0f".format(sample.firstOutputMs)} ms first output",
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+    }
+    if (modelId in records && saved == null) {
+        Text("An earlier tuning result is stale because the model, runtime, or device changed.",
+            style = MaterialTheme.typography.bodySmall)
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(enabled = !busy, onClick = {
+            val chosenId = modelId
+            val chosenFile = file
+            busy = true
+            progress = "Preparing native GGUF sweep"
+            failure = null
+            scope.launch {
+                try {
+                    val result = GgufAutoTuner(context.applicationContext).sweep(chosenFile) { done, total ->
+                        scope.launch { progress = "Measured $done/$total runs" }
+                    }
+                    store.saveMeasurement(chosenId, result)
+                    progress = "Measurements saved; apply explicitly to use them."
+                } catch (cause: Exception) {
+                    failure = cause.message ?: "Native GGUF tuning failed"
+                    progress = ""
+                } finally {
+                    busy = false
+                }
+            }
+        }) { Text(if (busy) "Measuring..." else "Run quick sweep") }
+
+        if (saved != null) {
+            OutlinedButton(enabled = !busy && !saved.applied, onClick = {
+                busy = true
+                scope.launch {
+                    try { store.setApplied(modelId, file, true) }
+                    catch (cause: Exception) { failure = cause.message }
+                    finally { busy = false }
+                }
+            }) { Text("Apply") }
+            OutlinedButton(enabled = !busy && saved.applied, onClick = {
+                busy = true
+                scope.launch {
+                    try { store.setApplied(modelId, file, false) }
+                    catch (cause: Exception) { failure = cause.message }
+                    finally { busy = false }
+                }
+            }) { Text("Revert") }
+        }
+    }
+    if (progress.isNotBlank()) Text(progress, style = MaterialTheme.typography.bodySmall)
+    failure?.let {
+        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+    }
+    Text(
+        "Native runs can heat the phone and take time; tuning stops on low battery or high " +
+            "temperature. One model at a time. Chat settings are unchanged until Apply.",
+        style = MaterialTheme.typography.labelSmall,
+    )
 }
