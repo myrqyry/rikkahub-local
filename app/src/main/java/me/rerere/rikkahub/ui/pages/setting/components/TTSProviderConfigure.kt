@@ -63,6 +63,7 @@ fun TTSProviderConfigure(
     modifier: Modifier = Modifier,
     onValueChange: (TTSProviderSetting) -> Unit
 ) {
+    val context = LocalContext.current
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier.verticalScroll(rememberScrollState())
@@ -243,7 +244,8 @@ fun TTSProviderConfigure(
 
                                     TTSProviderSetting.ScyllaTts::class -> TTSProviderSetting.ScyllaTts(
                                         id = setting.id,
-                                        name = "Scylla's Band (Local)"
+                                        name = "Scylla's Band (Local)",
+                                        modelPath = existingScyllaModelPath(context),
                                     )
 
                                     else -> setting
@@ -2899,4 +2901,17 @@ private fun ScyllaDeliverySlider(
         valueRange = range,
         modifier = Modifier.fillMaxWidth(),
     )
+}
+
+
+// Resolve already-installed bundles before suggesting another download.
+// The runtime still performs full SHA-256 validation before loading.
+private fun existingScyllaModelPath(context: Context): String {
+    val candidates = listOfNotNull(
+        context.getExternalFilesDir(null)?.let { File(it, "local-models/tts-scyllasband") },
+        File(context.filesDir, "local-models/tts-scyllasband"),
+    )
+    return candidates.firstOrNull { directory ->
+        ScyllaTtsCatalog.requiredFiles.all { File(directory, it).isFile }
+    }?.absolutePath.orEmpty()
 }
