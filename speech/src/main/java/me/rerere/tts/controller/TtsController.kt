@@ -22,6 +22,8 @@ import me.rerere.tts.model.PlaybackStatus
 import me.rerere.tts.model.TTSResponse
 import me.rerere.tts.provider.TTSManager
 import me.rerere.tts.provider.TTSProviderSetting
+import me.rerere.tts.rvc.RvcFilterSettings
+import me.rerere.tts.rvc.VoxaRvcClient
 import java.util.UUID
 
 private const val TAG = "TtsController"
@@ -42,6 +44,9 @@ class TtsController(
     private val chunker = TextChunker(maxChunkLength = 160)
     private val synthesizer = TtsSynthesizer(ttsManager)
     private val audio = AudioPlayer(context)
+    private val appContext = context.applicationContext
+    private val rvcClient = VoxaRvcClient()
+    private var rvcSettings = RvcFilterSettings()
 
     // Provider & 作业
     private var currentProvider: TTSProviderSetting? = null
@@ -91,6 +96,16 @@ class TtsController(
                 }
             }
         }
+    }
+
+    /**
+     * Do not mix processed and unprocessed speech in an active queue.
+     * RVC is fail-closed when enabled; no original voice leaks on network failure.
+     */
+    fun setRvcFilter(settings: RvcFilterSettings) {
+        if (rvcSettings == settings) return
+        if (workerJob?.isActive == true) stop()
+        rvcSettings = settings
     }
 
     /** 选择/取消选择 Provider */
@@ -268,9 +283,24 @@ class TtsController(
                         continue
                     }
 
+                    // Post-TTS conversion is bound to this chunk's lifecycle.
+                    // Failed conversion never falls back silently to the original voice.
+                    val readyToPlay = try {
+                        if (rvcSettings.enabled) {
+                            rvcClient.convert(appContext, response, rvcSettings)
+                        } else response
+                    } catch (e: Exception) {
+                        if (e is CancellationException) throw e
+                        Log.e(TAG, "RVC conversion error", e)
+                        _error.update { e.message ?: "RVC conversion failed" }
+                        cache.remove(chunk.id)
+                        processedCount++
+                        continue
+                    }
+
                     // 播放
                     try {
-                        audio.play(response)
+                        audio.play(readyToPlay)
                     } catch (e: Exception) {
                         if (e is CancellationException) throw e
                         Log.e(TAG, "Playback error", e)

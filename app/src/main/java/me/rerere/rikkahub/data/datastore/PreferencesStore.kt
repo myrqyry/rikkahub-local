@@ -56,6 +56,7 @@ import me.rerere.rikkahub.utils.toMutableStateFlow
 import me.rerere.search.SearchCommonOptions
 import me.rerere.search.SearchServiceOptions
 import me.rerere.tts.provider.TTSProviderSetting
+import me.rerere.tts.rvc.RvcFilterSettings
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import kotlin.uuid.Uuid
@@ -174,6 +175,7 @@ class SettingsStore(
         // TTS
         val TTS_PROVIDERS = stringPreferencesKey("tts_providers")
         val SELECTED_TTS_PROVIDER = stringPreferencesKey("selected_tts_provider")
+        val RVC_FILTER_SETTINGS = stringPreferencesKey("rvc_filter_settings")
 
         // ASR
         val ASR_PROVIDERS = stringPreferencesKey("asr_providers")
@@ -302,6 +304,9 @@ class SettingsStore(
                 } ?: emptyList(),
                 selectedTTSProviderId = preferences[SELECTED_TTS_PROVIDER]?.let { Uuid.parse(it) }
                     ?: DEFAULT_SYSTEM_TTS_ID,
+                rvcFilterSettings = preferences[RVC_FILTER_SETTINGS]?.let {
+                    runCatching { JsonInstant.decodeFromString<RvcFilterSettings>(it) }.getOrDefault(RvcFilterSettings())
+                } ?: RvcFilterSettings(),
                 asrProviders = preferences[ASR_PROVIDERS]?.let {
                     JsonInstant.decodeFromString(it)
                 } ?: emptyList(),
@@ -583,6 +588,7 @@ class SettingsStore(
             preferences[S3_CONFIG] = JsonInstant.encodeToString(settings.s3Config)
             preferences[TTS_PROVIDERS] = JsonInstant.encodeToString(settings.ttsProviders)
             preferences[SELECTED_TTS_PROVIDER] = settings.selectedTTSProviderId.toString()
+            preferences[RVC_FILTER_SETTINGS] = JsonInstant.encodeToString(settings.rvcFilterSettings)
             preferences[ASR_PROVIDERS] = JsonInstant.encodeToString(settings.asrProviders)
             settings.selectedASRProviderId?.let {
                 preferences[SELECTED_ASR_PROVIDER] = it.toString()
@@ -751,6 +757,7 @@ data class Settings(
     val s3Config: S3Config = S3Config(),
     val ttsProviders: List<TTSProviderSetting> = DEFAULT_TTS_PROVIDERS,
     val selectedTTSProviderId: Uuid = DEFAULT_SYSTEM_TTS_ID,
+    val rvcFilterSettings: RvcFilterSettings = RvcFilterSettings(),
     val asrProviders: List<ASRProviderSetting> = emptyList(),
     val selectedASRProviderId: Uuid? = null,
     val modeInjections: List<PromptInjection.ModeInjection> = DEFAULT_MODE_INJECTIONS,

@@ -66,6 +66,7 @@ import me.rerere.rikkahub.ui.components.ui.TagType
 import me.rerere.rikkahub.ui.context.LocalTTSState
 import me.rerere.rikkahub.ui.pages.setting.components.ASRProviderConfigure
 import me.rerere.rikkahub.ui.pages.setting.components.TTSProviderConfigure
+import me.rerere.rikkahub.ui.pages.setting.components.RvcFilterCard
 import me.rerere.rikkahub.ui.theme.CustomColors
 import me.rerere.rikkahub.utils.plus
 import me.rerere.tts.provider.TTSProviderSetting
@@ -355,6 +356,13 @@ private fun TTSProviderList(
                     },
                 )
             }
+        }
+
+        item(key = "rvcPostEffect") {
+            RvcFilterCard(
+                settings = settings.rvcFilterSettings,
+                onChange = { onUpdateSettings(settings.copy(rvcFilterSettings = it)) },
+            )
         }
 
         items(settings.ttsProviders, key = { it.id }) { provider ->
