@@ -118,6 +118,8 @@ class SettingsStore(
         val THEME_VARIATION = stringPreferencesKey("theme_variation")
         val THEME_ACCENT = stringPreferencesKey("theme_accent")
         val MATERIAL_YOU_SOURCE_COLOR = longPreferencesKey("material_you_source_color")
+        val PERSONAL_THEME_ACCENT_COLOR = longPreferencesKey("personal_theme_accent_color")
+        val PERSONAL_LAST_BACKGROUND_COLOR = longPreferencesKey("personal_last_background_color")
         val CUSTOM_THEMES = stringPreferencesKey("custom_themes")
         val DISPLAY_SETTING = stringPreferencesKey("display_setting")
         val DEVELOPER_MODE = booleanPreferencesKey("developer_mode")
@@ -271,6 +273,9 @@ class SettingsStore(
                 themeVariation = preferences[THEME_VARIATION] ?: "default",
                 themeAccent = preferences[THEME_ACCENT] ?: "default",
                 materialYouSourceColor = preferences[MATERIAL_YOU_SOURCE_COLOR],
+                personalThemeAccentColor = preferences[PERSONAL_THEME_ACCENT_COLOR],
+                personalLastBackgroundColor = preferences[PERSONAL_LAST_BACKGROUND_COLOR]
+                    ?: preferences[MATERIAL_YOU_SOURCE_COLOR],
                 customThemes = preferences[CUSTOM_THEMES]?.let {
                     JsonInstant.decodeFromString(it)
                 } ?: emptyList(),
@@ -516,6 +521,12 @@ class SettingsStore(
             settings.materialYouSourceColor?.let {
                 preferences[MATERIAL_YOU_SOURCE_COLOR] = it
             } ?: preferences.remove(MATERIAL_YOU_SOURCE_COLOR)
+            settings.personalThemeAccentColor?.let {
+                preferences[PERSONAL_THEME_ACCENT_COLOR] = it
+            } ?: preferences.remove(PERSONAL_THEME_ACCENT_COLOR)
+            settings.personalLastBackgroundColor?.let {
+                preferences[PERSONAL_LAST_BACKGROUND_COLOR] = it
+            } ?: preferences.remove(PERSONAL_LAST_BACKGROUND_COLOR)
             preferences[CUSTOM_THEMES] = JsonInstant.encodeToString(settings.customThemes)
             preferences[DEVELOPER_MODE] = settings.developerMode
             preferences[DISPLAY_SETTING] = JsonInstant.encodeToString(settings.displaySetting)
@@ -688,6 +699,8 @@ data class Settings(
     val themeVariation: String = "default",
     val themeAccent: String = "default",
     val materialYouSourceColor: Long? = null,
+    val personalThemeAccentColor: Long? = null,
+    val personalLastBackgroundColor: Long? = null,
     val customThemes: List<CustomTheme> = emptyList(),
     val developerMode: Boolean = false,
     val displaySetting: DisplaySetting = DisplaySetting(),

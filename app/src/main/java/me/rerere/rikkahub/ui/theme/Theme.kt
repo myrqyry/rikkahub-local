@@ -72,27 +72,38 @@ fun RikkahubTheme(
     }
     val amoledDarkMode by rememberAmoledDarkMode()
 
+    val context = LocalContext.current
+    val wallpaperScheme = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    } else {
+        CustomTheme(primaryColorArgb = MATERIAL_YOU_FALLBACK_COLOR).generateColorScheme(darkTheme)
+    }
     val colorScheme = when {
-        settings.dynamicColor -> {
-            settings.materialYouSourceColor?.let { sourceColor ->
-                CustomTheme(primaryColorArgb = sourceColor).generateColorScheme(darkTheme)
-            } ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val context = LocalContext.current
-                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-            } else {
-                // Android 8-11 lack system wallpaper-derived Material You colors.
-                CustomTheme(primaryColorArgb = MATERIAL_YOU_FALLBACK_COLOR).generateColorScheme(darkTheme)
-            }
-        }
-        else -> {
-            findThemeFamily(settings.themeId)?.colorScheme(
-                variationId = settings.themeVariation,
-                accentId = settings.themeAccent,
-                dark = darkTheme,
-            ) ?: findThemeById(settings.themeId, settings.customThemes)
+        settings.dynamicColor -> personalPalette(
+            dark = darkTheme,
+            wallpaper = wallpaperScheme,
+            backgroundSeed = settings.materialYouSourceColor,
+            accentOverride = settings.personalThemeAccentColor,
+        )
+        // Retain existing user-defined/downloaded themes exactly as saved.
+        settings.themeId != MERISTEM_THEME_ID -> {
+            findThemeById(settings.themeId, settings.customThemes)
                 ?.getColorScheme(dark = darkTheme)
-                ?: findPresetTheme(settings.themeId).getColorScheme(dark = darkTheme)
+                ?: personalPalette(
+                    darkTheme, wallpaperScheme, settings.materialYouSourceColor,
+                    settings.personalThemeAccentColor,
+                )
         }
+        // Previously selected Meristem stays readable without rewriting prefs;
+        // the Appearance page can bring it into the single personal theme.
+        else -> findThemeFamily(settings.themeId)?.colorScheme(
+            variationId = settings.themeVariation,
+            accentId = settings.themeAccent,
+            dark = darkTheme,
+        ) ?: personalPalette(
+            darkTheme, wallpaperScheme, settings.materialYouSourceColor,
+            settings.personalThemeAccentColor,
+        )
     }
     val colorSchemeConverted = remember(darkTheme, amoledDarkMode, colorScheme) {
         if (darkTheme && amoledDarkMode) {

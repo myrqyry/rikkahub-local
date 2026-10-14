@@ -919,6 +919,15 @@
   <string name="setting_theme_downloading">Downloading…</string>
   <string name="setting_theme_download">Download</string>
   <string name="setting_theme_update">Use / update</string>
+  <string name="setting_theme_your_theme">Your theme</string>
+  <string name="setting_theme_my_theme">My theme</string>
+  <string name="setting_theme_my_theme_description">One design, with wallpaper colors or your own palette.</string>
+  <string name="setting_theme_palette_source">Palette source</string>
+  <string name="setting_theme_source_wallpaper">Wallpaper</string>
+  <string name="setting_theme_source_background">Background color</string>
+  <string name="setting_theme_background_color_description">Tint the whole interface from this color, not just its buttons.</string>
+  <string name="setting_theme_accent_override">Accent override</string>
+  <string name="setting_theme_accent_override_description">Change accents without losing the background palette.</string>
   <string name="setting_theme_mode_heading">Themes</string>
   <string name="setting_theme_mode_material_you">Material You</string>
   <string name="setting_theme_mode_material_you_description">Wallpaper-aware colors and the same clean, compact surfaces.</string>
