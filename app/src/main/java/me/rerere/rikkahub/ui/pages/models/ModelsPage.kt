@@ -17,14 +17,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeFlexibleTopAppBar
-import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -35,7 +33,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -102,7 +99,6 @@ fun ModelsPage(
     }
 
     val providerFocused = scrollToSources
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var query by rememberSaveable { mutableStateOf(request.search) }
     var filter by rememberSaveable { mutableStateOf(request.tab.toModelsFilter()) }
     var searchExpanded by rememberSaveable { mutableStateOf(request.search.isNotBlank()) }
@@ -127,10 +123,9 @@ fun ModelsPage(
     val searching = query.isNotBlank()
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = CustomColors.topBarColors.containerColor,
         topBar = {
-            LargeFlexibleTopAppBar(
+            TopAppBar(
                 title = {
                     Text(
                         stringResource(
@@ -170,7 +165,6 @@ fun ModelsPage(
                         Icon(MingcuteIcons.Add01, stringResource(R.string.models_add))
                     }
                 },
-                scrollBehavior = scrollBehavior,
                 colors = CustomColors.topBarColors,
             )
         },
@@ -316,7 +310,7 @@ private fun ModelAssignmentsPage(
     Scaffold(
         containerColor = CustomColors.topBarColors.containerColor,
         topBar = {
-            LargeTopAppBar(
+            TopAppBar(
                 title = { Text(stringResource(R.string.models_used_by_default)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {

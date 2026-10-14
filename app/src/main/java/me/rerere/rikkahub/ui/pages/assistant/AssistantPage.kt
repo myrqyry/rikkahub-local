@@ -22,7 +22,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeFlexibleTopAppBar
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -32,7 +32,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
@@ -45,7 +44,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -84,7 +82,6 @@ fun AssistantPage(vm: AssistantVM = koinViewModel()) {
         vm.addAssistant(it)
     }
     val navController = LocalNavController.current
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     // 搜索关键词状态
     var searchQuery by remember { mutableStateOf("") }
@@ -106,7 +103,7 @@ fun AssistantPage(vm: AssistantVM = koinViewModel()) {
 
     Scaffold(
         topBar = {
-            LargeFlexibleTopAppBar(
+            TopAppBar(
                 title = {
                     Text(stringResource(R.string.assistant_page_title))
                 },
@@ -121,11 +118,9 @@ fun AssistantPage(vm: AssistantVM = koinViewModel()) {
                         Icon(HugeIcons.Add01, stringResource(R.string.assistant_page_add))
                     }
                 },
-                scrollBehavior = scrollBehavior,
                 colors = CustomColors.topBarColors,
             )
         },
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = CustomColors.topBarColors.containerColor,
     ) {
         Column(
