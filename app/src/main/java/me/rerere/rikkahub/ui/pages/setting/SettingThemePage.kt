@@ -2,6 +2,8 @@ package me.rerere.rikkahub.ui.pages.setting
 
 import android.content.ClipData
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -68,6 +71,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.ColorUtils
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dokar.sonner.ToastType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -76,7 +81,11 @@ import me.rerere.rikkahub.R
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.RikkaConfirmDialog
 import me.rerere.rikkahub.ui.context.LocalToaster
+import me.rerere.rikkahub.ui.pages.setting.components.ColorwayBrowserDialog
 import me.rerere.rikkahub.ui.pages.setting.components.ThemeChoiceCard
+import me.rerere.rikkahub.ui.theme.ColorwayCatalog
+import me.rerere.rikkahub.ui.theme.ColorwayCatalogEntry
+import me.rerere.rikkahub.ui.theme.ThemeImport
 import me.rerere.rikkahub.ui.theme.CustomColors
 import me.rerere.rikkahub.ui.theme.CustomTheme
 import me.rerere.rikkahub.ui.theme.MERISTEM_THEME_ID
@@ -84,6 +93,8 @@ import me.rerere.rikkahub.ui.theme.MATERIAL_YOU_FALLBACK_COLOR
 import me.rerere.rikkahub.ui.theme.LocalDarkMode
 import me.rerere.rikkahub.ui.theme.findThemeFamily
 import me.rerere.rikkahub.ui.theme.nextThemeAccent
+import me.rerere.rikkahub.ui.theme.rememberRikkaNeumorphicColors
+import dev.neumorphic.components.NeumorphicSegmentedControl
 import me.rerere.rikkahub.ui.theme.nextThemeVariation
 import me.rerere.rikkahub.utils.plus
 import org.koin.androidx.compose.koinViewModel
@@ -130,6 +141,52 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
     var deletingTheme by remember { mutableStateOf<CustomTheme?>(null) }
     var showSavedThemes by rememberSaveable { mutableStateOf(false) }
     var editMaterialSeed by rememberSaveable { mutableStateOf(false) }
+
+    var browserOpen by rememberSaveable { mutableStateOf(false) }
+    var catalogLoading by remember { mutableStateOf(false) }
+    var catalogError by remember { mutableStateOf<String?>(null) }
+    var catalog by remember { mutableStateOf<List<ColorwayCatalogEntry>>(emptyList()) }
+    var downloadingPath by remember { mutableStateOf<String?>(null) }
+    var downloadError by remember { mutableStateOf<String?>(null) }
+    var themePreview by remember { mutableStateOf<CustomTheme?>(null) }
+
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.openInputStream(uri)?.use { input ->
+                            ThemeImport.parse(ThemeImport.readLimited(input))
+                        } ?: error("Could not open this file.")
+                    }
+                }
+                result.onSuccess { imported ->
+                    val installed = imported.copy(id = Uuid.random().toString())
+                    vm.updateSettings(
+                        settings.copy(
+                            customThemes = settings.customThemes + installed,
+                            themeId = installed.id,
+                            dynamicColor = false,
+                        )
+                    )
+                    showSavedThemes = true
+                    toaster.show(importSuccessMsg, type = ToastType.Success)
+                }.onFailure { toaster.show(it.message ?: "Theme import failed.", type = ToastType.Error) }
+            }
+        }
+    }
+
+    fun refreshCatalog() {
+        if (catalogLoading) return
+        catalogLoading = true
+        catalogError = null
+        scope.launch {
+            val result = withContext(Dispatchers.IO) { runCatching { ColorwayCatalog.fetchCatalog() } }
+            catalogLoading = false
+            result.onSuccess { catalog = it }
+                .onFailure { catalogError = it.message ?: "Could not load theme catalog." }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -296,6 +353,41 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
                 }
             }
 
+            item("themeLibraryActions") {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.setting_theme_library_title),
+                        modifier = Modifier.padding(horizontal = 6.dp),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        FilledTonalButton(
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                browserOpen = true
+                                themePreview = null
+                            if (catalog.isEmpty()) refreshCatalog()
+                            },
+                        ) {
+                            Text(stringResource(R.string.setting_theme_browse_colorway))
+                        }
+                        FilledTonalButton(
+                            onClick = { filePicker.launch(arrayOf("*/*")) },
+                        ) {
+                            Icon(HugeIcons.FileImport, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(R.string.setting_theme_import_file))
+                        }
+                    }
+                }
+            }
+
             item("customThemesHeader") {
                 Surface(
                     onClick = { showSavedThemes = !showSavedThemes },
@@ -336,7 +428,7 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
                         FilledTonalButton(onClick = { showImportDialog = true }) {
                             Icon(HugeIcons.FileImport, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(stringResource(R.string.setting_theme_page_import_theme))
+                            Text(stringResource(R.string.setting_theme_paste_theme))
                         }
                         FilledTonalButton(
                             onClick = {
@@ -429,6 +521,52 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
         )
     }
 
+    if (browserOpen) {
+        ColorwayBrowserDialog(
+            entries = catalog,
+            loading = catalogLoading,
+            error = catalogError,
+            downloadingPath = downloadingPath,
+            downloadError = downloadError,
+            preview = themePreview,
+            installedKeys = settings.customThemes.mapNotNull { it.sourceKey }.toSet(),
+            onRefresh = { refreshCatalog() },
+            onBackToCatalog = { themePreview = null },
+            onInstall = {
+                val candidate = themePreview
+                if (candidate != null) {
+                    val existing = settings.customThemes.firstOrNull {
+                        it.source == "Colorway" && it.sourceKey == candidate.sourceKey
+                    }
+                    val installed = candidate.copy(id = existing?.id ?: Uuid.random().toString())
+                    val updated = if (existing != null) {
+                        settings.customThemes.map { if (it.id == existing.id) installed else it }
+                    } else settings.customThemes + installed
+                    vm.updateSettings(
+                        settings.copy(customThemes = updated, themeId = installed.id, dynamicColor = false)
+                    )
+                    themePreview = null
+                    browserOpen = false
+                    showSavedThemes = true
+                    toaster.show(importSuccessMsg, type = ToastType.Success)
+                }
+            },
+            onDismiss = { if (downloadingPath == null) { browserOpen = false; themePreview = null } },
+            onDownload = { entry ->
+                if (downloadingPath == null) {
+                    downloadingPath = entry.id
+                    downloadError = null
+                    scope.launch {
+                        val result = withContext(Dispatchers.IO) { runCatching { ColorwayCatalog.download(entry) } }
+                        downloadingPath = null
+                        result.onSuccess { themePreview = it
+                        }.onFailure { downloadError = it.message ?: "Unable to download theme." }
+                    }
+                }
+            },
+        )
+    }
+
     RikkaConfirmDialog(
         show = deletingTheme != null,
         title = stringResource(R.string.setting_theme_page_delete_theme_title),
@@ -466,22 +604,13 @@ private fun ThemeFamilyControls(
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
         )
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            family.variations.forEach { variation ->
-                if (variation.id == variationId) {
-                    Button(onClick = { onVariationChange(variation.id) }) {
-                        Text(variation.id.replace('_', ' ').replaceFirstChar { it.uppercase() })
-                    }
-                } else {
-                    androidx.compose.material3.OutlinedButton(onClick = { onVariationChange(variation.id) }) {
-                        Text(variation.id.replace('_', ' ').replaceFirstChar { it.uppercase() })
-                    }
-                }
-            }
-        }
+        NeumorphicSegmentedControl(
+            items = family.variations.map { it.id.replace('_', ' ').replaceFirstChar(Char::uppercase) },
+            selectedIndex = family.variations.indexOfFirst { it.id == variationId }.coerceAtLeast(0),
+            onItemSelected = { index -> onVariationChange(family.variations[index].id) },
+            modifier = Modifier.fillMaxWidth(),
+            colors = rememberRikkaNeumorphicColors(),
+        )
         Text(
             text = stringResource(R.string.setting_theme_page_accent),
             style = MaterialTheme.typography.titleSmall,
@@ -645,7 +774,7 @@ private fun CustomThemeEditSheet(
                 ColorPickerRow(
                     color = Color(currentTheme.primaryColorArgb.toInt()),
                     onColorChange = {
-                        currentTheme = currentTheme.copy(primaryColorArgb = it.toArgb().toLong() and 0xFFFFFFFFL)
+                        currentTheme = currentTheme.copy(primaryColorArgb = it.toArgb().toLong() and 0xFFFFFFFFL, importedPalette = null)
                     }
                 )
 
@@ -660,7 +789,7 @@ private fun CustomThemeEditSheet(
                         Color(currentTheme.generateColorScheme(false).secondary.toArgb())
                     },
                     onColorChange = {
-                        currentTheme = currentTheme.copy(secondaryColorArgb = it.toArgb().toLong() and 0xFFFFFFFFL)
+                        currentTheme = currentTheme.copy(secondaryColorArgb = it.toArgb().toLong() and 0xFFFFFFFFL, importedPalette = null)
                     }
                 )
 
@@ -675,7 +804,7 @@ private fun CustomThemeEditSheet(
                         Color(currentTheme.generateColorScheme(false).tertiary.toArgb())
                     },
                     onColorChange = {
-                        currentTheme = currentTheme.copy(tertiaryColorArgb = it.toArgb().toLong() and 0xFFFFFFFFL)
+                        currentTheme = currentTheme.copy(tertiaryColorArgb = it.toArgb().toLong() and 0xFFFFFFFFL, importedPalette = null)
                     }
                 )
 
@@ -723,7 +852,7 @@ private fun ImportThemeDialog(
                         jsonText = it
                         errorMessage = null
                     },
-                    label = { Text("JSON") },
+                    label = { Text(stringResource(R.string.setting_theme_import_paste_hint)) },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 4,
                     maxLines = 8,
@@ -736,7 +865,7 @@ private fun ImportThemeDialog(
             Button(
                 onClick = {
                     try {
-                        val theme = themeJson.decodeFromString<CustomTheme>(jsonText)
+                        val theme = ThemeImport.parse(jsonText)
                         onImport(theme)
                     } catch (e: Exception) {
                         errorMessage = e.message

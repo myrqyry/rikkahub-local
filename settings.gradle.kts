@@ -45,3 +45,5 @@ include(":web")
 include(":material3")
 include(":workspace")
 include(":agent-runtime-adk")
+
+include(":neumorphic-ui")

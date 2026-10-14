@@ -17,6 +17,10 @@ data class CustomTheme(
     val primaryColorArgb: Long = 0xFF6750A4,
     val secondaryColorArgb: Long? = null,
     val tertiaryColorArgb: Long? = null,
+    /** Imported token roles are kept separately from editable seed colors. */
+    val importedPalette: ImportedThemePalette? = null,
+    val source: String? = null,
+    val sourceKey: String? = null,
 ) {
     fun generateColorScheme(dark: Boolean): ColorScheme {
         val sourceHct = Hct.fromInt(primaryColorArgb.toInt())
@@ -63,6 +67,8 @@ data class CustomTheme(
                 Variant.TONAL_SPOT, sourceHct, dark, platform, contrastLevel,
             ),
         )
-        return scheme.toColorScheme()
+        val generated = scheme.toColorScheme()
+        val imported = importedPalette?.takeIf { it.dark == dark } ?: return generated
+        return imported.applyTo(generated)
     }
 }

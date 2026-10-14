@@ -2,6 +2,8 @@ package me.rerere.rikkahub.ui.pages.setting.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +23,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import dev.neumorphic.NeumorphicShape
+import dev.neumorphic.NeumorphicElevation
+import dev.neumorphic.NeumorphicRaisedSurface
+import me.rerere.rikkahub.ui.theme.rememberRikkaNeumorphicColors
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -38,17 +45,26 @@ fun ThemeChoiceCard(
     modifier: Modifier = Modifier,
 ) {
     val outer = MaterialTheme.colorScheme
-    Surface(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = if (selected) outer.primaryContainer.copy(alpha = 0.35f) else outer.surfaceContainerLow,
-        border = BorderStroke(
-            if (selected) 1.5.dp else 1.dp,
-            if (selected) outer.primary else outer.outlineVariant,
-        ),
-        tonalElevation = if (selected) 2.dp else 0.dp,
+    val physical = rememberRikkaNeumorphicColors()
+    val shape = RoundedCornerShape(20.dp)
+    val bg = if (selected) outer.primaryContainer.copy(alpha = 0.35f) else outer.surfaceContainerLow
+    NeumorphicRaisedSurface(
+        modifier = modifier.fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick),
+        colors = physical,
+        shape = NeumorphicShape.Rounded(20.dp),
+        elevation = NeumorphicElevation.Subtle,
+        backgroundColor = bg,
     ) {
+        Box(
+            modifier = Modifier.fillMaxWidth().border(
+                border = BorderStroke(
+                    if (selected) 1.5.dp else 1.dp,
+                    if (selected) outer.primary else outer.outlineVariant,
+                ),
+                shape = shape,
+            ),
+        ) {
         Row(
             modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -78,11 +94,12 @@ fun ThemeChoiceCard(
                 }
             }
         }
+        }
     }
 }
 
 @Composable
-private fun ThemeMiniature(scheme: ColorScheme) {
+fun ThemeMiniature(scheme: ColorScheme) {
     Surface(
         modifier = Modifier.width(90.dp).height(86.dp),
         shape = RoundedCornerShape(12.dp),
