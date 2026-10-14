@@ -98,19 +98,16 @@ fun SettingPreferencesThemePage(vm: SettingVM = koinViewModel()) {
                         },
                     )
                     item(
-                        headlineContent = { Text(stringResource(R.string.setting_page_dynamic_color)) },
-                        supportingContent = { Text(stringResource(R.string.setting_page_dynamic_color_desc)) },
-                        trailingContent = {
-                            Switch(
-                                checked = settings.dynamicColor,
-                                onCheckedChange = { vm.updateSettings(settings.copy(dynamicColor = it)) },
-                            )
-                        },
-                    )
-                    item(
                         onClick = { navController.navigate(Screen.SettingTheme) },
                         headlineContent = { Text(stringResource(R.string.setting_page_theme_setting)) },
-                        supportingContent = { Text(stringResource(R.string.setting_page_theme_setting_desc)) },
+                        supportingContent = {
+                            Text(
+                                if (settings.dynamicColor) stringResource(R.string.setting_theme_mode_material_you)
+                                else if (settings.customThemes.any { it.id == settings.themeId }) {
+                                    settings.customThemes.first { it.id == settings.themeId }.name
+                                } else stringResource(R.string.setting_theme_mode_meristem)
+                            )
+                        },
                         trailingContent = { Icon(HugeIcons.ArrowRight01, contentDescription = null) },
                     )
                     item(

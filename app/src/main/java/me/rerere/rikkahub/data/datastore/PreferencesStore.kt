@@ -267,7 +267,7 @@ class SettingsStore(
                     } ?: emptySet(),
                 assistants = JsonInstant.decodeFromString(preferences[ASSISTANTS] ?: "[]"),
                 dynamicColor = preferences[DYNAMIC_COLOR] != false,
-                themeId = preferences[THEME_ID] ?: PresetThemes[0].id,
+                themeId = preferences[THEME_ID] ?: "meristem",
                 themeVariation = preferences[THEME_VARIATION] ?: "default",
                 themeAccent = preferences[THEME_ACCENT] ?: "default",
                 materialYouSourceColor = preferences[MATERIAL_YOU_SOURCE_COLOR],
@@ -684,7 +684,7 @@ class SettingsStore(
 @Serializable
 data class Settings(
     val dynamicColor: Boolean = true,
-    val themeId: String = PresetThemes[0].id,
+    val themeId: String = "meristem",
     val themeVariation: String = "default",
     val themeAccent: String = "default",
     val materialYouSourceColor: Long? = null,

@@ -2,11 +2,7 @@ package me.rerere.rikkahub.ui.theme
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Composable
-import me.rerere.rikkahub.ui.theme.presets.AutumnThemePreset
-import me.rerere.rikkahub.ui.theme.presets.BlackThemePreset
-import me.rerere.rikkahub.ui.theme.presets.OceanThemePreset
-import me.rerere.rikkahub.ui.theme.presets.SakuraThemePreset
-import me.rerere.rikkahub.ui.theme.presets.SpringThemePreset
+
 
 data class PresetTheme(
     val id: String,
@@ -19,18 +15,11 @@ data class PresetTheme(
     }
 }
 
-val PresetThemes by lazy {
-    listOf(
-        SakuraThemePreset,
-        OceanThemePreset,
-        SpringThemePreset,
-        AutumnThemePreset,
-        BlackThemePreset,
-    ) + ThemeFamilies.map { it.defaultPreset() }
-}
+/** Only the Meristem family is a built-in static preset; Material You is dynamic. */
+val PresetThemes by lazy { ThemeFamilies.map { it.defaultPreset() } }
 
 fun findPresetTheme(id: String): PresetTheme {
-    return PresetThemes.find { it.id == id } ?: SakuraThemePreset
+    return PresetThemes.find { it.id == id } ?: requireNotNull(PresetThemes.firstOrNull())
 }
 
 fun findThemeById(id: String, customThemes: List<CustomTheme>): PresetTheme? {

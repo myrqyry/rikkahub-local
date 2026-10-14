@@ -37,7 +37,9 @@ val LocalDarkMode = compositionLocalOf { false }
 private val AMOLED_DARK_BACKGROUND = Color(0xFF000000)
 
 // Selected only for the Meristem theme; other themes keep their own expressive shapes.
-private val MeristemShapes = Shapes(
+// Deliberately restrained shared geometry for both Material You and Meristem.
+// The former expressive defaults produced oversized pill/sheet corners across screens.
+private val WorkspaceShapes = Shapes(
     extraSmall = RoundedCornerShape(6.dp),
     small = RoundedCornerShape(10.dp),
     medium = RoundedCornerShape(14.dp),
@@ -46,14 +48,8 @@ private val MeristemShapes = Shapes(
     extraExtraLarge = RoundedCornerShape(30.dp),
 )
 
-private val ExpressiveShapes = Shapes(
-    extraSmall = RoundedCornerShape(4.dp),
-    small = RoundedCornerShape(8.dp),
-    medium = RoundedCornerShape(12.dp),
-    large = RoundedCornerShape(20.dp),
-    extraLarge = RoundedCornerShape(32.dp),
-    extraExtraLarge = RoundedCornerShape(48.dp),
-)
+const val MERISTEM_THEME_ID = "meristem"
+const val MATERIAL_YOU_FALLBACK_COLOR: Long = 0xFF8199AD
 
 @Serializable
 enum class ColorMode {
@@ -77,12 +73,15 @@ fun RikkahubTheme(
     val amoledDarkMode by rememberAmoledDarkMode()
 
     val colorScheme = when {
-        settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+        settings.dynamicColor -> {
             settings.materialYouSourceColor?.let { sourceColor ->
                 CustomTheme(primaryColorArgb = sourceColor).generateColorScheme(darkTheme)
-            } ?: run {
+            } ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val context = LocalContext.current
                 if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            } else {
+                // Android 8-11 lack system wallpaper-derived Material You colors.
+                CustomTheme(primaryColorArgb = MATERIAL_YOU_FALLBACK_COLOR).generateColorScheme(darkTheme)
             }
         }
         else -> {
@@ -129,7 +128,7 @@ fun RikkahubTheme(
             typography = Typography,
             content = content,
             motionScheme = MotionScheme.expressive(),
-            shapes = if (settings.themeId == "meristem") MeristemShapes else ExpressiveShapes
+            shapes = WorkspaceShapes
         )
     }
 }

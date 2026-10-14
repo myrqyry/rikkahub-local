@@ -1,6 +1,7 @@
 package me.rerere.rikkahub.ui.pages.setting
 
 import android.content.ClipData
+import android.os.Build
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,6 +33,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -46,6 +50,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -57,6 +62,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.ColorUtils
@@ -70,9 +76,11 @@ import me.rerere.rikkahub.R
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.RikkaConfirmDialog
 import me.rerere.rikkahub.ui.context.LocalToaster
-import me.rerere.rikkahub.ui.pages.setting.components.PresetThemeButtonGroup
+import me.rerere.rikkahub.ui.pages.setting.components.ThemeChoiceCard
 import me.rerere.rikkahub.ui.theme.CustomColors
 import me.rerere.rikkahub.ui.theme.CustomTheme
+import me.rerere.rikkahub.ui.theme.MERISTEM_THEME_ID
+import me.rerere.rikkahub.ui.theme.MATERIAL_YOU_FALLBACK_COLOR
 import me.rerere.rikkahub.ui.theme.LocalDarkMode
 import me.rerere.rikkahub.ui.theme.findThemeFamily
 import me.rerere.rikkahub.ui.theme.nextThemeAccent
@@ -97,12 +105,31 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
     val scope = rememberCoroutineScope()
     val exportSuccessMsg = stringResource(R.string.setting_theme_page_export_success)
     val importSuccessMsg = stringResource(R.string.setting_theme_page_import_success)
-    val activeFamily = findThemeFamily(settings.themeId)
+    val activeFamily = findThemeFamily(MERISTEM_THEME_ID)
+    val dark = LocalDarkMode.current
+    val context = LocalContext.current
+    val customActive = settings.customThemes.any { it.id == settings.themeId } && !settings.dynamicColor
+    val meristemSelected = !settings.dynamicColor && !customActive
+    // Show the actual wallpaper palette where supported, not a generic purple sample.
+    val materialYouPreview = settings.materialYouSourceColor?.let { source ->
+        CustomTheme(primaryColorArgb = source).generateColorScheme(dark)
+    } ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    } else {
+        CustomTheme(primaryColorArgb = MATERIAL_YOU_FALLBACK_COLOR).generateColorScheme(dark)
+    }
+    val meristemPreview = requireNotNull(activeFamily).colorScheme(
+        variationId = if (settings.themeId == MERISTEM_THEME_ID) settings.themeVariation else "slate",
+        accentId = if (settings.themeId == MERISTEM_THEME_ID) settings.themeAccent else "blue",
+        dark = dark,
+    )
 
     var showEditSheet by remember { mutableStateOf(false) }
     var editingTheme by remember { mutableStateOf<CustomTheme?>(null) }
     var showImportDialog by remember { mutableStateOf(false) }
     var deletingTheme by remember { mutableStateOf<CustomTheme?>(null) }
+    var showSavedThemes by rememberSaveable { mutableStateOf(false) }
+    var editMaterialSeed by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -121,202 +148,226 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
             contentPadding = innerPadding + PaddingValues(8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            if (settings.dynamicColor) {
-                item("dynamicColorHint") {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = stringResource(R.string.setting_theme_page_dynamic_color_hint),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                item("materialYouSource") {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.setting_theme_page_material_you_source),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Text(
-                            text = stringResource(R.string.setting_theme_page_source_color_hint),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        val sourceColor = settings.materialYouSourceColor
-                        if (sourceColor == null) {
-                            Button(
-                                onClick = {
-                                    vm.updateSettings(
-                                        settings.copy(materialYouSourceColor = 0xFF6750A4)
+            item("themeChoices") {
+                Column(
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.setting_theme_mode_heading),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                    ThemeChoiceCard(
+                        title = stringResource(R.string.setting_theme_mode_material_you),
+                        description = stringResource(R.string.setting_theme_mode_material_you_description),
+                        scheme = materialYouPreview,
+                        selected = settings.dynamicColor,
+                        onClick = {
+                            if (!settings.dynamicColor) vm.updateSettings(settings.copy(dynamicColor = true))
+                        },
+                    )
+                    ThemeChoiceCard(
+                        title = stringResource(R.string.setting_theme_mode_meristem),
+                        description = stringResource(R.string.setting_theme_mode_meristem_description),
+                        scheme = meristemPreview,
+                        selected = meristemSelected,
+                        onClick = {
+                            if (!meristemSelected) {
+                                vm.updateSettings(
+                                    settings.copy(
+                                        dynamicColor = false,
+                                        themeId = MERISTEM_THEME_ID,
+                                        themeVariation = if (settings.themeId == MERISTEM_THEME_ID) settings.themeVariation else "slate",
+                                        themeAccent = if (settings.themeId == MERISTEM_THEME_ID) settings.themeAccent else "blue",
                                     )
-                                },
-                            ) {
-                                Text(stringResource(R.string.setting_theme_page_set_source_color))
+                                )
+                            } else if (settings.themeId != MERISTEM_THEME_ID) {
+                                vm.updateSettings(
+                                    settings.copy(dynamicColor = false, themeId = MERISTEM_THEME_ID, themeVariation = "slate", themeAccent = "blue")
+                                )
                             }
-                        } else {
-                            ColorPickerRow(
-                                color = Color(sourceColor.toInt()),
-                                onColorChange = {
-                                    vm.updateSettings(
-                                        settings.copy(
-                                            materialYouSourceColor = it.toArgb().toLong() and 0xFFFFFFFFL
-                                        )
-                                    )
-                                },
+                        },
+                    )
+                }
+            }
+
+            if (settings.dynamicColor) {
+                item("materialYouSource") {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        shape = RoundedCornerShape(18.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.setting_theme_page_material_you_source),
+                                style = MaterialTheme.typography.titleSmall,
                             )
-                            TextButton(
-                                onClick = {
-                                    vm.updateSettings(settings.copy(materialYouSourceColor = null))
-                                },
-                            ) {
-                                Text(stringResource(R.string.setting_theme_page_clear_source_color))
+                            Text(
+                                text = if (settings.materialYouSourceColor == null) {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                                        stringResource(R.string.setting_theme_wallpaper_active)
+                                    else stringResource(R.string.setting_theme_wallpaper_unavailable)
+                                } else stringResource(R.string.setting_theme_custom_seed_active),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            if (settings.materialYouSourceColor == null) {
+                                FilledTonalButton(
+                                    onClick = {
+                                        vm.updateSettings(settings.copy(materialYouSourceColor = MATERIAL_YOU_FALLBACK_COLOR))
+                                    },
+                                ) {
+                                    Text(stringResource(R.string.setting_theme_customize_seed))
+                                }
+                            } else {
+                                val seed = Color(requireNotNull(settings.materialYouSourceColor).toInt())
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.size(32.dp)
+                                                .clip(CircleShape)
+                                                .background(seed)
+                                        )
+                                        Text(
+                                            text = "#%06X".format(seed.toArgb() and 0xFFFFFF),
+                                            style = MaterialTheme.typography.labelLarge,
+                                        )
+                                    }
+                                    FilledTonalButton(
+                                        onClick = { editMaterialSeed = !editMaterialSeed },
+                                    ) {
+                                        Text(
+                                            stringResource(
+                                                if (editMaterialSeed) R.string.setting_theme_finish_seed
+                                                else R.string.setting_theme_edit_seed
+                                            )
+                                        )
+                                    }
+                                }
+                                if (editMaterialSeed) {
+                                    ColorPickerRow(
+                                        color = seed,
+                                        onColorChange = {
+                                            vm.updateSettings(
+                                                settings.copy(
+                                                    materialYouSourceColor = it.toArgb().toLong() and 0xFFFFFFFFL
+                                                )
+                                            )
+                                        },
+                                    )
+                                }
+                                TextButton(
+                                    onClick = {
+                                        editMaterialSeed = false
+                                        vm.updateSettings(settings.copy(materialYouSourceColor = null))
+                                    },
+                                ) {
+                                    Text(stringResource(R.string.setting_theme_restore_wallpaper))
+                                }
                             }
                         }
+                    }
+                }
+            } else if (meristemSelected) {
+                item("themeFamilyControls") {
+                    ThemeFamilyControls(
+                        family = requireNotNull(activeFamily),
+                        variationId = if (settings.themeId == MERISTEM_THEME_ID) settings.themeVariation else "slate",
+                        accentId = if (settings.themeId == MERISTEM_THEME_ID) settings.themeAccent else "blue",
+                        onVariationChange = { variation ->
+                            vm.updateSettings(settings.copy(themeId = MERISTEM_THEME_ID, themeVariation = variation))
+                        },
+                        onAccentChange = { accent ->
+                            vm.updateSettings(settings.copy(themeId = MERISTEM_THEME_ID, themeAccent = accent))
+                        },
+                    )
+                }
+            }
+
+            item("customThemesHeader") {
+                Surface(
+                    onClick = { showSavedThemes = !showSavedThemes },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                text = stringResource(R.string.setting_theme_page_custom_themes),
+                                style = MaterialTheme.typography.titleSmall,
+                            )
+                            Text(
+                                text = stringResource(R.string.setting_theme_saved_palettes_count, settings.customThemes.size),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text(
+                            text = if (showSavedThemes || customActive) "−" else "+",
+                            style = MaterialTheme.typography.titleLarge,
+                        )
                     }
                 }
             }
 
-            if (!settings.dynamicColor) {
-                item("presetThemes") {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.setting_theme_page_preset_themes),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 8.dp)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(MaterialTheme.colorScheme.surfaceBright)
-                        ) {
-                                PresetThemeButtonGroup(
-                                    themeId = settings.themeId,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    onChangeTheme = {
-                                        val family = findThemeFamily(it) ?: return@PresetThemeButtonGroup
-                                        if (it == settings.themeId) {
-                                            vm.updateSettings(
-                                                settings.copy(
-                                                    themeVariation = nextThemeVariation(
-                                                        family,
-                                                        settings.themeVariation,
-                                                    )
-                                                )
-                                            )
-                                        } else {
-                                            vm.updateSettings(
-                                                settings.copy(
-                                                    themeId = it,
-                                                    themeVariation = family.defaultVariation.id,
-                                                    themeAccent = family.defaultAccent.id,
-                                                )
-                                            )
-                                        }
-                                    },
-                                    onLongPressTheme = {
-                                        findThemeFamily(settings.themeId)?.let { family ->
-                                            vm.updateSettings(
-                                                settings.copy(
-                                                    themeAccent = nextThemeAccent(
-                                                        family,
-                                                        settings.themeAccent,
-                                                    )
-                                                )
-                                            )
-                                        }
-                                    },
-                            )
-                        }
-                    }
-                }
-
-                if (activeFamily != null) {
-                    item("themeFamilyControls") {
-                        ThemeFamilyControls(
-                            family = activeFamily,
-                            variationId = settings.themeVariation,
-                            accentId = settings.themeAccent,
-                            onVariationChange = { variation ->
-                                vm.updateSettings(settings.copy(themeVariation = variation))
-                            },
-                            onAccentChange = { accent ->
-                                vm.updateSettings(settings.copy(themeAccent = accent))
-                            },
-                        )
-                    }
-                }
-
-                item("customThemesHeader") {
+            if (showSavedThemes || customActive) {
+                item("customThemeActions") {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text(
-                            text = stringResource(R.string.setting_theme_page_custom_themes),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilledTonalButton(
-                                onClick = { showImportDialog = true }
-                            ) {
-                                Icon(HugeIcons.FileImport, null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text(stringResource(R.string.setting_theme_page_import_theme))
-                            }
-                            FilledTonalButton(
-                                onClick = {
-                                    editingTheme = null
-                                    showEditSheet = true
-                                }
-                            ) {
-                                Icon(HugeIcons.PlusSign, null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text(stringResource(R.string.setting_theme_page_add_theme))
-                            }
+                        FilledTonalButton(onClick = { showImportDialog = true }) {
+                            Icon(HugeIcons.FileImport, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(R.string.setting_theme_page_import_theme))
+                        }
+                        FilledTonalButton(
+                            onClick = {
+                                editingTheme = null
+                                showEditSheet = true
+                            },
+                        ) {
+                            Icon(HugeIcons.PlusSign, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(R.string.setting_theme_page_add_theme))
                         }
                     }
                 }
 
                 if (settings.customThemes.isEmpty()) {
                     item("emptyCustomThemes") {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(32.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = stringResource(R.string.setting_theme_page_no_custom_themes),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Text(
+                            text = stringResource(R.string.setting_theme_page_no_custom_themes),
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
 
                 items(settings.customThemes, key = { it.id }) { theme ->
                     CustomThemeItem(
                         theme = theme,
-                        isSelected = settings.themeId == theme.id,
+                        isSelected = customActive && settings.themeId == theme.id,
                         onSelect = {
-                            vm.updateSettings(settings.copy(themeId = theme.id))
+                            vm.updateSettings(settings.copy(dynamicColor = false, themeId = theme.id))
                         },
                         onExport = {
                             val json = themeJson.encodeToString(theme)
@@ -331,9 +382,7 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
                             editingTheme = theme
                             showEditSheet = true
                         },
-                        onDelete = {
-                            deletingTheme = theme
-                        }
+                        onDelete = { deletingTheme = theme },
                     )
                 }
             }
@@ -353,7 +402,8 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
                 vm.updateSettings(
                     settings.copy(
                         customThemes = newThemes,
-                        themeId = theme.id
+                        themeId = theme.id,
+                        dynamicColor = false
                     )
                 )
                 showEditSheet = false
@@ -369,7 +419,8 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
                 vm.updateSettings(
                     settings.copy(
                         customThemes = settings.customThemes + importedTheme,
-                        themeId = importedTheme.id
+                        themeId = importedTheme.id,
+                        dynamicColor = false
                     )
                 )
                 showImportDialog = false
@@ -386,7 +437,7 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
         onConfirm = {
             deletingTheme?.let { theme ->
                 val newThemes = settings.customThemes.filter { it.id != theme.id }
-                val newThemeId = if (settings.themeId == theme.id) "sakura" else settings.themeId
+                val newThemeId = if (settings.themeId == theme.id) MERISTEM_THEME_ID else settings.themeId
                 vm.updateSettings(settings.copy(customThemes = newThemes, themeId = newThemeId))
             }
             deletingTheme = null

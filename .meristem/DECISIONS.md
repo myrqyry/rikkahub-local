@@ -79,3 +79,15 @@ The planner is evidence/policy, not capability authority. Runtime fallback is re
 **Evidence / references:** OpenCode `~/loam/opencode-upstream/packages/app/src/index.css`, `packages/app/src/pages/layout/meristem-sidebar.css`; RikkaHub `ui/theme/{Theme.kt,ThemeFamily.kt}`, `ui/pages/extensions/workspace/{WorkspacePage.kt,OpenCodeWorkspaceDetailPage.kt}`; focused `MeristemThemeTest`. Host Kotlin compilation, focused tests and debug APK assembly passed on 2026-10-13.
 
 **Supersedes:** none
+
+## 2026-10-13 — Two built-in visual systems, with safe legacy-theme fallback
+
+**Decision:** Retire the five older built-in preset palettes (Sakura, Ocean, Spring, Autumn, Black) and five theme-kit families (Dracula, Catppuccin, Rosé Pine, Tokyo Night, Gruvbox). Material You remains wallpaper-derived by default on Android 12+ (custom seed optional), and Meristem is the sole static built-in theme, with two variations and eight accents. Make theme choice explicit and visible in Settings → Theme, instead of a separate Dynamic Color switch and preset carousel.
+
+**Why:** The old selection split the same decision across pages and left a dozen stylistic directions in the main appearance UI. The compact dual-choice preview now shows actual color/surface hierarchy. Both modes use restrained, consistent Material 3 shape geometry. The Material You seed editor is folded by default, so it no longer dominates the page.
+
+**Compatibility:** Preserve existing settings, custom/imported palette records and color sources; never delete their app data. Existing saved retired preset IDs resolve visually to Meristem without silently rewriting the stored ID; selecting Meristem commits the new ID through the normal preference update. User-authored custom palettes remain available under a collapsible section. Below Android 12, Material You uses a generated fallback rather than silently choosing a retired preset. Deleting an active custom palette selects Meristem. Changes to the old palette implementations remain recoverable from Git history.
+
+**Evidence:** Focused theme unit tests passed; `:app:compileDebugKotlin` and `:app:assembleDebug` passed. A private, checksum-verified backup of databases, shared preferences and DataStore was created before a safe in-place Pixel 10 Pro debug update. The new screen was inspected on-device in both Material You and Meristem modes; after the test, Material You was reselected with its pre-existing custom source color intact. App database and DataStore paths were observed after installation. No user model weights or app data were removed.
+
+**Scope:** This does not redesign every feature screen. Existing CardGroup styling and non-theme settings pages remain as they were; the shared shape tokens and new theme chooser carry the main appearance improvement. No remote push.

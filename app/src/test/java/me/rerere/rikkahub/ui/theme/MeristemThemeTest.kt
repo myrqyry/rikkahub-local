@@ -17,7 +17,10 @@ class MeristemThemeTest {
             family.accents.map { it.id },
         )
         assertTrue(PresetThemes.any { it.id == "meristem" })
-        assertEquals("sakura", findPresetTheme("unknown-theme").id)
+        assertEquals(listOf("meristem"), PresetThemes.map { it.id })
+        assertEquals("meristem", findPresetTheme("sakura").id)
+        assertEquals("meristem", findPresetTheme("dracula").id)
+        assertEquals("meristem", findPresetTheme("unknown-theme").id)
     }
 
     @Test
