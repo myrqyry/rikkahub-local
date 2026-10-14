@@ -188,7 +188,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     description = stringResource(R.string.setting_page_appearance_desc),
                     icon = HugeIcons.Image02,
                     keywords = listOf("theme", "color mode", "dark mode", "light mode", "dynamic color", "amoled", "palette"),
-                    onClick = { navController.navigate(Screen.SettingPreferencesTheme) },
+                    onClick = { navController.navigate(Screen.SettingTheme) },
                 ),
                 SettingsHomeItem(
                     id = "speech",

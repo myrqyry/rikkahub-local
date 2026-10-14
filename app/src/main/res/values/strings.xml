@@ -919,7 +919,7 @@
   <string name="setting_theme_downloading">Downloading…</string>
   <string name="setting_theme_download">Download</string>
   <string name="setting_theme_update">Use / update</string>
-  <string name="setting_theme_mode_heading">Appearance</string>
+  <string name="setting_theme_mode_heading">Themes</string>
   <string name="setting_theme_mode_material_you">Material You</string>
   <string name="setting_theme_mode_material_you_description">Wallpaper-aware colors and the same clean, compact surfaces.</string>
   <string name="setting_theme_mode_meristem">Meristem</string>
@@ -2025,7 +2025,8 @@
   <string name="setting_home_group_privacy_safety">"Privacy &amp; Safety"</string>
   <string name="setting_home_group_data_maintenance">"Data &amp; Maintenance"</string>
   <string name="setting_page_appearance">"Appearance"</string>
-  <string name="setting_page_appearance_desc">"Theme, color mode, dynamic color"</string>
+  <string name="setting_page_appearance_desc">"Color mode, themes and downloadable palettes"</string>
+  <string name="setting_appearance_amoled_hint">True black when using dark mode</string>
   <string name="setting_page_response_notifications">"Response notifications"</string>
   <string name="setting_page_response_notifications_desc">"Notifications for completed/generated responses"</string>
   <string name="setting_page_notification_access">"Notification access"</string>

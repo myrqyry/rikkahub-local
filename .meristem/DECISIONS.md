@@ -105,3 +105,13 @@ The planner is evidence/policy, not capability authority. Runtime fallback is re
 **Boundaries:** This is a theme browser, not a pixel-perfect OBS/CSS renderer, nor an implementation of Colorway's entire cross-platform color editor. One-mode imports intentionally use a generated opposite mode. GitHub rate limits and network access affect browsing, but already imported palettes work offline. SLCE's React bindings/solver were not ported to Android; existing responsive Compose layout remains. No push or publication.
 
 **Supersedes:** The earlier two-built-in-modes decision is retained; it now explicitly coexists with a large user-downloadable theme library.
+
+## 2026-10-14 — Flatten Appearance navigation into a single functional screen
+
+**Decision:** Settings → Appearance now opens the consolidated `SettingThemePage` directly. The redundant `SettingPreferencesThemePage` has been removed, and both old route IDs remain supported by routing them to the same unified Compose page (existing navigation stacks may still refer to the old ID). The page uses a compact top app bar and places Color Mode (System/Light/Dark) and AMOLED black controls above Material You/Meristem theme previews and the downloadable Colorway library. The download library appears before advanced active-theme color customization.
+
+**Why:** The previous design forced Appearance → Theme → actual themes, used three huge rows above mostly empty space, and hid the primary theme library. The user supplied a screenshot and explicitly challenged that design. This is a hierarchy and visibility correction, not a new theme.
+
+**Constraints / consequences:** Preserve `rememberColorMode()`, `rememberAmoledDarkMode()` and settings persistence without migrating stored values or modifying existing themes. Keep the Colorway import/download flow and custom palettes unchanged. The saved source color remains #2AFFBC on the connected Pixel. Existing navigation IDs remain compatible; no extra route page is rendered.
+
+**Verification:** `:app:compileDebugKotlin` passed; `:app:testDebugUnitTest --tests 'me.rerere.rikkahub.ui.theme.*'` passed 15/15; `:app:assembleDebug` passed. A checksum-verified backup of app databases/preferences/DataStore was created before `adb install -r`. The in-place Pixel 10 Pro installation succeeded; database and DataStore paths remained present. Final device screenshot verifies Settings → Appearance directly displays the Color Mode segment, AMOLED switch, Themes section, Material You/Meristem cards, Colorway/Import actions and current #2AFFBC seed. No APK publication/push; local checkpoint only.

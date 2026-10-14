@@ -117,7 +117,6 @@ import me.rerere.rikkahub.ui.pages.setting.SettingAboutPage
 import me.rerere.rikkahub.ui.pages.setting.SettingAccessibilityPage
 import me.rerere.rikkahub.ui.pages.setting.SettingNotificationsPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPermissionsPage
-import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesThemePage
 import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesNotificationPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesGeneralPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesUIPage
@@ -492,8 +491,9 @@ class RouteActivity : ComponentActivity() {
                                 SettingThemePage()
                             }
 
+                            // Legacy route alias: saved navigation stacks still open the same Appearance screen.
                             entry<Screen.SettingPreferencesTheme> {
-                                SettingPreferencesThemePage()
+                                SettingThemePage()
                             }
 
                             entry<Screen.SettingPreferencesNotification> {

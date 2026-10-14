@@ -33,7 +33,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeFlexibleTopAppBar
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -43,9 +43,9 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
@@ -62,7 +62,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
@@ -91,6 +90,9 @@ import me.rerere.rikkahub.ui.theme.CustomTheme
 import me.rerere.rikkahub.ui.theme.MERISTEM_THEME_ID
 import me.rerere.rikkahub.ui.theme.MATERIAL_YOU_FALLBACK_COLOR
 import me.rerere.rikkahub.ui.theme.LocalDarkMode
+import me.rerere.rikkahub.ui.theme.ColorMode
+import me.rerere.rikkahub.ui.hooks.rememberColorMode
+import me.rerere.rikkahub.ui.hooks.rememberAmoledDarkMode
 import me.rerere.rikkahub.ui.theme.findThemeFamily
 import me.rerere.rikkahub.ui.theme.nextThemeAccent
 import me.rerere.rikkahub.ui.theme.rememberRikkaNeumorphicColors
@@ -110,7 +112,8 @@ private val themeJson = Json {
 @Composable
 fun SettingThemePage(vm: SettingVM = koinViewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var colorMode by rememberColorMode()
+    var amoledDarkMode by rememberAmoledDarkMode()
     val clipboardManager = LocalClipboard.current
     val toaster = LocalToaster.current
     val scope = rememberCoroutineScope()
@@ -190,14 +193,12 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
 
     Scaffold(
         topBar = {
-            LargeFlexibleTopAppBar(
-                title = { Text(stringResource(R.string.setting_page_theme_setting)) },
+            TopAppBar(
+                title = { Text(stringResource(R.string.setting_page_appearance)) },
                 navigationIcon = { BackButton() },
-                scrollBehavior = scrollBehavior,
-                colors = CustomColors.topBarColors
+                colors = CustomColors.topBarColors,
             )
         },
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = CustomColors.topBarColors.containerColor
     ) { innerPadding ->
         LazyColumn(
@@ -205,6 +206,60 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
             contentPadding = innerPadding + PaddingValues(8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            item("displayControls") {
+                Column(
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.setting_page_color_mode),
+                        modifier = Modifier.padding(start = 6.dp),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    NeumorphicSegmentedControl(
+                        items = listOf(
+                            stringResource(R.string.setting_page_color_mode_system),
+                            stringResource(R.string.setting_page_color_mode_light),
+                            stringResource(R.string.setting_page_color_mode_dark),
+                        ),
+                        selectedIndex = ColorMode.entries.indexOf(colorMode).coerceAtLeast(0),
+                        onItemSelected = { index -> colorMode = ColorMode.entries[index] },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = rememberRikkaNeumorphicColors(),
+                    )
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.setting_display_page_amoled_dark_mode_title),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                Text(
+                                    text = stringResource(R.string.setting_appearance_amoled_hint),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Switch(
+                                checked = amoledDarkMode,
+                                onCheckedChange = { amoledDarkMode = it },
+                            )
+                        }
+                    }
+                }
+            }
+
             item("themeChoices") {
                 Column(
                     modifier = Modifier.padding(horizontal = 8.dp),
@@ -246,6 +301,41 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
                             }
                         },
                     )
+                }
+            }
+
+            item("themeLibraryActions") {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.setting_theme_library_title),
+                        modifier = Modifier.padding(horizontal = 6.dp),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        FilledTonalButton(
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                browserOpen = true
+                                themePreview = null
+                                if (catalog.isEmpty()) refreshCatalog()
+                            },
+                        ) {
+                            Text(stringResource(R.string.setting_theme_browse_colorway))
+                        }
+                        FilledTonalButton(
+                            onClick = { filePicker.launch(arrayOf("*/*")) },
+                        ) {
+                            Icon(HugeIcons.FileImport, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(R.string.setting_theme_import_file))
+                        }
+                    }
                 }
             }
 
@@ -350,41 +440,6 @@ fun SettingThemePage(vm: SettingVM = koinViewModel()) {
                             vm.updateSettings(settings.copy(themeId = MERISTEM_THEME_ID, themeAccent = accent))
                         },
                     )
-                }
-            }
-
-            item("themeLibraryActions") {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.setting_theme_library_title),
-                        modifier = Modifier.padding(horizontal = 6.dp),
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        FilledTonalButton(
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                browserOpen = true
-                                themePreview = null
-                            if (catalog.isEmpty()) refreshCatalog()
-                            },
-                        ) {
-                            Text(stringResource(R.string.setting_theme_browse_colorway))
-                        }
-                        FilledTonalButton(
-                            onClick = { filePicker.launch(arrayOf("*/*")) },
-                        ) {
-                            Icon(HugeIcons.FileImport, null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(stringResource(R.string.setting_theme_import_file))
-                        }
-                    }
                 }
             }
 
