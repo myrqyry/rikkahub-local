@@ -922,6 +922,10 @@
   <string name="setting_theme_background_hue">Background hue</string>
   <string name="setting_theme_accent_hue">Accent hue</string>
   <string name="setting_theme_amoled_short">AMOLED</string>
+  <string name="setting_compact_hold_details">Tap to toggle · hold for details</string>
+  <string name="setting_compact_messages">Messages</string>
+  <string name="setting_compact_typography">Typography</string>
+  <string name="setting_compact_code">Code</string>
   <string name="setting_theme_installed">Installed themes</string>
   <string name="setting_theme_hold_options">Tap to apply · hold for options</string>
   <string name="setting_theme_page_export_theme">Copy theme JSON</string>

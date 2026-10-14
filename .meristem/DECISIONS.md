@@ -148,3 +148,10 @@ The planner is evidence/policy, not capability authority. Runtime fallback is re
 **Evidence:** Kotlin compilation, SettingsPageTest and debug APK build passed. A Pixel screenshot initially showed an unintended two-column wrap; changed to deterministic three-column rows and verified on-device at the real phone width. Five AI/Models destinations fit in two rows with no vertical scrolling. App databases/preferences/DataStore were backed up before in-place update and preserved.
 
 **Follow-up:** Apply the compact pattern to preference-heavy screens while protecting complex provider/model editors' existing functionality.
+## 2026-10-14 — Compact Chat and UI preference consoles
+
+**Decision:** Replace Chat Preferences' tall toggle rows with two-column interactive switch tiles. A tile toggles on tap, animates track/thumb and card color, exposes Switch-style accessibility semantics, and opens the original explanatory description by long press. Conditional message-jumper placement, paste-as-file threshold, and volume-key scroll ratio remain available only when relevant. Preserve the original SharedPreferences and DisplaySetting update mechanisms.
+
+**UI Preferences:** Replace the long mixed font-and-message document with compact Messages / Typography / Code selector tabs. Message visibility and code settings use the same toggle tiles. Bubble opacity stays a dedicated slider, and Typography retains font family selection, SAF import/removal, percentage slider, and live Markdown font preview. All options remain available; grouping is presentation-only.
+
+**Evidence:** Kotlin compilation passed; 25 targeted unit tests and APK assembly passed. Pixel screen checks show General/Chat Preferences toggles in two columns with no settings missing, UI Preferences' three functional tabs, and an unchanged live Typography preview. Device checks identified an off-switch track that blended into dark surface; adjusted track contrast and position indicator in a follow-up build. The conditional Message Jumper Position option was moved back near its parent. User state never reset, and no unrelated model/provider configuration changed.
