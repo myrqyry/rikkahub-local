@@ -1,15 +1,25 @@
 package me.rerere.rikkahub.ui.pages.setting
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -17,6 +27,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -28,17 +40,24 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.R
@@ -76,7 +95,7 @@ private val SettingsContentMaxWidth = 800.dp
 
 @Composable
 fun SettingPage(vm: SettingVM = koinViewModel()) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var activeSectionId by rememberSaveable { mutableStateOf("aiModels") }
     val navController = LocalNavController.current
     val context = LocalContext.current
     val settings by vm.settings.collectAsStateWithLifecycle()
@@ -437,79 +456,193 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
     )
     val filteredSections = filterSettingsSections(sections, searchQuery)
 
+    val activeSection = filteredSections.firstOrNull { it.id == activeSectionId }
+        ?: filteredSections.firstOrNull()
+    val showAllSearchMatches = searchQuery.isNotBlank()
+
     Scaffold(
         topBar = {
-            LargeFlexibleTopAppBar(
+            TopAppBar(
                 title = { Text(stringResource(R.string.settings)) },
                 navigationIcon = { BackButton() },
-                scrollBehavior = scrollBehavior,
                 colors = CustomColors.topBarColors,
                 actions = {
-                    IconButton(
-                        onClick = {
-                            if (searchExpanded && searchQuery.isNotBlank()) {
-                                searchQuery = ""
-                            } else {
-                                searchExpanded = !searchExpanded
-                            }
-                        },
-                    ) {
+                    IconButton(onClick = {
+                        if (searchExpanded && searchQuery.isNotBlank()) searchQuery = ""
+                        else searchExpanded = !searchExpanded
+                    }) {
                         Icon(
-                            imageVector = if (searchExpanded && searchQuery.isNotBlank()) {
-                                HugeIcons.Cancel01
-                            } else {
-                                HugeIcons.Search01
-                            },
+                            if (searchExpanded && searchQuery.isNotBlank()) HugeIcons.Cancel01 else HugeIcons.Search01,
                             contentDescription = stringResource(R.string.setting_home_search_placeholder),
                         )
                     }
                 },
             )
         },
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = CustomColors.topBarColors.containerColor,
     ) { innerPadding ->
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.TopCenter,
-        ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             LazyColumn(
-                // Cap the reading width and centre it on large screens (tablet,
-                // foldable, freeform). Below the cap this is a no-op, so phones
-                // are unchanged. 800.dp matches the chat input/content cap.
-                modifier = Modifier
-                    .widthIn(max = SettingsContentMaxWidth)
-                    .fillMaxSize(),
-                contentPadding = innerPadding + PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.widthIn(max = SettingsContentMaxWidth).fillMaxSize(),
+                contentPadding = innerPadding + PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 if (searchExpanded) {
                     item("settingsSearch") {
-                        SettingsSearchField(
-                            query = searchQuery,
-                            onQueryChange = { searchQuery = it },
-                        )
+                        SettingsSearchField(query = searchQuery, onQueryChange = { searchQuery = it })
                     }
                 }
-
                 if (settings.isNotConfigured() && searchQuery.isBlank()) {
-                    item("providerWarning") {
-                        ProviderConfigWarningCard(navController)
-                    }
+                    item("providerWarning") { ProviderConfigWarningCard(navController) }
                 }
-
                 if (filteredSections.isEmpty()) {
-                    item("noResults") {
-                        SettingsNoResultsCard()
-                    }
+                    item("noResults") { SettingsNoResultsCard() }
                 } else {
-                    filteredSections.forEach { section ->
-                        item(section.id) {
-                            SettingsSectionCard(section)
+                    if (!showAllSearchMatches) {
+                        item("sectionPicker") {
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(filteredSections, key = { it.id }) { section ->
+                                    val selected = section.id == activeSection?.id
+                                    val icon = section.items.first().icon
+                                    SettingsCategoryChip(
+                                        title = section.title,
+                                        icon = icon,
+                                        selected = selected,
+                                        onClick = { activeSectionId = section.id },
+                                    )
+                                }
+                            }
+                        }
+                        activeSection?.let { section ->
+                            item(section.id) {
+                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text(
+                                        section.title,
+                                        modifier = Modifier.padding(start = 5.dp),
+                                        style = MaterialTheme.typography.titleLarge,
+                                    )
+                                    SettingsTileGrid(section.items)
+                                }
+                            }
+                        }
+                    } else {
+                        filteredSections.forEach { section ->
+                            item(section.id) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        section.title,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        modifier = Modifier.padding(start = 6.dp),
+                                    )
+                                    SettingsTileGrid(section.items)
+                                }
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SettingsCategoryChip(
+    title: String,
+    icon: ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(13.dp),
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer
+            else MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(
+            1.dp,
+            if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                icon, contentDescription = null, modifier = Modifier.size(17.dp),
+                tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                title,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                else MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsTileGrid(items: List<SettingsHomeItem>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items.chunked(3).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                row.forEach { item ->
+                    Box(Modifier.weight(1f)) { SettingsDestinationTile(item) }
+                }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsDestinationTile(item: SettingsHomeItem) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.96f else 1f,
+        animationSpec = spring(stiffness = 550f),
+        label = "settings-tile-press",
+    )
+    Surface(
+        onClick = { item.onClick?.invoke() },
+        interactionSource = interaction,
+        modifier = Modifier.fillMaxWidth().graphicsLayer(scaleX = scale, scaleY = scale),
+        enabled = item.onClick != null,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().height(105.dp).padding(horizontal = 6.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(9.dp),
+        ) {
+            Box(
+                modifier = Modifier.size(38.dp).background(
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                    RoundedCornerShape(12.dp),
+                ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    item.icon, contentDescription = null, modifier = Modifier.size(22.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
+            Text(
+                item.title,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
@@ -540,29 +673,6 @@ private fun SettingsSearchField(
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
     )
-}
-
-@Composable
-private fun SettingsSectionCard(section: SettingsHomeSection) {
-    CardGroup(
-        title = { Text(section.title) },
-    ) {
-        section.items.forEach { item ->
-            item(
-                onClick = item.onClick,
-                leadingContent = {
-                    Icon(
-                        item.icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-                supportingContent = { Text(item.description) },
-                trailingContent = item.trailingContent,
-                headlineContent = { Text(item.title) },
-            )
-        }
-    }
 }
 
 @Composable
