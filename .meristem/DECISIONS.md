@@ -65,3 +65,17 @@ The planner is evidence/policy, not capability authority. Runtime fallback is re
 **Evidence / references:** `local-llm/src/main/java/me/rerere/locallm/litert/LiteRtFileCapabilities.kt`, `LiteRtRuntime.ensureLoaded`, `LiteRtModelMetadata`, `LiteRtProvider`; official `google-ai-edge/LiteRT-LM` v0.18.0 `ModelInfo.kt`; `google-ai-edge/gallery` 1.0.20 `OnDeviceEmbedder.kt`. Host tests/build: `/tmp/rikkahub-modelinfo-integrated-20261008.log` (full local-llm JVM unit test task, app and instrumented APK assemble successful). No device claim.
 
 **Supersedes:** none
+
+## 2026-10-13 — Port OpenCode's Meristem visual language as opt-in Android styling
+
+**Decision:** Add a selectable `meristem` theme family in RikkaHub with two variations and the eight project-accent categories used by the OpenCode design; restyle the local/remote workspace list and OpenCode conversation/composer with compact raised surfaces, subtle accent edges, and readable outlines. Leave the user's existing theme selection untouched.
+
+**Why:** The OpenCode `meristem-desktop` branch introduced a quieter soft-material surface hierarchy, compact project identity, and theme-based accents. These are reusable design mechanisms; CSS geometry, desktop sidebar mechanics, and simulated session state are not.
+
+**Alternatives considered:** Globally replace Material 3 colors/shapes; embed the OpenCode desktop web UI in Android; copy its CSS verbatim.
+
+**Constraints / consequences:** Existing theme families and chat/model/inference screens remain behaviorally unchanged. Meristem colors are Android tonal adaptations, not exact CSS token parity. Workspace connection/operation status must come from observed backend state; do not infer liveness from an attractive indicator. Theme selection uses the pre-existing Settings → Theme UI and requires disabling dynamic color as with other presets. No phone APK installation was performed during this styling pass.
+
+**Evidence / references:** OpenCode `~/loam/opencode-upstream/packages/app/src/index.css`, `packages/app/src/pages/layout/meristem-sidebar.css`; RikkaHub `ui/theme/{Theme.kt,ThemeFamily.kt}`, `ui/pages/extensions/workspace/{WorkspacePage.kt,OpenCodeWorkspaceDetailPage.kt}`; focused `MeristemThemeTest`. Host Kotlin compilation, focused tests and debug APK assembly passed on 2026-10-13.
+
+**Supersedes:** none

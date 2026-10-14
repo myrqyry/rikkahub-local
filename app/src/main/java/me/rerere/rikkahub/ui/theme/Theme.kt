@@ -36,6 +36,16 @@ val LocalDarkMode = compositionLocalOf { false }
 
 private val AMOLED_DARK_BACKGROUND = Color(0xFF000000)
 
+// Selected only for the Meristem theme; other themes keep their own expressive shapes.
+private val MeristemShapes = Shapes(
+    extraSmall = RoundedCornerShape(6.dp),
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(14.dp),
+    large = RoundedCornerShape(18.dp),
+    extraLarge = RoundedCornerShape(24.dp),
+    extraExtraLarge = RoundedCornerShape(30.dp),
+)
+
 private val ExpressiveShapes = Shapes(
     extraSmall = RoundedCornerShape(4.dp),
     small = RoundedCornerShape(8.dp),
@@ -119,7 +129,7 @@ fun RikkahubTheme(
             typography = Typography,
             content = content,
             motionScheme = MotionScheme.expressive(),
-            shapes = ExpressiveShapes
+            shapes = if (settings.themeId == "meristem") MeristemShapes else ExpressiveShapes
         )
     }
 }

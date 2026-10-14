@@ -1,5 +1,7 @@
 package me.rerere.rikkahub.ui.pages.extensions.workspace
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,11 +11,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
@@ -23,6 +29,7 @@ import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -215,7 +222,10 @@ private fun OpenCodeWorkspaceCard(row: OpenCodeWorkspaceRow, onOpen: (() -> Unit
         modifier = Modifier
             .fillMaxWidth()
             .then(if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier),
-        colors = CustomColors.cardColorsOnSurfaceContainer,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Row(
             modifier = Modifier
@@ -223,6 +233,10 @@ private fun OpenCodeWorkspaceCard(row: OpenCodeWorkspaceRow, onOpen: (() -> Unit
                 .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Box(
+                Modifier.width(3.dp).height(36.dp)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.8f), RoundedCornerShape(2.dp))
+            )
             Icon(
                 imageVector = MingcuteIcons.Globe,
                 contentDescription = null,
@@ -262,11 +276,17 @@ private fun ConnectionStatusLabel(status: String) {
         "ERROR" -> stringResource(R.string.workspace_opencode_status_error) to MaterialTheme.colorScheme.error
         else -> stringResource(R.string.workspace_opencode_status_unknown) to MaterialTheme.colorScheme.onSurfaceVariant
     }
-    Text(
-        text = label,
-        style = MaterialTheme.typography.labelMedium,
-        color = color,
-    )
+    Surface(
+        color = color.copy(alpha = 0.10f),
+        shape = RoundedCornerShape(50),
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+        )
+    }
 }
 
 @Composable
@@ -363,7 +383,10 @@ private fun WorkspaceCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onOpen),
-        colors = CustomColors.cardColorsOnSurfaceContainer,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -374,6 +397,10 @@ private fun WorkspaceCard(
                     .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                Box(
+                    Modifier.width(3.dp).height(36.dp)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.8f), RoundedCornerShape(2.dp))
+                )
                 Icon(
                     imageVector = MingcuteIcons.File02,
                     contentDescription = null,

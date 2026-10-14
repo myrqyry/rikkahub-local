@@ -54,6 +54,28 @@ private fun family(
 
 val ThemeFamilies: List<ThemeFamily> by lazy {
     listOf(
+        // Portable counterpart of OpenCode's Meristem styling: quiet layered
+        // surfaces and a restrained accent ladder, not a forced global skin.
+        // CustomTheme accepts ARGB longs; the older seed() packs Compose Color bits.
+        // Preserve existing families for now, and supply correct ARGB values here.
+        family(
+            "meristem",
+            { androidx.compose.material3.Text("Meristem") },
+            listOf(
+                ThemeVariation("slate", 0xFF8199AD, 0xFF87958C, 0xFFBD9B7B),
+                ThemeVariation("warm", 0xFFC19A76, 0xFF96908B, 0xFF7D9F9E),
+            ),
+            listOf(
+                "blue" to 0xFF8199AD,
+                "teal" to 0xFF79A6A0,
+                "green" to 0xFF8EA886,
+                "yellow" to 0xFFC7AD76,
+                "peach" to 0xFFC99A82,
+                "red" to 0xFFBF7F7E,
+                "mauve" to 0xFFAC91B2,
+                "pink" to 0xFFC49AAA,
+            ).map { ThemeAccent(it.first, it.second) },
+        ),
         family(
             "dracula",
             { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(R.string.theme_name_dracula)) },
