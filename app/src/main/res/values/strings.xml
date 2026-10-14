@@ -919,6 +919,12 @@
   <string name="setting_theme_downloading">Downloading…</string>
   <string name="setting_theme_download">Download</string>
   <string name="setting_theme_update">Use / update</string>
+  <string name="setting_theme_background_hue">Background hue</string>
+  <string name="setting_theme_accent_hue">Accent hue</string>
+  <string name="setting_theme_amoled_short">AMOLED</string>
+  <string name="setting_theme_installed">Installed themes</string>
+  <string name="setting_theme_hold_options">Tap to apply · hold for options</string>
+  <string name="setting_theme_page_export_theme">Copy theme JSON</string>
   <string name="setting_theme_your_theme">Your theme</string>
   <string name="setting_theme_my_theme">My theme</string>
   <string name="setting_theme_my_theme_description">One design, with wallpaper colors or your own palette.</string>
