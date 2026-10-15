@@ -90,3 +90,52 @@ probe. Treat it as reference documentation only; do not copy its source.
 exported ONNX model requirements and limitations.
 
 The user explicitly corrected the architecture on 2026-10-14.
+
+## 2026-10-14 — Real GGUF voice conversion feasibility tests
+
+**Outcome:** The native `audio.cpp` CPU-only RVC pipeline is **not suitable
+for responsive phone TTS in the configuration tested**. The Android CLI
+started and read a verified local RVC model package, but neither phone run
+completed a conversion before its safety deadline. There is no evidence of
+successful converted audio on Android.
+
+Controlled source: a 5.58-second synthetic mono WAV at 22,050 Hz
+(`/tmp/rikkahub-rvc-smoke.wav` on the desktop). Model: unchanged
+`RVC-GGUF/rvc-f16.gguf`, 1,260,188,416 bytes, SHA-256 verified after
+transfer to the Pixel. Voice: packaged `default` with no retrieval.
+
+- **Desktop CPU control (same model):** RVC-only host CLI completed a real
+  voice conversion in **25.50s** cold at 3 threads; maximum measured resident
+  memory **1,798,756 KiB**. Converted output: 5.56s mono 40,000 Hz PCM16 WAV,
+  435 KiB, RMS ≈0.0842, non-silent. Confirms model and inference path work
+  on the desktop, but not interactive-speed even there in this CPU test.
+- **Pixel baseline arm64 build:** CPU backend, 2 threads, nice 15,
+  default NDK feature detection (FP16 vector arithmetic and ARM dot-product
+  disabled). Timeout **90s**; no WAV output.
+- **Pixel optimized arm64 build:** C and C++ flags
+  `-march=armv8.2-a+fp16+dotprod`; CMake correctly detected ARM dot-product
+  and FP16 vector arithmetic. Android linker required only standard
+  `libm`, `libdl`, `libc`; CPU enumeration succeeded on Pixel. CPU backend,
+  2 threads, nice 10. Timeout **135s** (wall clock ≈136s); no WAV output.
+  Process remained active until stopped by the timeout, reached ≈1.2 GB RSS.
+- Both Android experiments copied the model only to `/data/local/tmp`,
+  ran low priority and bounded, then removed their model, executable, input
+  and output files. The final check found no `rvc-local-smoke-*` artifacts;
+  RikkaHub still had a process and the installed package timestamp was
+  unchanged. No on-device app data, provider settings, or models were altered.
+  Phone free storage fluctuated from ~7.4 GB before to ~7.0 GB after
+  (Android/system background changes not attributed to the test).
+  No claim of full storage recovery beyond verified test-file removal.
+- During the last check the Pixel reported ≈4.6 GB available RAM and
+  battery temperature ≈31.3°C. No reported thermal crisis.
+- Logs reside only on the desktop under `/tmp/rvc-device-smoke-master.log`,
+  `/tmp/rvc-device-optimized-master.log`, and
+  `/tmp/audio-rvc-host-infer.log`; these paths may be ephemeral.
+
+**Next choice:** Do not install the RVC GGUF CPU-only runtime in RikkaHub as
+a functional voice filter. Investigate a *smaller exported RVC ONNX chain*
+(synth + ContentVec/HuBERT + RMVPE) and benchmark Android session reuse and
+suitable delegates before UI work. A device-local idle TTL is appropriate
+only after actual reusable inference sessions exist. A CPU cold-load timeout
+is not proof of defective models or proof that GPU/delegate acceleration
+would succeed; those are untested alternatives.

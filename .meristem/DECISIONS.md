@@ -166,3 +166,21 @@ The planner is evidence/policy, not capability authority. Runtime fallback is re
 ## 2026-10-14 — RVC inference must run on Pixel, not Voxa (correction)
 
 The user corrected the RVC filter architecture: RVC conversion is **device-local inference**, not a network request to the PC. Undo the earlier Voxa HTTP-based RikkaHub feature and do not ship it under a misleading on-device label. Preserve the old implementation in Git history instead of rewriting commits. RikkaHub's existing ONNX Runtime and a complete Apache-2.0 audio.cpp RVC native C ABI are candidates. We cross-compiled only the `rvc` model family to Android ARM64 and executed the CLI on the Pixel to enumerate the CPU backend, with no extra libomp dependency; **no actual RVC model inference was proven**. Model packaging, JNI/ORT adaptation, controls, warm TTL and real on-device audio validation remain to be done. Do not silently copy the 1.2-GiB experimental GGUF package onto the phone (which had ~7.4 GiB free) or substitute the desktop server. Details: `docs/rvc-on-device.md`.
+
+## 2026-10-14 — Offline Pixel RVC GGUF benchmark: CPU route too slow
+
+The Remote Desktop connection was used to test the full on-device RVC model
+after prior native startup verification. A 1.2-GB packaged F16 GGUF and
+short synthetic WAV were transferred temporarily over USB, verified by
+SHA-256 and cleaned afterward. The same model completed on desktop CPU
+in 25.50s cold (non-silent 5.56s converted WAV; ~1.8GB peak RSS).
+**Pixel native conversion did not complete:** baseline arm64 timed out
+at 90s; optimized FP16+dot-product arm64 build timed out at 135s,
+both without WAV output. The optimized runtime itself compiled and ran
+on Pixel correctly with no extra OpenMP libraries. No crash or
+app reinstall; cleanup removed temporary test paths and RikkaHub
+remained running. Therefore do not present the native GGUF CPU pipeline
+as usable for interactive RikkaHub TTS. Advance to a smaller on-device
+ONNX model chain/delegate feasibility test; keep warm TTL as a future
+requirement, not an implemented capability. Evidence and reproducible
+configuration in `docs/rvc-on-device.md`. No remote push.
