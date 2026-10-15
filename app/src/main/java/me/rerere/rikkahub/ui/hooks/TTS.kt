@@ -23,7 +23,6 @@ import me.rerere.tts.model.TTSResponse
 import me.rerere.tts.provider.TTSManager
 import me.rerere.tts.provider.TTSProviderSetting
 import me.rerere.tts.controller.TtsController
-import me.rerere.tts.rvc.RvcFilterSettings
 import org.koin.compose.koinInject
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -51,11 +50,6 @@ fun rememberCustomTtsState(): CustomTtsState {
     // Update the provider when settings change
     DisposableEffect(settings.selectedTTSProviderId, settings.ttsProviders) {
         ttsState.updateProvider(settings.getSelectedTTSProvider())
-        onDispose { }
-    }
-
-    DisposableEffect(settings.rvcFilterSettings) {
-        ttsState.updateRvcFilter(settings.rvcFilterSettings)
         onDispose { }
     }
 
@@ -142,10 +136,6 @@ private class CustomTtsStateImpl(
 
     fun updateProvider(provider: TTSProviderSetting?) {
         controller.setProvider(provider)
-    }
-
-    fun updateRvcFilter(settings: RvcFilterSettings) {
-        controller.setRvcFilter(settings)
     }
 
     override fun speak(text: String, flushCalled: Boolean) {
