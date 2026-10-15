@@ -139,3 +139,84 @@ suitable delegates before UI work. A device-local idle TTL is appropriate
 only after actual reusable inference sessions exist. A CPU cold-load timeout
 is not proof of defective models or proof that GPU/delegate acceleration
 would succeed; those are untested alternatives.
+
+## 2026-10-14 — Isolated Pixel 10 Pro ONNX stage feasibility benchmark
+
+**Status:** All three selected real ONNX model stages loaded and executed on
+the Pixel under a separate test APK, but **no complete converted voice audio**
+was produced or listened to. This is a *feasibility measurement*, not a
+completed or usable RVC feature.
+
+The isolated app uses the same ONNX Runtime Android version (1.25.0) as
+RikkaHub but a different application ID. It measures real INT8 ContentVec,
+real INT8 RMVPE and a real FP32 RVC v2 voice synthesizer. Inputs were
+synthetic stage tensors, NOT an end-to-end TTS waveform passed through all
+three models. The model files total 309,070,717 bytes. All three SHA-256
+digests matched after transfer. Model revisions, licenses, full hashes,
+reproduction and raw device metrics are preserved in
+tools/experiments/rvc-onnx-probe.
+
+Stage input / session load / first / warm 1 / warm 2:
+- ContentVec Q8 on 2.00s of 16k synthetic waveform:
+  378ms / 816ms / 630ms / 592ms. Output tensor [1,99,768].
+- RMVPE Q8 on [1,128,128] synthetic mel tensor:
+  651ms / 608ms / 496ms / 493ms. Output tensor [1,128,360].
+- Nova_HD 48k RVC v2 synth on 96 synthetic feature/F0 frames:
+  434ms / 1570ms / 1410ms / 1398ms. Output tensor 46,080 samples,
+  corresponding to 0.96 seconds at 48k (no audio quality validation).
+
+Synthesis provider comparison (same model and synthetic input):
+- CPU: load 434ms, warm 1410 / 1398ms.
+- XNNPACK: load 491ms, warm 1416 / 1403ms.
+- NNAPI: load 533ms, warm 1434 / 1399ms.
+- WebGPU: load 496ms, initial inference 10695ms,
+  warm 4785 / 4724ms (significantly slower).
+
+Each model/provider JUnit test returned OK (1 test). NNAPI availability
+and session creation **do not prove offloading to the Tensor NPU**; near
+identical timings suggest little effective benefit for this graph.
+WebGPU availability did not imply improved acceleration.
+
+**Performance conclusion:** This chosen RVC synth takes ~1.4 seconds to
+produce 0.96 seconds of expected audio even after warming. Its throughput
+is worse than real time on all tested Android ORT providers. Adding encoder,
+pitch, resampling, mel extraction, audio alignment and crossfades can only
+increase work. The normalized stage totals roughly suggest compute cost
+greater than twice audio duration, but **this is NOT a measured full-pipeline
+RTF**. No network service and no mock conversion were used.
+
+**Remaining work / distinct alternatives:**
+1. For existing RVC voice-model compatibility, test a genuinely smaller
+   256-dimensional RVC v1 synthesizer or a verified low-compute export;
+   require a license permitting use in RikkaHub. Do not use the small
+   w-okada sample voice as a shortcut: inspected model terms restrict usage
+   to VCClient.
+2. ONNX-to-TFLite conversion might expose a faster LiteRT delegate but is
+   NOT validated. The RVC voice model includes dynamic axes and numerous
+   Conv/Pad/Transpose-related operators; conversion success and actual
+   supported delegated graph partitions must be demonstrated separately.
+   Merely producing a .tflite file is insufficient.
+3. Beatrice-V2 is a different, potentially much smaller voice-conversion
+   architecture (~20 MB of model assets in an inspected MIT example). Its
+   model bundles cannot simply load existing RVC .pth voices, and on-device
+   end-to-end quality/latency have not yet been established on the Pixel.
+   Android research repo InkRoad/mobRealVoice targets rooted system-audio
+   routing and has no project license; do not copy it into RikkaHub.
+4. ouor/RVC-Android is a useful Android ONNX pipeline reference with
+   warm sessions, but the inspected checkout had no license file. Do not
+   copy its implementation as though the source were licensed.
+5. MeowRVC contains real ORT calls yet also a placeholder native file
+   and broad input-fallback behavior. Its marketing claims alone do not
+   establish correct, fast end-to-end Android inference.
+
+**Gate for shipping:** real, fully local end-to-end conversion of a known
+2- and 5-second TTS sample; verify WAV/sample rate, audible intelligibility
+and converted voice; measure warm RTF below 1x (ideally much better),
+RAM/storage, cancellation, backpressure and 5-minute idle TTL across
+repeated conversions. Until proven, DO NOT add a production RVC toggle.
+
+The test APK was never RikkaHub. After benchmarking, both isolated APK
+packages and all ~309MB of temporary model copies were uninstalled/
+deleted. Package inspection found no remaining probe packages; existing
+RikkaHub PID was still alive and phone free storage ~7.0GB. No production
+RikkaHub code or on-device user app data was changed.

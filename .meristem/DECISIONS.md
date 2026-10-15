@@ -184,3 +184,22 @@ as usable for interactive RikkaHub TTS. Advance to a smaller on-device
 ONNX model chain/delegate feasibility test; keep warm TTL as a future
 requirement, not an implemented capability. Evidence and reproducible
 configuration in `docs/rvc-on-device.md`. No remote push.
+
+## 2026-10-14 — Android ONNX voice conversion feasibility, not feature
+
+Real, independent Android ONNX Runtime 1.25.0 stage tests verified
+INT8 ContentVec (2s waveform ~0.6s warm), INT8 RMVPE (128 synthetic mel
+frames ~0.5s warm) and licensed Nova_HD RVC v2 synthesizer (0.96s output
+tensor ~1.4s warm) on Pixel 10 Pro. XNNPACK and NNAPI did not improve
+the synthesizer; WebGPU was ~4.7s warm. Tests had synthetic inputs, not
+complete voice conversion or verified intelligible output. Therefore this
+specific model family/graph is NOT yet acceptable for responsive RikkaHub
+post-TTS filtering. Do not ship a fake ONNX/TFLite toggle, repurpose a
+remote server, or equate provider availability with GPU/NPU acceleration.
+RVC v1 lightweight synth and Beatrice are alternative hypotheses, not
+verified products; their model format and license constraints differ.
+Reproducible isolated benchmark source, model hashes, raw device metrics,
+methodology, limits and follow-up gates are in
+tools/experiments/rvc-onnx-probe and docs/rvc-on-device.md. All temporary
+test packages and files were removed from the phone; the existing RikkaHub
+process remained running. No push.
