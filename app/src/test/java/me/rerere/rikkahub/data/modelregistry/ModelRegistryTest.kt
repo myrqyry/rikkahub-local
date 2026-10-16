@@ -117,6 +117,48 @@ class ModelRegistryTest {
     }
 
     @Test
+    fun installedButUnreadyLocalModelCannotAutoResolveOrOverride() {
+        val cloud = descriptor("cloud", ModelCapability.CHAT)
+        for (state in listOf(
+            ModelLifecycle.INSTALLED, ModelLifecycle.VERIFYING,
+            ModelLifecycle.INCOMPATIBLE, ModelLifecycle.ERROR,
+        )) {
+            val local = descriptor("local", ModelCapability.CHAT, local = true)
+                .copy(lifecycle = state, installed = true)
+            assertEquals(
+                ModelResolution.InvalidOverride("local", ModelFailureReason.NOT_READY),
+                ModelResolver.resolve(ModelResolutionRequest(
+                    ModelCapability.CHAT, assistantOverride = "local",
+                    models = listOf(local, cloud), sourcePolicy = ModelSourcePolicy.ANY,
+                )),
+            )
+            assertEquals(
+                ModelResolution.NoCompatibleModel,
+                ModelResolver.resolve(ModelResolutionRequest(
+                    ModelCapability.CHAT, globalAssignment = "local",
+                    models = listOf(local, cloud),
+                )),
+            )
+            val fallback = ModelResolver.resolve(ModelResolutionRequest(
+                ModelCapability.CHAT, globalAssignment = "local",
+                models = listOf(local, cloud), sourcePolicy = ModelSourcePolicy.ANY,
+            )) as ModelResolution.Resolved
+            assertEquals("cloud", fallback.model.id)
+        }
+    }
+
+    @Test
+    fun localReadyModelStillResolvesWithoutNetwork() {
+        val local = descriptor("ready", ModelCapability.CHAT, local = true)
+        assertEquals(
+            "ready",
+            (ModelResolver.resolve(ModelResolutionRequest(
+                ModelCapability.CHAT, models = listOf(local),
+            )) as ModelResolution.Resolved).model.id,
+        )
+    }
+
+    @Test
     fun rolesMatchCapabilitiesAcrossTabs() {
         val model = descriptor("multi", ModelCapability.CHAT, ModelCapability.VISION, ModelCapability.OCR)
         assertTrue(model.supports(ModelRole.CHAT.capability()))

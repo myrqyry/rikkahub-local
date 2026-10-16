@@ -46,7 +46,7 @@ object ModelResolver {
         fun failureReason(model: ModelDescriptor): ModelFailureReason = when {
             !model.providerEnabled -> ModelFailureReason.DISABLED
             !model.supports(capability) -> ModelFailureReason.INCOMPATIBLE
-            model.source is ModelSource.Local && model.lifecycle != ModelLifecycle.READY && !model.installed ->
+            model.source is ModelSource.Local && model.lifecycle != ModelLifecycle.READY ->
                 ModelFailureReason.NOT_READY
             else -> ModelFailureReason.INCOMPATIBLE
         }
@@ -54,9 +54,7 @@ object ModelResolver {
         request.assistantOverride?.let { id ->
             val model = byId[id] ?: return ModelResolution.InvalidOverride(id, ModelFailureReason.NOT_FOUND)
             if (!policyAllows(model)) return ModelResolution.BlockedByPolicy(id, request.sourcePolicy)
-            if (!model.providerEnabled || !model.supports(capability) ||
-                (model.source is ModelSource.Local && model.lifecycle != ModelLifecycle.READY && !model.installed)
-            ) {
+            if (!model.isSelectableFor(capability)) {
                 return ModelResolution.InvalidOverride(id, failureReason(model))
             }
             return ModelResolution.Resolved(model, ResolutionSource.ASSISTANT_OVERRIDE)
@@ -70,20 +68,16 @@ object ModelResolver {
             if (model != null && !policyAllows(model)) {
                 return ModelResolution.BlockedByPolicy(id, request.sourcePolicy)
             }
-            if (model != null && policyAllows(model) && model.canAutoResolve(capability) &&
-                model.providerEnabled &&
-                (model.source !is ModelSource.Local || model.lifecycle == ModelLifecycle.READY || model.installed)
+            if (model != null && policyAllows(model) &&
+                model.canAutoResolve(capability) && model.isSelectableFor(capability)
             ) {
                 return ModelResolution.Resolved(model, source)
             }
         }
 
         val candidates = request.models.asSequence()
-            .filter { it.providerEnabled && it.canAutoResolve(capability) }
+            .filter { it.canAutoResolve(capability) && it.isSelectableFor(capability) }
             .filter { policyAllows(it) }
-            .filter {
-                it.source !is ModelSource.Local || it.lifecycle == ModelLifecycle.READY || it.installed
-            }
             .sortedBy { if (it.source is ModelSource.Local) 0 else 1 }
             .toList()
         return candidates.firstOrNull()?.let {
