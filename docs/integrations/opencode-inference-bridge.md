@@ -65,25 +65,74 @@ A running OpenCode server or model picker may need refresh/restart;
 the existing server was not restarted. No OpenCode repository/worktree
 files were changed (its existing uncommitted UI changes were preserved).
 
-## Other direction: phone → desktop
+## Other direction: phone → desktop (verified after reconnect)
 
-RikkaHub on the phone already has an enabled OpenAI-compatible provider
-named tailscale whose base URL is the desktop's Tailscale Serve
-Ollama endpoint. However it has zero configured models at inspection,
-and the Pixel currently could not resolve its MagicDNS hostname or
-connect to the desktop tailnet IP. Android connectivity did not show
-an active VPN route. Desktop Ollama's localhost API listed 20 models,
-and Tailscale Serve itself responded from the desktop via a correct
-hostname-to-tailnet-IP binding. The phone route is NOT proven.
+At the previous checkpoint, the Pixel had no Tailscale VPN route
+and RikkaHub's enabled tailscale provider had no registered models.
+**Those two blockers are now resolved.**
 
-An exploratory adb reverse mapping from phone tcp:11436 to desktop
-tcp:11434 was set up, but a phone netcat HTTP test returned no
-response. No successful reverse inference claim. This unverified
-reverse mapping should be removed. Do not replace the user's
-configured tailscale provider with a USB-only URL. First reestablish
-the phone's Tailscale connectivity with user involvement and validate
-DNS, TLS and a real model response from the phone; then add selected
-models to RikkaHub.
+Verified independently from the Pixel 10 Pro:
+- Its route to 100.85.12.14 uses tun0, with phone tailnet IP 100.84.0.18.
+- The desktop Tailscale MagicDNS hostname resolves on the phone.
+- Phone-originated HTTPS GET /v1/models returned HTTP 200 and the
+  desktop Ollama model catalog. This request ran inside Android
+  using a disposable app_process Java/Dex probe, not desktop curl.
+- Phone-originated HTTPS POST /v1/chat/completions targeting
+  granite4.1:3b returned HTTP 200 and generated the exact text cedar.
+  The temporary Android DEX was removed after testing.
+
+Registered only the tested model on the existing enabled OpenAI
+provider named tailscale:
+- Model ID: granite4.1:3b; display name: Desktop · Granite 4.1 3B
+- Registered model UUID: 634a202c-e1ba-4d6f-9aeb-aed77c7efcd1
+- Kept the original provider ID, base URL and capabilities.
+- All other 28 providers and unrelated settings compared
+  byte-for-byte equal in the browser-safe before/after projections.
+- Verified backup BEFORE the change:
+  ~/.local/state/meristem/rikkahub-backups/pre-tailnet-model-20261015-234338.tar.gz
+  and a SHA-256 sidecar; no model files were touched.
+
+### RikkaHub's own provider acceptance check
+
+Added explicit opt-in Android test:
+app/src/androidTest/java/me/rerere/rikkahub/data/ai/DesktopOllamaOffloadDeviceTest.kt
+
+The test loads SettingsStore and ProviderManager from RikkaHub's
+real Koin container, selects the existing tailscale OpenAI provider
+and its registered granite4.1:3b model, and calls generateText with
+a plain text prompt, without using the conversation/agent loop.
+It is skipped by default unless the instrumentation argument
+tailnetInference=enabled is supplied. It does not change
+preferences, assistants, conversations, tools or model files.
+
+Build: Gradle :app:assembleDebugAndroidTest --offline — PASS.
+Installed only the test APK with adb install -r, then manually ran:
+
+    adb shell am instrument -w -r -e tailnetInference enabled       -e class me.rerere.rikkahub.data.ai.DesktopOllamaOffloadDeviceTest       excp.rikkahub.local.debug.test/androidx.test.runner.AndroidJUnitRunner
+
+JUnit result: OK (1 test), zero failures. Phone logcat reported
+DesktopOllamaOffload: remote_provider=OpenAI desktop_model=granite4.1:3b
+text=willow elapsed_ms=547. This proves real remote inference
+through RikkaHub's own provider; 547ms is a warm provider-call
+observation, not an SLA or a guarantee of future latency.
+
+NEVER use the Gradle connectedDebugAndroidTest task on this
+user-data-bearing Pixel: that automated runner can uninstall
+the target app during cleanup. Use the manual instrumentation
+path above, as documented in the test source.
+
+After instrumentation, the normal debug app process was relaunched.
+Verified its existing loopback web server on port 8080 came
+back, GET /v1/models returned HTTP 200 with the same three local
+models, and the existing LFM2.5 model file remained intact.
+The tailscale provider was still enabled with the Granite model.
+No production app APK was reinstalled for this step.
+
+The earlier inconclusive ADB reverse mapping on port 11436 was
+removed. Unlike the independent desktop-to-Pixel bridge, the
+phone-to-desktop route now runs over Tailscale without needing USB.
+Both are model-inference paths, **not** automatic selection between
+devices or two-way agent delegation.
 
 ## Future gates
 

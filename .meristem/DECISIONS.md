@@ -259,3 +259,21 @@ connecting to the model. Reverse phone-to-desktop inference blocked
 by Pixel Tailscale VPN/DNS and remains unverified. Future auto
 offload not implemented. Full evidence and reconnect command in
 docs/integrations/opencode-inference-bridge.md.
+
+## 2026-10-15 — Phone to desktop inference verified through RikkaHub OpenAI
+
+After Pixel Tailscale reconnection, tun0 routing and MagicDNS worked.
+Phone-originated HTTPS GET model catalog and POST Ollama completion
+returned HTTP 200, with desktop Granite 4.1 3B generating cedar.
+Backed up app settings/databases and added that single verified model
+to the enabled pre-existing tailscale OpenAI provider. Compared all
+28 other providers and unrelated settings unchanged.
+An opt-in Android instrumentation test of RikkaHub's real
+ProviderManager/OpenAI provider generated willow, warm provider-call
+time 547ms, JUnit OK (1 test). Manual test APK installation kept
+main app data; normal app process relaunched after instrumentation,
+its Ktor loopback gateway confirmed restored, installed local models
+intact. Experimental ADB reverse port and standalone phone DEX
+removed. Genuine two-way inference is now established; automatic
+device scheduling and full OpenCode CLI agent sessions are not.
+See docs/integrations/opencode-inference-bridge.md.

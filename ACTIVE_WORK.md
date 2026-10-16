@@ -1,6 +1,23 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — Phone → desktop Tailscale model inference verified (2026-10-15)
+
+Pixel VPN/MagicDNS now active (tun0). Real Android phone HTTPS GET
+Ollama model catalog and POST completion to desktop returned HTTP 200,
+with Granite 4.1 3B generating cedar. Added only that verified model
+to pre-existing enabled tailscale OpenAI provider after fresh database
+and settings backup; 28 other providers and unrelated settings were
+verified unchanged. An opt-in Android instrumentation test using
+RikkaHub's actual Koin ProviderManager/OpenAI provider generated
+willow with 547ms observed warm time; 1/1 Android JUnit test passed.
+Test APK installed in place only; app relaunched after instrumentation
+and loopback /v1/models gateway restored and reverified; existing
+local models intact. ADB reverse diagnostic and disposable phone
+DEX removed. See docs/integrations/opencode-inference-bridge.md.
+Transport/model inference now verified both directions, but
+automatic routing and full OpenCode agent CLI run remain unverified.
+
 ## Current checkpoint — OpenCode / RikkaHub reciprocal inference (2026-10-15)
 
 Implemented guarded OpenAI-compatible local text inference routes on
@@ -10,9 +27,9 @@ to desktop in 24s cold, and the real OpenCode model provider SDK
 returned paprika in 1s warm. OpenCode global config now has a
 separate rikka-pixel model provider and CLI model discovery works.
 Full opencode run agent session remains unverified (startup timeout).
-RikkaHub already has a tailscale OpenAI provider, but current Pixel
-Tailscale VPN/DNS reachability prevents phone-to-desktop offload;
-no successful reverse model completion. 507 local-LLM + 200 AI +
+Earlier the Pixel had no VPN route and the tailscale provider
+had no registered models. The newer checkpoint above supersedes
+that status after real phone HTTPS and app-provider tests. 507 local-LLM + 200 AI +
 1495 app tests, debug APK build pass. All limits, commands and
 proof: docs/integrations/opencode-inference-bridge.md.
 Reconnect: scripts/probes/connect-rikka-pixel-inference.sh.
