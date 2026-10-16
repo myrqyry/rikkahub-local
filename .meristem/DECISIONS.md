@@ -230,3 +230,16 @@ A READY status based only on path existence remains weaker than native
 inference qualification. Published G1k NPU artifacts are not Tensor G5
 compatible; G1j Palm W4 is untested. Full comparison and future gates:
 .meristem/rwkv-app-review-2026-10-15.md.
+
+## 2026-10-15 — ML Drift PowerVR real GpuModel inference verified
+
+Bazel8/NDK28 compatibility fixes confined to disposable source;
+upstream official Android AArch64 OpenCL add suite: 108 passed,
+54 unsupported-layout skips, 0 failures of 162 cases. Official
+GpuModel inference-context optional nodes/subgraphs: 2 of 2
+passed on Pixel 10 Pro (389ms total). Repeatable runner in
+scripts/probes/run-ml-drift-android-tests.sh rejects host ELF
+and cleans device temp. Next: app-process JNI and actual model
+compatibility/parity/latency, not a fake provider option.
+No installed app/data change or push. Full evidence:
+.meristem/ml-drift-review-2026-10-15.md.

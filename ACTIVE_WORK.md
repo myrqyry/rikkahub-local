@@ -1,18 +1,21 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
-## Current checkpoint — ML Drift GPU feasibility (2026-10-15)
+## Current checkpoint — ML Drift native GPU graph verified (2026-10-15)
 
-Google AI Edge ML Drift is a possible GPU compute backend, NOT a
-drop-in ONNX/LiteRT model adapter. A native OpenCL vector kernel
-executed successfully on the connected Pixel 10 Pro PowerVR GPU
-(OpenCL 3.0, 256 floats, max error 0), with no app installation.
-Vendor OpenCL libraries are declared public; in-app execution and
-ML Drift model inference remain unverified. A repeatable disposable
-probe is under scripts/probes/, source and next gates are recorded
-in .meristem/ml-drift-review-2026-10-15.md.
-Next: build the upstream Android add-kernel test and a real
-ML Drift GpuModel before any production integration.
+Source ML Drift commit 6e803da; Bazel8/NDK28 compatibility changes
+isolated to disposable upstream checkout. Verified compiler
+--target=aarch64-linux-android28 and Android AArch64 ELF. Official
+OpenCL add suite on Pixel 10 Pro: 108/162 passed, 54 storage
+layout skips, zero failures. Official actual ML Drift GpuModel
+inference context tests: 2/2 passed, 389ms total for optional
+nodes and subgraphs. Repeated both with guarded ADB runner saved
+in scripts/probes/run-ml-drift-android-tests.sh. Device temp files
+removed; installed RikkaHub app, data, models unchanged.
+Full source/build/measurement evidence and remaining gates in
+.meristem/ml-drift-review-2026-10-15.md. Next meaningful gate:
+in-app JNI/native context followed by a model-specific workload,
+not another selectable but nonfunctional backend. No push.
 
 ## Current checkpoint — RWKV model-integrity harvest (2026-10-15)
 

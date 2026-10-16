@@ -87,18 +87,88 @@ NOT prove ML Drift was compiled/tested, app-process JNI access,
 model import/conversion, real inference output, energy, thermals,
 latency, cancellation, or a performance improvement over LiteRT.
 
-## Next gated steps
+## Verified official Android tests (2026-10-15 evening)
 
-1. Reproduce the official add_test_opencl Android unit-test build
-   and device test from upstream docs. Bazelisk is not yet installed
-   on the host; do not silently install a toolchain or claim a build.
-2. Run a tiny ML Drift GpuModel through its real OpenCL inference
-   context and compare checked output against a CPU reference.
-3. Validate app-process native library loading on a disposable test
-   build without destroying installed app data.
-4. Choose one representative model/operation and benchmark numerical
-   parity, cold/warm latency, memory, thermal and cancellation
-   against the existing runtime before any backend promotion.
+Pinned temporary upstream checkout: /tmp/ml-drift-investigation-20261015,
+commit 6e803da. Downloaded Bazel 8.0.0 only into /tmp and verified
+the publisher SHA-256:
+18417fdee645a8dc08bc3f27e33f71a5681f9f14661b33ac48536a31dc8d00f1.
+Used installed Android NDK 28.2.13676358. No system packages installed.
 
-No ML Drift source was copied. No upstream merge, Pixel app install,
-model download, change to existing model/runtime, or push.
+### Important silent-build trap
+
+The unmodified upstream Bazel config --config=android_arm64 returned
+BUILD SUCCESSFUL but produced an x86-64 Linux/glibc executable
+despite its arm64-v8a output path. Inspection with file/readelf
+and Bazel aquery revealed it was linked by /usr/bin/gcc.
+
+Two compatibility issues were isolated in temporary sources:
+
+1. The custom third_party/android_ndk.bzl imports a Bazel helper
+   no longer available at @bazel_tools//tools/build_defs/repo:repo.bzl,
+   then references a rules_android_ndk path absent in the downloaded
+   dependency. Replaced its MODULE.bazel block in the isolated ML Drift
+   clone with the dependency's published extension:
+   use_extension("@rules_android_ndk//:extension.bzl",
+   "android_ndk_repository_extension"),
+   configure(api_level=28), use_repo(...,"androidndk"), and
+   register_toolchains("@androidndk//:all").
+2. Added a temporary BUILD platform target experimental_android_arm64,
+   with @platforms//os:android and @platforms//cpu:arm64 constraints.
+   Selected --platforms=//:experimental_android_arm64 during builds.
+3. The downloaded rules_android_ndk template BUILD.ndk_clang.tpl has
+   an all_binaries glob containing lib64/**/* with default
+   allow_empty=False, but NDK 28 has no legacy lib64 at that location.
+   A temporary copy of the dependency was changed to allow_empty=True
+   for only that glob, selected via local_path_override. No installed
+   Android NDK files or upstream remote files were edited.
+4. Verified with Bazel aquery that linking now invokes NDK clang
+   with --target=aarch64-linux-android28, never /usr/bin/gcc.
+
+Actual corrected target builds in that isolated checkout:
+
+    bazel --output_user_root=/tmp/ml-drift-bazel-output --batch build -c opt --config=android_arm64 --platforms=//:experimental_android_arm64 --jobs=4 //ml_drift/common/kernels/tests:add_test_opencl
+    bazel --output_user_root=/tmp/ml-drift-bazel-output --batch build -c opt --config=android_arm64 --platforms=//:experimental_android_arm64 --jobs=4 //ml_drift/cl:inference_context_test
+
+The first true Android build completed with 591 actions in 53.8s
+(previous action cache reused); the second completed with 98 actions
+in 37.7s. Both binaries are real AArch64 ELF, use
+/system/bin/linker64, and depend only on Android system libraries.
+
+### Pixel 10 Pro verified results
+
+| Official test | Total | Passed | Skipped | Failed | Elapsed |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| OpenCL add-kernel | 162 | 108 | 54 | 0 | 4.576 s |
+| GpuModel inference context | 2 | 2 | 0 | 0 | 0.389 s |
+
+The 54 skipped tests explicitly report unsupported tensor storage
+formats/layouts. Do not count those as passes.
+
+The inference-context tests actually build GpuModel graphs, initialize
+a GPU InferenceContext, evaluate optional nodes and registered subgraphs,
+then check numerical results. This proves synthetic ML Drift GPU
+graph execution on the PowerVR DXT-48, not just OpenCL availability.
+
+New reusable Android-only test runner:
+scripts/probes/run-ml-drift-android-tests.sh.
+It rejects x86/Linux binaries before any ADB write, enforces Android
+linker, bounds runs with timeout and low process priority, and removes
+every temporary test executable. Both official test suites were
+repeated with exactly the same 108 passed / 54 skipped and 2 passed,
+then device temporary paths confirmed clean. Battery level 100%,
+reported battery temperature about 27.2 C after device run.
+
+### Remaining qualification gate
+
+- No app-process JNI / Android linker namespace test yet.
+- No real imported ONNX, TFLite, RVC or diffusion model ran.
+- No comparison against our LiteRT/ONNX runtime for memory, performance,
+  audio quality, thermal load, long-running cancellation or battery.
+- Next: isolated app-process initialization then a single
+  representative model-specific workload with real weights and
+  numerical parity + memory/latency receipts.
+- Do not expose an ML Drift backend model option without those gates.
+
+No app installation, installed-model change, data migration,
+upstream merge or push was performed.
