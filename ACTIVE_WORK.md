@@ -1,6 +1,21 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — soft rubbery RikkaHub sidebar (2026-10-16)
+
+Adapted OpenCode's stable icon-rail + session-pane hierarchy to
+RikkaHub native Compose chat drawer: 56dp rail, 320dp sheet, 44dp
+accessibly labeled controls, pressed-in neumorphic animation,
+raised identity surface, recessed selected chat/folder pills,
+quieter history section labels. Existing destinations, assistant
+picker, paging, folder and conversation long-press actions retained.
+Pixel dark-theme screenshot/a11y and three menus inspected on
+real device after verified backup and in-place APK update. Original
+New Chat state restored; installed model intact. 2204 JVM tests
+passed and debug APK built. OpenCode dirty worktree unchanged;
+no push. See docs/ui/rikkahub-soft-drawer-2026-10-16.md.
+Light/tablet/reduced-motion visual checks remain for later.
+
 ## Current checkpoint — OpenCode 2 compatibility preparation (2026-10-15)
 
 Reviewed published V2 migration/API/provider contracts and current

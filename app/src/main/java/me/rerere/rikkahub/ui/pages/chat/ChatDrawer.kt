@@ -6,10 +6,10 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,7 +27,6 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,6 +44,11 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import dev.neumorphic.NeumorphicElevation
+import dev.neumorphic.NeumorphicShape
+import dev.neumorphic.NeumorphicRaisedSurface
+import dev.neumorphic.NeumorphicInsetSurface
+import me.rerere.rikkahub.ui.theme.rememberRikkaNeumorphicColors
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -146,156 +150,164 @@ fun ChatDrawerContent(
     var folderToRename by remember { mutableStateOf<Folder?>(null) }
     var folderToDelete by remember { mutableStateOf<Folder?>(null) }
 
+    // OpenCode's stable icon rail, adapted to a phone-sized session panel.
     ModalDrawerSheet(
-        modifier = Modifier.width(300.dp)
+        modifier = Modifier.width(320.dp),
+        drawerContainerColor = MaterialTheme.colorScheme.surface,
     ) {
-        Column(
-            modifier = Modifier.padding(8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            if (settings.displaySetting.showUpdates && !isPlayStore) {
-                UpdateCard(vm)
-            }
-
-            BackupReminderCard(
-                settings = settings,
-                onClick = { navController.navigate(Screen.Backup) },
-            )
-
-            // 用户头像和昵称自定义区域
-            Row(
+        Row(Modifier.fillMaxHeight()) {
+            DrawerNavigationRail(navController)
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                UIAvatar(
-                    name = settings.displaySetting.userNickname.ifBlank { stringResource(R.string.user_default_name) },
-                    value = settings.displaySetting.userAvatar,
-                    onUpdate = { newAvatar ->
-                        vm.updateSettings(
-                            settings.copy(
-                                displaySetting = settings.displaySetting.copy(
-                                    userAvatar = newAvatar
-                                )
-                            )
-                        )
-                    },
-                    modifier = Modifier.size(42.dp),
+                if (settings.displaySetting.showUpdates && !isPlayStore) {
+                    UpdateCard(vm)
+                }
+
+                BackupReminderCard(
+                    settings = settings,
+                    onClick = { navController.navigate(Screen.Backup) },
                 )
 
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                // Tactile identity surface; keep avatar and nickname edit actions.
+                NeumorphicRaisedSurface(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = rememberRikkaNeumorphicColors(),
+                    shape = NeumorphicShape.Rounded(20.dp),
+                    elevation = NeumorphicElevation.Subtle,
+                    backgroundColor = MaterialTheme.colorScheme.surfaceContainerLow,
                 ) {
                     Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Text(
-                            text = settings.displaySetting.userNickname.ifBlank { stringResource(R.string.user_default_name) },
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.clickable {
-                                nicknameEditState.open(settings.displaySetting.userNickname)
+                        UIAvatar(
+                            name = settings.displaySetting.userNickname.ifBlank { stringResource(R.string.user_default_name) },
+                            value = settings.displaySetting.userAvatar,
+                            onUpdate = { newAvatar ->
+                                vm.updateSettings(
+                                    settings.copy(
+                                        displaySetting = settings.displaySetting.copy(
+                                            userAvatar = newAvatar
+                                        )
+                                    )
+                                )
+                            },
+                            modifier = Modifier.size(42.dp),
+                        )
+
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(
+                                    text = settings.displaySetting.userNickname.ifBlank { stringResource(R.string.user_default_name) },
+                                    style = MaterialTheme.typography.titleMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.clickable {
+                                        nicknameEditState.open(settings.displaySetting.userNickname)
+                                    }
+                                )
+
+                                Icon(
+                                    imageVector = HugeIcons.PencilEdit01,
+                                    contentDescription = "Edit",
+                                    modifier = Modifier
+                                        .onClick {
+                                            nicknameEditState.open(settings.displaySetting.userNickname)
+                                        }
+                                        .size(LocalTextStyle.current.fontSize.toDp())
+                                )
                             }
-                        )
-
-                        Icon(
-                            imageVector = HugeIcons.PencilEdit01,
-                            contentDescription = "Edit",
-                            modifier = Modifier
-                                .onClick {
-                                    nicknameEditState.open(settings.displaySetting.userNickname)
-                                }
-                                .size(LocalTextStyle.current.fontSize.toDp())
-                        )
-                    }
-                    Greeting(
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                }
-            }
-
-            DrawerActions(navController = navController)
-
-            FolderBar(
-                folders = folders,
-                selectedFolderId = selectedFolderId,
-                onSelect = { drawerVm.selectFolder(it) },
-                onCreate = { showCreateFolderDialog = true },
-                onRename = { folderToRename = it },
-                onDelete = { folderToDelete = it },
-            )
-
-            ConversationList(
-                current = current,
-                conversations = conversations,
-                conversationJobs = conversationJobs.keys,
-                listState = conversationListState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                onClick = {
-                    navigateToChatPage(navController, it.id)
-                },
-                onRegenerateTitle = {
-                    vm.generateTitle(it, true)
-                },
-                onDelete = {
-                    vm.deleteConversation(it)
-                    // Refresh the conversation list to immediately remove the deleted item
-                    // This fixes the issue where deleted conversations sometimes remain visible
-                    // until manually clicked (issue #747)
-                    conversations.refresh()
-                    if (it.id == current.id) {
-                        navigateToChatPage(navController)
-                    }
-                },
-                onPin = {
-                    vm.updatePinnedStatus(it)
-                },
-                onMoveToAssistant = {
-                    conversationToMove = it
-                    showMoveToAssistantSheet = true
-                },
-                onMoveToFolder = {
-                    conversationToMoveFolder = it
-                    showMoveToFolderSheet = true
-                }
-            )
-
-            // 助手选择器
-            AssistantPicker(
-                settings = settings,
-                onUpdateSettings = {
-                    vm.updateSettings(it)
-                    scope.launch {
-                        val id = if (context.readBooleanPreference("create_new_conversation_on_start", true)) {
-                            Uuid.random()
-                        } else {
-                            repo.getConversationsOfAssistant(it.assistantId)
-                                .first()
-                                .firstOrNull()
-                                ?.id ?: Uuid.random()
+                            Greeting(
+                                style = MaterialTheme.typography.labelMedium,
+                            )
                         }
-                        navigateToChatPage(navigator = navController, chatId = id)
                     }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                onClickSetting = {
-                    val currentAssistantId = settings.assistantId
-                    navController.navigate(Screen.AssistantDetail(id = currentAssistantId.toString()))
                 }
-            )
 
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 8.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            )
-            DrawerFooterNavigation(navController)
+                FolderBar(
+                    folders = folders,
+                    selectedFolderId = selectedFolderId,
+                    onSelect = { drawerVm.selectFolder(it) },
+                    onCreate = { showCreateFolderDialog = true },
+                    onRename = { folderToRename = it },
+                    onDelete = { folderToDelete = it },
+                )
+
+                ConversationList(
+                    current = current,
+                    conversations = conversations,
+                    conversationJobs = conversationJobs.keys,
+                    listState = conversationListState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    onClick = {
+                        navigateToChatPage(navController, it.id)
+                    },
+                    onRegenerateTitle = {
+                        vm.generateTitle(it, true)
+                    },
+                    onDelete = {
+                        vm.deleteConversation(it)
+                        // Refresh the conversation list to immediately remove the deleted item
+                        // This fixes the issue where deleted conversations sometimes remain visible
+                        // until manually clicked (issue #747)
+                        conversations.refresh()
+                        if (it.id == current.id) {
+                            navigateToChatPage(navController)
+                        }
+                    },
+                    onPin = {
+                        vm.updatePinnedStatus(it)
+                    },
+                    onMoveToAssistant = {
+                        conversationToMove = it
+                        showMoveToAssistantSheet = true
+                    },
+                    onMoveToFolder = {
+                        conversationToMoveFolder = it
+                        showMoveToFolderSheet = true
+                    }
+                )
+
+                // 助手选择器
+                AssistantPicker(
+                    settings = settings,
+                    onUpdateSettings = {
+                        vm.updateSettings(it)
+                        scope.launch {
+                            val id = if (context.readBooleanPreference("create_new_conversation_on_start", true)) {
+                                Uuid.random()
+                            } else {
+                                repo.getConversationsOfAssistant(it.assistantId)
+                                    .first()
+                                    .firstOrNull()
+                                    ?.id ?: Uuid.random()
+                            }
+                            navigateToChatPage(navigator = navController, chatId = id)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    onClickSetting = {
+                        val currentAssistantId = settings.assistantId
+                        navController.navigate(Screen.AssistantDetail(id = currentAssistantId.toString()))
+                    }
+                )
+            }
         }
     }
 
@@ -572,178 +584,6 @@ fun ChatDrawerContent(
 }
 
 @Composable
-private fun DrawerActions(navController: Navigator) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        DrawerQuickLink(
-            icon = HugeIcons.Search01,
-            label = stringResource(R.string.chat_page_search_chats),
-            modifier = Modifier.weight(1f),
-            onClick = { navController.navigate(Screen.MessageSearch) },
-        )
-        DrawerQuickLink(
-            icon = HugeIcons.TransactionHistory,
-            label = stringResource(R.string.chat_page_history),
-            modifier = Modifier.weight(1f),
-            onClick = { navController.navigate(Screen.History) },
-        )
-    }
-}
-
-@Composable
-private fun DrawerQuickLink(
-    icon: ImageVector,
-    label: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.height(48.dp),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-@Composable
-private fun DrawerFooterNavigation(navController: Navigator) {
-    var showMorePopup by remember { mutableStateOf(false) }
-
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        DrawerShortcut(
-            icon = HugeIcons.Cpu,
-            label = stringResource(R.string.models_title),
-            modifier = Modifier.weight(1f),
-            onClick = { navController.navigate(Screen.Models()) },
-        )
-        DrawerShortcut(
-            icon = HugeIcons.Image02,
-            label = stringResource(R.string.chat_drawer_images),
-            modifier = Modifier.weight(1f),
-            onClick = { navController.navigate(Screen.ImageGen) },
-        )
-        DrawerShortcut(
-            icon = HugeIcons.Settings03,
-            label = stringResource(R.string.settings),
-            modifier = Modifier.weight(1f),
-            onClick = { navController.navigate(Screen.Setting) },
-        )
-        Box(modifier = Modifier.weight(1f)) {
-            DrawerShortcut(
-                icon = HugeIcons.MoreVertical,
-                label = stringResource(R.string.chat_drawer_more),
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { showMorePopup = true },
-            )
-            DropdownMenu(
-                expanded = showMorePopup,
-                onDismissRequest = { showMorePopup = false },
-            ) {
-                DrawerMoreItem(
-                    icon = HugeIcons.LookTop,
-                    label = stringResource(R.string.assistant_page_title),
-                    onClick = {
-                        showMorePopup = false
-                        navController.navigate(Screen.Assistant)
-                    },
-                )
-                DrawerMoreItem(
-                    icon = HugeIcons.Wrench01,
-                    label = stringResource(R.string.extensions_page_title),
-                    onClick = {
-                        showMorePopup = false
-                        navController.navigate(Screen.Extensions)
-                    },
-                )
-                DrawerMoreItem(
-                    icon = HugeIcons.InLove,
-                    label = stringResource(R.string.favorite_page_title),
-                    onClick = {
-                        showMorePopup = false
-                        navController.navigate(Screen.Favorite)
-                    },
-                )
-                DrawerMoreItem(
-                    icon = HugeIcons.ChartColumn,
-                    label = stringResource(R.string.chat_drawer_statistics),
-                    onClick = {
-                        showMorePopup = false
-                        navController.navigate(Screen.Stats)
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun DrawerMoreItem(icon: ImageVector, label: String, onClick: () -> Unit) {
-    DropdownMenuItem(
-        text = { Text(label) },
-        leadingIcon = { Icon(icon, contentDescription = null) },
-        onClick = onClick,
-    )
-}
-
-@Composable
-private fun DrawerShortcut(
-    icon: ImageVector,
-    label: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.height(62.dp),
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 3.dp, vertical = 7.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                modifier = Modifier.size(21.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-@Composable
 private fun FolderBar(
     folders: List<Folder>,
     selectedFolderId: Uuid?,
@@ -820,35 +660,43 @@ private fun FolderChip(
     onLongClick: () -> Unit,
     icon: ImageVector? = null,
 ) {
-    Surface(
-        shape = CircleShape,
-        color = if (selected) {
-            MaterialTheme.colorScheme.secondaryContainer
-        } else {
-            MaterialTheme.colorScheme.surfaceContainerLow
-        },
-        modifier = Modifier
-            .clip(CircleShape)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick,
-            )
-    ) {
+    val colors = rememberRikkaNeumorphicColors()
+    val background = MaterialTheme.colorScheme.surfaceContainerLow
+    val itemContent: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit = {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            modifier = Modifier
+                .clip(CircleShape)
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                .padding(horizontal = 12.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
-            if (icon != null) {
-                Icon(icon, null, modifier = Modifier.size(14.dp))
-            }
+            if (icon != null) Icon(icon, null, modifier = Modifier.size(14.dp))
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+    if (selected) {
+        NeumorphicInsetSurface(
+            colors = colors,
+            shape = NeumorphicShape.PillShape,
+            elevation = NeumorphicElevation.Subtle,
+            backgroundColor = background,
+            content = itemContent,
+        )
+    } else {
+        NeumorphicRaisedSurface(
+            colors = colors,
+            shape = NeumorphicShape.PillShape,
+            elevation = NeumorphicElevation.Subtle,
+            backgroundColor = background,
+            content = itemContent,
+        )
     }
 }
 

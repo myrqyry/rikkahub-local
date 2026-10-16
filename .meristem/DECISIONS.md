@@ -292,3 +292,17 @@ external_directory explicitly ask. No full V2 session adapter,
 migration, installation or push. Native V2 API remains provisional;
 verify against a running isolated server before any cutover.
 docs/integrations/opencode-v2-readiness.md.
+
+## 2026-10-16 — Native soft-material RikkaHub drawer
+
+Use OpenCode sidebar design principles (separate icon rail and
+scrollable conversation panel) without copying desktop CSS.
+RikkaHub Material colors and existing neumorphic-ui raised/inset
+primitives own tactile depth, concise 140ms press feedback and
+selected recessed states. Keep 44dp a11y navigation targets,
+existing long-press actions, persistent user data and assistant
+selection. 2204 JVM tests, debug APK build, Pixel screenshot,
+accessibility and overflow/long-press menu checks passed.
+Pre-install settings/database backup verified, APK installed in
+place; model files unchanged. No OpenCode worktree changes.
+See docs/ui/rikkahub-soft-drawer-2026-10-16.md.
