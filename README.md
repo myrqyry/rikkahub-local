@@ -6,7 +6,7 @@
 
 **A local-first Android AI workspace for models, assistants, skills, tools, automation, and multimodal creation.**
 
-RikkaHub Local is an experimental fork of [RikkaHub](https://github.com/rikkahub/rikkahub) that expands the original multi-provider chat client into a capability-aware agent runtime. It can use cloud or on-device models, operate Android and connected tools with explicit permission, import reusable skills and plugins, process documents and media, and automate work without hiding what it is doing.
+RikkaHub Local is an independently developed fork of [RikkaHub Agent](https://github.com/ExTV/rikkahub-agent), which itself builds on [RikkaHub](https://github.com/rikkahub/rikkahub). It extends that foundation into a capability-aware, local-first agent runtime. It can use cloud or on-device models, operate Android and connected tools with explicit permission, import reusable skills and plugins, process documents and media, and automate work without hiding what it is doing.
 
 <p>
   <img src="https://img.shields.io/badge/status-active%20development-orange?style=flat-square" alt="Active development" />
@@ -384,7 +384,7 @@ The interface includes English, 简体中文, 繁體中文, 日本語, 한국어
 
 Bug reports and focused pull requests are welcome. Include the device, Android version, build/commit, model or provider involved, relevant permissions, and reproducible steps.
 
-This is a fork with substantial agent, local-runtime, import, automation, and UI changes. Confirm that a bug also exists upstream before reporting it to the original RikkaHub project.
+This fork has substantial independent agent, local-runtime, import, automation, and UI changes. When researching upstream fixes, compare the immediate parent, RikkaHub Agent, first; then inspect original RikkaHub for mechanisms missing from both. Neither upstream is an automatic merge target. Verify applicability before adapting changes or reporting issues upstream.
 
 Because the architecture is changing quickly, additions should reuse existing registries, import coordinators, model abstractions, and safety boundaries rather than creating another isolated manager that stores the same concept differently. The codebase already has enough opportunities for duplicate state without deliberate encouragement.
 
@@ -396,7 +396,8 @@ RikkaHub Local builds on many projects, including:
 
 | Project | Role |
 |---|---|
-| [RikkaHub](https://github.com/rikkahub/rikkahub) | Upstream Android chat client, provider abstraction, and interface foundation |
+| [RikkaHub Agent](https://github.com/ExTV/rikkahub-agent) | Immediate fork lineage: Android agent, automation, and device-tool foundation |
+| [RikkaHub](https://github.com/rikkahub/rikkahub) | Original upstream Android chat client, provider abstraction, and interface foundation |
 | [LiteRT](https://ai.google.dev/edge/litert) | On-device model execution |
 | [Llamatik](https://github.com/ferranpons/Llamatik) | llama.cpp bindings for on-device GGUF chat |
 | [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp) | Experimental local image-generation runtime |
