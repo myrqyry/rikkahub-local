@@ -7,9 +7,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -26,6 +27,7 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -64,7 +66,6 @@ import me.rerere.rikkahub.data.repository.ConversationRepository
 import me.rerere.rikkahub.ui.components.ai.AssistantPicker
 import me.rerere.rikkahub.ui.components.ui.BackupReminderCard
 import me.rerere.rikkahub.ui.components.ui.Greeting
-import me.rerere.rikkahub.ui.components.ui.Tooltip
 import me.rerere.rikkahub.ui.components.ui.UIAvatar
 import me.rerere.rikkahub.ui.components.ui.UpdateCard
 import androidx.compose.ui.draw.clip
@@ -145,15 +146,12 @@ fun ChatDrawerContent(
     var folderToRename by remember { mutableStateOf<Folder?>(null) }
     var folderToDelete by remember { mutableStateOf<Folder?>(null) }
 
-    // Menu popup 状态
-    var showMorePopup by remember { mutableStateOf(false) }
-
     ModalDrawerSheet(
         modifier = Modifier.width(300.dp)
     ) {
         Column(
             modifier = Modifier.padding(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             if (settings.displaySetting.showUpdates && !isPlayStore) {
                 UpdateCard(vm)
@@ -168,9 +166,9 @@ fun ChatDrawerContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 UIAvatar(
                     name = settings.displaySetting.userNickname.ifBlank { stringResource(R.string.user_default_name) },
@@ -184,7 +182,7 @@ fun ChatDrawerContent(
                             )
                         )
                     },
-                    modifier = Modifier.size(50.dp),
+                    modifier = Modifier.size(42.dp),
                 )
 
                 Column(
@@ -293,112 +291,11 @@ fun ChatDrawerContent(
                 }
             )
 
-            Row(
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp)
-            ) {
-                DrawerAction(
-                    icon = {
-                        Icon(
-                            imageVector = HugeIcons.LookTop,
-                            contentDescription = stringResource(R.string.assistant_page_title)
-                        )
-                    },
-                    label = {
-                        Text(stringResource(R.string.assistant_page_title))
-                    },
-                    onClick = {
-                        navController.navigate(Screen.Assistant)
-                    },
-                )
-
-                DrawerAction(
-                    icon = {
-                        Icon(
-                            imageVector = HugeIcons.Cpu,
-                            contentDescription = stringResource(R.string.models_title)
-                        )
-                    },
-                    label = {
-                        Text(stringResource(R.string.models_title))
-                    },
-                    onClick = {
-                        navController.navigate(Screen.Models())
-                    },
-                )
-
-                DrawerAction(
-                    icon = {
-                        Icon(HugeIcons.Image02, stringResource(R.string.chat_page_menu_image_generation))
-                    },
-                    label = {
-                        Text(stringResource(R.string.chat_page_menu_image_generation))
-                    },
-                    onClick = {
-                        navController.navigate(Screen.ImageGen)
-                    },
-                )
-
-                DrawerAction(
-                    icon = {
-                        Icon(HugeIcons.Wrench01, stringResource(R.string.extensions_page_title))
-                    },
-                    label = {
-                        Text(stringResource(R.string.extensions_page_title))
-                    },
-                    onClick = {
-                        navController.navigate(Screen.Extensions)
-                    },
-                )
-
-                DrawerAction(
-                    icon = {
-                        Icon(HugeIcons.Settings03, null)
-                    },
-                    label = { Text(stringResource(R.string.settings)) },
-                    onClick = {
-                        navController.navigate(Screen.Setting)
-                    },
-                )
-
-                Box {
-                    DrawerAction(
-                        icon = {
-                            Icon(HugeIcons.Sparkles, stringResource(R.string.chat_drawer_more))
-                        },
-                        label = {
-                            Text(stringResource(R.string.chat_drawer_more))
-                        },
-                        onClick = {
-                            showMorePopup = true
-                        },
-                    )
-                    DropdownMenu(
-                        expanded = showMorePopup,
-                        onDismissRequest = { showMorePopup = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.favorite_page_title)) },
-                            leadingIcon = { Icon(HugeIcons.InLove, null) },
-                            onClick = {
-                                showMorePopup = false
-                                navController.navigate(Screen.Favorite)
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.chat_drawer_statistics)) },
-                            leadingIcon = { Icon(HugeIcons.ChartColumn, null) },
-                            onClick = {
-                                showMorePopup = false
-                                navController.navigate(Screen.Stats)
-                            }
-                        )
-                    }
-                }
-            }
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 8.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            )
+            DrawerFooterNavigation(navController)
         }
     }
 
@@ -676,63 +573,127 @@ fun ChatDrawerContent(
 
 @Composable
 private fun DrawerActions(navController: Navigator) {
-    Column {
-        // 搜索入口
-        Surface(
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        DrawerQuickLink(
+            icon = HugeIcons.Search01,
+            label = stringResource(R.string.chat_page_search_chats),
+            modifier = Modifier.weight(1f),
             onClick = { navController.navigate(Screen.MessageSearch) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp),
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Icon(
-                    imageVector = HugeIcons.Search01,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = stringResource(R.string.chat_page_search_chats),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-        }
-
-        // 历史记录入口
-        Surface(
+        )
+        DrawerQuickLink(
+            icon = HugeIcons.TransactionHistory,
+            label = stringResource(R.string.chat_page_history),
+            modifier = Modifier.weight(1f),
             onClick = { navController.navigate(Screen.History) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp),
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
+        )
+    }
+}
+
+@Composable
+private fun DrawerQuickLink(
+    icon: ImageVector,
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DrawerFooterNavigation(navController: Navigator) {
+    var showMorePopup by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        DrawerShortcut(
+            icon = HugeIcons.Cpu,
+            label = stringResource(R.string.models_title),
+            modifier = Modifier.weight(1f),
+            onClick = { navController.navigate(Screen.Models()) },
+        )
+        DrawerShortcut(
+            icon = HugeIcons.Image02,
+            label = stringResource(R.string.chat_drawer_images),
+            modifier = Modifier.weight(1f),
+            onClick = { navController.navigate(Screen.ImageGen) },
+        )
+        DrawerShortcut(
+            icon = HugeIcons.Settings03,
+            label = stringResource(R.string.settings),
+            modifier = Modifier.weight(1f),
+            onClick = { navController.navigate(Screen.Setting) },
+        )
+        Box(modifier = Modifier.weight(1f)) {
+            DrawerShortcut(
+                icon = HugeIcons.MoreVertical,
+                label = stringResource(R.string.chat_drawer_more),
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { showMorePopup = true },
+            )
+            DropdownMenu(
+                expanded = showMorePopup,
+                onDismissRequest = { showMorePopup = false },
             ) {
-                Icon(
-                    imageVector = HugeIcons.TransactionHistory,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurface,
+                DrawerMoreItem(
+                    icon = HugeIcons.LookTop,
+                    label = stringResource(R.string.assistant_page_title),
+                    onClick = {
+                        showMorePopup = false
+                        navController.navigate(Screen.Assistant)
+                    },
                 )
-                Text(
-                    text = stringResource(R.string.chat_page_history),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                DrawerMoreItem(
+                    icon = HugeIcons.Wrench01,
+                    label = stringResource(R.string.extensions_page_title),
+                    onClick = {
+                        showMorePopup = false
+                        navController.navigate(Screen.Extensions)
+                    },
+                )
+                DrawerMoreItem(
+                    icon = HugeIcons.InLove,
+                    label = stringResource(R.string.favorite_page_title),
+                    onClick = {
+                        showMorePopup = false
+                        navController.navigate(Screen.Favorite)
+                    },
+                )
+                DrawerMoreItem(
+                    icon = HugeIcons.ChartColumn,
+                    label = stringResource(R.string.chat_drawer_statistics),
+                    onClick = {
+                        showMorePopup = false
+                        navController.navigate(Screen.Stats)
+                    },
                 )
             }
         }
@@ -740,31 +701,44 @@ private fun DrawerActions(navController: Navigator) {
 }
 
 @Composable
-private fun DrawerAction(
+private fun DrawerMoreItem(icon: ImageVector, label: String, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(label) },
+        leadingIcon = { Icon(icon, contentDescription = null) },
+        onClick = onClick,
+    )
+}
+
+@Composable
+private fun DrawerShortcut(
+    icon: ImageVector,
+    label: String,
     modifier: Modifier = Modifier,
-    icon: @Composable () -> Unit,
-    label: @Composable () -> Unit,
     onClick: () -> Unit,
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier,
-        color = MaterialTheme.colorScheme.primaryContainer,
-        shape = CircleShape,
-        contentColor = MaterialTheme.colorScheme.onSurface,
+        modifier = modifier.height(62.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        Tooltip(
-            tooltip = {
-                label()
-            }
+        Column(
+            modifier = Modifier.padding(horizontal = 3.dp, vertical = 7.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .padding(10.dp)
-                    .size(20.dp),
-            ) {
-                icon()
-            }
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(21.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
