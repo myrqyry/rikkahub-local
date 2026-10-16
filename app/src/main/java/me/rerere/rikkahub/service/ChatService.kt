@@ -174,6 +174,7 @@ class ChatService(
     private val workspaceReminderTransformer = WorkspaceReminderTransformer(workspaceRepository)
 
     // 统一会话管理
+    private val auxJobs = AuxJobRegistry()
     private val sessions = ConcurrentHashMap<Uuid, ConversationSession>()
     private val _sessionsVersion = MutableStateFlow(0L)
 
@@ -250,6 +251,7 @@ class ChatService(
 
     fun cleanup() = runCatching {
         ProcessLifecycleOwner.get().lifecycle.removeObserver(lifecycleObserver)
+        sessions.keys.forEach { auxJobs.cancelAll(it) }
         sessions.values.forEach { it.cleanup() }
         sessions.clear()
         sessionMutexes.clear()
@@ -304,6 +306,7 @@ class ChatService(
      * user reset it. Safe to call when no session exists — no-op.
      */
     fun dropSession(conversationId: Uuid) {
+        auxJobs.cancelAll(conversationId)
         val session = sessions.remove(conversationId) ?: return
         session.cleanup()
         sessionMutexes.remove(conversationId)
@@ -325,6 +328,19 @@ class ChatService(
         conversationId: Uuid,
         block: suspend () -> Unit
     ): Job = appScope.launch {
+        addConversationReference(conversationId)
+        try {
+            block()
+        } finally {
+            removeConversationReference(conversationId)
+        }
+    }
+
+    private fun launchAuxJob(
+        conversationId: Uuid,
+        kind: AuxJobKind,
+        block: suspend () -> Unit,
+    ): Job = auxJobs.launch(appScope, conversationId, kind) {
         addConversationReference(conversationId)
         try {
             block()
@@ -389,6 +405,7 @@ class ChatService(
 
     fun sendMessage(conversationId: Uuid, content: List<UIMessagePart>, answer: Boolean = true) {
         if (content.isEmptyInputMessage()) return
+        auxJobs.cancelAll(conversationId)
 
         val session = getOrCreateSession(conversationId)
         val previousJob = session.getJob()
@@ -581,6 +598,7 @@ class ChatService(
         message: UIMessage,
         regenerateAssistantMsg: Boolean = true
     ) {
+        auxJobs.cancelAll(conversationId)
         val session = getOrCreateSession(conversationId)
         session.getJob()?.cancel()
 
@@ -767,6 +785,7 @@ class ChatService(
         conversationId: Uuid,
         messageRange: ClosedRange<Int>? = null
     ) {
+        auxJobs.cancelAll(conversationId)
         val settings = settingsStore.settingsFlow.first()
         // Resolve the assistant from this conversation's own assistantId — the global
         // current-assistant pointer can have moved if the user switched assistants while
@@ -1069,10 +1088,10 @@ class ChatService(
             val finalConversation = getConversationFlow(conversationId).value
             saveConversation(conversationId, finalConversation)
 
-            launchWithConversationReference(conversationId) {
+            launchAuxJob(conversationId, AuxJobKind.TITLE) {
                 generateTitle(conversationId, finalConversation)
             }
-            launchWithConversationReference(conversationId) {
+            launchAuxJob(conversationId, AuxJobKind.SUGGESTION) {
                 generateSuggestion(conversationId, finalConversation)
             }
         }
@@ -1857,6 +1876,7 @@ class ChatService(
 
     // 停止当前会话生成任务（不清理会话缓存）
     suspend fun stopGeneration(conversationId: Uuid) {
+        auxJobs.cancelAll(conversationId)
         val convMutex = mutexFor(conversationId)
         // cancelAndJoin BEFORE the mutex so the cancelled coroutine can drain its own
         // writes (which may try to acquire the same mutex via their save path).
