@@ -7,6 +7,7 @@ import androidx.paging.PagingData
 import androidx.paging.PagingSource
 import androidx.paging.map
 import androidx.room.withTransaction
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -469,6 +470,10 @@ class ConversationRepository(
                     e.printStackTrace()
                     offset += pageSize
                     continue
+                } catch (e: CancellationException) {
+                    // A cancelled Room query must exit the transaction, never advance the
+                    // paging offset and retry indefinitely.
+                    throw e
                 } catch (e: IllegalStateException) {
                     e.printStackTrace()
                     offset += pageSize

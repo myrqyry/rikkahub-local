@@ -68,6 +68,15 @@ import kotlin.time.Clock
 
 private const val TAG = "ChatCompletionsAPI"
 
+/** Some compatible gateways include literal `null` or other JSON primitives as
+ * SSE lines. Ignore those, but keep malformed JSON an error rather than
+ * concealing a broken streaming response. */
+internal fun parseChatCompletionEventObjects(data: String): List<JsonObject> =
+    data.trim().split("\n").asSequence()
+        .filter { it.isNotBlank() }
+        .mapNotNull { json.parseToJsonElement(it).jsonObjectOrNull }
+        .toList()
+
 class ChatCompletionsAPI(
     private val client: OkHttpClient,
     private val keyRoulette: KeyRoulette
@@ -168,11 +177,7 @@ class ChatCompletionsAPI(
                     return
                 }
                 Log.d(TAG, "onEvent: $data")
-                data
-                    .trim()
-                    .split("\n")
-                    .filter { it.isNotBlank() }
-                    .map { json.parseToJsonElement(it).jsonObject }
+                parseChatCompletionEventObjects(data)
                     .forEach {
                         if (it["error"] != null) {
                             val error = it["error"]!!.parseErrorDetail()
@@ -930,14 +935,14 @@ class ChatCompletionsAPI(
 
     private fun parseAnnotations(jsonArray: JsonArray): List<UIMessageAnnotation> {
         return jsonArray.mapNotNull { element ->
-            val type =
-                element.jsonObject["type"]?.jsonPrimitive?.contentOrNull
+            val annotation = element.jsonObjectOrNull ?: return@mapNotNull null
+            val type = annotation["type"]?.jsonPrimitive?.contentOrNull
             when (type) {
                 "url_citation" -> {
                     UIMessageAnnotation.UrlCitation(
-                        title = element.jsonObject["url_citation"]?.jsonObject?.get("title")?.jsonPrimitive?.contentOrNull
+                        title = annotation["url_citation"]?.jsonObjectOrNull?.get("title")?.jsonPrimitive?.contentOrNull
                             ?: "",
-                        url = element.jsonObject["url_citation"]?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
+                        url = annotation["url_citation"]?.jsonObjectOrNull?.get("url")?.jsonPrimitive?.contentOrNull
                             ?: "",
                     )
                 }
