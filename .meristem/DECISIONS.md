@@ -243,3 +243,19 @@ and cleans device temp. Next: app-process JNI and actual model
 compatibility/parity/latency, not a fake provider option.
 No installed app/data change or push. Full evidence:
 .meristem/ml-drift-review-2026-10-15.md.
+
+## 2026-10-15 — Reciprocal inference: real Pixel-to-desktop provider path
+
+Adapted the existing RikkaHub web server for guarded, text-only
+OpenAI-compatible direct inference separate from the agent and
+capability broker. Desktop HTTP client saw Pixel native LiteRT
+generate orchid, and actual OpenCode compatible provider SDK
+generated paprika. 507 + 200 + 1495 JVM tests and APK build passed.
+In-place installed Pixel build preserves existing files and settings;
+pre-install database/settings backup verified. Added a separate
+rikka-pixel model provider to backed-up OpenCode config; model list
+discovery passes. Full opencode CLI agent run timed out before
+connecting to the model. Reverse phone-to-desktop inference blocked
+by Pixel Tailscale VPN/DNS and remains unverified. Future auto
+offload not implemented. Full evidence and reconnect command in
+docs/integrations/opencode-inference-bridge.md.

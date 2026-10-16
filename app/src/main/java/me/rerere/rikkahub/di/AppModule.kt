@@ -421,6 +421,7 @@ val appModule = module {
             filesManager = get(),
             mcpManager = get(),
             localTools = get(),
+            providerManager = get(),
         )
     }
 

@@ -1,6 +1,23 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — OpenCode / RikkaHub reciprocal inference (2026-10-15)
+
+Implemented guarded OpenAI-compatible local text inference routes on
+RikkaHub Ktor Web API. Deployed APK in place on Pixel 10 Pro after
+settings/database backup; actual LFM2.5 native model streamed orchid
+to desktop in 24s cold, and the real OpenCode model provider SDK
+returned paprika in 1s warm. OpenCode global config now has a
+separate rikka-pixel model provider and CLI model discovery works.
+Full opencode run agent session remains unverified (startup timeout).
+RikkaHub already has a tailscale OpenAI provider, but current Pixel
+Tailscale VPN/DNS reachability prevents phone-to-desktop offload;
+no successful reverse model completion. 507 local-LLM + 200 AI +
+1495 app tests, debug APK build pass. All limits, commands and
+proof: docs/integrations/opencode-inference-bridge.md.
+Reconnect: scripts/probes/connect-rikka-pixel-inference.sh.
+No upstream merge, push, app-data reset or installed-model changes.
+
 ## Current checkpoint — ML Drift native GPU graph verified (2026-10-15)
 
 Source ML Drift commit 6e803da; Bazel8/NDK28 compatibility changes
