@@ -203,3 +203,16 @@ methodology, limits and follow-up gates are in
 tools/experiments/rvc-onnx-probe and docs/rvc-on-device.md. All temporary
 test packages and files were removed from the phone; the existing RikkaHub
 process remained running. No push.
+
+## 2026-10-15 — Selective harvest from original RikkaHub and RikkaHub Agent
+
+Source-reviewed original at 240deb5fe and immediate parent
+ExTV/rikkahub-agent at a88f5854b. Adopted the needed original
+conversation cancellation and null-compatible SSE fixes (63d3c6826),
+the Agent auxiliary title/suggestion job replacement lifecycle
+(1aef8a3b6), and original MCP schema local-ref expansion (b6bb5e7b6).
+AI 200 and app 1,486 JVM tests and APK assembly passed. No merge,
+push, on-device install or data migration. Full lineage, tests,
+unsupported claims and remaining candidates are documented in
+.meristem/upstream-harvest-2026-10-15.md. Do not copy whole upstream
+settings, memory, agent or UI frameworks over our fork.

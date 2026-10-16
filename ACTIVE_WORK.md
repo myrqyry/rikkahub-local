@@ -1,6 +1,18 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — selective upstream harvest (2026-10-15)
+
+Branch: aster/device-execution-profile. Three tested local commits
+63d3c6826, 1aef8a3b6, b6bb5e7b6 adapt original RikkaHub's
+cancellation/stream and MCP schema fixes plus RikkaHub Agent's
+per-conversation auxiliary model-job lifecycle. AI 200 + app 1,486
+unit tests passed; debug APK built. No merge, push, app installation
+or user data migration. See .meristem/upstream-harvest-2026-10-15.md.
+Next independent work: settings-store stale-snapshot write prevention
+with isolated race/migration tests and preservation of custom fields.
+Earlier checkpoints below remain as historical evidence.
+
 ## Outcome
 
 Harden RikkaHub Local's Android inference selection around a measured execution
