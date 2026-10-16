@@ -1,6 +1,17 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — RWKV model-integrity harvest (2026-10-15)
+
+On branch aster/device-execution-profile, local commits dd9a3e8ee and
+bfb4ec7fe protect user model imports against overwrite/incomplete copy
+and require local lifecycle readiness for model resolution.
+Details: .meristem/rwkv-app-review-2026-10-15.md.
+Full local-LLM 507, AI 200, app 1488 JVM tests and APK build passed.
+No Pixel installation, model data operation, RWKV model download,
+native RWKV integration, merge or push. Next RWKV-specific gate is an
+isolated Tensor G5 G1j Palm CPU feasibility benchmark, not a UI toggle.
+
 ## Current checkpoint — selective upstream harvest (2026-10-15)
 
 Branch: aster/device-execution-profile. Three tested local commits

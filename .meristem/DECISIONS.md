@@ -216,3 +216,17 @@ push, on-device install or data migration. Full lineage, tests,
 unsupported claims and remaining candidates are documented in
 .meristem/upstream-harvest-2026-10-15.md. Do not copy whole upstream
 settings, memory, agent or UI frameworks over our fork.
+
+## 2026-10-15 — RWKV App 4.8.5 mechanisms, not a replacement runtime
+
+Compared upstream tag 4.8.5 backend and catalog integrity with the
+existing local-LLM subsystem. Our pinned downloads and measured
+accelerator/memory planners already cover much of its model catalog.
+Adapted missing safety: staged, cancellable, no-replace model URI import
+and GGUF relocation (dd9a3e8ee); resolver now requires local lifecycle
+READY instead of installed-only (bfb4ec7fe). 507 local-LLM, 200 AI,
+1488 app JVM tests + APK assembly pass, no device installation.
+A READY status based only on path existence remains weaker than native
+inference qualification. Published G1k NPU artifacts are not Tensor G5
+compatible; G1j Palm W4 is untested. Full comparison and future gates:
+.meristem/rwkv-app-review-2026-10-15.md.
