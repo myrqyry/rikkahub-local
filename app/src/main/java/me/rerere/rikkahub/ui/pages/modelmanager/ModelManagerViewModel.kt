@@ -10,6 +10,8 @@ import androidx.lifecycle.viewModelScope
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -30,6 +32,7 @@ import me.rerere.locallm.GgufClassifier
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
 import me.rerere.locallm.ModelInstall
+import me.rerere.locallm.ModelFileImport
 import me.rerere.locallm.ModelCatalog
 import me.rerere.locallm.ModelCatalogEntry
 import me.rerere.locallm.litert.LiteRtCatalog
@@ -541,10 +544,9 @@ class ModelManagerViewModel(
         ModelInstall.runtimeForExtension(fileName.substringAfterLast('.', ""))
 
     fun importModelFromUri(uri: Uri) = viewModelScope.launch {
-        var cleanupTarget: File? = null
         try {
             val displayName = withContext(Dispatchers.IO) {
-                FileUtils.getFileNameFromUri(context, uri) ?: "model_${System.currentTimeMillis()}"
+                FileUtils.getFileNameFromUri(context, uri) ?: "model_" + System.currentTimeMillis()
             }
             val safeName = sanitizeModelFileName(displayName)
             val targetRuntime = runtimeForFileName(safeName) ?: run {
@@ -553,38 +555,26 @@ class ModelManagerViewModel(
             }
             val extension = safeName.substringAfterLast('.', "")
             val targetFile = ModelInstall.targetFile(
-                ModelInstall.localModelsDir(context),
-                targetRuntime,
-                safeName,
+                ModelInstall.localModelsDir(context), targetRuntime, safeName
             )
-            cleanupTarget = targetFile
             withContext(Dispatchers.IO) {
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                    targetFile.outputStream().use { output -> input.copyTo(output) }
-                } ?: error("Cannot open selected file")
+                val input = context.contentResolver.openInputStream(uri)
+                    ?: error("Cannot open selected file")
+                val jobContext = currentCoroutineContext()
+                ModelFileImport.copyVerified(input, targetFile, extension) {
+                    jobContext.ensureActive()
+                }
             }
-            val buf = ByteArray(16)
-            val bytesRead = targetFile.inputStream().use { it.read(buf) }
-            if (
-                bytesRead < 4 ||
-                !ModelInstall.isValidMagicForExtension(extension, buf.copyOf(bytesRead))
-            ) {
-                targetFile.delete()
-                _errorMessage.value = "Invalid or corrupted model file"
-                return@launch
-            }
+            // Register only the fully validated new file. Do not delete a valid
+            // newly imported file if subsequent model registration fails.
             if (targetRuntime == LocalRuntime.LiteRT) {
                 registerLiteRtModel(safeName, targetFile.absolutePath)
             } else {
-                prefs.addInstalledModel(targetRuntime, safeName, targetFile.absolutePath)
                 registerByClassification(safeName, targetFile)
             }
-            cleanupTarget = null
         } catch (e: CancellationException) {
-            cleanupTarget?.delete()
             throw e
         } catch (e: Exception) {
-            cleanupTarget?.delete()
             _errorMessage.value = e.message ?: "Import failed"
         }
     }
@@ -676,13 +666,12 @@ class ModelManagerViewModel(
             LocalRuntime.LlamaCpp,
             fileName,
         )
-        if (file.absolutePath != chatTarget.absolutePath && file.renameTo(chatTarget)) {
-            prefs.addInstalledModel(LocalRuntime.LlamaCpp, fileName, chatTarget.absolutePath)
-            registerChatModel(fileName, chatTarget.absolutePath)
-        } else {
-            prefs.addInstalledModel(LocalRuntime.LlamaCpp, fileName, file.absolutePath)
-            registerChatModel(fileName, file.absolutePath)
-        }
+        val registeredPath = if (file.absolutePath == chatTarget.absolutePath) file
+            else withContext(Dispatchers.IO) {
+                ModelFileImport.moveWithoutReplacing(file, chatTarget)
+            }
+        prefs.addInstalledModel(LocalRuntime.LlamaCpp, fileName, registeredPath.absolutePath)
+        registerChatModel(fileName, registeredPath.absolutePath)
     }
 
     private suspend fun registerChatModel(fileName: String, absolutePath: String) {
