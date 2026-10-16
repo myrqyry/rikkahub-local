@@ -277,3 +277,18 @@ intact. Experimental ADB reverse port and standalone phone DEX
 removed. Genuine two-way inference is now established; automatic
 device scheduling and full OpenCode CLI agent sessions are not.
 See docs/integrations/opencode-inference-bridge.md.
+
+## 2026-10-15 — Prepare for OpenCode 2 without premature migration
+
+Current published V2 migration guide says supported V1 config
+loads in V2; breaking surfaces are plugins, terminal client config
+and server/session API. Preserve OpenCode 1 live server/profile and
+ongoing user UI changes. Added guarded RikkaHub OpenCode client
+recognition of native V2 ServerInfo after legacy HTTP 404, with
+no prompt replay and V1 HTML fallback regression tests. Added
+read-only 4-test V2 preflight and credential-free Pixel provider
+preview using native providers/package/settings/capabilities, with
+external_directory explicitly ask. No full V2 session adapter,
+migration, installation or push. Native V2 API remains provisional;
+verify against a running isolated server before any cutover.
+docs/integrations/opencode-v2-readiness.md.

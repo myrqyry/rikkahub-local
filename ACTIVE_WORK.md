@@ -1,6 +1,22 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — OpenCode 2 compatibility preparation (2026-10-15)
+
+Reviewed published V2 migration/API/provider contracts and current
+local OpenCode 1/V2 development surfaces. Kept the user's dirty
+OpenCode desktop worktree and live V1 profile untouched. Implemented
+RikkaHub V1-to-V2 HTTP 404 diagnostic: only native JSON ServerInfo
+counts as V2, never HTML SPA fallback; never replay a prompt on API
+mismatch. Focused OpenCodeHttpClient JVM tests pass.
+Read-only scripts/probes/opencode-v2-preflight.py with 4 Python
+regression tests, checks V1 profile and creates a **nonsecret**
+isolated .meristem/opencode-v2-pixel-preview.json for Pixel LiteRT,
+native V2 package/capabilities and external_directory ask policy.
+No actual V2 server/client test yet; this is a safe preparation
+checkpoint, not a completed V2 API bridge. Details and gated
+migration recipe: docs/integrations/opencode-v2-readiness.md.
+
 ## Current checkpoint — Phone → desktop Tailscale model inference verified (2026-10-15)
 
 Pixel VPN/MagicDNS now active (tun0). Real Android phone HTTPS GET

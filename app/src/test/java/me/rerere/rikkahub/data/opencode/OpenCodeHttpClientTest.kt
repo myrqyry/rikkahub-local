@@ -103,15 +103,52 @@ class OpenCodeHttpClientTest {
         assertEquals(OpenCodeMessage("reply-1", "assistant", "Done"), api.prompt("session-1", "/work", "Go"))
     }
 
+    @Test
+    fun nativeV2ServerOnLegacy404GivesActionableErrorWithoutReplayingPrompt() = runBlocking {
+        val paths = mutableListOf<String>()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            val path = chain.request().url.encodedPath
+            paths += path
+            when (path) {
+                "/api/info" -> response(chain, 200, """{"urls":["http://local"],"ready":true}""")
+                else -> response(chain, 404, "not found")
+            }
+        }.build()
+        try {
+            OpenCodeHttpClient(client, "http://opencode.test", null)
+                .prompt("s1", "/work", "No replay")
+            error("expected version guard")
+        } catch (error: IOException) {
+            assertTrue(error.message.orEmpty().contains("OpenCode 2 server detected"))
+        }
+        assertEquals(listOf("/session/s1/message", "/api/info"), paths)
+    }
+
+    @Test
+    fun htmlFallbackOnV1IsNotMisdiagnosedAsNativeV2() = runBlocking {
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            when (chain.request().url.encodedPath) {
+                "/api/info" -> response(chain, 200, "<html>V1 App</html>", "text/html")
+                else -> response(chain, 404, "missing")
+            }
+        }.build()
+        try {
+            OpenCodeHttpClient(client, "http://opencode.test", null).getSession("missing", null)
+            error("expected V1 missing-session error")
+        } catch (error: IOException) {
+            assertEquals("OpenCode HTTP 404: missing", error.message)
+        }
+    }
+
     private fun clientReturning(code: Int, body: String): OkHttpClient =
         OkHttpClient.Builder().addInterceptor(Interceptor { chain -> response(chain, code, body) }).build()
 
-    private fun response(chain: Interceptor.Chain, code: Int, body: String): Response =
+    private fun response(chain: Interceptor.Chain, code: Int, body: String, mime: String = "application/json"): Response =
         Response.Builder()
             .request(chain.request())
             .protocol(Protocol.HTTP_1_1)
             .code(code)
             .message(if (code < 300) "OK" else "Error")
-            .body(body.toResponseBody("application/json".toMediaType()))
+            .body(body.toResponseBody(mime.toMediaType()))
             .build()
 }

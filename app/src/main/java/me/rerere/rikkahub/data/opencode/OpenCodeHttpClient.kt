@@ -91,10 +91,44 @@ internal class OpenCodeHttpClient(
         }.build()
         client.newCall(request).execute().use { response ->
             val text = response.body.string()
-            if (!response.isSuccessful) throw IOException("OpenCode HTTP ${response.code}: ${text.take(300)}")
+            if (!response.isSuccessful) {
+                // OpenCode 2 changes session paths and prompt acknowledgement
+                // semantics. Never replay prompts while probing an unknown API.
+                if (response.code == 404 && nativeV2ServerInfo()) {
+                    throw IOException(
+                        "OpenCode 2 server detected; RikkaHub's workspace client " +
+                            "still uses the V1 session API. Use the separate " +
+                            "inference provider or a verified V2 adapter."
+                    )
+                }
+                throw IOException("OpenCode HTTP ${response.code}: ${text.take(300)}")
+            }
             if (text.isBlank()) JsonObject(emptyMap()) else JsonInstant.decodeFromString<JsonElement>(text)
         }
     }
+
+    /** V1 can serve HTML on /api/info; only JSON V2 server-info
+     * counts. This read-only probe runs solely after a V1 404.
+     */
+    private fun nativeV2ServerInfo(): Boolean = runCatching {
+        val probe = Request.Builder().url("$baseUrl/api/info").get().apply {
+            credential?.let { value ->
+                header("Authorization", if (value.startsWith("Basic ") || value.startsWith("Bearer "))
+                    value else "Basic ${Base64.encodeToString(value.encodeToByteArray(), Base64.NO_WRAP)}")
+            }
+            header("Accept", "application/json")
+        }.build()
+        client.newCall(probe).execute().use { response ->
+            if (!response.isSuccessful ||
+                response.body.contentType()?.subtype != "json"
+            ) return@use false
+            val info = JsonInstant.decodeFromString<JsonElement>(
+                response.body.string().take(131072)
+            ) as? JsonObject ?: return@use false
+            (info["urls"] is JsonArray) &&
+                (info.containsKey("ready") || info.containsKey("paths"))
+        }
+    }.getOrDefault(false)
 
     private fun directoryQuery(directory: String?): Map<String, String> =
         directory?.takeIf { it.isNotBlank() }?.let { mapOf("directory" to it) } ?: emptyMap()
