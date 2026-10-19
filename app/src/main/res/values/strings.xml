@@ -2081,6 +2081,15 @@
   <string name="imggen_page_reference">Reference</string>
   <string name="imggen_page_options">Options</string>
   <string name="chat_drawer_more">More</string>
+  <string name="chat_drawer_all_chats">All chats</string>
+  <string name="chat_drawer_new_project">New project</string>
+  <string name="chat_drawer_rename_project">Rename project</string>
+  <string name="chat_drawer_delete_project">Delete project</string>
+  <string name="chat_drawer_switch_assistant">Switch assistant</string>
+  <string name="chat_drawer_move_to_project">Move to project</string>
+  <string name="chat_drawer_no_project">No project</string>
+  <string name="chat_drawer_project_name">Project name</string>
+  <string name="chat_drawer_delete_project_confirm">Delete project %1$s? Its chats will remain in All chats.</string>
   <string name="chat_drawer_images">Images</string>
   <string name="translate_bubble_channel_name">Translate bubble</string>
   <string name="translate_bubble_notification_title">Translate bubble</string>

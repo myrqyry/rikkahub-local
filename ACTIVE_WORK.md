@@ -1,6 +1,27 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — project-filtered compact RikkaHub drawer (2026-10-18)
+
+Replaced the 56dp icon rail and folder chips with a 320dp partial-width
+Compose drawer: assistant avatar/name/greeting at top with a right-anchored
+horizontal swap picker; single projects dropdown; no dated group headers;
+44dp compact session rows; real creation timestamps instead of blank
+“New message” titles; project badges only in All chats; bottom user
+avatar/name and settings. The overflow preserves former rail destinations.
+Projects reuse existing assistant-scoped folders; **All chats** now includes
+both filed and unfiled sessions for the active assistant. This is not a
+new global project schema, does not assign the selected project on new chat,
+and does not yet support per-project custom icons.
+
+Gradle app JVM suite: **1,497 passed, zero failures**, debug APK built.
+After checksum-verified private data/settings backup, the arm64 APK was
+installed in place on Pixel 10 Pro. Verified dark-theme drawer screenshot,
+assistants picker opening, and selection of existing empty “though” project;
+no data cleared or migrated, phone returned to ChatGPT. Source/checks and
+remaining boundaries: docs/ui/rikkahub-project-sidebar-2026-10-18.md.
+No push; this public repo branch still has private unpublished history.
+
 ## Current checkpoint — per-project verification and safe public sync (2026-10-17)
 
 - Verified branch `aster/device-execution-profile` with `./gradlew :local-llm:testDebugUnitTest :ai:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug`: **BUILD SUCCESSFUL**. Gradle reused cached/up-to-date outputs for the three JVM suites and APK, so this is a successful up-to-date validation, not a fresh full test rerun. Existing test XML confirms **507 local-LLM + 200 AI + 1,497 app = 2,204** tests, zero failures/errors/skips. `web-ui` `pnpm run typecheck` passed; four V2 preflight Python tests passed and live default read-only probe correctly classified the `:4196` compatibility server as **not native V2** (HTML at `/api/info`). `git diff --check` passed. No ADB device connected; no live phone/session generation or data migration attempted.

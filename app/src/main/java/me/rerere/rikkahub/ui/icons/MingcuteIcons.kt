@@ -152,6 +152,7 @@ object MingcuteIcons {
     @get:Composable val Tick02: ImageVector get() = ImageVector.vectorResource(MingCuteR.drawable.mgc_check_2_line)
     @get:Composable val Time02: ImageVector get() = ImageVector.vectorResource(MingCuteR.drawable.mgc_time_line)
     @get:Composable val Tools: ImageVector get() = ImageVector.vectorResource(MingCuteR.drawable.mgc_tool_line)
+    @get:Composable val TransferHorizontal: ImageVector get() = ImageVector.vectorResource(MingCuteR.drawable.mgc_transfer_horizontal_line)
     @get:Composable val TransactionHistory: ImageVector get() = ImageVector.vectorResource(MingCuteR.drawable.mgc_history_line)
     @get:Composable val Translate: ImageVector get() = ImageVector.vectorResource(MingCuteR.drawable.mgc_translate_line)
     @get:Composable val Upload02: ImageVector get() = ImageVector.vectorResource(MingCuteR.drawable.mgc_upload_2_line)

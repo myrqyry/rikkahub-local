@@ -56,12 +56,16 @@ fun AssistantPicker(
     onUpdateSettings: (Settings) -> Unit,
     modifier: Modifier = Modifier,
     onClickSetting: () -> Unit,
+    trigger: (@Composable (Assistant, () -> Unit) -> Unit)? = null,
 ) {
     val state = rememberAssistantState(settings, onUpdateSettings)
     val defaultAssistantName = stringResource(R.string.assistant_page_default_assistant)
     var showPicker by remember { mutableStateOf(false) }
 
-    NavigationDrawerItem(
+    if (trigger != null) {
+        trigger(state.currentAssistant) { showPicker = true }
+    } else {
+        NavigationDrawerItem(
         icon = {
             Icon(HugeIcons.LookTop, contentDescription = null)
         },
@@ -89,7 +93,8 @@ fun AssistantPicker(
         },
         modifier = modifier,
         selected = false,
-    )
+        )
+    }
 
     if (showPicker) {
         AssistantPickerSheet(

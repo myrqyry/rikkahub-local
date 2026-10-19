@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -42,7 +41,6 @@ import me.rerere.rikkahub.ui.theme.rememberRikkaNeumorphicColors
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.paging.compose.LazyPagingItems
@@ -50,7 +48,6 @@ import androidx.paging.compose.itemKey
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.model.Conversation
 import me.rerere.rikkahub.ui.theme.extendColors
-import me.rerere.rikkahub.utils.toLocalString
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.uuid.Uuid
@@ -59,14 +56,7 @@ import kotlin.uuid.Uuid
  * Represents different types of items in the conversation list
  */
 sealed class ConversationListItem {
-    data class DateHeader(
-        val date: LocalDate,
-        val label: String
-    ) : ConversationListItem()
-    data object PinnedHeader : ConversationListItem()
-    data class Item(
-        val conversation: Conversation
-    ) : ConversationListItem()
+    data class Item(val conversation: Conversation) : ConversationListItem()
 }
 
 @Composable
@@ -75,6 +65,8 @@ fun ColumnScope.ConversationList(
     conversations: LazyPagingItems<ConversationListItem>,
     conversationJobs: Collection<Uuid>,
     listState: LazyListState,
+    projectNames: Map<Uuid, String>,
+    showProjectBadges: Boolean,
     modifier: Modifier = Modifier,
     onClick: (Conversation) -> Unit = {},
     onDelete: (Conversation) -> Unit = {},
@@ -102,7 +94,7 @@ fun ColumnScope.ConversationList(
     LazyColumn(
         state = listState,
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         if (conversations.itemCount == 0) {
             item {
@@ -125,33 +117,15 @@ fun ColumnScope.ConversationList(
 
         items(
             count = conversations.itemCount,
-            key = conversations.itemKey { item ->
-                when (item) {
-                    is ConversationListItem.DateHeader -> "date_${item.date}"
-                    is ConversationListItem.PinnedHeader -> "pinned_header"
-                    is ConversationListItem.Item -> item.conversation.id.toString()
-                }
-            }
+            key = conversations.itemKey { (it as ConversationListItem.Item).conversation.id.toString() }
         ) { index ->
             when (val item = conversations[index]) {
-                is ConversationListItem.DateHeader -> {
-                    DateHeaderItem(
-                        label = item.label,
-                        modifier = Modifier.animateItem()
-                    )
-                }
-
-                is ConversationListItem.PinnedHeader -> {
-                    PinnedHeader(
-                        modifier = Modifier.animateItem()
-                    )
-                }
-
                 is ConversationListItem.Item -> {
                     ConversationItem(
                         conversation = item.conversation,
                         selected = item.conversation.id == current.id,
                         loading = item.conversation.id in conversationJobs,
+                        projectName = if (showProjectBadges) item.conversation.folderId?.let(projectNames::get) else null,
                         onClick = onClick,
                         onDelete = onDelete,
                         onRegenerateTitle = onRegenerateTitle,
@@ -171,56 +145,11 @@ fun ColumnScope.ConversationList(
 }
 
 @Composable
-private fun DateHeaderItem(
-    label: String,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 11.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-private fun PinnedHeader(
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 11.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = HugeIcons.Pin,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(Modifier.size(8.dp))
-        Text(
-            text = stringResource(R.string.pinned_chats),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
 private fun ConversationItem(
     conversation: Conversation,
     selected: Boolean,
     loading: Boolean,
+    projectName: String?,
     modifier: Modifier = Modifier,
     onDelete: (Conversation) -> Unit = {},
     onRegenerateTitle: (Conversation) -> Unit = {},
@@ -232,12 +161,23 @@ private fun ConversationItem(
     val interactionSource = remember { MutableInteractionSource() }
     val colors = rememberRikkaNeumorphicColors()
     var showDropdownMenu by remember { mutableStateOf(false) }
-    Box(modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 1.dp)) {
+    val zone = ZoneId.systemDefault()
+    val updated = conversation.updateAt.atZone(zone)
+    val timestamp = when (updated.toLocalDate()) {
+        LocalDate.now(zone) -> updated.format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"))
+        LocalDate.now(zone).minusDays(1) -> stringResource(R.string.chat_page_yesterday)
+        else -> updated.format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))
+    }
+    val title = conversation.title.ifBlank {
+        conversation.createAt.atZone(zone)
+            .format(java.time.format.DateTimeFormatter.ofPattern("MMM d, h:mm a"))
+    }
+    Box(modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
         val content: @Composable BoxScope.() -> Unit = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(18.dp))
+                    .clip(RoundedCornerShape(16.dp))
                     .combinedClickable(
                         interactionSource = interactionSource,
                         indication = LocalIndication.current,
@@ -245,17 +185,34 @@ private fun ConversationItem(
                         onLongClick = { showDropdownMenu = true },
                     )
                     .heightIn(min = 44.dp)
-                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                if (projectName != null) {
+                    Icon(
+                        imageVector = HugeIcons.Folder01,
+                        contentDescription = projectName,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 8.dp).size(16.dp),
+                    )
+                }
                 Text(
-                    text = conversation.title.ifBlank { stringResource(id = R.string.chat_page_new_message) },
+                    text = title,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
                 )
-                Spacer(Modifier.weight(1f))
+                if (conversation.title.isNotBlank()) {
+                    Text(
+                        text = timestamp,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
 
                 // 置顶图标
                 AnimatedVisibility(conversation.isPinned) {
@@ -341,7 +298,7 @@ private fun ConversationItem(
 
             DropdownMenuItem(
                 text = {
-                    Text(stringResource(R.string.chat_page_move_to_folder))
+                    Text(stringResource(R.string.chat_drawer_move_to_project))
                 },
                 onClick = {
                     onMoveToFolder(conversation)
