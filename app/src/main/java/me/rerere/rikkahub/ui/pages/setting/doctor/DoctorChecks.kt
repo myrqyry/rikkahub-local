@@ -799,6 +799,7 @@ class DoctorChecks(
                     is me.rerere.ai.provider.ProviderSetting.Codex -> p.enabled  // OAuth, no API key
                     is me.rerere.ai.provider.ProviderSetting.Grok -> p.enabled  // OAuth, no API key
                     is me.rerere.ai.provider.ProviderSetting.StableDiffusion -> p.enabled && p.currentModelPath != null
+                    is me.rerere.ai.provider.ProviderSetting.ComfyUi -> p.enabled && p.checkpoint.isNotBlank()
                     // Local Task OCR: usable when enabled AND both graph files are set.
                     is me.rerere.ai.provider.ProviderSetting.TaskOcrLocal ->
                         p.enabled && p.detModelPath.isNotBlank() && p.recModelPath.isNotBlank()

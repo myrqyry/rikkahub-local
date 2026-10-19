@@ -60,6 +60,14 @@ val DEFAULT_PROVIDERS = listOf(
         },
         models = listOf(FLUX2_KLEIN_MODEL),
     ),
+    ProviderSetting.ComfyUi(
+        enabled = false,
+        builtIn = true,
+        description = {
+            Text("Generate images using your own ComfyUI server. Configure the reachable server URL and select a checkpoint; supports standard checkpoint text-to-image workflows. No cloud API account required.")
+        },
+        shortDescription = { Text("Self-hosted · Standard text to image") },
+    ),
     ProviderSetting.StableDiffusion(
         // On-device Stable Diffusion (stable-diffusion.cpp) provider. Disabled by
         // default and carries zero models until the user installs a GGUF via Model

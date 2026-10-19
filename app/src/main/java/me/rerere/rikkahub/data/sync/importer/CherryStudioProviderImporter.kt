@@ -131,6 +131,7 @@ object CherryStudioProviderImporter {
             is ProviderSetting.Codex -> "codex|${provider.id}"
             is ProviderSetting.Grok -> "grok|${provider.id}"
             is ProviderSetting.StableDiffusion -> "stable_diffusion|${provider.id}"
+            is ProviderSetting.ComfyUi -> "comfyui|" + provider.id
             is ProviderSetting.TaskOcrLocal -> "task_ocr_local|${provider.id}"
             is ProviderSetting.LlamaCppLocal -> "llamacpp|${provider.id}"
         }

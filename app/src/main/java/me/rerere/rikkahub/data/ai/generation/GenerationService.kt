@@ -170,23 +170,29 @@ class GenerationService(
         sourceArtifacts: List<MediaArtifactRef>,
     ): GenerationReceipt {
         val sd = providerSetting as? ProviderSetting.StableDiffusion
+        val comfy = providerSetting as? ProviderSetting.ComfyUi
         return GenerationReceipt(
             artifactId = artifact.artifactId,
             modelId = modelId,
             modelRevision = null,
-            runtime = if (sd != null) "stable-diffusion.cpp" else "cloud",
+            runtime = when {
+                comfy != null -> "comfyui"
+                sd != null -> "stable-diffusion.cpp"
+                else -> "cloud"
+            },
             backend = when {
+                comfy != null -> "self-hosted HTTP"
                 sd == null -> "cloud"
                 sd.useVulkan -> "VULKAN"
                 else -> "CPU"
             },
             width = artifact.width,
             height = artifact.height,
-            seed = sd?.seed?.toLong(),
-            steps = sd?.steps,
-            cfg = sd?.cfgScale,
-            sampler = null,
-            scheduler = null,
+            seed = comfy?.seed?.takeIf { it >= 0 } ?: sd?.seed?.toLong(),
+            steps = comfy?.steps ?: sd?.steps,
+            cfg = comfy?.cfg ?: sd?.cfgScale,
+            sampler = comfy?.sampler,
+            scheduler = comfy?.scheduler,
             elapsedMs = elapsedMs,
             sourceArtifacts = sourceArtifacts,
         )

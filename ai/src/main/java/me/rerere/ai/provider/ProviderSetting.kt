@@ -471,6 +471,51 @@ sealed class ProviderSetting {
         }
     }
 
+    /** Remote/self-hosted ComfyUI API. Models represent an image workflow, while
+     * checkpoint names are the exact filenames returned by the connected server.
+     * No server is contacted until the provider is explicitly configured/enabled.
+     */
+    @Serializable
+    @SerialName("comfyui")
+    data class ComfyUi(
+        override var id: Uuid = COMFYUI_PROVIDER_ID,
+        override var enabled: Boolean = false,
+        override var name: String = "ComfyUI",
+        override var models: List<Model> = listOf(COMFYUI_TXT2IMG_MODEL),
+        override val balanceOption: BalanceOption = BalanceOption(),
+        @Transient override val builtIn: Boolean = true,
+        @Transient override val description: @Composable (() -> Unit) = {},
+        @Transient override val shortDescription: @Composable (() -> Unit) = {},
+        val baseUrl: String = "http://127.0.0.1:8188",
+        val checkpoint: String = "",
+        val steps: Int = 20,
+        val cfg: Float = 7f,
+        val sampler: String = "euler",
+        val scheduler: String = "normal",
+        val seed: Long = -1L,
+        val negativePrompt: String = "",
+        val width: Int = 512,
+        val height: Int = 512,
+    ) : ProviderSetting() {
+        override fun addModel(model: Model): ProviderSetting = copy(models = models + model)
+        override fun editModel(model: Model): ProviderSetting =
+            copy(models = models.map { if (it.id == model.id) model else it })
+        override fun delModel(model: Model): ProviderSetting =
+            copy(models = models.filterNot { it.id == model.id })
+        override fun moveMove(from: Int, to: Int): ProviderSetting =
+            copy(models = models.toMutableList().apply { add(to, removeAt(from)) })
+        override fun copyProvider(
+            id: Uuid, enabled: Boolean, name: String, models: List<Model>,
+            balanceOption: BalanceOption, builtIn: Boolean,
+            description: @Composable (() -> Unit),
+            shortDescription: @Composable (() -> Unit),
+        ): ProviderSetting = copy(
+            id = id, enabled = enabled, name = name, models = models,
+            balanceOption = balanceOption, builtIn = builtIn,
+            description = description, shortDescription = shortDescription,
+        )
+    }
+
     @Serializable
     @SerialName("stable_diffusion")
     data class StableDiffusion(
@@ -580,6 +625,16 @@ enum class AICoreReleaseStage { STABLE, PREVIEW }
 val AICORE_PROVIDER_ID: Uuid = Uuid.parse("a1c0a1c0-1234-4111-a000-000000000001")
 val LITERT_PROVIDER_ID: Uuid = Uuid.parse("11111111-aaaa-bbbb-cccc-000000000002")
 val STABLE_DIFFUSION_PROVIDER_ID: Uuid = Uuid.parse("11111111-aaaa-bbbb-cccc-000000000004")
+val COMFYUI_PROVIDER_ID: Uuid = Uuid.parse("11111111-aaaa-bbbb-cccc-000000000006")
+val COMFYUI_TXT2IMG_MODEL: Model = Model(
+    id = Uuid.parse("11111111-aaaa-bbbb-cccc-000000000007"),
+    modelId = "comfyui-standard-txt2img",
+    displayName = "ComfyUI · Text to image",
+    type = ModelType.IMAGE,
+    inputModalities = listOf(Modality.TEXT),
+    outputModalities = listOf(Modality.IMAGE),
+)
+
 val LLAMACPP_PROVIDER_ID: Uuid = Uuid.parse("11111111-aaaa-bbbb-cccc-000000000005")
 private val AICORE_NANO_FAST_ID: Uuid = Uuid.parse("a1c0a1c0-1234-4111-a000-000000000002")
 private val AICORE_NANO_FULL_ID: Uuid = Uuid.parse("a1c0a1c0-1234-4111-a000-000000000003")

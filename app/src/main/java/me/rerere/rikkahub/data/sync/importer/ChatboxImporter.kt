@@ -575,6 +575,7 @@ object ChatboxImporter {
         is ProviderSetting.Codex -> "codex"
         is ProviderSetting.Grok -> "grok"
         is ProviderSetting.StableDiffusion -> "stable_diffusion"
+        is ProviderSetting.ComfyUi -> "comfyui"
         is ProviderSetting.TaskOcrLocal -> "task_ocr_local"
         is ProviderSetting.LlamaCppLocal -> "llamacpp"
     }

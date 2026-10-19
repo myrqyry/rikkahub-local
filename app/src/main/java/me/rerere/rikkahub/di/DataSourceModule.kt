@@ -429,6 +429,7 @@ val dataSourceModule = module {
                     json = json,
                 )
             )
+            pm.registerProvider("comfyui", me.rerere.rikkahub.data.ai.ComfyUiProvider(get()))
             pm.registerProvider(
                 "stable_diffusion",
                 me.rerere.rikkahub.data.ai.StableDiffusionProvider(context = get()),

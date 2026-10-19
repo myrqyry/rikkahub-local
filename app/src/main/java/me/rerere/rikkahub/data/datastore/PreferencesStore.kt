@@ -467,6 +467,10 @@ class SettingsStore(
                             models = provider.models.distinctBy { model -> model.id }
                         )
 
+                        is ProviderSetting.ComfyUi -> provider.copy(
+                            models = provider.models.distinctBy { model -> model.id }
+                        )
+
                         is ProviderSetting.TaskOcrLocal -> provider.copy(
                             models = provider.models.distinctBy { model -> model.id }
                         )

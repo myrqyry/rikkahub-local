@@ -1,6 +1,27 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — ComfyUI standard txt2img provider (2026-10-19)
+
+Integrated a disabled-by-default ComfyUI provider with a stable image
+model, server/checkpoint selection and standard seven-node txt2img
+workflow into RikkaHub's existing Image Gen / agent tool / gallery path.
+POST /prompt, GET /history, GET /view, checkpoint discovery, timeout,
+strict PNG/JPEG bytes, bounded results and safe queued-only cancel are
+implemented. Generation receipts identify self-hosted ComfyUI, not
+Android. User's real local ComfyUI 0.37.0 is running on desktop
+127.0.0.1:8188; its read-only endpoints confirm all workflow nodes
+and installed checkpoints. Six HTTP-fixture tests passed; full app
+suite 1,535/1,535 passed, debug APK built. Private Pixel backup
+verified and APK installed in place, ADB reverse TCP connection
+established, no diffusion job run and no app preferences altered.
+Pixel's ComfyUI edit page / live phone generation remain UNVERIFIED
+(first lock screen, later unrelated model screen); do not call the
+end-to-end phone path tested yet. No LAN exposure or server config
+changed. No custom graphs, img2img, LoRA, progress WebSocket or
+inpaint; don't expose unsupported settings. Local commit only,
+no push. See docs/ui/comfyui-image-provider-2026-10-19.md.
+
 ## Current checkpoint — llama.cpp Qwen3 GGUF CPU entrypoint built (2026-10-19)
 
 Checked upstream `tools/tts/README.md` and built CPU-only `llama-tts`
