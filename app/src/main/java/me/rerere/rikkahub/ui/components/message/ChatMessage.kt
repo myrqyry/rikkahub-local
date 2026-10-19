@@ -173,25 +173,30 @@ fun ChatMessage(
                 )
         ) {
             ProvideTextStyle(textStyle) {
-                MessagePartsBlock(
-                    assistant = assistant,
-                    role = message.role,
-                    parts = message.parts,
-                    annotations = message.annotations,
-                    loading = loading,
-                    model = model,
-                    onToolApproval = onToolApproval,
-                    onToolAnswer = onToolAnswer,
-                    onUserMessageClick = if (message.role == MessageRole.USER) onEdit else null,
-                    onSubmit = onSubmit,
-                    onNavigate = onNavigate,
-                )
-
-                message.translation?.let { translation ->
-                    CollapsibleTranslationText(
-                        content = translation,
-                        onClickCitation = {}
+                // MessagePartsBlock emits multiple sibling composables (thinking,
+                // answer, tools). A Box stacks them at the same origin, so keep
+                // the parts and translation in a vertical layout.
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    MessagePartsBlock(
+                        assistant = assistant,
+                        role = message.role,
+                        parts = message.parts,
+                        annotations = message.annotations,
+                        loading = loading,
+                        model = model,
+                        onToolApproval = onToolApproval,
+                        onToolAnswer = onToolAnswer,
+                        onUserMessageClick = if (message.role == MessageRole.USER) onEdit else null,
+                        onSubmit = onSubmit,
+                        onNavigate = onNavigate,
                     )
+
+                    message.translation?.let { translation ->
+                        CollapsibleTranslationText(
+                            content = translation,
+                            onClickCitation = {}
+                        )
+                    }
                 }
             }
             DropdownMenu(

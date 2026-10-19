@@ -1,6 +1,21 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — chat reasoning/answer overlap fixed (2026-10-19)
+
+The Pixel screenshot showed the collapsed "Thought for 5.1 seconds" pill
+overlapping Japanese answer text. Root cause: `MessagePartsBlock()` emits
+multiple sibling composables directly inside a Box, stacking them at the
+same origin. The message-part tree and translation now sit in a Column.
+Opened that exact existing conversation on Pixel after in-place debug
+install and verified UI bounds: Thought ends y=911, Japanese answer
+begins y=955, English translation follows y=1182. App tests/build passed
+(1,501 JVM tests), verified private backup before install. Migrated the
+last two generic reasoning pictograms (model ability tag and export view)
+from `deepthink` drawable to MingCute Idea01; preserved brand/file icons.
+User's in-progress Bonsai source work remains untouched/uncommitted.
+No push. See docs/ui/rikkahub-chat-message-layout-mingcute-2026-10-19.md.
+
 ## Current checkpoint — Bonsai Image LiteRT CPU runner, not yet released (2026-10-19)
 
 Ported the pinned upstream Bonsai Image 4B Android tokenizer, host math

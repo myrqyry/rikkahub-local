@@ -670,7 +670,7 @@ private fun ChainOfThoughtScope.ExportedReasoningStep(
         onExpandedChange = {},
         icon = {
             Icon(
-                painter = painterResource(R.drawable.deepthink),
+                imageVector = HugeIcons.Idea01,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.secondary
