@@ -735,6 +735,12 @@
   <string name="setting_display_page_tts_only_read_quoted_desc">When enabled, TTS will only read content within quotation marks (including\" \", \' \', “”, ‘’, 「」, 『』)</string>
   <string name="setting_display_page_tts_only_read_quoted_title">TTS Read Quoted Content Only</string>
   <string name="tts_no_matching_speech">No text matches the current TTS reading options</string>
+  <string name="tts_provider_reading_title">Message reading</string>
+  <string name="tts_provider_reading_description">For this voice only. Voice and model controls below depend on the selected engine.</string>
+  <string name="tts_provider_quoted_title">Read quoted text only</string>
+  <string name="tts_provider_brackets_title">Skip bracketed directions</string>
+  <string name="tts_provider_autoplay_title">Auto-play replies</string>
+
   <string name="setting_display_page_tts_read_outside_brackets_desc">When enabled, TTS will not read content inside brackets</string>
   <string name="setting_display_page_tts_read_outside_brackets_title">TTS Skip Bracketed Content</string>
   <string name="setting_display_page_use_app_icon_style_loading_indicator_desc">Use the animated app icon instead of the default circular loading indicator</string>

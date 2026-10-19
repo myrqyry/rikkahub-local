@@ -832,6 +832,9 @@ data class DisplaySetting(
     val ttsOnlyReadQuoted: Boolean = false,
     val ttsOnlyReadOutsideBrackets: Boolean = false,
     val autoPlayTTSAfterGeneration: Boolean = false,
+    /** Provider ID → reading and auto-play preferences. Legacy flags above remain
+     *  read-only fallbacks so upgrades preserve existing choices. */
+    val ttsPlaybackProfiles: Map<String, TtsPlaybackPreferences> = emptyMap(),
     val pasteLongTextAsFile: Boolean = false,
     val pasteLongTextThreshold: Int = 1000,
     val sendOnEnter: Boolean = false,

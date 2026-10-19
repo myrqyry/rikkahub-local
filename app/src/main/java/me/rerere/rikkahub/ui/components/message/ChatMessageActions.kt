@@ -46,6 +46,7 @@ import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.model.MessageNode
 import me.rerere.rikkahub.ui.components.ui.RikkaConfirmDialog
 import me.rerere.rikkahub.ui.context.LocalSettings
+import me.rerere.rikkahub.data.datastore.selectedTtsPlayback
 import me.rerere.rikkahub.ui.context.LocalTTSState
 import me.rerere.rikkahub.utils.copyMessageToClipboard
 import me.rerere.rikkahub.utils.prepareTtsText
@@ -126,7 +127,7 @@ fun ColumnScope.ChatMessageActionButtons(
                         indication = LocalIndication.current,
                         onClick = {
                             if (!isSpeaking) {
-                                val allowed = prepareTtsText(message.toText(), settings.displaySetting)
+                                val allowed = prepareTtsText(message.toText(), settings.selectedTtsPlayback())
                                 if (allowed == null) {
                                     Toast.makeText(
                                         context, R.string.tts_no_matching_speech,

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -21,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,6 +31,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -39,6 +43,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.rerere.locallm.ModelInstall
 import me.rerere.rikkahub.R
+import me.rerere.rikkahub.data.datastore.TtsPlaybackPreferences
 import me.rerere.rikkahub.ui.components.ui.FormItem
 import me.rerere.rikkahub.ui.components.ui.OutlinedNumberInput
 import me.rerere.rikkahub.ui.context.LocalToaster
@@ -61,7 +66,9 @@ import kotlin.math.roundToInt
 fun TTSProviderConfigure(
     setting: TTSProviderSetting,
     modifier: Modifier = Modifier,
-    onValueChange: (TTSProviderSetting) -> Unit
+    onValueChange: (TTSProviderSetting) -> Unit,
+    playback: TtsPlaybackPreferences,
+    onPlaybackChange: (TtsPlaybackPreferences) -> Unit,
 ) {
     val context = LocalContext.current
     Column(
@@ -273,6 +280,35 @@ fun TTSProviderConfigure(
             )
         }
 
+        // Message-level behavior belongs to this configured provider, not
+        // to the synthesizer API. All providers can use these three filters.
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = stringResource(R.string.tts_provider_reading_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Text(
+                text = stringResource(R.string.tts_provider_reading_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TtsPlaybackSwitch(
+                title = stringResource(R.string.tts_provider_quoted_title),
+                checked = playback.quotedOnly,
+                onChange = { onPlaybackChange(playback.copy(quotedOnly = it)) },
+            )
+            TtsPlaybackSwitch(
+                title = stringResource(R.string.tts_provider_brackets_title),
+                checked = playback.skipBracketed,
+                onChange = { onPlaybackChange(playback.copy(skipBracketed = it)) },
+            )
+            TtsPlaybackSwitch(
+                title = stringResource(R.string.tts_provider_autoplay_title),
+                checked = playback.autoPlay,
+                onChange = { onPlaybackChange(playback.copy(autoPlay = it)) },
+            )
+        }
+
         // Provider-specific fields
         when (setting) {
             is TTSProviderSetting.OpenAI -> OpenAITTSConfiguration(setting, onValueChange)
@@ -293,6 +329,28 @@ fun TTSProviderConfigure(
             is TTSProviderSetting.MatchaTts -> MatchaTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.ScyllaTts -> ScyllaTTSConfiguration(setting, onValueChange)
         }
+    }
+}
+
+@Composable
+private fun TtsPlaybackSwitch(
+    title: String,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = title,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Switch(checked = checked, onCheckedChange = onChange)
     }
 }
 

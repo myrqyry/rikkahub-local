@@ -2,7 +2,7 @@ package me.rerere.rikkahub.ui.pages.chat
 
 import kotlin.uuid.Uuid
 import me.rerere.ai.core.MessageRole
-import me.rerere.rikkahub.data.datastore.DisplaySetting
+import me.rerere.rikkahub.data.datastore.TtsPlaybackPreferences
 import me.rerere.rikkahub.data.model.Conversation
 import me.rerere.rikkahub.utils.prepareTtsText
 
@@ -12,10 +12,10 @@ internal data class TtsAutoPlayCandidate(val messageId: Uuid, val text: String)
 internal fun eligibleTtsAutoPlay(
     completedId: Uuid,
     current: Conversation,
-    options: DisplaySetting,
+    options: TtsPlaybackPreferences,
     lastPlayedMessageId: Uuid?,
 ): TtsAutoPlayCandidate? {
-    if (!options.autoPlayTTSAfterGeneration || current.id != completedId) return null
+    if (!options.autoPlay || current.id != completedId) return null
     val last = current.currentMessages.lastOrNull() ?: return null
     if (last.role != MessageRole.ASSISTANT || last.id == lastPlayedMessageId) return null
     val text = prepareTtsText(last.toText(), options) ?: return null

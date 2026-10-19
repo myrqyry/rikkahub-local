@@ -1,6 +1,19 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — TTS preferences scoped per provider (2026-10-19)
+
+Moved quoted-only, skip-bracketed and auto-play from the oversized
+global Speech block into each provider's editor alongside engine-specific
+settings. Saved by provider instance ID. Manual/auto playback resolve
+the selected profile; legacy global settings remain fallback for
+unchanged providers without data reset. Add/Edit persists both engine
+and playback settings atomically, and provider card selection, reorder
+and deletion avoid stale whole-settings saves. 1,524 app tests passed,
+debug APK built. **Pixel absent from ADB: not installed or audio-tested**;
+existing user data/models untouched. Local-only, no push.
+See docs/ui/rikkahub-tts-per-provider-preferences-2026-10-19.md.
+
 ## Current checkpoint — TTS reading switches obeyed (2026-10-19)
 
 Fixed quoted-only and skip-bracket option handling in manual and auto

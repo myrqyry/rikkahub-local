@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import me.rerere.rikkahub.data.datastore.Settings
+import me.rerere.rikkahub.data.datastore.selectedTtsPlayback
 import me.rerere.rikkahub.data.model.Conversation
 import me.rerere.rikkahub.ui.context.LocalTTSState
 
@@ -26,7 +27,7 @@ fun TTSAutoPlay(vm: ChatVM, setting: Settings, conversation: Conversation) {
             val candidate = eligibleTtsAutoPlay(
                 completedId = completedConversationId,
                 current = vm.conversation.value,
-                options = updatedSetting.displaySetting,
+                options = updatedSetting.selectedTtsPlayback(),
                 lastPlayedMessageId = lastPlayedMessageId,
             ) ?: return@collect
             lastPlayedMessageId = candidate.messageId
