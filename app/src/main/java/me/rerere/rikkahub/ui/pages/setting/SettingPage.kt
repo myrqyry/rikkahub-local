@@ -1,24 +1,21 @@
 package me.rerere.rikkahub.ui.pages.setting
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -40,8 +37,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -50,13 +45,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
@@ -95,7 +87,7 @@ private val SettingsContentMaxWidth = 800.dp
 
 @Composable
 fun SettingPage(vm: SettingVM = koinViewModel()) {
-    var activeSectionId by rememberSaveable { mutableStateOf("aiModels") }
+    var activeSectionId by rememberSaveable { mutableStateOf<String?>(null) }
     val navController = LocalNavController.current
     val context = LocalContext.current
     val settings by vm.settings.collectAsStateWithLifecycle()
@@ -456,23 +448,46 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
     )
     val filteredSections = filterSettingsSections(sections, searchQuery)
 
-    val activeSection = filteredSections.firstOrNull { it.id == activeSectionId }
-        ?: filteredSections.firstOrNull()
-    val showAllSearchMatches = searchQuery.isNotBlank()
+    // One screen of visible categories. A tap opens its destinations; searching
+    // always searches all categories, including while inside a section.
+    val activeSection = sections.firstOrNull { it.id == activeSectionId }
+    val searching = searchQuery.isNotBlank()
+    BackHandler(enabled = searchExpanded || activeSectionId != null) {
+        if (searchExpanded) {
+            searchQuery = ""
+            searchExpanded = false
+        } else {
+            activeSectionId = null
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.settings)) },
-                navigationIcon = { BackButton() },
+                title = { Text(if (activeSection != null && !searchExpanded) activeSection.title else stringResource(R.string.settings)) },
+                navigationIcon = {
+                    when {
+                        searchExpanded -> IconButton(onClick = { searchQuery = ""; searchExpanded = false }) {
+                            Icon(HugeIcons.ArrowLeft01, contentDescription = stringResource(R.string.settings))
+                        }
+                        activeSection != null -> IconButton(onClick = { activeSectionId = null }) {
+                            Icon(HugeIcons.ArrowLeft01, contentDescription = stringResource(R.string.settings))
+                        }
+                        else -> BackButton()
+                    }
+                },
                 colors = CustomColors.topBarColors,
                 actions = {
                     IconButton(onClick = {
-                        if (searchExpanded && searchQuery.isNotBlank()) searchQuery = ""
-                        else searchExpanded = !searchExpanded
+                        if (searchExpanded) {
+                            searchQuery = ""
+                            searchExpanded = false
+                        } else {
+                            searchExpanded = true
+                        }
                     }) {
                         Icon(
-                            if (searchExpanded && searchQuery.isNotBlank()) HugeIcons.Cancel01 else HugeIcons.Search01,
+                            if (searchExpanded) HugeIcons.Cancel01 else HugeIcons.Search01,
                             contentDescription = stringResource(R.string.setting_home_search_placeholder),
                         )
                     }
@@ -484,59 +499,40 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             LazyColumn(
                 modifier = Modifier.widthIn(max = SettingsContentMaxWidth).fillMaxSize(),
-                contentPadding = innerPadding + PaddingValues(horizontal = 12.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = innerPadding + PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
                 if (searchExpanded) {
                     item("settingsSearch") {
                         SettingsSearchField(query = searchQuery, onQueryChange = { searchQuery = it })
                     }
                 }
-                if (settings.isNotConfigured() && searchQuery.isBlank()) {
+                if (settings.isNotConfigured() && !searching && activeSection == null) {
                     item("providerWarning") { ProviderConfigWarningCard(navController) }
                 }
-                if (filteredSections.isEmpty()) {
-                    item("noResults") { SettingsNoResultsCard() }
-                } else {
-                    if (!showAllSearchMatches) {
-                        item("sectionPicker") {
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(filteredSections, key = { it.id }) { section ->
-                                    val selected = section.id == activeSection?.id
-                                    val icon = section.items.first().icon
-                                    SettingsCategoryChip(
-                                        title = section.title,
-                                        icon = icon,
-                                        selected = selected,
-                                        onClick = { activeSectionId = section.id },
-                                    )
+                when {
+                    searching -> {
+                        if (filteredSections.isEmpty()) {
+                            item("noResults") { SettingsNoResultsCard() }
+                        } else {
+                            filteredSections.forEach { section ->
+                                item("search-heading-${section.id}") {
+                                    SettingsSectionHeading(section.title)
+                                }
+                                items(section.items, key = { "search-${section.id}-${it.id}" }) { item ->
+                                    SettingsDestinationRow(item)
                                 }
                             }
                         }
-                        activeSection?.let { section ->
-                            item(section.id) {
-                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Text(
-                                        section.title,
-                                        modifier = Modifier.padding(start = 5.dp),
-                                        style = MaterialTheme.typography.titleLarge,
-                                    )
-                                    SettingsTileGrid(section.items)
-                                }
-                            }
+                    }
+                    activeSection != null -> {
+                        items(activeSection.items, key = { "destination-${it.id}" }) { item ->
+                            SettingsDestinationRow(item)
                         }
-                    } else {
-                        filteredSections.forEach { section ->
-                            item(section.id) {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text(
-                                        section.title,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        modifier = Modifier.padding(start = 6.dp),
-                                    )
-                                    SettingsTileGrid(section.items)
-                                }
-                            }
+                    }
+                    else -> {
+                        items(sections, key = { "category-${it.id}" }) { section ->
+                            SettingsSectionRow(section, onClick = { activeSectionId = section.id })
                         }
                     }
                 }
@@ -546,105 +542,103 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
 }
 
 @Composable
-private fun SettingsCategoryChip(
-    title: String,
-    icon: ImageVector,
-    selected: Boolean,
+private fun SettingsSectionRow(
+    section: SettingsHomeSection,
     onClick: () -> Unit,
 ) {
+    val overview = section.items.take(2).joinToString(" · ") { it.title }
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(13.dp),
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(
-            1.dp,
-            if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-        ),
+        modifier = Modifier.fillMaxWidth(),
+        color = androidx.compose.ui.graphics.Color.Transparent,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 8.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Icon(
-                icon, contentDescription = null, modifier = Modifier.size(17.dp),
-                tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-                else MaterialTheme.colorScheme.onSurfaceVariant,
+                section.items.first().icon,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = MaterialTheme.colorScheme.primary,
             )
-            Text(
-                title,
-                style = MaterialTheme.typography.labelMedium,
-                color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-                else MaterialTheme.colorScheme.onSurface,
-            )
-        }
-    }
-}
-
-@Composable
-private fun SettingsTileGrid(items: List<SettingsHomeItem>) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items.chunked(3).forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                row.forEach { item ->
-                    Box(Modifier.weight(1f)) { SettingsDestinationTile(item) }
-                }
-                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SettingsDestinationTile(item: SettingsHomeItem) {
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.96f else 1f,
-        animationSpec = spring(stiffness = 550f),
-        label = "settings-tile-press",
-    )
-    Surface(
-        onClick = { item.onClick?.invoke() },
-        interactionSource = interaction,
-        modifier = Modifier.fillMaxWidth().graphicsLayer(scaleX = scale, scaleY = scale),
-        enabled = item.onClick != null,
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)),
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().height(105.dp).padding(horizontal = 6.dp, vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(9.dp),
-        ) {
-            Box(
-                modifier = Modifier.size(38.dp).background(
-                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                    RoundedCornerShape(12.dp),
-                ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    item.icon, contentDescription = null, modifier = Modifier.size(22.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(section.title, style = MaterialTheme.typography.titleSmall)
+                Text(
+                    overview,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(
-                item.title,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
+            Icon(
+                HugeIcons.ArrowRight01,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
+    androidx.compose.material3.HorizontalDivider(
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+    )
+}
+
+@Composable
+private fun SettingsSectionHeading(title: String) {
+    Text(
+        title,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 8.dp, top = 12.dp, bottom = 4.dp),
+    )
+}
+
+@Composable
+private fun SettingsDestinationRow(item: SettingsHomeItem) {
+    Surface(
+        onClick = { item.onClick?.invoke() },
+        enabled = item.onClick != null,
+        modifier = Modifier.fillMaxWidth(),
+        color = androidx.compose.ui.graphics.Color.Transparent,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(
+                item.icon,
+                contentDescription = null,
+                modifier = Modifier.size(21.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(item.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (item.description.isNotBlank()) {
+                    Text(
+                        item.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (item.trailingContent != null) item.trailingContent.invoke()
+            else Icon(
+                HugeIcons.ArrowRight01,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    androidx.compose.material3.HorizontalDivider(
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+    )
 }
 
 @Composable
@@ -693,6 +687,20 @@ private fun SettingsNoResultsCard() {
     }
 }
 
+/**
+ * Match at word starts, not arbitrary substrings: "rag" should never hit "storage".
+ * Accept whole multi-word prefixes so "notification acc" finds "Notification access".
+ */
+internal fun String.matchesSettingsQuery(query: String): Boolean {
+    val separators = Regex("[^\\p{L}\\p{N}]+")
+    val words = lowercase().split(separators).filter { it.isNotEmpty() }
+    val terms = query.trim().lowercase().split(separators).filter { it.isNotEmpty() }
+    if (terms.isEmpty() || terms.size > words.size) return false
+    return words.windowed(terms.size).any { window ->
+        window.indices.all { i -> window[i].startsWith(terms[i]) }
+    }
+}
+
 internal fun filterSettingsSections(
     sections: List<SettingsHomeSection>,
     query: String,
@@ -701,22 +709,20 @@ internal fun filterSettingsSections(
     if (normalizedQuery.isEmpty()) return sections
 
     return sections.mapNotNull { section ->
-        val sectionMatches = section.title.contains(normalizedQuery, ignoreCase = true) ||
-            section.keywords.any { it.contains(normalizedQuery, ignoreCase = true) }
-        val matchingItems = if (sectionMatches) {
-            section.items
-        } else {
-            section.items.filter { it.matches(normalizedQuery) }
-        }
+        // Only the visible category title expands an entire section.
+        // Matching a section's broad search keyword should not dump every item.
+        val sectionMatches = section.title.matchesSettingsQuery(normalizedQuery)
+        val matchingItems = if (sectionMatches) section.items
+        else section.items.filter { it.matches(normalizedQuery) }
         if (matchingItems.isEmpty()) null
         else section.copy(items = matchingItems)
     }
 }
 
 internal fun SettingsHomeItem.matches(query: String): Boolean {
-    return title.contains(query, ignoreCase = true) ||
-        description.contains(query, ignoreCase = true) ||
-        keywords.any { it.contains(query, ignoreCase = true) }
+    return title.matchesSettingsQuery(query) ||
+        description.matchesSettingsQuery(query) ||
+        keywords.any { it.matchesSettingsQuery(query) }
 }
 
 @Composable

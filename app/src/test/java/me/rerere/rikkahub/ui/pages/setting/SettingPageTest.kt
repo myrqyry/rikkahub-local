@@ -168,4 +168,38 @@ class SettingPageTest {
         assertEquals("knowledgeTools", filterSettingsSections(sections, "skills").single().id)
         assertTrue(filterSettingsSections(sections, "zzzzz-no-match").isEmpty())
     }
+    @Test
+    fun `search matches words rather than accidental substrings and does not expand aliases`() {
+        val sections = listOf(
+            SettingsHomeSection(
+                id = "knowledge",
+                title = "Knowledge & Tools",
+                keywords = listOf("rag", "storage", "tools"),
+                items = listOf(
+                    SettingsHomeItem("rag", "Knowledge & RAG", "Embedding models", testIcon),
+                    SettingsHomeItem("browser", "Browser", "Web pages", testIcon),
+                ),
+            ),
+            SettingsHomeSection(
+                id = "data",
+                title = "Data & Maintenance",
+                keywords = listOf("storage"),
+                items = listOf(
+                    SettingsHomeItem("storage", "Chat Storage", "Storage options", testIcon),
+                ),
+            ),
+        )
+
+        assertEquals(
+            listOf("rag"),
+            filterSettingsSections(sections, "rag").flatMap { it.items }.map { it.id },
+        )
+        assertEquals(
+            listOf("rag", "browser"),
+            filterSettingsSections(sections, "knowledge").flatMap { it.items }.map { it.id },
+        )
+        assertTrue("Notification access".matchesSettingsQuery("notification acc"))
+        assertTrue(!"Storage".matchesSettingsQuery("rag"))
+    }
+
 }

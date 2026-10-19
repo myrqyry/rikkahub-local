@@ -1,6 +1,20 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — intuitive vertical RikkaHub settings menu (2026-10-19)
+
+Replaced the six horizontally scrolling settings category chips and oversized
+square destination tiles with a six-row category overview and compact
+single-column destination lists. Every category is visible without a sideways
+gesture. Category title/back and Android system back return to overview; global
+search still works inside any category. Fixed broad search keyword expansion
+and partial-word collisions ("rag" no longer matches "storage"), added JVM
+regression. Existing destinations and conditional settings preserved.
+App JVM 1,501/1,501 passed; APK built and installed in place on Pixel after
+verified private database/settings backup. On-device overview screenshot,
+category navigation, back and final search validated. No push. See
+docs/ui/rikkahub-settings-menu-2026-10-19.md.
+
 ## Current checkpoint — compact trailing chat dates (2026-10-19)
 
 Pixel sidebar now shows right-aligned `MMM d` last-updated dates for both
