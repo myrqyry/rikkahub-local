@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -23,6 +24,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import me.rerere.rikkahub.Screen
+import me.rerere.rikkahub.ui.context.LocalNavController
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.DisplaySetting
@@ -37,6 +41,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun SettingPreferencesGeneralPage(vm: SettingVM = koinViewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
+    val navController = LocalNavController.current
     var displaySetting by remember(settings) { mutableStateOf(settings.displaySetting) }
     var createNewConversationOnStart by rememberSharedPreferenceBoolean(
         "create_new_conversation_on_start", true
@@ -122,7 +127,7 @@ fun SettingPreferencesGeneralPage(vm: SettingVM = koinViewModel()) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.setting_page_preferences_general)) },
+                title = { Text(stringResource(R.string.setting_page_chat_preferences)) },
                 navigationIcon = { BackButton() },
                 colors = CustomColors.topBarColors,
             )
@@ -134,6 +139,18 @@ fun SettingPreferencesGeneralPage(vm: SettingVM = koinViewModel()) {
             contentPadding = padding + PaddingValues(horizontal = 12.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            item("chatPrompts") {
+                Column {
+                    ChatPreferencesDestination(
+                        title = stringResource(R.string.settings_default_prompts),
+                        onClick = { navController.navigate(Screen.SettingChatPrompts) },
+                    )
+                    ChatPreferencesDestination(
+                        title = stringResource(R.string.setting_home_prompt_library),
+                        onClick = { navController.navigate(Screen.Prompts) },
+                    )
+                }
+            }
             item("switches") {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
@@ -187,6 +204,21 @@ private fun CompactParameterSlider(
                     color = MaterialTheme.colorScheme.primary)
             }
             Slider(value = value, onValueChange = onValueChange, valueRange = range)
+        }
+    }
+}
+
+
+@Composable
+private fun ChatPreferencesDestination(title: String, onClick: () -> Unit) {
+    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth(),
+        color = androidx.compose.ui.graphics.Color.Transparent) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            Icon(HugeIcons.ArrowRight01, contentDescription = null)
         }
     }
 }

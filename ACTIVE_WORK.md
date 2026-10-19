@@ -1,6 +1,23 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — AI & Models pared down; broken bubble disabled (2026-10-19)
+
+AI & Models now offers only **Models** (existing unified ModelsPage) and
+**Agents & Assistants** (Default assistant's existing editor + individual
+assistant list and per-assistant configuration). Removed redundant
+assistant/quick-prompt launchers from this category. Global title,
+translation, suggestion, OCR and compression prompt editors and the prompt
+library are now linked from Chat Preferences. The floating translate
+bubble launcher and activity manifest declaration are disabled/removed,
+but implementation source preserved; the crash is **not fixed**.
+Current assistant data/models/settings untouched. Android build and 1,501
+app JVM tests passed; APK installed in place after checksum-verified private
+backup. Pixel UI navigation through both agent paths and Default prompts
+checked; disabled activity absent in installed manifest. Repo is public
+with earlier local-only sensitive history; **local commit only, no push**.
+See docs/ui/rikkahub-ai-settings-reorg-2026-10-19.md.
+
 ## Current checkpoint — intuitive vertical RikkaHub settings menu (2026-10-19)
 
 Replaced the six horizontally scrolling settings category chips and oversized

@@ -129,6 +129,7 @@ import me.rerere.rikkahub.ui.pages.models.ModelsPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPage
 import me.rerere.rikkahub.ui.pages.setting.SettingProviderDetailPage
 import me.rerere.rikkahub.ui.pages.setting.SettingAgentPage
+import me.rerere.rikkahub.ui.pages.setting.SettingChatPromptsPage
 import me.rerere.rikkahub.ui.pages.setting.SettingSearchDetailPage
 import me.rerere.rikkahub.ui.pages.setting.SettingSearchPage
 
@@ -521,6 +522,10 @@ class RouteActivity : ComponentActivity() {
                                 SettingAgentPage()
                             }
 
+                            entry<Screen.SettingChatPrompts> {
+                                SettingChatPromptsPage()
+                            }
+
                             entry<Screen.SettingDefaultModels> {
                                 ModelsPage(showAssignments = true)
                             }
@@ -817,6 +822,9 @@ sealed interface Screen : NavKey {
 
     @Serializable
     data object SettingAgent : Screen
+
+    @Serializable
+    data object SettingChatPrompts : Screen
 
     @Serializable
     data object SettingAbout : Screen

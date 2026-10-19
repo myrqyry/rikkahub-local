@@ -845,7 +845,7 @@
   <string name="setting_page_preferences_notification">Notifications</string>
   <string name="setting_page_preferences_notification_desc">Update alerts, message generation notifications</string>
   <string name="setting_page_preferences_general">General</string>
-  <string name="setting_page_preferences_general_desc">Interaction behavior, scrolling, input settings</string>
+  <string name="setting_page_preferences_general_desc">Prompts, chat behavior, input, and scrolling</string>
   <string name="setting_page_preferences_ui">UI Preferences</string>
   <string name="setting_page_preferences_ui_desc">Message display, fonts, code blocks</string>
   <string name="setting_page_documentation">Documentation</string>
@@ -2180,6 +2180,13 @@
   <string name="models_memory_needs_more">Needs more memory · %1$d MB required, %2$d MB available</string>
   <string name="models_memory_checking">Checking memory compatibility</string>
   <string name="models_memory_unavailable">Memory compatibility unavailable</string>
+  <string name="settings_agents_assistants">Agents &amp; Assistants</string>
+  <string name="settings_agents_assistants_desc">Default assistant and individual settings</string>
+  <string name="settings_default_assistant">Default assistant</string>
+  <string name="settings_default_assistant_desc">Edit its instructions, tools, and behavior</string>
+  <string name="settings_individual_assistants">Individual assistants</string>
+  <string name="settings_individual_assistants_desc">Manage each assistant’s settings and overrides</string>
+  <string name="settings_default_prompts">Default prompts</string>
   <string name="setting_home_models">Models</string>
   <string name="setting_home_models_desc">Manage available models, default assignments, and sources</string>
   <string name="workspace_opencode_detail_title">OpenCode workspace</string>

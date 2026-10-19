@@ -256,16 +256,8 @@
       android:hardwareAccelerated="true"
       android:theme="@style/Theme.Rikkahub" />
 
-    <!-- Floating translate bubble: opened by the translate-bubble notification
-         (androidx BubbleMetadata) so it overlays other apps. singleInstance keeps
-         one floating surface; no intent-filter — the PendingIntent targets it. -->
-    <activity
-      android:name=".bubble.TranslateBubbleActivity"
-      android:exported="false"
-      android:launchMode="singleInstance"
-      android:excludeFromRecents="true"
-      android:windowSoftInputMode="adjustResize"
-      android:theme="@style/Theme.Rikkahub" />
+    <!-- Translation bubble disabled: current launcher crashes. Preserve implementation
+         source for later repair, but do not register an activity in this build. -->
 
     <!-- Phase 13: External Automation Intent API. Exported activity that accepts
          RUN_TASK / RUN_CHAT intents from Tasker / MacroDroid / Locale / app callers.

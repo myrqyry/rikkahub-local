@@ -61,7 +61,6 @@ import me.rerere.rikkahub.ui.components.ui.CardGroup
 import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.context.Navigator
 import me.rerere.rikkahub.ui.theme.CustomColors
-import me.rerere.rikkahub.ui.bubble.TranslateBubble
 import me.rerere.rikkahub.utils.plus
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -89,7 +88,6 @@ private val SettingsContentMaxWidth = 800.dp
 fun SettingPage(vm: SettingVM = koinViewModel()) {
     var activeSectionId by rememberSaveable { mutableStateOf<String?>(null) }
     val navController = LocalNavController.current
-    val context = LocalContext.current
     val settings by vm.settings.collectAsStateWithLifecycle()
     val filesManager: FilesManager = koinInject()
     val storageState by produceState(-1 to 0L, filesManager) {
@@ -140,35 +138,11 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                 ),
                 SettingsHomeItem(
                     id = "agentSettings",
-                    title = stringResource(R.string.setting_page_agent),
-                    description = stringResource(R.string.setting_page_agent_desc),
+                    title = stringResource(R.string.settings_agents_assistants),
+                    description = stringResource(R.string.settings_agents_assistants_desc),
                     icon = HugeIcons.LookTop,
-                    keywords = listOf("agent", "prompt", "system prompt", "reasoning", "thinking"),
+                    keywords = listOf("agent", "assistant", "persona", "system prompt", "override", "default"),
                     onClick = { navController.navigate(Screen.SettingAgent) },
-                ),
-                SettingsHomeItem(
-                    id = "assistants",
-                    title = stringResource(R.string.setting_page_assistant),
-                    description = stringResource(R.string.setting_page_assistant_desc),
-                    icon = HugeIcons.LookTop,
-                    keywords = listOf("agent", "persona", "prompt"),
-                    onClick = { navController.navigate(Screen.Assistant) },
-                ),
-                SettingsHomeItem(
-                    id = "promptLibrary",
-                    title = stringResource(R.string.setting_home_prompt_library),
-                    description = stringResource(R.string.setting_home_prompt_library_desc),
-                    icon = HugeIcons.Book03,
-                    keywords = listOf("prompt", "quick message", "template", "instruction"),
-                    onClick = { navController.navigate(Screen.Prompts) },
-                ),
-                SettingsHomeItem(
-                    id = "translateBubble",
-                    title = stringResource(R.string.setting_page_translate_bubble),
-                    description = stringResource(R.string.setting_page_translate_bubble_desc),
-                    icon = HugeIcons.Translate,
-                    keywords = listOf("translate", "bubble", "overlay", "agent"),
-                    onClick = { TranslateBubble.show(context) },
                 ),
             ),
         ),
@@ -182,7 +156,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     title = stringResource(R.string.setting_page_chat_preferences),
                     description = stringResource(R.string.setting_page_preferences_general_desc),
                     icon = HugeIcons.Settings03,
-                    keywords = listOf("behavior", "conversation", "generation", "general"),
+                    keywords = listOf("behavior", "conversation", "generation", "general", "default prompts", "prompt library", "quick messages"),
                     onClick = { navController.navigate(Screen.SettingPreferencesGeneral) },
                 ),
                 SettingsHomeItem(
