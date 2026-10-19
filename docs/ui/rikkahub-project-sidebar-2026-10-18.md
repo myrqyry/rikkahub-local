@@ -30,3 +30,12 @@ Implement the iterated phone UI mockups in the real Jetpack Compose chat drawer.
 - New Chat does not yet automatically assign the currently filtered project; existing Move to project action is available.
 - No live tablet, light theme, or accessibility font-scaling review performed. The verification proves the observed Pixel dark-theme path, not every responsive surface.
 - No unrelated settings, models, provider integrations, database migrations, or installed inference files were changed.
+
+
+## Correction — failed title generation (2026-10-18)
+
+The original mockup's date-only rows were not the intended everyday presentation. A successful model-generated title always wins. When the stored title is blank, the list now obtains the *first user message* from a single lightweight Room query on the first message node, normalizes whitespace, and uses a short preview. Only chats with no decodable user text fall back to the creation date/time.
+
+This preview is **read-only presentation state**: it is not persisted as `Conversation.title`, so the existing background title generator continues trying and a later generated title automatically replaces it. The selected assistant/project paging and original conversation content remain unchanged.
+
+Verification: targeted `UntitledConversationPreviewTest` (3 new cases), full app JVM suite 1,500/1,500 with zero failures, debug APK build, in-place Pixel installation after SHA-256-verified private data backup, and real on-device UI hierarchy showing previously date-only chats as first-message previews while the existing named chat retained its title. Phone returned to ChatGPT. No push.

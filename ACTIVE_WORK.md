@@ -1,6 +1,18 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — untitled conversation fallback corrected (2026-10-18)
+
+Clarified that dates were meant only as a last-resort fallback when chat title
+generation fails, not the primary text in the session list. Existing generated
+titles remain unchanged; untitled rows now show a short first-user-message
+preview, then creation date/time only when no usable text is available.
+Preview lookup reads only the first message node and does not save a title,
+so retries and eventual generated titles are unaffected. 1,500 app JVM tests
+passed; APK built and installed in place after verified private database
+and settings backup; tested actual Pixel UI; phone returned to ChatGPT.
+See docs/ui/rikkahub-project-sidebar-2026-10-18.md. No push.
+
 ## Current checkpoint — project-filtered compact RikkaHub drawer (2026-10-18)
 
 Replaced the 56dp icon rail and folder chips with a 320dp partial-width

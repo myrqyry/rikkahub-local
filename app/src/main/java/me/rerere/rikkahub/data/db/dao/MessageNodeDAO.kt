@@ -25,6 +25,10 @@ interface MessageNodeDAO {
         offset: Int
     ): List<MessageNodeEntity>
 
+    /** Read only the first message node for an untitled chat-list preview. */
+    @Query("SELECT messages FROM message_node WHERE conversation_id = :conversationId ORDER BY node_index ASC LIMIT 1")
+    suspend fun getFirstNodeMessages(conversationId: String): String?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(nodes: List<MessageNodeEntity>)
 

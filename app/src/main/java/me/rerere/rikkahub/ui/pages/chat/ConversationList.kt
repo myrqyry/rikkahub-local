@@ -56,7 +56,10 @@ import kotlin.uuid.Uuid
  * Represents different types of items in the conversation list
  */
 sealed class ConversationListItem {
-    data class Item(val conversation: Conversation) : ConversationListItem()
+    data class Item(
+        val conversation: Conversation,
+        val untitledPreview: String? = null,
+    ) : ConversationListItem()
 }
 
 @Composable
@@ -126,6 +129,7 @@ fun ColumnScope.ConversationList(
                         selected = item.conversation.id == current.id,
                         loading = item.conversation.id in conversationJobs,
                         projectName = if (showProjectBadges) item.conversation.folderId?.let(projectNames::get) else null,
+                        untitledPreview = item.untitledPreview,
                         onClick = onClick,
                         onDelete = onDelete,
                         onRegenerateTitle = onRegenerateTitle,
@@ -150,6 +154,7 @@ private fun ConversationItem(
     selected: Boolean,
     loading: Boolean,
     projectName: String?,
+    untitledPreview: String?,
     modifier: Modifier = Modifier,
     onDelete: (Conversation) -> Unit = {},
     onRegenerateTitle: (Conversation) -> Unit = {},
@@ -168,8 +173,10 @@ private fun ConversationItem(
         LocalDate.now(zone).minusDays(1) -> stringResource(R.string.chat_page_yesterday)
         else -> updated.format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))
     }
+    // Prefer a meaningful preview when the title model has not produced a title.
+    // Only a chat without usable user text falls back to a creation timestamp.
     val title = conversation.title.ifBlank {
-        conversation.createAt.atZone(zone)
+        untitledPreview ?: conversation.createAt.atZone(zone)
             .format(java.time.format.DateTimeFormatter.ofPattern("MMM d, h:mm a"))
     }
     Box(modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp)) {

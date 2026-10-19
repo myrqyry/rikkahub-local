@@ -62,7 +62,10 @@ class ChatDrawerVM(
             }
             .map { pagingData ->
                 pagingData.map { conversation ->
-                    val item: ConversationListItem = ConversationListItem.Item(conversation)
+                    val preview = if (conversation.title.isBlank()) {
+                        conversationRepo.getUntitledConversationPreview(conversation.id)
+                    } else null
+                    val item: ConversationListItem = ConversationListItem.Item(conversation, preview)
                     item
                 }
             }
