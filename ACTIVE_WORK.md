@@ -1,6 +1,21 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — source review of five default prompts (2026-10-19)
+
+Audited actual default title, suggestion, translation, OCR and context
+compression prompts, Settings → Chat Preferences editor and runtime call
+sites. High-risk: compression instructions omit consequential continuity
+details while the operation replaces older message nodes; prompt editor
+uses async full-settings snapshots per keystroke rather than atomic
+per-field updates. Title/suggestions have unsuitable 10-character limits;
+OCR editor advertises nonexistent {images}, dedicated OCR bypasses the
+prompt; translation is broadly usable. Existing saved prompt strings
+do not update when Kotlin constants change, so customizing or upgrading
+requires a user-preserving migration. Review only—no changes to prompts,
+stored preferences, models or device. See
+docs/ui/rikkahub-default-prompts-audit-2026-10-19.md.
+
 ## Current checkpoint — Bonsai now offers app-managed download (2026-10-19)
 
 Corrected the manual-only Bonsai installer UX. Models → Add → Bonsai Image 4B
