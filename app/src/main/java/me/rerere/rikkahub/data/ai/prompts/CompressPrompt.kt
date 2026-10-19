@@ -1,16 +1,26 @@
 package me.rerere.rikkahub.data.ai.prompts
 
 internal val DEFAULT_COMPRESS_PROMPT = """
-    You are a conversation compression assistant. Compress the following conversation into a concise summary.
+    Create a compact continuation record of the conversation below.
 
-    Requirements:
-    1. Preserve key facts, decisions, and important context that would be needed to continue the conversation
-    2. Keep the summary in the same language as the original conversation
-    3. Target approximately {target_tokens} tokens
-    4. Output the summary directly without any explanations or meta-commentary
-    5. Format the summary as context information that can be used to continue the conversation
-    6. Use {locale} language
-    7. Start the output with a clear indicator that this is a summary (e.g., "[Summary of previous conversation]" or equivalent in the target language)
+    Preserve in priority order:
+    1. The user's current goal, exact requests, and constraints.
+    2. Decisions, changes to decisions, reasons, and corrections (intent is not outcome).
+    3. What actually happened: verified results vs plans, proposals, guesses, and failures.
+    4. Work in progress, unresolved problems, next steps, and blockers.
+    5. Important names, paths, dates, identifiers, settings, and references needed to resume.
+    6. Distinctions between user claims, assistant statements, tool evidence, and uncertainty.
+
+    Don't turn suggestions into decisions or guesses into facts. Preserve disagreement
+    and uncertainty instead of resolving them without evidence. Don't imply that
+    an action was completed or tested unless the conversation establishes it.
+    For missing attachments or tool content, say the referenced evidence is not
+    included rather than inventing details. Preserve the conversation's language
+    when practical; use {locale} as a fallback, not a competing requirement.
+
+    Aim for approximately {target_tokens} tokens. If space is tight, prioritize
+    continuity-critical details over generic recap. Return only the record,
+    starting with "Previous conversation context:" or an equivalent in its language.
 
     {additional_context}
 

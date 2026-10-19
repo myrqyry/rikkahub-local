@@ -15,6 +15,9 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +34,7 @@ import me.rerere.rikkahub.data.ai.prompts.DEFAULT_OCR_PROMPT
 import me.rerere.rikkahub.data.ai.prompts.DEFAULT_SUGGESTION_PROMPT
 import me.rerere.rikkahub.data.ai.prompts.DEFAULT_TITLE_PROMPT
 import me.rerere.rikkahub.data.ai.prompts.DEFAULT_TRANSLATION_PROMPT
+import me.rerere.rikkahub.data.ai.prompts.ChatUtilityPrompt
 import me.rerere.rikkahub.data.datastore.Settings
 import me.rerere.rikkahub.ui.components.ai.ReasoningButton
 import me.rerere.rikkahub.ui.components.ui.CardGroup
@@ -48,19 +52,19 @@ internal fun PromptSettingsPage(settings: Settings, vm: SettingVM, contentPaddin
                 title = stringResource(R.string.setting_model_page_prompt_translation),
                 promptDescription = stringResource(R.string.setting_model_page_translate_prompt_vars),
                 promptValue = settings.translatePrompt,
-                onPromptChange = { vm.updateSettings(settings.copy(translatePrompt = it)) },
-                onResetPrompt = { vm.updateSettings(settings.copy(translatePrompt = DEFAULT_TRANSLATION_PROMPT)) },
+                onSavePrompt = { vm.updateUtilityPrompt(ChatUtilityPrompt.TRANSLATION, it) },
+                defaultPrompt = DEFAULT_TRANSLATION_PROMPT,
                 reasoningLevel = ReasoningLevel.fromBudgetTokens(settings.translateThinkingBudget),
-                onUpdateReasoningLevel = { vm.updateSettings(settings.copy(translateThinkingBudget = it.budgetTokens)) },
+                onUpdateReasoningLevel = { vm.updateTranslationThinkingBudget(it.budgetTokens) },
             )
         }
         item {
             PromptSettingItem(
                 title = stringResource(R.string.setting_model_page_prompt_title),
-                promptDescription = stringResource(R.string.setting_model_page_suggestion_prompt_vars),
+                promptDescription = stringResource(R.string.setting_model_page_title_prompt_vars),
                 promptValue = settings.titlePrompt,
-                onPromptChange = { vm.updateSettings(settings.copy(titlePrompt = it)) },
-                onResetPrompt = { vm.updateSettings(settings.copy(titlePrompt = DEFAULT_TITLE_PROMPT)) },
+                onSavePrompt = { vm.updateUtilityPrompt(ChatUtilityPrompt.TITLE, it) },
+                defaultPrompt = DEFAULT_TITLE_PROMPT,
             )
         }
         item {
@@ -68,8 +72,8 @@ internal fun PromptSettingsPage(settings: Settings, vm: SettingVM, contentPaddin
                 title = stringResource(R.string.setting_model_page_prompt_suggestion),
                 promptDescription = stringResource(R.string.setting_model_page_suggestion_prompt_vars),
                 promptValue = settings.suggestionPrompt,
-                onPromptChange = { vm.updateSettings(settings.copy(suggestionPrompt = it)) },
-                onResetPrompt = { vm.updateSettings(settings.copy(suggestionPrompt = DEFAULT_SUGGESTION_PROMPT)) },
+                onSavePrompt = { vm.updateUtilityPrompt(ChatUtilityPrompt.SUGGESTION, it) },
+                defaultPrompt = DEFAULT_SUGGESTION_PROMPT,
             )
         }
         item {
@@ -77,8 +81,8 @@ internal fun PromptSettingsPage(settings: Settings, vm: SettingVM, contentPaddin
                 title = stringResource(R.string.setting_model_page_prompt_ocr),
                 promptDescription = stringResource(R.string.setting_model_page_ocr_prompt_vars),
                 promptValue = settings.ocrPrompt,
-                onPromptChange = { vm.updateSettings(settings.copy(ocrPrompt = it)) },
-                onResetPrompt = { vm.updateSettings(settings.copy(ocrPrompt = DEFAULT_OCR_PROMPT)) },
+                onSavePrompt = { vm.updateUtilityPrompt(ChatUtilityPrompt.OCR, it) },
+                defaultPrompt = DEFAULT_OCR_PROMPT,
             )
         }
         item {
@@ -86,8 +90,8 @@ internal fun PromptSettingsPage(settings: Settings, vm: SettingVM, contentPaddin
                 title = stringResource(R.string.setting_model_page_prompt_compress),
                 promptDescription = stringResource(R.string.setting_model_page_compress_prompt_vars),
                 promptValue = settings.compressPrompt,
-                onPromptChange = { vm.updateSettings(settings.copy(compressPrompt = it)) },
-                onResetPrompt = { vm.updateSettings(settings.copy(compressPrompt = DEFAULT_COMPRESS_PROMPT)) },
+                onSavePrompt = { vm.updateUtilityPrompt(ChatUtilityPrompt.COMPRESSION, it) },
+                defaultPrompt = DEFAULT_COMPRESS_PROMPT,
             )
         }
     }
@@ -98,17 +102,27 @@ private fun PromptSettingItem(
     title: String,
     promptDescription: String,
     promptValue: String,
-    onPromptChange: (String) -> Unit,
-    onResetPrompt: () -> Unit,
+    onSavePrompt: (String) -> Unit,
+    defaultPrompt: String,
     reasoningLevel: ReasoningLevel? = null,
     onUpdateReasoningLevel: ((ReasoningLevel) -> Unit)? = null,
 ) {
     var showEditor by remember { mutableStateOf(false) }
+    var draft by remember { mutableStateOf("") }
 
     CardGroup(title = { Text(title) }) {
         item(
-            onClick = { showEditor = true },
-            headlineContent = { Text(stringResource(R.string.setting_model_page_prompt)) },
+            onClick = {
+                draft = promptValue
+                showEditor = true
+            },
+            headlineContent = {
+                Text(
+                    if (promptValue == defaultPrompt)
+                        stringResource(R.string.setting_model_prompt_bundled)
+                    else stringResource(R.string.setting_model_prompt_customized)
+                )
+            },
             trailingContent = {
                 Icon(
                     HugeIcons.ArrowRight01,
@@ -131,33 +145,44 @@ private fun PromptSettingItem(
     }
 
     if (showEditor) {
-        ModalBottomSheet(
-            onDismissRequest = { showEditor = false },
-        ) {
+        ModalBottomSheet(onDismissRequest = { showEditor = false }) {
             Column(
                 modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 16.dp)
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
                     .imePadding(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = promptDescription,
+                    promptDescription,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedTextField(
-                    value = promptValue,
-                    onValueChange = onPromptChange,
+                    value = draft,
+                    onValueChange = { draft = it },
                     modifier = Modifier.fillMaxWidth(),
+                    minLines = 4,
                     maxLines = 15,
                 )
-                TextButton(onClick = onResetPrompt) {
-                    Text(stringResource(R.string.setting_model_page_reset_to_default))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { draft = defaultPrompt }) {
+                        Text(stringResource(R.string.setting_model_page_reset_to_default))
+                    }
+                    androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                    OutlinedButton(onClick = { showEditor = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                    Button(
+                        enabled = draft.isNotBlank(),
+                        onClick = {
+                            onSavePrompt(draft)
+                            showEditor = false
+                        },
+                    ) {
+                        Text(stringResource(R.string.assistant_page_save))
+                    }
                 }
             }
         }

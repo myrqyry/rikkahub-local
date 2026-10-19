@@ -35,6 +35,12 @@ import me.rerere.rikkahub.data.ai.prompts.DEFAULT_OCR_PROMPT
 import me.rerere.rikkahub.data.ai.prompts.DEFAULT_SUGGESTION_PROMPT
 import me.rerere.rikkahub.data.ai.prompts.DEFAULT_TITLE_PROMPT
 import me.rerere.rikkahub.data.ai.prompts.DEFAULT_TRANSLATION_PROMPT
+import me.rerere.rikkahub.data.ai.prompts.LEGACY_TITLE_PROMPT
+import me.rerere.rikkahub.data.ai.prompts.LEGACY_TRANSLATION_PROMPT
+import me.rerere.rikkahub.data.ai.prompts.LEGACY_SUGGESTION_PROMPT
+import me.rerere.rikkahub.data.ai.prompts.LEGACY_OCR_PROMPT
+import me.rerere.rikkahub.data.ai.prompts.LEGACY_COMPRESS_PROMPT
+import me.rerere.rikkahub.data.ai.prompts.migrateUtilityPrompt
 import me.rerere.rikkahub.data.ai.prompts.LEARNING_MODE_PROMPT
 import me.rerere.asr.ASRProviderSetting
 import me.rerere.rikkahub.data.datastore.migration.PreferenceStoreV1Migration
@@ -236,14 +242,14 @@ class SettingsStore(
                 enableSuggestion = preferences[ENABLE_SUGGESTION] != false,
                 suggestionModelId = preferences[SUGGESTION_MODEL]?.let { Uuid.parse(it) },
                 imageGenerationModelId = preferences[IMAGE_GENERATION_MODEL]?.let { Uuid.parse(it) } ?: Uuid.random(),
-                titlePrompt = preferences[TITLE_PROMPT] ?: DEFAULT_TITLE_PROMPT,
-                translatePrompt = preferences[TRANSLATION_PROMPT] ?: DEFAULT_TRANSLATION_PROMPT,
+                titlePrompt = migrateUtilityPrompt(preferences[TITLE_PROMPT], LEGACY_TITLE_PROMPT, DEFAULT_TITLE_PROMPT),
+                translatePrompt = migrateUtilityPrompt(preferences[TRANSLATION_PROMPT], LEGACY_TRANSLATION_PROMPT, DEFAULT_TRANSLATION_PROMPT),
                 translateThinkingBudget = preferences[TRANSLATE_THINKING_BUDGET] ?: 0,
-                suggestionPrompt = preferences[SUGGESTION_PROMPT] ?: DEFAULT_SUGGESTION_PROMPT,
+                suggestionPrompt = migrateUtilityPrompt(preferences[SUGGESTION_PROMPT], LEGACY_SUGGESTION_PROMPT, DEFAULT_SUGGESTION_PROMPT),
                 ocrModelId = preferences[OCR_MODEL]?.let { Uuid.parse(it) } ?: Uuid.random(),
-                ocrPrompt = preferences[OCR_PROMPT] ?: DEFAULT_OCR_PROMPT,
+                ocrPrompt = migrateUtilityPrompt(preferences[OCR_PROMPT], LEGACY_OCR_PROMPT, DEFAULT_OCR_PROMPT),
                 compressModelId = preferences[COMPRESS_MODEL]?.let { Uuid.parse(it) } ?: DEFAULT_AUTO_MODEL_ID,
-                compressPrompt = preferences[COMPRESS_PROMPT] ?: DEFAULT_COMPRESS_PROMPT,
+                compressPrompt = migrateUtilityPrompt(preferences[COMPRESS_PROMPT], LEGACY_COMPRESS_PROMPT, DEFAULT_COMPRESS_PROMPT),
                 disabledModelCapabilities = preferences[DISABLED_MODEL_CAPABILITIES]?.let { raw ->
                     runCatching { JsonInstant.decodeFromString<Map<String, Set<ModelCapability>>>(raw) }
                         .getOrDefault(emptyMap())

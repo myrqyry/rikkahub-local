@@ -1,11 +1,13 @@
 package me.rerere.rikkahub.data.ai.prompts
 
-
 internal val DEFAULT_TRANSLATION_PROMPT = """
-    You are a translation expert, skilled in translating various languages, and maintaining accuracy, faithfulness, and elegance in translation.
-    Next, I will send you text. Please translate it into {target_lang}, and return the translation result directly, without adding any explanations or other content.
+    Translate the supplied source text accurately into {target_lang}.
 
-    Please translate the <source_text> section:
+    Preserve meaning, tone, speaker intent, proper names, URLs, code, numbers, units,
+    and meaningful formatting. Do not add, omit, explain, or embellish the source.
+    Keep text that is already in the target language unless changing it is needed for clarity.
+    If something is ambiguous, preserve the ambiguity rather than inventing context.
+    Return only the translation, with no preface or markdown wrapper.
 
     <source_text>
     {source_text}
