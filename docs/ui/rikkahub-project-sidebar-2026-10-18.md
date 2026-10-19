@@ -39,3 +39,25 @@ The original mockup's date-only rows were not the intended everyday presentation
 This preview is **read-only presentation state**: it is not persisted as `Conversation.title`, so the existing background title generator continues trying and a later generated title automatically replaces it. The selected assistant/project paging and original conversation content remain unchanged.
 
 Verification: targeted `UntitledConversationPreviewTest` (3 new cases), full app JVM suite 1,500/1,500 with zero failures, debug APK build, in-place Pixel installation after SHA-256-verified private data backup, and real on-device UI hierarchy showing previously date-only chats as first-message previews while the existing named chat retained its title. Phone returned to ChatGPT. No push.
+
+
+## Compact trailing date on all titled chat rows (2026-10-19)
+
+The previous layout only displayed a trailing date when a model-generated title
+was present. Feedback clarified that the space on the right should also show
+dates for the first-message previews used when title generation is unavailable.
+
+- Render a consistent compact last-updated date (`MMM d`) on the right of
+  generated-title **and** first-message-preview rows.
+- Preserve the one-line ellipsized title's weighted width, the 44dp minimum
+  touch row, and existing pinned/loading/project indicators.
+- For the exceptional chat without usable title or preview, the title area
+  already displays its creation timestamp; omit the redundant right date.
+- No conversation metadata, title storage, project filter, or date sorting changed.
+
+Verified: `./gradlew :app:testDebugUnitTest :app:assembleDebug` passed.
+Verified a fresh database/settings/shared-preferences archive and SHA-256
+before in-place `adb install -r` on the connected Pixel 10 Pro. Actual
+Compose accessibility dump and on-device screenshot show matching trailing
+dates for first-message previews, a model-titled row, and long truncated
+previews. No app data was cleared; no remote push.

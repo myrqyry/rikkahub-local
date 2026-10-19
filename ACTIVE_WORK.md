@@ -1,6 +1,17 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — compact trailing chat dates (2026-10-19)
+
+Pixel sidebar now shows right-aligned `MMM d` last-updated dates for both
+generated titles and first-message previews, not just generated titles.
+Date/time-only fallbacks do not redundantly repeat a date. Long titles
+ellipsis correctly in the remaining width. App JVM suite + APK build passed;
+installed in place on Pixel after verified private database/settings backup.
+Real-device screenshot and UI tree verified. Commit locally, do not push while
+branch contains unpublished private-history commits. See
+docs/ui/rikkahub-project-sidebar-2026-10-18.md.
+
 ## Current checkpoint — untitled conversation fallback corrected (2026-10-18)
 
 Clarified that dates were meant only as a last-resort fallback when chat title

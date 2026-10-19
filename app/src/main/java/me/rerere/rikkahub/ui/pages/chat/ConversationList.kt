@@ -48,7 +48,6 @@ import androidx.paging.compose.itemKey
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.model.Conversation
 import me.rerere.rikkahub.ui.theme.extendColors
-import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.uuid.Uuid
 
@@ -167,12 +166,9 @@ private fun ConversationItem(
     val colors = rememberRikkaNeumorphicColors()
     var showDropdownMenu by remember { mutableStateOf(false) }
     val zone = ZoneId.systemDefault()
-    val updated = conversation.updateAt.atZone(zone)
-    val timestamp = when (updated.toLocalDate()) {
-        LocalDate.now(zone) -> updated.format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"))
-        LocalDate.now(zone).minusDays(1) -> stringResource(R.string.chat_page_yesterday)
-        else -> updated.format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))
-    }
+    // A consistent, compact date leaves more width for generated titles and previews.
+    val dateLabel = conversation.updateAt.atZone(zone)
+        .format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))
     // Prefer a meaningful preview when the title model has not produced a title.
     // Only a chat without usable user text falls back to a creation timestamp.
     val title = conversation.title.ifBlank {
@@ -211,9 +207,11 @@ private fun ConversationItem(
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
-                if (conversation.title.isNotBlank()) {
+                // Include previews from failed title generation; omit the date only
+                // when the left label itself is the last-resort date/time fallback.
+                if (conversation.title.isNotBlank() || !untitledPreview.isNullOrBlank()) {
                     Text(
-                        text = timestamp,
+                        text = dateLabel,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
