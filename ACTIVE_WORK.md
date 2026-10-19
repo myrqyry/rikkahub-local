@@ -1,6 +1,19 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — per-provider Speech UI installed on Pixel (2026-10-19)
+
+USB ADB connection recovered. Saved verified private app-data backup
+and installed the arm64 debug APK in place. Physical Pixel confirmed
+Speech no longer shows a global switch block; Scylla/NekoSpeak now
+show per-provider Message reading controls. Scylla Cancel discarded
+a temporary change after reopening. NekoSpeak had a pre-existing
+wrong API Key label over its local model chooser; corrected to Model
+file and reverified on Pixel after reinstall. Final 1,524 app tests
+passed and APK built. Existing app data untouched, no audio played,
+phone returned to ChatGPT. No push. See
+docs/ui/rikkahub-tts-per-provider-preferences-2026-10-19.md.
+
 ## Current checkpoint — TTS preferences scoped per provider (2026-10-19)
 
 Moved quoted-only, skip-bracketed and auto-play from the oversized

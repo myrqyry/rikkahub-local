@@ -1780,6 +1780,7 @@
   <string name="local_llm_import_filesystem">Load from filesystem</string>
   <string name="model_manager_title">Model Manager</string>
   <string name="model_manager_sd_catalog_subtitle">Stable Diffusion GGUF models from Hugging Face.</string>
+  <string name="local_tts_model_file_label">Model file</string>
   <string name="local_tts_model_dir_label">Model directory</string>
   <string name="local_tts_model_dir_desc">Folder containing the model files. Browse to pick a folder, or download below.</string>
   <string name="local_tts_model_dir_placeholder_pocket">/storage/emulated/0/Download/pocket-tts</string>

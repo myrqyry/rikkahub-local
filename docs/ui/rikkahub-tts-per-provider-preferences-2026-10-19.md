@@ -47,3 +47,32 @@ customize them independently for each selected provider.
   different options on two providers, swap selections and verify playback
   behavior, then reopen and verify persistence and Cancel/Save.
 - Keep this local; unpublished branch history must not be pushed by default.
+
+
+## Physical Pixel 10 Pro smoke — 2026-10-19
+
+- The Pixel reconnected to yuzu-mint via USB ADB.
+- Before installing, captured the app databases, settings datastore
+  and shared preferences into a SHA-256-verified private archive. No
+  uninstallation or app-data clearing occurred.
+- Installed arm64 debug APK in place: success.
+- Navigated Settings → Experience → Speech Services. The Android UI
+  hierarchy and screenshots confirmed that the large global switch
+  block is gone, existing providers are present, and Scylla remains selected.
+- Scylla Edit shows Message reading: quoted-only, skip bracketed and
+  auto-play, followed by its model-specific controls.
+- Cancel smoke: toggled quoted-only in the unsaved Scylla draft, pressed
+  Cancel and reopened. All three values remained false; no persistent
+  voice or playback settings were deliberately changed.
+- The NekoSpeak editor also has provider-specific reading options.
+  This test revealed that NekoSpeak's local model file chooser was
+  incorrectly labeled API Key. Corrected the heading to Model file,
+  rebuilt and reinstalled the APK in place, and confirmed the new
+  label and absence of API Key in its Android UI hierarchy.
+- Final build and test results: 1,524 app tests across 222 suites,
+  zero failures/errors/skips; debug APK built successfully.
+- Returned ChatGPT to the foreground and verified resumed activity.
+
+Not yet tested: a real persisted Save to change a provider preference,
+audio behavior with selected-provider differences, and background
+auto-play. No audio triggered and no user data cleared. No push.

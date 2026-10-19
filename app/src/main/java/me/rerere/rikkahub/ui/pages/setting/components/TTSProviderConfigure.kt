@@ -1750,7 +1750,7 @@ private fun NekoSpeakTTSConfiguration(
 
     // Model Path
     FormItem(
-        label = { Text(stringResource(R.string.setting_tts_page_api_key)) },
+        label = { Text(stringResource(R.string.local_tts_model_file_label)) },
         description = { Text("Model file path") }
     ) {
         Row(
