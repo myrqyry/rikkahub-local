@@ -1,6 +1,24 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — verified Bonsai package import in Models (2026-10-19)
+
+Models → Add now offers an opt-in Bonsai Image package folder import in
+addition to FLUX. The import copies only five pinned files via Android
+SAF into a dedicated staged directory, verifies size and SHA-256 for
+each, writes a complete-package receipt before atomic promotion,
+and registers the model only after verification. An unverified Bonsai
+model is not READY or offered by LiteRT model discovery. Cancellation,
+corruption, existing-package protection, and FLUX preservation are
+JVM-tested; the registry's explicit removal path is scoped to Bonsai.
+Compacted the Add sheet so all six choices fit on Pixel without clipping
+or horizontal scrolling. App tests 1,501 and local-runtime tests 526,
+all passed; APK installed in place after verified private backup, and
+actual Add UI checked on Pixel. **No 4.26 GB weights downloaded; real
+Bonsai image generation is not verified.** Separate Bonsai checkpoint
+from earlier chat overlap fix. No push.
+See docs/integrations/bonsai-litert-runtime-2026-10-19.md.
+
 ## Current checkpoint — chat reasoning/answer overlap fixed (2026-10-19)
 
 The Pixel screenshot showed the collapsed "Thought for 5.1 seconds" pill

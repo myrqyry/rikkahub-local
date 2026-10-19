@@ -2069,7 +2069,9 @@
   <string name="model_manager_flux_ready">Installed and ready</string>
   <string name="model_manager_flux_incomplete">Installed package is missing tokenizer files</string>
   <string name="model_manager_flux_not_installed">Not installed</string>
-  <string name="model_manager_flux_import">Import package folder</string>
+  <string name="model_manager_flux_import">Import FLUX.2-klein package</string>
+  <string name="model_manager_bonsai_import">Import Bonsai Image package</string>
+  <string name="model_manager_bonsai_import_desc">256px CPU image model · 5 verified files · about 4.3 GB</string>
   <string name="unified_models_configure">Configure</string>
   <string name="unified_models_provider_count">%1$d models</string>
   <string name="setting_page_agent">Facets</string>

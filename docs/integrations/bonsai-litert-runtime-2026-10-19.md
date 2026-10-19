@@ -76,3 +76,46 @@ Upstream: https://huggingface.co/litert-community/Bonsai-Image-ternary-4B
 
 The prior public branch contains private unpublished local history:
 checkpoint locally; **do not push HEAD to a public remote**.
+
+
+## Follow-up checkpoint — verified Models import flow (2026-10-19)
+
+The separate Bonsai runtime now has an opt-in, production-connected
+installation path, without silently downloading any weight files.
+
+- Models → Add to Models → **Import Bonsai Image package** opens Android's
+  document-tree folder selector. It is next to a clearly named FLUX import.
+  The root Add sheet was compacted to fit all six options above the bottom
+  navigation bar on the Pixel 10 Pro.
+- Import looks up exactly the five expected graph/tokenizer paths from the
+  user-selected folder; it copies nothing else. Preflight checks available
+  device storage against the complete expected size plus 512 MiB of reserve.
+- A separate Bonsai staging directory receives byte-count-limited streams;
+  each streamed file is SHA-256 verified. A complete package is *rechecked*
+  and receives its revision/manifest verification receipt **inside staging**.
+  The staged directory is atomically promoted only after verification.
+  Failed or cancelled imports remove staging, but cannot replace existing
+  Bonsai or FLUX files. A pre-existing package is not overwritten.
+- The unified model registry marks Bonsai READY only with a matching
+  verified receipt and expected files. A persisted entry without verified
+  files is not READY. LiteRT provider discovery exposes Bonsai only
+  when the package is verified; unknown image model IDs never route through
+  FLUX. The Models removal path deletes only a specifically scoped Bonsai
+  directory on explicit removal.
+- Regression tests cover correct stream import, size/hash rejection,
+  cancellation, failed receipt gates, malicious relative paths, prevention
+  of overwrite, and preservation of a neighboring FLUX directory.
+  Provider discovery is also tested for the verified/unverified boundary.
+- Verification: app APK built, **1,501 app tests** and **526 local-runtime
+  tests** passed (0 failures/errors/skips). Installed updated debug APK
+  in place on Pixel 10 Pro after checksum-verified private data backup.
+  Checked the real Models → Add sheet before and after density correction;
+  all six options now fit visibly, and no Bonsai model was misrepresented
+  as already installed. Kept user's device data and existing models intact.
+
+**Still not proven:** actual Bonsai inference on Pixel; the pinned ~4.26GB
+graph files have not been downloaded or imported. There is no image-output,
+memory-pressure, cancellation-during-inference, or latency evidence yet.
+Tested installer failure paths use tiny controlled JVM fixtures rather
+than pretending to execute native graphs. A user-selected complete Bonsai
+folder and an opt-in device acceptance test are required for that milestone.

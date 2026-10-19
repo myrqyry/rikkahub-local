@@ -126,6 +126,7 @@ val viewModelModule = module {
             httpClient = get(),
             settingsStore = get(),
             fluxPackage = get(),
+            bonsaiPackage = get(),
         )
     }
 }

@@ -16,6 +16,8 @@ import me.rerere.ai.provider.ProviderSetting
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
 import me.rerere.locallm.litert.image.FLUX2_KLEIN_MODEL
+import me.rerere.locallm.litert.image.bonsai.BONSAI_IMAGE_MODEL
+import me.rerere.locallm.litert.image.bonsai.BonsaiBundlePackage
 import me.rerere.locallm.litert.image.Flux2KleinPackage
 import me.rerere.locallm.litert.image.Flux2KleinPackageStatus
 import me.rerere.rikkahub.data.datastore.SettingsStore
@@ -32,6 +34,7 @@ class SettingsModelRegistry(
     scope: CoroutineScope,
     private val providerManager: ProviderManager,
     private val fluxPackage: Flux2KleinPackage,
+    private val bonsaiPackage: BonsaiBundlePackage,
 ) : ModelRegistry {
     private val _models = MutableStateFlow<List<ModelDescriptor>>(emptyList())
     private val _providers = MutableStateFlow<List<ModelProviderDescriptor>>(emptyList())
@@ -194,6 +197,11 @@ class SettingsModelRegistry(
             // while the multi-GB package stays on disk. Other providers' files are untouched.
             withContext(Dispatchers.IO) { fluxPackage.deleteInstalledFiles() }
         }
+        if (source.runtime == LocalRuntime.LiteRT &&
+            BONSAI_IMAGE_MODEL.modelId in source.files
+        ) {
+            withContext(Dispatchers.IO) { bonsaiPackage.deleteInstalledFiles() }
+        }
         val removedPaths = source.files.mapNotNull { localPreferences.installedModels(source.runtime)[it] }
         source.files.forEach { localPreferences.removeInstalledModel(source.runtime, it) }
         settingsStore.update { settings ->
@@ -238,14 +246,18 @@ class SettingsModelRegistry(
             path.isNotBlank() && File(path).isFile && File(path).length() > 0L
         }
         val isFlux = provider is ProviderSetting.LiteRtLocal && model.modelId == FLUX2_KLEIN_MODEL.modelId
+        val isBonsai = provider is ProviderSetting.LiteRtLocal &&
+            model.modelId == BONSAI_IMAGE_MODEL.modelId
+        val bonsaiReady = isBonsai && bonsaiPackage.isInstalled()
         val fluxStatus = if (isFlux) fluxPackage.validate().status else null
-        val files = if (isFlux) {
+        val files = if (isFlux || isBonsai) {
             listOf(model.modelId)
         } else {
             runtime?.let { localFiles[it].orEmpty().keys.filter { file -> file == model.modelId } }.orEmpty()
         }
         val installed = if (isTaskOcr) ocrReady
             else if (isFlux) fluxPackage.root.exists()
+            else if (isBonsai) bonsaiReady
             else files.isNotEmpty()
         val capabilities = inferred.verified +
             (if (isTaskOcr) setOf(ModelCapability.OCR) else emptySet())
@@ -268,6 +280,10 @@ class SettingsModelRegistry(
                     null -> ModelLifecycle.AVAILABLE
                     else -> if (installed) ModelLifecycle.ERROR else ModelLifecycle.AVAILABLE
                 }
+            } else if (isBonsai) {
+                if (bonsaiReady) ModelLifecycle.READY
+                else if (bonsaiPackage.root.exists()) ModelLifecycle.ERROR
+                else ModelLifecycle.AVAILABLE
             } else if (runtime != null) {
                 if (installed && files.all { file -> localFiles[runtime]?.get(file)?.let(::File)?.exists() == true }) {
                     ModelLifecycle.READY
@@ -289,6 +305,10 @@ class SettingsModelRegistry(
                 if (isFlux) {
                     put("path", fluxPackage.root.absolutePath)
                     put("packageStatus", fluxStatus.toString())
+                }
+                if (isBonsai) {
+                    put("path", bonsaiPackage.root.absolutePath)
+                    put("packageStatus", if (bonsaiReady) "verified" else "not-verified")
                 }
             },
         )

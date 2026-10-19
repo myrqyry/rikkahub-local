@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -77,6 +78,9 @@ fun AddToModelsSheet(
     val fluxFolderPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { uri -> uri?.let { viewModel.importFluxPackageFromTree(it) } }
+    val bonsaiFolderPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri -> uri?.let { viewModel.importBonsaiPackageFromTree(it) } }
     val editState = useEditState<ProviderSetting> { provider ->
         viewModel.addProvider(provider)
     }
@@ -141,6 +145,11 @@ fun AddToModelsSheet(
                                 title = stringResource(R.string.model_manager_flux_import),
                                 subtitle = stringResource(R.string.model_manager_flux_catalog_subtitle),
                                 onClick = { fluxFolderPickerLauncher.launch(null) },
+                            )
+                            AddChoiceRow(
+                                title = stringResource(R.string.model_manager_bonsai_import),
+                                subtitle = stringResource(R.string.model_manager_bonsai_import_desc),
+                                onClick = { bonsaiFolderPickerLauncher.launch(null) },
                             )
                         }
 
@@ -257,7 +266,8 @@ private fun AddChoiceRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 16.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

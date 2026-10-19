@@ -32,10 +32,15 @@ import com.google.ai.edge.litertlm.ToolProvider
 
 private const val TAG = "LiteRtProvider"
 
-internal fun listLiteRtModels(installed: Map<String, String>): List<Model> =
-    installed.filterKeys { it != FLUX2_KLEIN_MODEL.modelId }
-        .map { (fileName, _) -> Model(modelId = fileName, displayName = fileName) } +
-        FLUX2_KLEIN_MODEL
+internal fun listLiteRtModels(
+    installed: Map<String, String>,
+    bonsaiVerified: Boolean = false,
+): List<Model> =
+    installed.filterKeys {
+        it != FLUX2_KLEIN_MODEL.modelId && it != BONSAI_IMAGE_MODEL.modelId
+    }.map { (fileName, _) -> Model(modelId = fileName, displayName = fileName) } +
+        FLUX2_KLEIN_MODEL +
+        (if (bonsaiVerified) listOf(BONSAI_IMAGE_MODEL) else emptyList())
 
 internal enum class LiteRtImageBackend { FLUX2_KLEIN, BONSAI }
 
@@ -158,7 +163,11 @@ class LiteRtProvider(
     }
 
     override suspend fun listModels(providerSetting: ProviderSetting.LiteRtLocal): List<Model> {
-        return listLiteRtModels(prefs.installedModels(LocalRuntime.LiteRT))
+        return listLiteRtModels(
+            prefs.installedModels(LocalRuntime.LiteRT),
+            bonsaiVerified = me.rerere.locallm.litert.image.bonsai.BonsaiBundle
+                .fromContext(context).isInstalled(),
+        )
     }
 
     override suspend fun generateText(

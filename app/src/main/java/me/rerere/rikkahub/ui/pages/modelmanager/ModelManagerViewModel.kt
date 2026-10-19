@@ -37,6 +37,10 @@ import me.rerere.locallm.ModelCatalog
 import me.rerere.locallm.ModelCatalogEntry
 import me.rerere.locallm.litert.LiteRtCatalog
 import me.rerere.locallm.litert.LiteRtModelDefaults
+import me.rerere.locallm.litert.image.bonsai.BONSAI_IMAGE_MODEL
+import me.rerere.locallm.litert.image.bonsai.BonsaiBundle
+import me.rerere.locallm.litert.image.bonsai.BonsaiBundlePackage
+import me.rerere.locallm.litert.image.bonsai.BonsaiPackageImport
 import me.rerere.locallm.litert.image.FLUX2_KLEIN_MODEL
 import me.rerere.locallm.litert.image.Flux2KleinPackage
 import me.rerere.locallm.litert.image.Flux2KleinPackageStatus
@@ -63,6 +67,7 @@ class ModelManagerViewModel(
     private val httpClient: OkHttpClient,
     private val settingsStore: SettingsStore,
     private val fluxPackage: Flux2KleinPackage,
+    private val bonsaiPackage: BonsaiBundlePackage,
 ) : ViewModel() {
 
     private val runtime = LocalRuntime.StableDiffusion
@@ -513,6 +518,76 @@ class ModelManagerViewModel(
             staging.deleteRecursively()
             _errorMessage.value = e.message ?: "FLUX package import failed"
             refreshFluxStatus()
+        }
+    }
+
+    /** An explicit folder selection, never an automatic 4+ GiB download. The
+     * import is isolated from the existing FLUX package and published as a model
+     * only after complete integrity verification.
+     */
+    fun importBonsaiPackageFromTree(uri: Uri) {
+        if (_downloadProgress.value != null) return
+        _errorMessage.value = null
+        _downloadProgress.value = Progress(0, 0, BonsaiBundle.files.sumOf { it.bytes })
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val source = DocumentFile.fromTreeUri(context, uri)
+                        ?.takeIf { it.isDirectory }
+                        ?: error("Choose the folder containing the Bonsai model graphs and tokenizer")
+                    if (!bonsaiPackage.isInstalled()) {
+                        val requiredBytes = BonsaiBundle.files.sumOf { it.bytes }
+                        val installParent = bonsaiPackage.root.parentFile!!
+                        check(installParent.isDirectory || installParent.mkdirs()) {
+                            "Cannot create Bonsai model storage"
+                        }
+                        val availableBytes = StatFs(installParent.absolutePath)
+                            .availableBytes
+                        check(availableBytes > requiredBytes + 512L * 1024 * 1024) {
+                            "Bonsai needs about 4.3 GB free plus 512 MB temporary reserve"
+                        }
+                        val importContext = currentCoroutineContext()
+                        BonsaiPackageImport.import(
+                            packageRoot = bonsaiPackage.root,
+                            onVerifiedBeforePromote = { staging ->
+                                BonsaiBundlePackage(staging).markVerified()
+                            },
+                            open = { spec ->
+                                val item = spec.relative.split('/').fold(source as DocumentFile?) { folder, name ->
+                                    folder?.findFile(name)
+                                }
+                                check(item?.isFile == true) {
+                                    "Missing selected folder file: ${spec.relative}"
+                                }
+                                context.contentResolver.openInputStream(item.uri)
+                                    ?: error("Unable to read ${spec.relative}")
+                            },
+                            onProgress = { copied, total ->
+                                importContext.ensureActive()
+                                _downloadProgress.value = Progress(
+                                    ((copied * 100) / total).toInt().coerceIn(0, 100),
+                                    copied, total,
+                                )
+                            },
+                        )
+                    }
+                    check(bonsaiPackage.isInstalled()) {
+                        "Bonsai package could not be verified after import"
+                    }
+                }
+                settingsStore.update { settings ->
+                    ModelRegistration.register(
+                        settings, LITERT_PROVIDER_ID, BONSAI_IMAGE_MODEL,
+                        bonsaiPackage.root.absolutePath,
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Bonsai package import failed"
+            } finally {
+                _downloadProgress.value = null
+            }
         }
     }
 

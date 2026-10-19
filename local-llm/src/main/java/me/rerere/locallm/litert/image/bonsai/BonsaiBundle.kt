@@ -76,6 +76,55 @@ class BonsaiBundlePackage(val root: File) {
         !file.isFile || java.nio.file.Files.isSymbolicLink(file.toPath()) || file.length() != spec.bytes
     }.map { it.relative }
 
+    private val receipt: File get() = File(root, ".bonsai-verified")
+    private val expectedReceipt: String get() =
+        BonsaiBundle.REVISION + "\n" +
+            BonsaiBundle.files.joinToString("\n") { "${it.relative} ${it.bytes} ${it.sha256}" } + "\n"
+
+    /** Receipt is written only after full SHA checks; cheap enough for UI lifecycle.
+     *  Runtime still re-hashes all source files before each generation. */
+    fun isInstalled(): Boolean =
+        root.isDirectory &&
+            !java.nio.file.Files.isSymbolicLink(root.toPath()) &&
+            receipt.isFile &&
+            !java.nio.file.Files.isSymbolicLink(receipt.toPath()) &&
+            receipt.readText() == expectedReceipt &&
+            missingFiles().isEmpty()
+
+    fun markVerified() {
+        requireVerified()
+        check(root.isDirectory && !java.nio.file.Files.isSymbolicLink(root.toPath()))
+        receipt.writeText(expectedReceipt)
+    }
+
+    /** Scoped removal only for an explicit user removal from Models. */
+    fun deleteInstalledFiles() {
+        val path = root.toPath().toAbsolutePath().normalize()
+        require(path.fileName.toString() == "bonsai-image-ternary-4b" &&
+            path.parent?.fileName?.toString() == "local-models") {
+            "Refusing to remove files outside the Bonsai model package"
+        }
+        if (!java.nio.file.Files.exists(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)) return
+        require(!java.nio.file.Files.isSymbolicLink(path) &&
+            java.nio.file.Files.isDirectory(path, java.nio.file.LinkOption.NOFOLLOW_LINKS))
+        java.nio.file.Files.walkFileTree(path, object : java.nio.file.SimpleFileVisitor<java.nio.file.Path>() {
+            override fun visitFile(
+                file: java.nio.file.Path,
+                attrs: java.nio.file.attribute.BasicFileAttributes,
+            ): java.nio.file.FileVisitResult {
+                java.nio.file.Files.delete(file)
+                return java.nio.file.FileVisitResult.CONTINUE
+            }
+            override fun postVisitDirectory(
+                dir: java.nio.file.Path, error: java.io.IOException?,
+            ): java.nio.file.FileVisitResult {
+                if (error != null) throw error
+                java.nio.file.Files.delete(dir)
+                return java.nio.file.FileVisitResult.CONTINUE
+            }
+        })
+    }
+
     fun requireVerified() {
         val missing = missingFiles()
         require(missing.isEmpty()) { "Bonsai installation missing or wrong-size: ${missing.joinToString()}" }

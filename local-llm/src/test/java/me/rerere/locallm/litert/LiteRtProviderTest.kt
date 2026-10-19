@@ -3,6 +3,7 @@ package me.rerere.locallm.litert
 import me.rerere.ai.provider.ModelType
 import me.rerere.locallm.litert.image.FLUX2_KLEIN_MODEL
 import me.rerere.locallm.litert.image.bonsai.BONSAI_IMAGE_MODEL
+import me.rerere.locallm.litert.image.bonsai.BONSAI_IMAGE_MODEL
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -20,6 +21,17 @@ import org.junit.Test
  * is still `true` at the moment of the doomed first load).
  */
 class LiteRtProviderTest {
+
+    @Test
+    fun bonsaiRequiresVerifiedPackage() {
+        val before = listLiteRtModels(emptyMap(), bonsaiVerified = false)
+        assertFalse(before.any { it.modelId == BONSAI_IMAGE_MODEL.modelId })
+
+        val after = listLiteRtModels(emptyMap(), bonsaiVerified = true)
+        assertEquals(1, after.count { it.modelId == BONSAI_IMAGE_MODEL.modelId })
+        assertEquals(BONSAI_IMAGE_MODEL, after.single { it.modelId == BONSAI_IMAGE_MODEL.modelId })
+        assertTrue(after.any { it.modelId == FLUX2_KLEIN_MODEL.modelId })
+    }
 
     @Test
     fun `legacy FLUX preference is replaced by canonical descriptor`() {
