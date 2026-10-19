@@ -3,38 +3,34 @@ package me.rerere.rikkahub.ui.pages.chat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import me.rerere.ai.core.MessageRole
+import androidx.compose.runtime.setValue
 import me.rerere.rikkahub.data.datastore.Settings
 import me.rerere.rikkahub.data.model.Conversation
 import me.rerere.rikkahub.ui.context.LocalTTSState
-import me.rerere.rikkahub.utils.extractQuotedContentAsText
-import me.rerere.rikkahub.utils.removeBracketedContent
 
 @Composable
 fun TTSAutoPlay(vm: ChatVM, setting: Settings, conversation: Conversation) {
-    // Auto-play TTS after generation completes
     val tts = LocalTTSState.current
-    val currentConversation by rememberUpdatedState(conversation)
     val updatedSetting by rememberUpdatedState(setting)
-    LaunchedEffect(Unit) {
-        vm.generationDoneFlow.collect { conversationId ->
-            if (updatedSetting.displaySetting.autoPlayTTSAfterGeneration) {
-                val lastMessage = currentConversation.currentMessages.lastOrNull()
-                if (lastMessage != null && lastMessage.role == MessageRole.ASSISTANT) {
-                    val text = lastMessage.toText()
-                    var textToSpeak = text
-                    if (updatedSetting.displaySetting.ttsOnlyReadQuoted) {
-                        textToSpeak = textToSpeak.extractQuotedContentAsText() ?: textToSpeak
-                    }
-                    if (updatedSetting.displaySetting.ttsOnlyReadOutsideBrackets) {
-                        textToSpeak = textToSpeak.removeBracketedContent() ?: textToSpeak
-                    }
-                    if (textToSpeak.isNotBlank()) {
-                        tts.speak(textToSpeak)
-                    }
-                }
-            }
+    var lastPlayedMessageId by remember(conversation.id) { mutableStateOf<kotlin.uuid.Uuid?>(null) }
+
+    // The service broadcasts completed generation IDs for all conversations.
+    // Read the current VM snapshot when the event arrives; the Composable
+    // argument can still be one frame behind the service after a save.
+    LaunchedEffect(vm, conversation.id) {
+        vm.generationDoneFlow.collect { completedConversationId ->
+            if (completedConversationId != conversation.id) return@collect
+            val candidate = eligibleTtsAutoPlay(
+                completedId = completedConversationId,
+                current = vm.conversation.value,
+                options = updatedSetting.displaySetting,
+                lastPlayedMessageId = lastPlayedMessageId,
+            ) ?: return@collect
+            lastPlayedMessageId = candidate.messageId
+            tts.speak(candidate.text)
         }
     }
 }

@@ -105,24 +105,27 @@ fun Double.toFixed(digits: Int = 0) = "%.${digits}f".format(this)
  * @return 所有引号内内容的列表
  */
 fun String.extractQuotedContent(): List<String> {
-    val result = mutableListOf<String>()
-    // 匹配多种引号类型
+    // Preserve speech order across different quotation-mark styles.
+    // Apostrophes inside contractions (don't, it's) are not quote delimiters.
     val patterns = listOf(
-        "\u201C([^\u201D]*?)\u201D",  // 中文双引号
-        "\u2018([^\u2019]*?)\u2019",  // 中文单引号
-        """"([^"]*?)"""",  // 英文双引号
-        """'([^']*?)'""",  // 英文单引号
-        """「([^」]*?)」""",           // 直角引号
-        """『([^』]*?)』""",           // 白直角引号
+        """“([^”]*?)”""",
+        """‘([^’]*?)’""",
+        """"([^"]*?)"""",
+        """(?<![\p{L}\p{N}])'([^'\r\n]*?)'(?![\p{L}\p{N}])""",
+        """「([^」]*?)」""",
+        """『([^』]*?)』""",
     )
-    for (pattern in patterns) {
-        val regex = Regex(pattern)
-        regex.findAll(this).forEach { matchResult ->
-            val content = matchResult.groupValues[1]
-            if (content.isNotBlank()) {
-                result.add(content)
-            }
-        }
+    val matches = patterns.flatMapIndexed { index, pattern ->
+        Regex(pattern).findAll(this).map { index to it }.toList()
+    }.sortedWith(compareBy<Pair<Int, MatchResult>> { it.second.range.first }.thenBy { it.first })
+
+    val result = mutableListOf<String>()
+    var coveredUntil = 0
+    for ((_, match) in matches) {
+        if (match.range.first < coveredUntil) continue // Avoid nested duplicate speech.
+        val content = match.groupValues[1]
+        if (content.isNotBlank()) result += content
+        coveredUntil = match.range.last + 1
     }
     return result
 }
@@ -147,7 +150,30 @@ fun String.extractQuotedContentAsText(separator: String = "\n"): String? {
  * @return 移除括号内容后的字符串，如果全被移除则返回 null
  */
 fun String.removeBracketedContent(): String? {
-    val pattern = """\([^)]*?\)|（[^）]*?）""".toRegex()
-    val result = pattern.replace(this, "").trim()
+    // Paired delimiters only, including nested stage directions.
+    val pairs = mapOf(
+        '(' to ')', '（' to '）', '[' to ']', '［' to '］',
+        '{' to '}', '｛' to '｝',
+    )
+    val open = ArrayDeque<Pair<Char, Int>>()
+    val ranges = mutableListOf<IntRange>()
+    for (i in indices) {
+        val c = this[i]
+        when {
+            c in pairs -> open.addLast(c to i)
+            open.isNotEmpty() && pairs[open.last().first] == c -> {
+                val (_, from) = open.removeLast()
+                if (open.isEmpty()) ranges += from..i
+            }
+        }
+    }
+    var start = 0
+    val result = buildString {
+        for (range in ranges) {
+            append(this@removeBracketedContent, start, range.first)
+            start = range.last + 1
+        }
+        append(this@removeBracketedContent, start, this@removeBracketedContent.length)
+    }.trim()
     return result.ifBlank { null }
 }

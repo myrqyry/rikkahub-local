@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -47,8 +48,7 @@ import me.rerere.rikkahub.ui.components.ui.RikkaConfirmDialog
 import me.rerere.rikkahub.ui.context.LocalSettings
 import me.rerere.rikkahub.ui.context.LocalTTSState
 import me.rerere.rikkahub.utils.copyMessageToClipboard
-import me.rerere.rikkahub.utils.extractQuotedContentAsText
-import me.rerere.rikkahub.utils.removeBracketedContent
+import me.rerere.rikkahub.utils.prepareTtsText
 import me.rerere.rikkahub.utils.toLocalString
 import me.rerere.rikkahub.utils.toMessageTimeString
 import java.util.Locale
@@ -126,15 +126,15 @@ fun ColumnScope.ChatMessageActionButtons(
                         indication = LocalIndication.current,
                         onClick = {
                             if (!isSpeaking) {
-                                val text = message.toText()
-                                var textToSpeak = text
-                                if (settings.displaySetting.ttsOnlyReadQuoted) {
-                                    textToSpeak = textToSpeak.extractQuotedContentAsText() ?: textToSpeak
+                                val allowed = prepareTtsText(message.toText(), settings.displaySetting)
+                                if (allowed == null) {
+                                    Toast.makeText(
+                                        context, R.string.tts_no_matching_speech,
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                } else {
+                                    tts.speak(allowed)
                                 }
-                                if (settings.displaySetting.ttsOnlyReadOutsideBrackets) {
-                                    textToSpeak = textToSpeak.removeBracketedContent() ?: textToSpeak
-                                }
-                                tts.speak(textToSpeak)
                             } else {
                                 tts.stop()
                             }

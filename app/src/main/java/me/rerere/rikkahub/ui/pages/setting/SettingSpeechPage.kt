@@ -82,9 +82,9 @@ fun SettingSpeechPage(vm: SettingVM = koinViewModel()) {
     var ttsDisplaySetting by remember(settings) { mutableStateOf(settings.displaySetting) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
-    fun updateTTSDisplay(setting: DisplaySetting) {
-        ttsDisplaySetting = setting
-        vm.updateSettings(settings.copy(displaySetting = setting))
+    fun updateTTSDisplay(option: TtsDisplayOption, enabled: Boolean) {
+        ttsDisplaySetting = ttsDisplaySetting.withTtsOption(option, enabled)
+        vm.updateTtsDisplayOption(option, enabled)
     }
 
     Scaffold(
@@ -292,7 +292,7 @@ fun SettingSpeechPage(vm: SettingVM = koinViewModel()) {
 private fun TTSProviderList(
     settings: Settings,
     ttsDisplaySetting: DisplaySetting,
-    onUpdateDisplaySetting: (DisplaySetting) -> Unit,
+    onUpdateDisplaySetting: (TtsDisplayOption, Boolean) -> Unit,
     onUpdateSettings: (Settings) -> Unit,
     onEdit: (TTSProviderSetting) -> Unit,
     modifier: Modifier = Modifier
@@ -325,7 +325,7 @@ private fun TTSProviderList(
                         Switch(
                             checked = ttsDisplaySetting.ttsOnlyReadQuoted,
                             onCheckedChange = {
-                                onUpdateDisplaySetting(ttsDisplaySetting.copy(ttsOnlyReadQuoted = it))
+                                onUpdateDisplaySetting(TtsDisplayOption.QUOTED_ONLY, it)
                             }
                         )
                     },
@@ -337,7 +337,7 @@ private fun TTSProviderList(
                         Switch(
                             checked = ttsDisplaySetting.ttsOnlyReadOutsideBrackets,
                             onCheckedChange = {
-                                onUpdateDisplaySetting(ttsDisplaySetting.copy(ttsOnlyReadOutsideBrackets = it))
+                                onUpdateDisplaySetting(TtsDisplayOption.SKIP_BRACKETS, it)
                             }
                         )
                     },
@@ -349,7 +349,7 @@ private fun TTSProviderList(
                         Switch(
                             checked = ttsDisplaySetting.autoPlayTTSAfterGeneration,
                             onCheckedChange = {
-                                onUpdateDisplaySetting(ttsDisplaySetting.copy(autoPlayTTSAfterGeneration = it))
+                                onUpdateDisplaySetting(TtsDisplayOption.AUTO_PLAY, it)
                             }
                         )
                     },

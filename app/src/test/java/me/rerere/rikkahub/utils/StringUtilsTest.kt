@@ -51,6 +51,31 @@ class StringUtilsTest {
     }
 
     @Test
+    fun quotedTextMaintainsSourceOrder() {
+        assertEquals(
+            listOf("first", "second", "third", "fourth"),
+            """He said "first", then 「second」, then ‘third’, finally 'fourth'."""
+                .extractQuotedContent()
+        )
+    }
+
+    @Test
+    fun contractionsAreNotQuotes() {
+        assertEquals(
+            listOf("the quoted part"),
+            """don't read it's words, but do read "the quoted part".""".extractQuotedContent()
+        )
+    }
+
+    @Test
+    fun nestedQuoteStylesDoNotDuplicateSpokenSpans() {
+        assertEquals(
+            listOf("the 'inner' quote"),
+            """Say "the 'inner' quote" once.""".extractQuotedContent()
+        )
+    }
+
+    @Test
     fun `no quotes returns empty`() {
         assertTrue("没有任何引号".extractQuotedContent().isEmpty())
     }
@@ -73,6 +98,17 @@ class StringUtilsTest {
     @Test
     fun `remove chinese brackets`() {
         assertEquals("你好世界", "你好（旁白）世界".removeBracketedContent())
+    }
+
+    @Test
+    fun squareAndCurlyStageDirectionsAreRemoved() {
+        assertEquals("Hello world", "Hello [whispers] {pause} world".removeBracketedContent()
+            ?.replace(Regex("\\s+"), " "))
+    }
+
+    @Test
+    fun nestedBracketContentIsFullyOmitted() {
+        assertEquals("Hello!", "Hello[aside (laughs)]!".removeBracketedContent())
     }
 
     @Test

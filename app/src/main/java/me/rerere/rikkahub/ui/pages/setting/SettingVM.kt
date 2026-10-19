@@ -33,6 +33,14 @@ class SettingVM(
         }
     }
 
+    fun updateTtsDisplayOption(option: TtsDisplayOption, enabled: Boolean) {
+        viewModelScope.launch {
+            settingsStore.update { latest ->
+                latest.copy(displaySetting = latest.displaySetting.withTtsOption(option, enabled))
+            }
+        }
+    }
+
     fun updateTranslationThinkingBudget(budget: Int) {
         viewModelScope.launch {
             settingsStore.update { latest -> latest.copy(translateThinkingBudget = budget) }

@@ -1,6 +1,20 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — TTS reading switches obeyed (2026-10-19)
+
+Fixed quoted-only and skip-bracket option handling in manual and auto
+speech: empty filtered content no longer falls back to forbidden
+original text. Added shared pure speech filtering, correct quote order,
+contraction-safe parsing, nested brackets, and manual no-content
+feedback. Auto-play now validates the completed conversation, latest
+VM state, last assistant message and duplicate events before speech.
+Switches now persist atomically without whole-settings overwrite.
+1,521 app JVM tests and debug APK build passed. Pixel unavailable
+over ADB, so **not installed or audio-tested on the device**.
+Existing user data untouched. Local checkpoint only, no push.
+See docs/ui/rikkahub-tts-reading-options-2026-10-19.md.
+
 ## Current checkpoint — improved utility prompts, editor, compression (2026-10-19)
 
 Revised all five bundled utility prompts; old bundled values upgrade on
