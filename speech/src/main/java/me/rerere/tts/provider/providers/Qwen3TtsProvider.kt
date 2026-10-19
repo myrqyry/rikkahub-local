@@ -79,6 +79,12 @@ class Qwen3TtsProvider : TTSProvider<TTSProviderSetting.Qwen3Tts> {
         val result = mutex.withLock {
             val engine = session?.takeIf { sessionPath == providerSetting.modelPath }
                 ?: run {
+                    // A manually entered path bypasses the download UI.
+                    // Verify before native initialization, once per engine,
+                    // rather than reading 1.88 GB for every utterance.
+                    check(Qwen3TtsCatalog.ENTRIES.first().isVerified(directory)) {
+                        "Qwen3-TTS LiteRT package failed checksum verification"
+                    }
                     session?.close()
                     sessionPath = providerSetting.modelPath
                     Qwen3TtsEngine(directory).also { session = it }

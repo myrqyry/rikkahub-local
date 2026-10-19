@@ -1,6 +1,22 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — repaired Qwen3-TTS pinned legacy LiteRT download (2026-10-19)
+
+Verified Hugging Face's original Qwen3-TTS 0.6B three-graph bundle moved
+into legacy/; pinned its source revision and all 10 files' sizes/SHA-256
+for 1.88 GB total. Built checksum-validating resumable downloader with
+no-overwrite, space reserve, asynchronous installed status and manual-path
+verification; preserved the existing LiteRT host graph contract, not
+.litertlm or a GGUF provider. Deterministic HTTP/FS tests cover resume,
+corrupt files, user-file protection and low storage. Full validation:
+1,529 app and 100 speech tests passed; APK built. Saved verified private
+app backup and installed APK on Pixel in place successfully, with no
+model download or app data reset. Pixel then lost ADB; Qwen editor and
+real synthesis remain unverified on-device. GGUF needs a separate
+native-runtime study; do not represent it as installed. No push.
+See docs/ui/qwen3-tts-litert-legacy-download-repair-2026-10-19.md.
+
 ## Current checkpoint — per-provider Speech UI installed on Pixel (2026-10-19)
 
 USB ADB connection recovered. Saved verified private app-data backup

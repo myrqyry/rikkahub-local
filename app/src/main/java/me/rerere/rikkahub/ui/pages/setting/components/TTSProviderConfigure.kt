@@ -26,6 +26,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -1904,7 +1905,7 @@ private fun PocketTTSConfiguration(
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
-                if (installed) {
+                if (installed == true) {
                     Text(
                         text = stringResource(R.string.local_tts_installed),
                         style = MaterialTheme.typography.labelMedium,
@@ -2383,6 +2384,7 @@ private fun Qwen3TTSConfiguration(
     var downloading by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
+    var downloadRevision by remember { mutableStateOf(0) }
 
     FormItem(
         label = { Text(stringResource(R.string.local_tts_model_dir_label)) },
@@ -2402,9 +2404,19 @@ private fun Qwen3TTSConfiguration(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             val entry = Qwen3TtsCatalog.ENTRIES.first()
-            val installed = LocalTtsModelManager
-                .missingFiles(File(setting.modelPath), entry.requiredFiles)
-                .isEmpty() && setting.modelPath.isNotBlank()
+            // SHA over nearly 1.9 GB must never run on the Compose UI thread.
+            // Null = verifying. Do not show a bogus "Installed" badge while
+            // files are incomplete, corrupt, or being checked.
+            val installed by produceState<Boolean?>(
+                initialValue = null,
+                setting.modelPath,
+                downloadRevision,
+            ) {
+                value = if (setting.modelPath.isBlank()) false else
+                    withContext(Dispatchers.IO) {
+                        entry.isVerified(File(setting.modelPath))
+                    }
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -2415,7 +2427,7 @@ private fun Qwen3TTSConfiguration(
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
-                if (installed) {
+                if (installed == true) {
                     Text(
                         text = stringResource(R.string.local_tts_installed),
                         style = MaterialTheme.typography.labelMedium,
@@ -2428,11 +2440,12 @@ private fun Qwen3TTSConfiguration(
                                 downloading = true
                                 error = null
                                 runCatching {
-                                    LocalTtsModelManager.downloadBundle(
-                                        context, httpClient, "qwen3-tts", entry.downloadPairs(),
+                                    Qwen3TtsDownload.install(
+                                        context, httpClient, entry,
                                         onProgress = { progress = it },
                                     )
                                 }.onSuccess { dest ->
+                                    downloadRevision++
                                     onValueChange(setting.copy(modelPath = dest.absolutePath, hfLink = entry.sourceUrl))
                                     toaster.show(
                                         doneTemplate.format(dest.absolutePath),
@@ -2448,66 +2461,23 @@ private fun Qwen3TTSConfiguration(
                                 downloading = false
                             }
                         },
-                        enabled = !downloading,
-                    ) { Text(stringResource(R.string.local_tts_install)) }
+                        enabled = !downloading && installed != null,
+                    ) { Text(
+                        if (installed == null)
+                            stringResource(R.string.local_tts_verifying)
+                        else stringResource(R.string.local_tts_install)
+                    ) }
                 }
                 OutlinedButton(onClick = { openModelSourceUrl(context, entry.sourceUrl) }) {
                     Text(stringResource(R.string.local_tts_source))
                 }
             }
 
-            var manualUrl by remember { mutableStateOf(setting.hfLink) }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedTextField(
-                    value = manualUrl,
-                    onValueChange = { manualUrl = it },
-                    label = { Text(stringResource(R.string.local_tts_paste_link)) },
-                    placeholder = { Text(stringResource(R.string.local_tts_paste_link_hint)) },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                )
-                OutlinedButton(
-                    onClick = {
-                        val url = manualUrl.trim()
-                        if (url.isBlank()) return@OutlinedButton
-                        scope.launch {
-                            downloading = true
-                            error = null
-                            runCatching {
-                                val normalized = ModelInstall.normalizeHuggingFaceUrl(url)
-                                if (!ModelInstall.isValidDownloadUrl(normalized)) {
-                                    throw IllegalArgumentException("Invalid HuggingFace URL")
-                                }
-                                val pairs = entry.requiredFiles.mapNotNull { file ->
-                                    val remote = entry.remoteForLocal(file) ?: return@mapNotNull null
-                                    normalized.trimEnd('/') + "/resolve/main/" + remote to file
-                                }
-                                LocalTtsModelManager.downloadBundle(
-                                    context, httpClient, "qwen3-tts", pairs,
-                                    onProgress = { progress = it },
-                                )
-                            }.onSuccess { dest ->
-                                onValueChange(setting.copy(modelPath = dest.absolutePath, hfLink = manualUrl))
-                                toaster.show(
-                                    doneTemplate.format(dest.absolutePath),
-                                    type = ToastType.Success,
-                                )
-                            }.onFailure { e ->
-                                error = e.message ?: "Download failed"
-                                toaster.show(
-                                    errorTemplate.format(error!!),
-                                    type = ToastType.Error,
-                                )
-                            }
-                            downloading = false
-                        }
-                    },
-                    enabled = manualUrl.isNotBlank() && !downloading,
-                ) { Text(stringResource(R.string.local_tts_download_paste)) }
-            }
+            Text(
+                text = stringResource(R.string.local_tts_pinned_source_only),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 
