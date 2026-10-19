@@ -1,6 +1,20 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — launcher-style Settings root and Facets naming (2026-10-19)
+
+Corrected the main menu *navigation level*: Models and **Facets** are now
+two separate, direct Settings home icons, not two items hidden inside an
+AI & Models category. The five remaining categories are folder-like
+launchers, and their destinations are shown in compact icon grids, not
+sideways-scrolling chips or large full-card tiles. Preferred user-facing
+term **Facets** refers to separately configured AI identities; internal
+Assistant types remain unchanged. On-device Pixel checks verified direct
+Models and Facets paths, five-destination Experience folder, and system
+back to Settings. 1,501 app JVM tests and APK build passed; protected
+data with verified private backup and in-place install. No push.
+See docs/ui/rikkahub-home-settings-grid-2026-10-19.md.
+
 ## Current checkpoint — AI & Models pared down; broken bubble disabled (2026-10-19)
 
 AI & Models now offers only **Models** (existing unified ModelsPage) and

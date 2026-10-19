@@ -5,11 +5,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,10 +47,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
@@ -80,6 +84,15 @@ internal data class SettingsHomeSection(
     val title: String,
     val keywords: List<String> = emptyList(),
     val items: List<SettingsHomeItem>,
+)
+
+/** One launch target, just like an app or folder on a phone home screen. */
+private data class SettingsLauncher(
+    val id: String,
+    val title: String,
+    val icon: ImageVector,
+    val isFolder: Boolean,
+    val onClick: () -> Unit,
 )
 
 private val SettingsContentMaxWidth = 800.dp
@@ -122,30 +135,27 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
         )
     }
 
-    val sections = listOf(
-        SettingsHomeSection(
-            id = "aiModels",
-            title = stringResource(R.string.setting_home_group_ai_models),
-            keywords = listOf("ai", "model", "provider", "assistant", "prompt"),
-            items = listOf(
-                SettingsHomeItem(
-                    id = "models",
-                    title = stringResource(R.string.setting_home_models),
-                    description = stringResource(R.string.setting_home_models_desc),
-                    icon = HugeIcons.Deepseek,
-                    keywords = listOf("model", "provider", "default", "download", "local", "cloud", "litert", "endpoint", "api"),
-                    onClick = { navController.navigate(Screen.Models()) },
-                ),
-                SettingsHomeItem(
-                    id = "agentSettings",
-                    title = stringResource(R.string.settings_agents_assistants),
-                    description = stringResource(R.string.settings_agents_assistants_desc),
-                    icon = HugeIcons.LookTop,
-                    keywords = listOf("agent", "assistant", "persona", "system prompt", "override", "default"),
-                    onClick = { navController.navigate(Screen.SettingAgent) },
-                ),
-            ),
+    // These are first-level Settings destinations, not a category to open.
+    // Keep them visible immediately on the Settings home screen.
+    val primaryDestinations = listOf(
+        SettingsHomeItem(
+            id = "models",
+            title = stringResource(R.string.setting_home_models),
+            description = stringResource(R.string.setting_home_models_desc),
+            icon = HugeIcons.Deepseek,
+            keywords = listOf("model", "provider", "default", "download", "local", "cloud", "litert", "endpoint", "api"),
+            onClick = { navController.navigate(Screen.Models()) },
         ),
+        SettingsHomeItem(
+            id = "agentSettings",
+            title = stringResource(R.string.settings_agents_assistants),
+            description = stringResource(R.string.settings_agents_assistants_desc),
+            icon = HugeIcons.LookTop,
+            keywords = listOf("agent", "assistant", "persona", "system prompt", "override", "default"),
+            onClick = { navController.navigate(Screen.SettingAgent) },
+        ),
+    )
+    val sections = listOf(
         SettingsHomeSection(
             id = "experience",
             title = stringResource(R.string.setting_home_group_experience),
@@ -421,6 +431,24 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
         ),
     )
     val filteredSections = filterSettingsSections(sections, searchQuery)
+    val matchingPrimaryDestinations = primaryDestinations.filter { it.matches(searchQuery) }
+    val launchers = primaryDestinations.map { destination ->
+        SettingsLauncher(destination.id, destination.title, destination.icon, false) {
+            destination.onClick?.invoke()
+        }
+    } + sections.map { section ->
+        val icon = when (section.id) {
+            "experience" -> HugeIcons.Sun01
+            "knowledgeTools" -> HugeIcons.BookOpen01
+            "automation" -> HugeIcons.Cpu
+            "privacySafety" -> HugeIcons.Shield01
+            "dataMaintenance" -> HugeIcons.Folder01
+            else -> HugeIcons.Settings03
+        }
+        SettingsLauncher(section.id, section.title, icon, true) {
+            activeSectionId = section.id
+        }
+    }
 
     // One screen of visible categories. A tap opens its destinations; searching
     // always searches all categories, including while inside a section.
@@ -486,28 +514,68 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                 }
                 when {
                     searching -> {
-                        if (filteredSections.isEmpty()) {
+                        if (filteredSections.isEmpty() && matchingPrimaryDestinations.isEmpty()) {
                             item("noResults") { SettingsNoResultsCard() }
                         } else {
+                            if (matchingPrimaryDestinations.isNotEmpty()) {
+                                item("primary-search") {
+                                    SettingsLauncherGrid(matchingPrimaryDestinations.map { item ->
+                                        SettingsLauncher(item.id, item.title, item.icon, false) { item.onClick?.invoke() }
+                                    })
+                                }
+                            }
                             filteredSections.forEach { section ->
                                 item("search-heading-${section.id}") {
                                     SettingsSectionHeading(section.title)
                                 }
-                                items(section.items, key = { "search-${section.id}-${it.id}" }) { item ->
-                                    SettingsDestinationRow(item)
+                                item("search-results-${section.id}") {
+                                    SettingsLauncherGrid(section.items.map { item ->
+                                        SettingsLauncher(item.id, item.title, item.icon, false) { item.onClick?.invoke() }
+                                    })
                                 }
                             }
                         }
                     }
                     activeSection != null -> {
-                        items(activeSection.items, key = { "destination-${it.id}" }) { item ->
-                            SettingsDestinationRow(item)
+                        item("active-destinations-${activeSection.id}") {
+                            SettingsLauncherGrid(activeSection.items.map { item ->
+                                SettingsLauncher(item.id, item.title, item.icon, false) { item.onClick?.invoke() }
+                            })
                         }
                     }
                     else -> {
-                        items(sections, key = { "category-${it.id}" }) { section ->
-                            SettingsSectionRow(section, onClick = { activeSectionId = section.id })
+                        item("settings-home-launchers") { SettingsLauncherGrid(launchers) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** No sideways scrolling or intermediate category strip: a small icon grid
+ * on both the Settings home and each folder-like category.
+ */
+@Composable
+private fun SettingsLauncherGrid(items: List<SettingsLauncher>) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val columns = when {
+            maxWidth < 340.dp -> 2
+            maxWidth >= 600.dp -> 4
+            else -> 3
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items.chunked(columns).forEach { chunk ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    chunk.forEach { shortcut ->
+                        Box(modifier = Modifier.weight(1f)) {
+                            SettingsLauncherTile(shortcut)
                         }
+                    }
+                    repeat(columns - chunk.size) {
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -516,48 +584,59 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
 }
 
 @Composable
-private fun SettingsSectionRow(
-    section: SettingsHomeSection,
-    onClick: () -> Unit,
-) {
-    val overview = section.items.take(2).joinToString(" · ") { it.title }
+private fun SettingsLauncherTile(shortcut: SettingsLauncher) {
+    // Launcher-style tap targets: compact icons + labels, not giant padded cards.
     Surface(
-        onClick = onClick,
+        onClick = shortcut.onClick,
         modifier = Modifier.fillMaxWidth(),
         color = androidx.compose.ui.graphics.Color.Transparent,
+        shape = RoundedCornerShape(14.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 8.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        Column(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 98.dp)
+                .padding(horizontal = 3.dp, vertical = 5.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Icon(
-                section.items.first().icon,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(section.title, style = MaterialTheme.typography.titleSmall)
-                Text(
-                    overview,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            Box(
+                modifier = Modifier.size(50.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    shape = RoundedCornerShape(15.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            shortcut.icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(29.dp),
+                            tint = if (shortcut.isFolder)
+                                MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                if (shortcut.isFolder) {
+                    Icon(
+                        HugeIcons.Folder01,
+                        contentDescription = null,
+                        modifier = Modifier.align(Alignment.BottomEnd).size(15.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
-            Icon(
-                HugeIcons.ArrowRight01,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            Text(
+                text = shortcut.title,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
-    androidx.compose.material3.HorizontalDivider(
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
-    )
 }
 
 @Composable
@@ -566,52 +645,7 @@ private fun SettingsSectionHeading(title: String) {
         title,
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 8.dp, top = 12.dp, bottom = 4.dp),
-    )
-}
-
-@Composable
-private fun SettingsDestinationRow(item: SettingsHomeItem) {
-    Surface(
-        onClick = { item.onClick?.invoke() },
-        enabled = item.onClick != null,
-        modifier = Modifier.fillMaxWidth(),
-        color = androidx.compose.ui.graphics.Color.Transparent,
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Icon(
-                item.icon,
-                contentDescription = null,
-                modifier = Modifier.size(21.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Text(item.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (item.description.isNotBlank()) {
-                    Text(
-                        item.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            if (item.trailingContent != null) item.trailingContent.invoke()
-            else Icon(
-                HugeIcons.ArrowRight01,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-    androidx.compose.material3.HorizontalDivider(
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+        modifier = Modifier.padding(start = 5.dp, top = 12.dp, bottom = 8.dp),
     )
 }
 
