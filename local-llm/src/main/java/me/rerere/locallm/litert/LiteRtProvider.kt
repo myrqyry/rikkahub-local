@@ -25,6 +25,8 @@ import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
 import me.rerere.locallm.litert.image.LiteRtImageGenerationRuntime
 import me.rerere.locallm.litert.image.FLUX2_KLEIN_MODEL
+import me.rerere.locallm.litert.image.bonsai.BONSAI_IMAGE_MODEL
+import me.rerere.locallm.litert.image.bonsai.BonsaiImageRuntime
 import com.google.ai.edge.litertlm.tool as litertTool
 import com.google.ai.edge.litertlm.ToolProvider
 
@@ -34,6 +36,14 @@ internal fun listLiteRtModels(installed: Map<String, String>): List<Model> =
     installed.filterKeys { it != FLUX2_KLEIN_MODEL.modelId }
         .map { (fileName, _) -> Model(modelId = fileName, displayName = fileName) } +
         FLUX2_KLEIN_MODEL
+
+internal enum class LiteRtImageBackend { FLUX2_KLEIN, BONSAI }
+
+internal fun selectLiteRtImageBackend(modelId: String): LiteRtImageBackend = when (modelId) {
+    FLUX2_KLEIN_MODEL.modelId -> LiteRtImageBackend.FLUX2_KLEIN
+    BONSAI_IMAGE_MODEL.modelId -> LiteRtImageBackend.BONSAI
+    else -> throw IllegalArgumentException("No LiteRT image backend for model: $modelId")
+}
 
 /**
  * Outcome of [decideImageForwarding]: whether to hand image bytes to the runtime this turn,
@@ -87,6 +97,7 @@ class LiteRtProvider(
     private val context: Context,
     private val runtime: LiteRtRuntime,
     private val imageRuntime: LiteRtImageGenerationRuntime,
+    private val bonsaiImageRuntime: BonsaiImageRuntime,
     private val prefs: LocalRuntimePreferences,
     private val settingsUpdater: suspend (transform: (List<ProviderSetting>) -> List<ProviderSetting>) -> Unit,
     zeroWorkflowExecutor: ZeroWorkflowExecutor? = null,
@@ -728,11 +739,17 @@ class LiteRtProvider(
         params: ImageGenerationParams,
     ): Flow<ImageGenerationItem> = flow {
         require(providerSetting is ProviderSetting.LiteRtLocal)
+        val backend = selectLiteRtImageBackend(params.model.modelId)
         repeat(params.numOfImages.coerceAtLeast(1)) {
-            val bitmap = imageRuntime.generate(params.prompt) { }
+            val bitmap = when (backend) {
+                LiteRtImageBackend.FLUX2_KLEIN -> imageRuntime.generate(params.prompt) { }
+                LiteRtImageBackend.BONSAI -> bonsaiImageRuntime.generate(
+                    prompt = params.prompt, seed = java.security.SecureRandom().nextLong(),
+                )
+            }
             val bytes = ByteArrayOutputStream().use { output ->
                 check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
-                    "Failed to encode FLUX.2-klein output"
+                    "Failed to encode LiteRT image output"
                 }
                 output.toByteArray()
             }

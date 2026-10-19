@@ -77,4 +77,5 @@ dependencies {
     implementation(libs.tensorflow.lite)
 
     testImplementation(libs.junit)
+    testImplementation("org.json:json:20240303")
 }

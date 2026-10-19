@@ -401,6 +401,7 @@ val dataSourceModule = module {
                     context = get(),
                     runtime = get(),
                     imageRuntime = get(),
+                    bonsaiImageRuntime = get(),
                     prefs = get(),
                     settingsUpdater = { transform ->
                         settingsStore.update { old -> old.copy(providers = transform(old.providers)) }

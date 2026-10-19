@@ -1,6 +1,19 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — Bonsai Image LiteRT CPU runner, not yet released (2026-10-19)
+
+Ported the pinned upstream Bonsai Image 4B Android tokenizer, host math
+and sequential CPU/XNNPACK three-graph runner into the local-llm module.
+Added SHA-256/size-gated model bundle validation, explicit LiteRT image
+dispatch (Bonsai vs existing FLUX) and Koin wiring. 26 upstream tokenizer
+golden cases passed locally, plus unit tests for host math, bundle gate,
+pinned metadata and provider selection. Kotlin app compiles; model is
+**not exposed in the UI** until a verified multi-file installer exists.
+No 4.26GB weights downloaded, no on-device generation claim, no app
+installation or user-data changes. No push to public repo.
+See docs/integrations/bonsai-litert-runtime-2026-10-19.md.
+
 ## Current checkpoint — Models uses a provider-neutral icon (2026-10-19)
 
 Replaced incorrect DeepSeek logo on the Settings home Models shortcut with

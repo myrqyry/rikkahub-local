@@ -362,6 +362,9 @@ val appModule = module {
             packageRoot = get(),
         )
     }
+    single {
+        me.rerere.locallm.litert.image.bonsai.BonsaiImageRuntime(context = get())
+    }
     single<me.rerere.rikkahub.data.modelregistry.ModelRegistry> {
         me.rerere.rikkahub.data.modelregistry.SettingsModelRegistry(get(), get(), get<me.rerere.rikkahub.AppScope>(), get(), get())
     }

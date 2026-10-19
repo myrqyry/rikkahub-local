@@ -2,6 +2,7 @@ package me.rerere.locallm.litert
 
 import me.rerere.ai.provider.ModelType
 import me.rerere.locallm.litert.image.FLUX2_KLEIN_MODEL
+import me.rerere.locallm.litert.image.bonsai.BONSAI_IMAGE_MODEL
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -32,6 +33,16 @@ class LiteRtProviderTest {
         assertEquals(ModelType.IMAGE, fluxModels.single().type)
         assertEquals(listOf("TEXT", "IMAGE"), fluxModels.single().inputModalities.map { it.name })
         assertEquals("liteRT", fluxModels.single().runtime)
+    }
+
+    @Test
+    fun `image selection does not silently run FLUX for Bonsai or unknown models`() {
+        assertEquals(LiteRtImageBackend.FLUX2_KLEIN,
+            selectLiteRtImageBackend(FLUX2_KLEIN_MODEL.modelId))
+        assertEquals(LiteRtImageBackend.BONSAI,
+            selectLiteRtImageBackend(BONSAI_IMAGE_MODEL.modelId))
+        assertTrue(runCatching { selectLiteRtImageBackend("unknown-model") }
+            .exceptionOrNull() is IllegalArgumentException)
     }
 
     @Test
