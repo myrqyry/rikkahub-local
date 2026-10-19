@@ -1,6 +1,22 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — improved utility prompts, editor, compression (2026-10-19)
+
+Revised all five bundled utility prompts; old bundled values upgrade on
+read only when unchanged; customized prompts preserved. Editor uses a
+local draft with explicit Save/Cancel/Reset and atomic per-field updates.
+Title/suggestion outputs normalized; OCR/locale hints corrected.
+Compression now preserves a visible Before compression original,
+includes attachment/tool evidence markers, rejects empty summaries
+and changed source messages, and serializes final archive/replace with
+the conversation mutex. App tests: 1,508 passed; debug APK built.
+**Pixel unavailable over ADB: not installed or device verified.**
+No saved user prompt or conversation data changed. Compression fidelity
+is still unverified. Desktop root had less than 2 GB free, no unrelated
+cleanup. Local commits only; no push.
+See docs/ui/rikkahub-default-prompts-audit-2026-10-19.md.
+
 ## Current checkpoint — source review of five default prompts (2026-10-19)
 
 Audited actual default title, suggestion, translation, OCR and context

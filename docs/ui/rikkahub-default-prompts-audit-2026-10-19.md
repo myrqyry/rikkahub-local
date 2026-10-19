@@ -152,3 +152,39 @@ Source-inspected only, not runtime-proven. Suggested test plan:
 No source defaults or installed user preferences were changed by this review.
 Review-only checkpoint; changes need focused implementation and tests.
 No remote push (public repo with local unpublished history).
+
+
+## Implemented follow-up — safer editing and compression
+
+- Rewrote the five global defaults: title, suggestion, translation,
+  OCR and compression; 10-character title/suggestion limits removed.
+- Exact old bundled values live in LegacyUtilityPrompts.kt. Missing or
+  unchanged old defaults adopt improved defaults on read; custom saved
+  prompts remain unchanged.
+- Prompt editor uses local draft; Save applies an atomic targeted setting
+  update, Cancel/dismiss discard; Reset changes draft without persisting.
+  Translation reasoning budget also uses a targeted update.
+- Corrected OCR variable documentation (no images token is substituted)
+  and compression locale variable hint.
+- Normalized generated titles/suggestions with deterministic guards.
+- Compression uses non-text reference markers and a context-preservation
+  prompt, rejects empty model summaries, checks that the original message
+  tree has not changed, and uses the existing conversation mutex for the
+  final archive-and-replace stage.
+- A separate visible Before compression conversation containing the original
+  tree is inserted first, with local file references forked, before older
+  messages in the active chat are replaced. Failure to archive prevents
+  replacement. Warning text states this behavior.
+- Limits: compression output can still lose important information;
+  source references are not equivalent to source content; the mutex is not
+  database CAS against writers outside it. The archive can duplicate
+  attachment storage. These risks need real-device exercises before
+  stronger correctness claims.
+- Verification: app JVM suite 1,508 tests across 219 suites, 0 failures,
+  debug APK built; additional focused regression tests passed.
+  No inference quality or end-to-end device compression test.
+- Pixel unavailable over ADB: no install, no change to saved phone prompts,
+  conversations, or device data.
+- Desktop had under 2 GB free and a transient no-space error. No app
+  models, user backups, or caches were deleted.
+- Local commits only; do not push unpublished public branch wholesale.
