@@ -46,3 +46,16 @@ and oversized padding, not to grids.
 - **Direct** Models tap opens the existing unified model manager with
   category filters and models; no intervening AI & Models submenu.
 - No push. Public repository branch has unpublished historical data.
+
+
+## Models launcher icon correction (2026-10-19)
+
+The Models shortcut previously used `HugeIcons.Deepseek`, a vendor-specific
+logo, even though the screen manages models from many providers. It now uses
+`HugeIcons.Layers`, mapped to the existing MingCute `mgc_layers_line`
+asset, depicting a generic layered collection. No icon assets were
+downloaded or generated. The destination remains the unified ModelsPage.
+
+Verified: successful app JVM suite and debug APK build, in-place Pixel
+installation after SHA-256-verified private app backup, and inspected real
+Settings-home screenshot showing the generic layers icon. No push.

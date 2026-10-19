@@ -100,6 +100,7 @@ object MingcuteIcons {
     @get:Composable val LanguageCircle: ImageVector get() = ImageVector.vectorResource(MingCuteR.drawable.mgc_translate_line)
     @get:Composable val LeftToRightListBullet: ImageVector get() = ImageVector.vectorResource(MingCuteR.drawable.mgc_list_check_line)
     @get:Composable val Link01: ImageVector get() = ImageVector.vectorResource(MingCuteR.drawable.mgc_link_line)
+    @get:Composable val Layers: ImageVector get() = ImageVector.vectorResource(MingCuteR.drawable.mgc_layers_line)
     @get:Composable val LookTop: ImageVector get() = ImageVector.vectorResource(MingCuteR.drawable.mgc_look_up_line)
     @get:Composable val MagicWand01: ImageVector get() = ImageVector.vectorResource(MingCuteR.drawable.mgc_magic_1_line)
     @get:Composable val McpServer: ImageVector get() = ImageVector.vectorResource(MingCuteR.drawable.mgc_mcp_line)

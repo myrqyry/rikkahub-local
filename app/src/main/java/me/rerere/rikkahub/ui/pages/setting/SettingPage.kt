@@ -142,7 +142,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
             id = "models",
             title = stringResource(R.string.setting_home_models),
             description = stringResource(R.string.setting_home_models_desc),
-            icon = HugeIcons.Deepseek,
+            icon = HugeIcons.Layers,
             keywords = listOf("model", "provider", "default", "download", "local", "cloud", "litert", "endpoint", "api"),
             onClick = { navController.navigate(Screen.Models()) },
         ),

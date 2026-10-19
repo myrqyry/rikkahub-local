@@ -1,6 +1,14 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — Models uses a provider-neutral icon (2026-10-19)
+
+Replaced incorrect DeepSeek logo on the Settings home Models shortcut with
+MingCute's generic layered-collection icon; same model-manager destination.
+App tests/build passed, installed in place after checksum-verified local
+app-data backup, and checked the actual Pixel screenshot. Nothing pushed.
+See docs/ui/rikkahub-home-settings-grid-2026-10-19.md.
+
 ## Current checkpoint — launcher-style Settings root and Facets naming (2026-10-19)
 
 Corrected the main menu *navigation level*: Models and **Facets** are now
