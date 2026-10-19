@@ -95,3 +95,53 @@ VAEDecode, SaveImage. No server listening changes were made.
   for network-based images before making a generation request.
 - Repo branch contains unpublished changes, so commit locally and do
   not push simply because verification passed.
+
+
+## Follow-up: documented ComfyUI WebSocket events (2026-10-19)
+
+Source references:
+- https://docs.comfy.org/development/comfyui-server/comms_overview
+- https://docs.comfy.org/development/comfyui-server/comms_messages
+- https://docs.comfy.org/development/comfyui-server/comms_routes
+- https://docs.comfy.org/development/comfyui-server/api-examples
+
+Implemented a dedicated WebSocket per image generation request, connecting
+to /ws?clientId=<UUID> before POST /prompt uses the same client ID.
+OkHttp newWebSocket upgrades a normal HTTP(S) request: explicitly changing
+the HttpUrl Builder scheme to ws/wss is invalid and was corrected.
+
+The callback parser classifies execution_start, executing, progress,
+execution_success, execution_error and execution_interrupted. Global
+status messages are ignored because queue_remaining is not per-job.
+The executed message is also ignored as a general completion event:
+ComfyUI documents that it fires only for node UI output. Progress/events
+are matched against the server-returned prompt_id. The in-app Images UI
+shows actual workflow stage and KSampler steps (value/max), not a made-up
+percentage of the whole graph. Each progress update is guarded by a
+locally generated run ID to avoid stale-run updates.
+
+The WebSocket is primary for event notifications. Polling /history
+periodically on missed/dropped events or connection loss is the recovery
+path; the image metadata and bytes still come from /history and /view.
+Cancellation is queued-only and does not call global /interrupt.
+
+The docs distinguish binary WebSocket preview image frames from JSON
+progress events. Binary preview frames are explicitly skipped for now.
+No live image preview, custom node workflows, LoRA graph UI, or img2img
+has been implemented by this follow-up.
+
+Verification:
+- Full :app:testDebugUnitTest :app:assembleDebug passed: 1,541 JVM tests
+  across 225 suites, 0 failures/errors/skips.
+- Focused tests include typed event parsing, ignored global/other-job
+  events, cancellation-safe status guards, and a real loopback OkHttp
+  WebSocket handshake/message-delivery test using a tiny local server.
+- Original HTTP-only fixture tests now require a /ws handshake attempt,
+  demonstrating history fallback when a socket upgrade fails.
+- Live ComfyUI on yuzu-mint accepted a read-only WebSocket HTTP 101
+  Switching Protocols handshake. No inference/job was queued.
+- Verified SHA-256 of a private Pixel app-data backup, then installed
+  APK in place using adb install -r (Success). No app-data reset,
+  external server configuration or networking exposure occurred.
+  Real phone generation, partial preview, GPU performance and
+  gallery end-to-end still require a separate model-backed test.

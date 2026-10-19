@@ -66,7 +66,12 @@ class ComfyUiProviderTest {
         assertEquals(1, output.size)
         val bytes = (output.single().payload as GeneratedImagePayload.Bytes).bytes
         assertArrayEquals(png, bytes)
-        assertEquals(listOf("POST /prompt", "GET /history/job-123", "GET /view"), requests)
+        // Socket handshake precedes enqueue. This HTTP-only fixture responds
+        // 404 to /ws, so the provider must recover via HTTP history.
+        assertEquals(
+            listOf("GET /ws", "POST /prompt", "GET /history/job-123", "GET /view"),
+            requests,
+        )
         val posted = Json.parseToJsonElement(graphs.single()).jsonObject
         assertEquals("A paper crane under soft lighting",
             posted["prompt"]!!.jsonObject["2"]!!.jsonObject["inputs"]!!
@@ -108,7 +113,7 @@ class ComfyUiProviderTest {
                 provider.generateImage(settings(), params()).toList()
             }
         }
-        assertEquals(listOf("POST /prompt"), req)
+        assertEquals(listOf("GET /ws", "POST /prompt"), req)
     }
 
     @Test fun invalidInputNeverBecomesAnExecutableGraph() {

@@ -36,6 +36,7 @@ import me.rerere.rikkahub.data.datastore.findProvider
 import me.rerere.rikkahub.data.datastore.getCurrentAssistant
 import me.rerere.rikkahub.data.ai.GenerationProgress
 import me.rerere.rikkahub.data.ai.StableDiffusionBridge
+import me.rerere.rikkahub.data.ai.ComfyUiProgress
 import me.rerere.rikkahub.data.ai.generation.GenerationResult
 import me.rerere.rikkahub.data.ai.tools.ToolInvocationContext
 import me.rerere.rikkahub.data.ai.tools.image.MediaInputResolver
@@ -109,6 +110,9 @@ class ImgGenVM(
     private val initialReferenceLoader = InitialImageReferenceLoader(context.appTempFolder)
 
     val generationProgress: StateFlow<GenerationProgress?> = StableDiffusionBridge.progress
+    internal val comfyUiStatus = ComfyUiProgress.status
+    private val _isComfyUiSelected = MutableStateFlow(false)
+    val isComfyUiSelected: StateFlow<Boolean> = _isComfyUiSelected
 
     private val _imageCapabilities = MutableStateFlow(ProviderSetting.StableDiffusion().imageCapabilities)
     val imageCapabilities: StateFlow<ImageCapabilities> = _imageCapabilities
@@ -133,6 +137,7 @@ class ImgGenVM(
                 }
                 val setting = settings.providers.find { it.id == providerId }
                 _imageCapabilities.value = setting?.imageCapabilities ?: ProviderSetting.StableDiffusion().imageCapabilities
+                _isComfyUiSelected.value = setting is ProviderSetting.ComfyUi
             }
         }
     }

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -69,14 +70,58 @@ class ComfyUiProvider(private val http: OkHttpClient) : Provider<ProviderSetting
         require(params.numOfImages in 1..4) { "ComfyUI supports 1–4 images per request" }
         val api = ComfyUiApi(http, config.baseUrl)
         val graph = standardComfyWorkflow(config, params)
-        val promptId = api.enqueue(graph, UUID.randomUUID().toString())
+        val clientId = UUID.randomUUID().toString()
+        val socket = ComfyUiSocket(http, api.serverUrl, clientId)
+        // Connect *before* submitting, so fast executions cannot race the
+        // subscription. If websocket fails, the HTTP history path still works.
+        var connected = runCatching { socket.connect() }.getOrDefault(false)
+        var promptId: String? = null
+        ComfyUiProgress.begin(clientId)
         try {
+            promptId = api.enqueue(graph, clientId)
+            val id = promptId
             val images = withTimeout(10 * 60 * 1000L) {
-                var result: List<ComfyOutputImage>?
-                do {
-                    result = api.outputImages(promptId)
-                    if (result == null) delay(1000L)
-                } while (result == null)
+                var result: List<ComfyOutputImage>? = null
+                while (result == null) {
+                    val event = if (connected) {
+                        withTimeoutOrNull(6500L) { socket.events.receiveCatching().getOrNull() }
+                    } else {
+                        delay(1500L)
+                        null
+                    }
+                    if (event == ComfyUiSocketEvent.Disconnected) connected = false
+                    var terminalSignal = false
+                    if (event?.promptId == id) {
+                        when (event) {
+                            is ComfyUiSocketEvent.Started ->
+                                ComfyUiProgress.update(clientId, "Running")
+                            is ComfyUiSocketEvent.Node ->
+                                ComfyUiProgress.update(
+                                    clientId,
+                                    if (event.nodeId == null) "Finishing"
+                                    else comfyNodeLabel(event.nodeId),
+                                )
+                            is ComfyUiSocketEvent.Sampling ->
+                                ComfyUiProgress.update(
+                                    clientId, "Sampling", event.step, event.total,
+                                )
+                            is ComfyUiSocketEvent.Complete -> {
+                                terminalSignal = true
+                                ComfyUiProgress.update(clientId, "Saving output")
+                            }
+                            is ComfyUiSocketEvent.Failed ->
+                                error("ComfyUI execution failed: " + event.detail)
+                            else -> Unit
+                        }
+                    }
+                    // WebSocket is primary. History is authoritative for
+                    // images and recovers from a missing/dropped socket event.
+                    if (terminalSignal || event == null || !connected ||
+                        event is ComfyUiSocketEvent.Node && event.promptId == id &&
+                        event.nodeId == null) {
+                        result = api.outputImages(id)
+                    }
+                }
                 result
             }
             check(images.isNotEmpty()) { "ComfyUI finished without images" }
@@ -89,14 +134,30 @@ class ComfyUiProvider(private val http: OkHttpClient) : Provider<ProviderSetting
                 ))
             }
         } catch (cancel: CancellationException) {
-            // /interrupt would cancel unrelated running work on shared ComfyUI.
-            // Only remove this queued prompt; running jobs may finish remotely.
-            withContext(NonCancellable + Dispatchers.IO) {
-                runCatching { api.deleteQueued(promptId) }
+            // The server-wide /interrupt may stop somebody else's active
+            // job. Deleting only our queued work is the safe choice.
+            promptId?.let { id ->
+                withContext(NonCancellable + Dispatchers.IO) {
+                    runCatching { api.deleteQueued(id) }
+                }
             }
             throw cancel
+        } finally {
+            socket.close()
+            ComfyUiProgress.clear(clientId)
         }
     }
+}
+
+/** User-readable names for the fixed, known seven-node workflow. */
+internal fun comfyNodeLabel(nodeId: String): String = when (nodeId) {
+    "1" -> "Loading checkpoint"
+    "2", "3" -> "Encoding prompt"
+    "4" -> "Preparing latent"
+    "5" -> "Sampling"
+    "6" -> "Decoding image"
+    "7" -> "Saving image"
+    else -> "Running node"
 }
 
 internal data class ComfyOutputImage(
@@ -105,7 +166,7 @@ internal data class ComfyOutputImage(
 )
 
 internal class ComfyUiApi(private val http: OkHttpClient, server: String) {
-    private val base: HttpUrl = requireNotNull(server.trim().trimEnd('/').toHttpUrlOrNull()) {
+    internal val serverUrl: HttpUrl = requireNotNull(server.trim().trimEnd('/').toHttpUrlOrNull()) {
         "Enter a valid ComfyUI URL (http://host:8188)"
     }.also {
         require(it.username.isEmpty() && it.password.isEmpty() &&
@@ -114,7 +175,7 @@ internal class ComfyUiApi(private val http: OkHttpClient, server: String) {
         }
     }
     private val json = Json { ignoreUnknownKeys = true }
-    private fun url(path: String): HttpUrl = base.newBuilder().addPathSegment(path).build()
+    private fun url(path: String): HttpUrl = serverUrl.newBuilder().addPathSegment(path).build()
     private suspend fun request(req: Request): ByteArray = withContext(Dispatchers.IO) {
         http.newCall(req).execute().use { response ->
             if (!response.isSuccessful) {

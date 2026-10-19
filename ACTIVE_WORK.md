@@ -1,6 +1,22 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — ComfyUI WebSocket lifecycle, HTTP fallback (2026-10-19)
+
+From official ComfyUI docs, connected WebSocket before prompt submission;
+per-job execution events and actual KSampler step counts now render on
+the existing Images page. Only matching prompt IDs update progress;
+global status and executed/UI-output events cannot become completion
+signals. Final images remain from history/view, with bounded HTTP
+fallback after dropped WebSocket signals. Binary previews deliberately
+not implemented. Ran real loopback OkHttp upgrade/event test, typed
+parser tests, and read-only live ComfyUI WebSocket HTTP 101 handshake.
+All 1,541 app tests (225 suites) passed and APK assembled. Created
+checksum-verified private Pixel app backup, installed in place (Success);
+no app state clearing, no model inference and no ComfyUI server/network
+setting change. Real phone image gen and progress remain unverified.
+See docs/ui/comfyui-image-provider-2026-10-19.md. No push.
+
 ## Current checkpoint — ComfyUI standard txt2img provider (2026-10-19)
 
 Integrated a disabled-by-default ComfyUI provider with a stable image
