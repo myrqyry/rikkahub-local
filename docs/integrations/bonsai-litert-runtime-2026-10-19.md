@@ -119,3 +119,43 @@ memory-pressure, cancellation-during-inference, or latency evidence yet.
 Tested installer failure paths use tiny controlled JVM fixtures rather
 than pretending to execute native graphs. A user-selected complete Bonsai
 folder and an opt-in device acceptance test are required for that milestone.
+
+
+## Follow-up checkpoint — app-managed download (2026-10-19)
+
+The manual-only SAF folder import was the wrong default UX. Users should
+not have to assemble five Hugging Face files for a normal installation.
+
+- **Models → Add → Bonsai Image 4B** opens explicit confirmation
+  for approximately **4.27 GB**, with **Download 4.3 GB**, Cancel and
+  **Import a folder instead** as an alternative. No unsolicited download.
+- BonsaiPackageDownload reuses existing ModelInstall.download, including
+  immutable Hugging Face revision, resumable HTTP Range, expected sizes,
+  SHA-256 verification, cumulative progress and optional cancellation.
+  The five files arrive sequentially into Bonsai-only staging.
+- An interruption preserves completed and partially downloaded files
+  for retry. Corrupt staged files can be discarded without touching
+  installed models or FLUX. Full package verification and the receipt
+  precede atomic staged-directory promotion.
+- Model registration only follows a verified package. Retry after a
+  crash between promotion and registration registers the verified
+  existing package without refetching it.
+- Storage is checked against the remaining bytes plus 512 MiB reserve.
+- Tests cover successful streamed install, SHA mismatch, 206-range
+  resume, cancellation of an 8 MiB stream retaining partial bytes, and
+  protection of an existing installed package. These are controlled
+  HTTP fixtures, **not actual multi-gigabyte graphs**.
+- Live upstream check: pinned graph endpoints returned expected sizes:
+  1,798,100,240 / 2,267,356,304 / 198,831,180 bytes. The two
+  tokenizer files were actually fetched on desktop and SHA-256 matched.
+- Build and tests: 531 local-runtime and 1,501 app JVM tests, zero
+  failures/errors/skips. Debug APK installed in-place after a verified
+  backup of Pixel app database/datastore/shared preferences.
+- Real Pixel UI check: download confirmation with Download 4.3 GB,
+  Import a folder instead, and Cancel. Did **not** initiate download.
+  Returned phone to Chrome afterward.
+
+**Still unverified**: full 4.27 GB phone transfer, background download
+survival, actual inference, latency and memory behavior. No model weights
+installed and no user models or configuration overwritten.
+Local commit only; public branch was not pushed.

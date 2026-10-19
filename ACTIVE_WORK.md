@@ -1,6 +1,22 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — Bonsai now offers app-managed download (2026-10-19)
+
+Corrected the manual-only Bonsai installer UX. Models → Add → Bonsai Image 4B
+now offers **Download 4.3 GB** with explicit confirmation or **Import a
+folder instead**. Downloads use shared SHA-verified, resumable HTTP
+downloader with pinned revision, Bonsai-only staging, progress,
+cancellation, remaining-space check and receipt-before-promotion.
+Interrupted transfers reuse staged data; verified preexisting packages
+can be registered without refetching. Local-runtime 531 tests and app
+1,501 tests passed; APK installed on Pixel after private app-data backup.
+On-device confirmation dialog verified without starting large transfer.
+Pinned graph links returned correct sizes; small tokenizer files fetched
+and SHA-verified on desktop. **No full phone transfer or inference test.**
+Existing FLUX/data preserved, nothing pushed.
+See docs/integrations/bonsai-litert-runtime-2026-10-19.md.
+
 ## Current checkpoint — verified Bonsai package import in Models (2026-10-19)
 
 Models → Add now offers an opt-in Bonsai Image package folder import in

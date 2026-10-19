@@ -85,8 +85,10 @@ fun AddToModelsSheet(
         viewModel.addProvider(provider)
     }
     val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
+    val bonsaiDownloading by viewModel.bonsaiDownloading.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     var mode by remember { mutableStateOf(AddModelsMode.ROOT) }
+    var showBonsaiDownloadDialog by remember { mutableStateOf(false) }
 
     val remoteProviders = remember(settings.providers) {
         settings.providers.filterNot(::isLocalProvider)
@@ -147,9 +149,9 @@ fun AddToModelsSheet(
                                 onClick = { fluxFolderPickerLauncher.launch(null) },
                             )
                             AddChoiceRow(
-                                title = stringResource(R.string.model_manager_bonsai_import),
-                                subtitle = stringResource(R.string.model_manager_bonsai_import_desc),
-                                onClick = { bonsaiFolderPickerLauncher.launch(null) },
+                                title = stringResource(R.string.model_manager_bonsai_download),
+                                subtitle = stringResource(R.string.model_manager_bonsai_download_desc),
+                                onClick = { showBonsaiDownloadDialog = true },
                             )
                         }
 
@@ -219,8 +221,43 @@ fun AddToModelsSheet(
                 }
             }
 
-            DownloadStatus(downloadProgress, errorMessage)
+            DownloadStatus(
+                downloadProgress, errorMessage,
+                onCancel = if (bonsaiDownloading) viewModel::cancelBonsaiDownload else null,
+            )
         }
+    }
+
+    if (showBonsaiDownloadDialog) {
+        AlertDialog(
+            onDismissRequest = { showBonsaiDownloadDialog = false },
+            title = { Text(stringResource(R.string.model_manager_bonsai_download)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.model_manager_bonsai_download_confirm))
+                    TextButton(
+                        onClick = {
+                            showBonsaiDownloadDialog = false
+                            bonsaiFolderPickerLauncher.launch(null)
+                        },
+                    ) { Text(stringResource(R.string.model_manager_bonsai_import_instead)) }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = downloadProgress == null,
+                    onClick = {
+                        showBonsaiDownloadDialog = false
+                        viewModel.downloadBonsaiPackage()
+                    },
+                ) { Text(stringResource(R.string.model_manager_bonsai_download_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBonsaiDownloadDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
     }
 
     if (editState.isEditing) {
@@ -356,6 +393,7 @@ private fun HuggingFaceImport(
 private fun DownloadStatus(
     downloadProgress: Progress?,
     errorMessage: String?,
+    onCancel: (() -> Unit)? = null,
 ) {
     downloadProgress?.let { progress ->
         Column(
@@ -370,10 +408,21 @@ private fun DownloadStatus(
             } else {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
-            Text(
-                text = stringResource(R.string.local_llm_download_progress, progress.percent),
-                style = MaterialTheme.typography.labelSmall,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = stringResource(R.string.local_llm_download_progress, progress.percent),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+                if (onCancel != null) {
+                    TextButton(onClick = onCancel) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            }
         }
     }
 

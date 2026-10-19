@@ -41,6 +41,7 @@ import me.rerere.locallm.litert.image.bonsai.BONSAI_IMAGE_MODEL
 import me.rerere.locallm.litert.image.bonsai.BonsaiBundle
 import me.rerere.locallm.litert.image.bonsai.BonsaiBundlePackage
 import me.rerere.locallm.litert.image.bonsai.BonsaiPackageImport
+import me.rerere.locallm.litert.image.bonsai.BonsaiPackageDownload
 import me.rerere.locallm.litert.image.FLUX2_KLEIN_MODEL
 import me.rerere.locallm.litert.image.Flux2KleinPackage
 import me.rerere.locallm.litert.image.Flux2KleinPackageStatus
@@ -589,6 +590,73 @@ class ModelManagerViewModel(
                 _downloadProgress.value = null
             }
         }
+    }
+
+    private val _bonsaiDownloading = MutableStateFlow(false)
+    val bonsaiDownloading: StateFlow<Boolean> = _bonsaiDownloading.asStateFlow()
+    private var bonsaiDownloadJob: Job? = null
+
+    /** An explicit user-initiated download of the revision-pinned, full Bonsai
+     * package. Uses the shared resumable verified downloader, never a manual
+     * Hugging Face URL or an implicit multi-GB background transfer. */
+    fun downloadBonsaiPackage() {
+        if (_downloadProgress.value != null || bonsaiDownloadJob?.isActive == true) return
+        _errorMessage.value = null
+        val total = BonsaiBundle.files.sumOf { it.bytes }
+        _downloadProgress.value = Progress(0, 0, total)
+        _bonsaiDownloading.value = true
+        bonsaiDownloadJob = viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val parent = bonsaiPackage.root.parentFile!!
+                    check(parent.isDirectory || parent.mkdirs()) { "Cannot create Bonsai model storage" }
+                    if (!bonsaiPackage.isInstalled()) {
+                        check(!bonsaiPackage.root.exists()) {
+                            "An incomplete Bonsai package exists; refusing to overwrite it"
+                        }
+                        val remaining = BonsaiPackageDownload.remainingBytes(bonsaiPackage.root)
+                        val available = StatFs(parent.absolutePath).availableBytes
+                        check(available > remaining + 512L * 1024L * 1024L) {
+                            "Insufficient space for Bonsai (download needs " +
+                                (remaining / 1_048_576L) + " MiB plus 512 MiB reserve)"
+                        }
+                        BonsaiPackageDownload.download(
+                            client = httpClient,
+                            packageRoot = bonsaiPackage.root,
+                            onProgress = { transferred, expected ->
+                                _downloadProgress.value = Progress(
+                                    ((transferred * 100L) / expected).toInt().coerceIn(0, 100),
+                                    transferred, expected,
+                                )
+                            },
+                        )
+                    }
+                    check(bonsaiPackage.isInstalled()) {
+                        "Bonsai download completed without a valid package receipt"
+                    }
+                }
+                settingsStore.update { settings ->
+                    ModelRegistration.register(
+                        settings, LITERT_PROVIDER_ID, BONSAI_IMAGE_MODEL,
+                        bonsaiPackage.root.absolutePath,
+                    )
+                }
+                _galleryVersion.value += 1
+            } catch (e: CancellationException) {
+                // Keep .partial files in download-only staging for a later retry.
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Bonsai download failed; tap Download to retry"
+            } finally {
+                _bonsaiDownloading.value = false
+                _downloadProgress.value = null
+                bonsaiDownloadJob = null
+            }
+        }
+    }
+
+    fun cancelBonsaiDownload() {
+        bonsaiDownloadJob?.cancel()
     }
 
     fun setEnabled(enabled: Boolean) = viewModelScope.launch {

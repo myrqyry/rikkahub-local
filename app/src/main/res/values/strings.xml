@@ -2072,6 +2072,11 @@
   <string name="model_manager_flux_import">Import FLUX.2-klein package</string>
   <string name="model_manager_bonsai_import">Import Bonsai Image package</string>
   <string name="model_manager_bonsai_import_desc">256px CPU image model · 5 verified files · about 4.3 GB</string>
+  <string name="model_manager_bonsai_download">Bonsai Image 4B</string>
+  <string name="model_manager_bonsai_download_desc">Download verified on-device image model · 4.3 GB</string>
+  <string name="model_manager_bonsai_download_confirm">Download all five model files (about 4.3 GB) from Hugging Face? Bonsai is intended for local image generation; performance on this phone is not yet verified. Wi-Fi and at least 4.8 GB of free storage are recommended. Interrupted downloads can resume.</string>
+  <string name="model_manager_bonsai_download_action">Download 4.3 GB</string>
+  <string name="model_manager_bonsai_import_instead">Import a folder instead</string>
   <string name="unified_models_configure">Configure</string>
   <string name="unified_models_provider_count">%1$d models</string>
   <string name="setting_page_agent">Facets</string>
