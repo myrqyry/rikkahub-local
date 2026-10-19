@@ -86,3 +86,31 @@ before advertising it as an Android provider.
   model-backed audio. Avoid fake integration provider entries.
 - Do not push branch wholesale; existing local history has unrelated
   unpublished commits.
+
+## GGUF CPU tool build checkpoint (same date)
+
+Built the pinned upstream llama.cpp source at revision `1b29621` using
+CMake + Ninja in a disposable host directory with `GGML_CUDA=OFF`,
+`GGML_VULKAN=OFF` and tools enabled.
+
+```sh
+cmake -S /tmp/qwen3-tts-llama-source-check \
+  -B /tmp/qwen3-tts-llama-cpu-build -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release -DLLAMA_BUILD_TOOLS=ON \
+  -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TESTS=OFF \
+  -DLLAMA_BUILD_SERVER=OFF -DGGML_CUDA=OFF -DGGML_VULKAN=OFF \
+  -DGGML_NATIVE=OFF -DLLAMA_CURL=OFF
+cmake --build /tmp/qwen3-tts-llama-cpu-build --target llama-tts -j 6
+/tmp/qwen3-tts-llama-cpu-build/bin/llama-tts --help
+```
+
+Result: executable linked successfully (205 Ninja actions) and `--help`
+ran with exit 0. It exposes `--model`, `--hf-repo`, `--output`,
+`--tts-lang` and `--tts-speaker-file`. No GGUF model or speaker reference
+was downloaded or loaded, and no speech was synthesized. This **does not**
+prove audio correctness, voice-cloning compatibility, low-latency CPU,
+CUDA support, or Android integration. The binary and source are kept only
+in disposable `/tmp` directories; this is not a new RikkaHub provider.
+Solidaxel's hybrid GGUF+ONNX files should not be assumed compatible with
+the llama.cpp runner; the documented llama.cpp reference package is
+`ggml-org/Qwen3-TTS-12Hz-1.7B-Base-GGUF`.

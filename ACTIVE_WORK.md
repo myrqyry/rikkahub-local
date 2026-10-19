@@ -1,6 +1,16 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — llama.cpp Qwen3 GGUF CPU entrypoint built (2026-10-19)
+
+Checked upstream `tools/tts/README.md` and built CPU-only `llama-tts`
+from llama.cpp source revision `1b29621` in an isolated /tmp checkout.
+205 build actions succeeded; executable `--help` runs and exposes
+model, audio output, language and speaker-reference options. **No GGUF
+weights downloaded, no speech generated, no GPU or Android runtime
+validated.** RikkaHub repo itself unchanged by this experiment; no
+GGUF provider added. See docs/ui/qwen3-tts-litert-legacy-download-repair-2026-10-19.md.
+
 ## Current checkpoint — repaired Qwen3-TTS pinned legacy LiteRT download (2026-10-19)
 
 Verified Hugging Face's original Qwen3-TTS 0.6B three-graph bundle moved
