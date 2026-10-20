@@ -145,3 +145,45 @@ Verification:
   external server configuration or networking exposure occurred.
   Real phone generation, partial preview, GPU performance and
   gallery end-to-end still require a separate model-backed test.
+
+
+## Real local provider acceptance (2026-10-20)
+
+The Android project's actual `ComfyUiProvider` has now completed one
+image-generation job against the existing ComfyUI at
+`http://127.0.0.1:8188`, using a desktop/JVM test process. This is a
+**non-fixture provider/server integration**, not an Android UI session:
+
+- Source: opt-in `app/src/test/java/me/rerere/rikkahub/data/ai/ComfyUiLiveAcceptanceTest.kt`.
+  Preflight confirms the real server queue is empty and that
+  `dreamshaper_8.safetensors` is installed.
+- Inputs: a simple paper-crane prompt, square **256×256**, **8** sampler
+  steps, `euler/normal`, deterministic seed **20261020**, one image.
+- The production provider attempted its WebSocket event path, submitted
+  the standard seven-node workflow, and acquired resulting bytes through
+  the authoritative history/view path. The successful result alone does
+  **not** prove individual WebSocket progress events were delivered rather
+  than recovered via HTTP history.
+- The output was **102,639 bytes**; the JVM decoder confirmed **256×256**
+  pixels and **64** distinct sampled pixel colors. SHA-256:
+  `7647fed86094d5b7ae3f6c7195f8e171e2fe7b522b7d538209bb83298c047eaa`.
+  A separate read of ComfyUI's real history found the uniquely matching
+  prompt/seed and its output PNG with exactly that digest. Private test
+  PNG and receipt:
+  `~/.local/state/meristem/rikkahub-local/comfy-provider-20261020/`.
+- To deliberately run this real-GPU test on the authorized workstation:
+  ```bash
+  RIKKAHUB_COMFY_ACCEPTANCE=1 ./gradlew :app:testDebugUnitTest     --tests '*ComfyUiLiveAcceptanceTest'
+  ```
+  The environment switch must not be enabled by routine CI, pre-push
+  hooks, or general test commands. One run consumes real GPU resources
+  and produces a persistent image in ComfyUI's output directory.
+- Routine `./gradlew :app:testDebugUnitTest :app:assembleDebug` passed:
+  **1,542 app JVM tests, 1 expected skipped live test, 0 failures/errors**,
+  APK build successful. The opt-in gate was confirmed to **skip without
+  its switch**. No phone app install or local user-data changes were made.
+
+**Open:** Pixel's ComfyUI configuration, checkpoint selection, real UI
+image generation, gallery persistence, and physical-device progress display
+are still unverified. Pixel was actively showing ChatGPT, and was not
+interrupted for this desktop/provider acceptance.

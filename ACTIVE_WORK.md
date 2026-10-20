@@ -1,6 +1,32 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — REAL local ComfyUI provider acceptance (2026-10-20)
+
+Added opt-in `ComfyUiLiveAcceptanceTest` to exercise the existing, unchanged
+Android app provider implementation against yuzu-mint's real local ComfyUI,
+not an HTTP fixture. Explicit `RIKKAHUB_COMFY_ACCEPTANCE=1` required; it
+checks the server queue is idle and the exact DreamShaper checkpoint is
+installed before submitting one bounded 256×256 / eight-step job. The real
+`ComfyUiProvider.generateImage` returned 102,639 image bytes; JVM ImageIO
+decoded 256×256, 64 sampled distinct colors, SHA-256
+`7647fed86094d5b7ae3f6c7195f8e171e2fe7b522b7d538209bb83298c047eaa`.
+The digest independently matched that job's actual ComfyUI history PNG.
+Private image/receipt live in
+`~/.local/state/meristem/rikkahub-local/comfy-provider-20261020/`.
+
+Normal `./gradlew :app:testDebugUnitTest :app:assembleDebug` passes:
+**1,542 app JVM tests, one deliberately skipped opt-in live test, zero
+failures/errors**, debug APK assembled. This was a desktop/JVM execution of
+the production provider code and ComfyUI server, **not** phone UI or Android
+gallery verification, nor proof of actual WebSocket progress delivery.
+Pixel is USB-connected but currently showing ChatGPT, so no activity
+switch, install, app preference edits or data reset was performed.
+No ComfyUI configuration, user job or network bind change. The image job
+added one generated output on the local ComfyUI server. **No push.**
+See `docs/ui/comfyui-image-provider-2026-10-19.md` for the documented test.
+
+
 ## Current checkpoint — ComfyUI WebSocket lifecycle, HTTP fallback (2026-10-19)
 
 From official ComfyUI docs, connected WebSocket before prompt submission;
