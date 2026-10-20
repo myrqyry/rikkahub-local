@@ -387,6 +387,7 @@ class LiteRtProvider(
                 topK = providerSetting.topK ?: config.topK,
                 topP = providerSetting.topP ?: config.topP,
                 temperature = providerSetting.temperature ?: config.temperature,
+                maxOutputToken = params.maxTokens?.takeIf { it > 0 },
             )
         } catch (corrupt: LiteRtModelCorruptException) {
             handleCorruptModel(corrupt)

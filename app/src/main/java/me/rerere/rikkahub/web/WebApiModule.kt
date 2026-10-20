@@ -22,6 +22,7 @@ import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.ai.mcp.McpManager
+import me.rerere.ai.provider.ProviderManager
 import me.rerere.rikkahub.data.ai.tools.LocalTools
 import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.data.repository.ConversationRepository
@@ -37,6 +38,7 @@ import me.rerere.rikkahub.web.routes.conversationRoutes
 import me.rerere.rikkahub.web.routes.eventsRoutes
 import me.rerere.rikkahub.web.routes.filesRoutes
 import me.rerere.rikkahub.web.routes.folderRoutes
+import me.rerere.rikkahub.web.routes.openAiCompatibilityRoutes
 import me.rerere.rikkahub.web.routes.settingsRoutes
 import me.rerere.rikkahub.web.mcp.statelessMcpRoute
 import java.security.MessageDigest
@@ -70,6 +72,7 @@ fun Application.configureWebApi(
      filesManager: FilesManager,
      mcpManager: McpManager,
      localTools: LocalTools,
+     providerManager: ProviderManager,
 ) {
     val jwtEnabled = settingsStore.settingsFlow.value.webServerJwtEnabled
 
@@ -146,9 +149,11 @@ fun Application.configureWebApi(
         if (jwtEnabled) {
             authenticate("auth-jwt") {
                 statelessMcpRoute(mcpManager, conversationRepo, settingsStore, localTools, authenticatedRoute = true)
+                openAiCompatibilityRoutes(settingsStore, providerManager)
             }
         } else {
             statelessMcpRoute(mcpManager, conversationRepo, settingsStore, localTools, authenticatedRoute = false)
+            openAiCompatibilityRoutes(settingsStore, providerManager)
         }
 
         route("/api") {

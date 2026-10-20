@@ -269,6 +269,7 @@ class LiteRtRuntime(private val context: Context) {
         val topK: Int,
         val topP: Double,
         val temperature: Double,
+        val maxOutputToken: Int?,
     )
 
     /** Everything needed to (re)build a [Conversation] for the cold path without re-deriving
@@ -280,6 +281,7 @@ class LiteRtRuntime(private val context: Context) {
         val topK: Int,
         val topP: Double,
         val temperature: Double,
+        val maxOutputToken: Int?,
     )
 
     private class LoadedModel(
@@ -374,6 +376,7 @@ class LiteRtRuntime(private val context: Context) {
         topK: Int = 64,
         topP: Double = 0.95,
         temperature: Double = 1.0,
+        maxOutputToken: Int? = null,
     ): LoadOutcome = mutex.withLock {
         // Use in-session fallback if a prior GPU→CPU retry already succeeded this session.
         // forceCpu wins over a non-null preferredAccel.
@@ -407,6 +410,7 @@ class LiteRtRuntime(private val context: Context) {
             topK = topK,
             topP = topP,
             temperature = temperature,
+            maxOutputToken = maxOutputToken,
         )
         val desiredConversationSpec = ConversationSpec(
             systemInstruction = systemInstruction,
@@ -415,6 +419,7 @@ class LiteRtRuntime(private val context: Context) {
             topK = topK,
             topP = topP,
             temperature = temperature,
+            maxOutputToken = maxOutputToken,
         )
 
         val current = loaded
@@ -725,6 +730,7 @@ class LiteRtRuntime(private val context: Context) {
                     },
                     systemInstruction = spec.systemInstruction,
                     tools = spec.tools,
+                    maxOutputToken = spec.maxOutputToken,
                 )
             )
         } finally {
