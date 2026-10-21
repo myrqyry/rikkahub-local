@@ -69,3 +69,7 @@ app/src/main/jni/litert/litert_cc_sdk/
 # meristem:local-ignore:start
 .meristem/local/
 # meristem:local-ignore:end
+
+superpowers/
+
+.superpowers/
