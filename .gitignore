@@ -66,3 +66,7 @@ app/google-services.json
 # meristem:local-ignore:start
 .meristem/local/
 # meristem:local-ignore:end
+
+superpowers/
+
+.superpowers/
