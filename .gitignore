@@ -47,3 +47,7 @@ app/src/main/jni/litert/litert_cc_sdk/
 
 # OpenCode plugin install artifacts — not project code
 .opencode/
+
+superpowers/
+
+.superpowers/
