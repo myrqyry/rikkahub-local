@@ -78,6 +78,11 @@ class OpenCodeRepository(
         ).also { store.saveWorkspaceRef(it) }
     }
 
+    suspend fun listSessions(refId: String): List<OpenCodeSession> {
+        val ref = requireRef(refId)
+        return client(requireConnection(ref.connectionId)).listSessions(ref.remoteDirectory)
+    }
+
     suspend fun createSession(refId: String): OpenCodeSession {
         val ref = requireRef(refId)
         return client(requireConnection(ref.connectionId)).createSession(ref.remoteDirectory)
@@ -96,6 +101,26 @@ class OpenCodeRepository(
     suspend fun abortSession(refId: String, sessionId: String): Boolean {
         val ref = requireRef(refId)
         return client(requireConnection(ref.connectionId)).abortSession(sessionId, ref.remoteDirectory)
+    }
+
+    suspend fun observeSession(refId: String, sessionId: String): Flow<OpenCodeSessionSignal> {
+        val ref = requireRef(refId)
+        return client(requireConnection(ref.connectionId)).observeSession(sessionId, ref.remoteDirectory)
+    }
+
+    suspend fun getSessionStatus(refId: String, sessionId: String): String? {
+        val ref = requireRef(refId)
+        return client(requireConnection(ref.connectionId)).getSessionStatus(sessionId, ref.remoteDirectory)
+    }
+
+    suspend fun listPendingPermissions(refId: String, sessionId: String): List<OpenCodePermission> {
+        val ref = requireRef(refId)
+        return client(requireConnection(ref.connectionId)).listPendingPermissions(sessionId, ref.remoteDirectory)
+    }
+
+    suspend fun replyPermission(refId: String, sessionId: String, requestId: String, reply: OpenCodePermissionReply): Boolean {
+        val ref = requireRef(refId)
+        return client(requireConnection(ref.connectionId)).replyPermission(sessionId, ref.remoteDirectory, requestId, reply)
     }
 
     private suspend fun requireConnection(id: String) = store.getConnection(id)

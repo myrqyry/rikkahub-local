@@ -67,6 +67,58 @@ internal class OpenCodeHttpClient(
         return true
     }
 
+    override fun observeSession(sessionId: String, directory: String?): kotlinx.coroutines.flow.Flow<OpenCodeSessionSignal> {
+        val url = "$baseUrl/global/event".toHttpUrl().newBuilder().apply {
+            directory?.let { addQueryParameter("directory", it) }
+        }.build().toString()
+        return openCodeSessionEvents(client, url, authorizationValue(), directory, sessionId)
+    }
+
+    override suspend fun getSessionStatus(sessionId: String, directory: String?): String? {
+        val all = get("/session/status", directoryQuery(directory)) as? JsonObject ?: return null
+        val status = all[sessionId] as? JsonObject ?: return "unknown"
+        return status.string("type") ?: "unknown"
+    }
+
+    override suspend fun listPendingPermissions(sessionId: String, directory: String?): List<OpenCodePermission> {
+        val all = get("/permission", directoryQuery(directory)) as? JsonArray ?: return emptyList()
+        return all.mapNotNull { item ->
+            val obj = item as? JsonObject ?: return@mapNotNull null
+            val id = obj.string("id") ?: return@mapNotNull null
+            val owner = obj.string("sessionID") ?: return@mapNotNull null
+            if (owner != sessionId) return@mapNotNull null
+            OpenCodePermission(
+                id = id,
+                sessionId = owner,
+                permission = obj.string("permission") ?: "unspecified",
+                patterns = (obj["patterns"] as? JsonArray)?.mapNotNull {
+                    (it as? JsonPrimitive)?.takeIf { part -> part.isString }?.contentOrNull
+                }?.take(20) ?: emptyList(),
+            )
+        }
+    }
+
+    override suspend fun replyPermission(
+        sessionId: String,
+        directory: String?,
+        requestId: String,
+        reply: OpenCodePermissionReply,
+    ): Boolean {
+        require(requestId.matches(Regex("per_[A-Za-z0-9_-]{1,120}"))) { "Invalid OpenCode permission ID" }
+        // Re-read authority at execution time; stale or foreign requests must never be approved.
+        if (listPendingPermissions(sessionId, directory).none { it.id == requestId }) return false
+        val result = post(
+            "/permission/${requestId.pathSegment()}/reply", directoryQuery(directory),
+            buildJsonObject { put("reply", reply.wireValue) },
+        )
+        return (result as? JsonPrimitive)?.booleanOrNull == true
+    }
+
+    private fun authorizationValue(): String? = credential?.let { value ->
+        if (value.startsWith("Basic ") || value.startsWith("Bearer ")) value
+        else "Basic ${Base64.encodeToString(value.encodeToByteArray(), Base64.NO_WRAP)}"
+    }
+
     private suspend fun get(path: String, query: Map<String, String> = emptyMap()): JsonElement =
         request("GET", path, query, null)
 

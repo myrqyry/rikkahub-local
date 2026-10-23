@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -38,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.opencode.OpenCodeMessage
+import me.rerere.rikkahub.data.opencode.OpenCodePermissionReply
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.theme.CustomColors
 import org.koin.androidx.compose.koinViewModel
@@ -86,24 +86,50 @@ fun OpenCodeWorkspaceDetailPage(refId: String) {
             val session = state.session
             if (session == null) {
                 Surface(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     color = scheme.surfaceContainerLow,
                     shape = RoundedCornerShape(18.dp),
-                    tonalElevation = 1.dp,
                 ) {
                     Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         Text(
                             stringResource(R.string.workspace_opencode_detail_no_session),
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Button(onClick = vm::createSession, enabled = !state.loading) {
-                            if (state.loading) {
-                                CircularProgressIndicator(modifier = Modifier.padding(4.dp))
-                            } else {
-                                Text(stringResource(R.string.workspace_opencode_detail_start_session))
+                            Text(stringResource(R.string.workspace_opencode_detail_start_session))
+                        }
+                        TextButton(onClick = vm::loadExistingSessions, enabled = !state.loading) {
+                            Text("Refresh existing sessions")
+                        }
+                    }
+                }
+                if (state.loading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                if (state.sessions.isNotEmpty()) {
+                    Text(
+                        "Continue an existing OpenCode session",
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(state.sessions, key = { it.id }) { existing ->
+                            Surface(
+                                onClick = { vm.selectSession(existing) },
+                                color = scheme.surfaceContainerLow,
+                                shape = RoundedCornerShape(14.dp),
+                                border = BorderStroke(1.dp, scheme.outlineVariant),
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+                                    Text(existing.title?.takeIf { it.isNotBlank() } ?: existing.id.take(16))
+                                    Text(existing.id, style = MaterialTheme.typography.labelSmall,
+                                        color = scheme.onSurfaceVariant)
+                                }
                             }
                         }
                     }
@@ -135,6 +161,11 @@ fun OpenCodeWorkspaceDetailPage(refId: String) {
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
+                        Text(
+                            if (state.eventConnected) "Live · ${state.status}" else "Offline · ${state.status}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = scheme.onSurfaceVariant,
+                        )
                     }
                 }
                 LazyColumn(
@@ -142,6 +173,49 @@ fun OpenCodeWorkspaceDetailPage(refId: String) {
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    item(key = "pending_permissions") {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            state.permissionError?.let { warning ->
+                                Text(warning, color = scheme.error,
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                            state.pendingPermissions.forEach { permission ->
+                                Surface(
+                                    color = scheme.surfaceContainer,
+                                    shape = RoundedCornerShape(14.dp),
+                                    border = BorderStroke(1.dp, scheme.outlineVariant),
+                                ) {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        Text("OpenCode requests permission: ${permission.permission}",
+                                            style = MaterialTheme.typography.titleSmall)
+                                        Text(
+                                            permission.patterns.joinToString(", ").take(600),
+                                            color = scheme.onSurfaceVariant,
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            val busy = state.handlingPermissionId != null
+                                            TextButton(
+                                                enabled = !busy,
+                                                onClick = {
+                                                    vm.respondToPermission(permission.id, OpenCodePermissionReply.ONCE)
+                                                },
+                                            ) { Text("Allow once") }
+                                            TextButton(
+                                                enabled = !busy,
+                                                onClick = {
+                                                    vm.respondToPermission(permission.id, OpenCodePermissionReply.REJECT)
+                                                },
+                                            ) { Text("Reject") }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     items(state.messages, key = { it.id }) { message ->
                         OpenCodeMessageSurface(message)
                     }

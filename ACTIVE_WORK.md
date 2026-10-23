@@ -1,6 +1,36 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — OpenCode 1 ↔ RikkaHub live workspace interaction (2026-10-22)
+
+Added live OpenCode session monitoring on RikkaHub's existing Kotlin Web
+workspace path, without installing OpenCode Manager or modifying the dirty
+desktop OpenCode worktree. The screen can list and resume existing sessions,
+receive scoped `/global/event` SSE changes and reconnect/reconcile from
+authoritative `/session/{id}/message`, `/session/status`, and `/permission`
+reads; it never replays an uncertain prompt. Explicit approval responses are
+limited to Allow once / Reject, with pending-request revalidation at dispatch.
+SSE parsing bounds frames, isolates session and directory, and treats events
+as refresh signals rather than completion proof. No permanent permission
+grant or background notification mechanism was introduced.
+
+Evidence: test-first `OpenCodeLiveBridgeTest` RED then GREEN, including
+OkHttp stream delivery and reconnect-without-POST tests. Existing live
+OpenCode 1.18.31 at desktop loopback `127.0.0.1:4097` answered read-only
+health/session/status/permission endpoints and real SSE handshake HTTP 200,
+text/event-stream, server.connected. Final
+`./gradlew :app:testDebugUnitTest :app:assembleDebug` PASS:
+**1,560 tests / 229 suites, 1 intentional skip, 0 failures**; debug APK
+assembled. Details and limitations:
+`docs/integrations/opencode-live-workspace.md`.
+
+**Not accepted on phone:** Desktop listener is loopback-only; real phone
+workspace connectivity needs a separately authenticated transport. No
+permission was actually granted, no real pending approval was available,
+and Android UI/background/reconnect isn't device verified. No phone install,
+ADB destructive action, configuration change, port opening, push, or
+OpenCode repo modification. History MCP work from prior checkpoint retained.
+
 ## Current checkpoint — Native RikkaHub history MCP retrieval (2026-10-22)
 
 Integrated the useful retrieval mechanics of Photalia/rikkahub-history-mcp
