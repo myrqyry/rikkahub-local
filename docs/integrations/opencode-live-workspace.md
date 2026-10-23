@@ -69,10 +69,22 @@ with no silent fallback, prompt replay or V2 service migration.
 - **No user-data-bearing phone APK installed**, no app-data reset,
   server restart, active OpenCode session mutation, permission grant, or new
   external listener. Existing OpenCode UI worktree changes were untouched.
-- The desktop server on port 4097 is **loopback-only**. Phone ↔ desktop
-  workspace control requires a separately verified **authenticated transport**
-  (e.g. a protected tailnet reverse proxy); do not expose the raw coding API
-  on the LAN or internet simply to make this reachable.
+- **Correction (2026-10-22):** Port 4097 is only one loopback OpenCode
+  process, not the user's sole transport. A separate OpenCode-compatible
+  server is listening on **0.0.0.0:4196**, and `doopa` (another tailnet
+  device) successfully performed read-only GETs over the desktop Tailscale
+  IP to `/global/health`, `/session/status`, and `/permission`: all
+  HTTP 200. A cross-device `/global/event` SSE connection returned HTTP
+  200, `text/event-stream`, and `server.connected`. Thus **tailnet
+  transport already exists**; setting up a new proxy is not an established
+  prerequisite. This was a read-only peer test, **not phone-originated
+  validation**.
+- Port 4196 is reached as a direct tailnet-IP TCP listener, **not** one
+  of the current `tailscale serve` HTTPS proxy mappings. These read-only
+  requests received no OpenCode HTTP auth challenge from a permitted tailnet
+  peer. Before enabling remote approval actions, review tailnet ACLs and
+  endpoint auth and verify whether the 0.0.0.0 bind also allows unintended
+  local-network reachability. Do not expose the raw coding API publicly.
 - No real pending permission existed at inspection, so the button-to-server
   action and on-device permission approval are not device verified.
   Approval is interactive while the workspace screen is open; background
@@ -81,6 +93,6 @@ with no silent fallback, prompt replay or V2 service migration.
 - This is workspace session interaction, distinct from the existing
   RikkaHub ↔ OpenCode model inference bridges and the history MCP server.
   Do not conflate working local SSE/read-only calls with remote-phone
-  acceptance. Once a secured route and backed-up in-place APK are available,
-  verify actual phone-originated events, disconnect/reconnect, approvals,
+  acceptance. After endpoint auth/ACL review and a backed-up in-place APK
+  update, verify actual phone-originated events, disconnect/reconnect, approvals,
   cancellation, status and no duplicate prompts.

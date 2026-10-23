@@ -24,12 +24,20 @@ text/event-stream, server.connected. Final
 assembled. Details and limitations:
 `docs/integrations/opencode-live-workspace.md`.
 
-**Not accepted on phone:** Desktop listener is loopback-only; real phone
-workspace connectivity needs a separately authenticated transport. No
-permission was actually granted, no real pending approval was available,
-and Android UI/background/reconnect isn't device verified. No phone install,
-ADB destructive action, configuration change, port opening, push, or
-OpenCode repo modification. History MCP work from prior checkpoint retained.
+**Tailnet correction (2026-10-22):** The localhost-only 4097 instance is
+not the sole OpenCode service. Another server on **0.0.0.0:4196** responds
+from an independent tailnet peer (`doopa`): health/status/permission
+GETs HTTP 200 and actual SSE HTTP 200 with `server.connected`. The
+tailnet route already exists; prior new-proxy blocker was incorrect.
+Port 4196 is direct tailnet-IP access, not a `tailscale serve` proxy
+mapping. The endpoint returned read data without HTTP auth; review
+ACLs/auth and possible LAN access before relying on remote approvals.
+
+**Not accepted on phone:** Neither the new APK nor its workspace UI was
+tested phone-to-desktop; no permission was actually granted or pending
+approval available. Android background/reconnect remains unverified.
+No phone install, ADB destructive action, config change, port opening,
+push, or OpenCode repo modification. History MCP checkpoint retained.
 
 ## Current checkpoint — Native RikkaHub history MCP retrieval (2026-10-22)
 
