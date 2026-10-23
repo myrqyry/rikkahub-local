@@ -51,6 +51,9 @@ const val WEB_SERVER_NOTIFICATION_CHANNEL_ID = "web_server"
 const val TRANSLATE_BUBBLE_NOTIFICATION_CHANNEL_ID = "translate_bubble"
 
 class RikkaHubApp : Application() {
+    // Capture before Koin, workers and trigger registration can create new ledger rows.
+    private val processStartedAtMs = System.currentTimeMillis()
+
     override fun onCreate() {
         super.onCreate()
         startKoin {
@@ -137,10 +140,9 @@ class RikkaHubApp : Application() {
 
         // Phase 24 — unified AgentRun ledger boot recovery. Walk the ledger once per
         // process start: any autonomous run (cron / workflow / sub-agent / Telegram /
-        // external automation) left in flight by a killed process is flipped to
-        // `process_lost` and a single aggregate notification is fired. This is the
-        // cross-pillar generalisation of the Phase 9.5 cron stranded-row sweep and is what
-        // makes background sub-agents survivable across process death.
+        // external automation) last updated before this process began is flipped to
+        // `process_lost`, with one aggregate notification. This preserves visibility and
+        // manual checkpoint recovery; it does not automatically resume sub-agents or tools.
         runAgentRunBootRecovery()
 
         // Auto-recover from a prior native crash inside a local-runtime JNI lib
@@ -258,7 +260,8 @@ class RikkaHubApp : Application() {
     private fun runAgentRunBootRecovery() {
         get<AppScope>().launch(Dispatchers.IO) {
             runCatching {
-                get<me.rerere.rikkahub.data.agentrun.AgentRunBootRecovery>().runRecovery()
+                get<me.rerere.rikkahub.data.agentrun.AgentRunBootRecovery>()
+                    .runRecovery(processStartedAtMs)
             }.onFailure {
                 Log.w(TAG, "runAgentRunBootRecovery failed", it)
             }

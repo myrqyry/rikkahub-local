@@ -18,8 +18,9 @@ import org.junit.Test
 class AgentRunBootRecoveryTest {
 
     private val now = System.currentTimeMillis()
-    private val stale = now - AgentRunDefaults.STRANDED_THRESHOLD_MS - 60_000L
-    private val fresh = now - 5_000L
+    private val stale = now - 31L * 60_000L
+    // A separate new run created after the current process started.
+    private val fresh = now + 5_000L
 
     private var notifiedWith: List<AgentRun>? = null
     private var notifyCount = 0
@@ -45,10 +46,10 @@ class AgentRunBootRecoveryTest {
     )
 
     @Test
-    fun `stranded running rows older than the threshold are flipped to process_lost`() = runBlocking {
+    fun `prior-process in-flight rows are flipped to process_lost`() = runBlocking {
         val dao = FakeAgentRunDao()
         val repo = AgentRunRepository(dao)
-        // A genuinely stranded run: running, not touched in over 30 minutes.
+        // Prior-process run, still in-flight after restart.
         dao.insert(
             runRow(id = "stranded-1", status = AgentRunStatus.running, updatedAtMs = stale)
         )
@@ -56,7 +57,7 @@ class AgentRunBootRecoveryTest {
             runRow(id = "stranded-2", status = AgentRunStatus.awaiting_approval, updatedAtMs = stale)
         )
 
-        val flipped = recovery(repo).runRecovery()
+        val flipped = recovery(repo).runRecovery(now)
 
         assertEquals(2, flipped)
         assertEquals(AgentRunStatus.process_lost.name, repo.getById("stranded-1")!!.status)
@@ -73,11 +74,50 @@ class AgentRunBootRecoveryTest {
         // A run that updated recently — a live process owns it, leave it alone.
         dao.insert(runRow(id = "live-1", status = AgentRunStatus.running, updatedAtMs = fresh))
 
-        val flipped = recovery(repo).runRecovery()
+        val flipped = recovery(repo).runRecovery(now)
 
         assertEquals(0, flipped)
         assertEquals(AgentRunStatus.running.name, repo.getById("live-1")!!.status)
         assertEquals("no notification when nothing was flipped", 0, notifyCount)
+    }
+
+    @Test
+    fun `a recent run left by the previous process is recovered at startup`() = runBlocking {
+        val dao = FakeAgentRunDao()
+        val repo = AgentRunRepository(dao)
+        dao.insert(runRow(id = "prior-process", status = AgentRunStatus.running, updatedAtMs = now - 5_000L))
+
+        val flipped = recovery(repo).runRecovery(now)
+
+        assertEquals(1, flipped)
+        assertEquals(AgentRunStatus.process_lost.name, repo.getById("prior-process")!!.status)
+        assertEquals(1, notifyCount)
+    }
+
+    @Test
+    fun `a run refreshed after the recovery scan is not falsely marked lost`() = runBlocking {
+        val backing = FakeAgentRunDao()
+        backing.insert(runRow(id = "refreshed", status = AgentRunStatus.running, updatedAtMs = stale))
+        backing.insert(runRow(id = "genuinely-lost", status = AgentRunStatus.running, updatedAtMs = stale))
+
+        // Simulate another coroutine refreshing the row between the scan and the final
+        // repository transition. The report must contain only runs actually marked lost.
+        val dao = object : AgentRunDao by backing {
+            override suspend fun findStranded(beforeMs: Long): List<AgentRun> {
+                val scanned = backing.findStranded(beforeMs)
+                backing.update(backing.getById("refreshed")!!.copy(updatedAtMs = now + 5_000L))
+                return scanned
+            }
+        }
+        val repo = AgentRunRepository(dao)
+
+        val flipped = recovery(repo).runRecovery(now)
+
+        assertEquals(1, flipped)
+        assertEquals(AgentRunStatus.running.name, repo.getById("refreshed")!!.status)
+        assertEquals(AgentRunStatus.process_lost.name, repo.getById("genuinely-lost")!!.status)
+        assertEquals(1, notifyCount)
+        assertEquals(listOf("genuinely-lost"), notifiedWith!!.map { it.id })
     }
 
     @Test
@@ -87,7 +127,7 @@ class AgentRunBootRecoveryTest {
         dao.insert(runRow(id = "done-1", status = AgentRunStatus.succeeded, updatedAtMs = stale))
         dao.insert(runRow(id = "done-2", status = AgentRunStatus.failed, updatedAtMs = stale))
 
-        val flipped = recovery(repo).runRecovery()
+        val flipped = recovery(repo).runRecovery(now)
 
         assertEquals(0, flipped)
         assertEquals(AgentRunStatus.succeeded.name, repo.getById("done-1")!!.status)
@@ -96,7 +136,7 @@ class AgentRunBootRecoveryTest {
 
     @Test
     fun `recovery on an empty ledger flips nothing`() = runBlocking {
-        val flipped = recovery(AgentRunRepository(FakeAgentRunDao())).runRecovery()
+        val flipped = recovery(AgentRunRepository(FakeAgentRunDao())).runRecovery(now)
         assertEquals(0, flipped)
     }
 
@@ -109,7 +149,7 @@ class AgentRunBootRecoveryTest {
         dao.insert(runRow(id = "done", status = AgentRunStatus.succeeded, updatedAtMs = stale))
         dao.insert(runRow(id = "queued-stale", status = AgentRunStatus.queued, updatedAtMs = stale))
 
-        val flipped = recovery(repo).runRecovery()
+        val flipped = recovery(repo).runRecovery(now)
 
         assertEquals(2, flipped)
         assertEquals(AgentRunStatus.process_lost.name, repo.getById("stranded")!!.status)
@@ -129,7 +169,7 @@ class AgentRunBootRecoveryTest {
         store.append(checkpoint("first", "workflow", "first action"))
         store.append(checkpoint("latest", "workflow", "second action"))
 
-        recovery(repo, store).runRecovery()
+        recovery(repo, store).runRecovery(now)
 
         assertEquals(1, recoveryCandidates!!.size)
         assertEquals("workflow", recoveryCandidates!!.single().run.id)
