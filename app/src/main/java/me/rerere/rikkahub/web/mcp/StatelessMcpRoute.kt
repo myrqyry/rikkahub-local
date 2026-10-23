@@ -17,6 +17,10 @@ import me.rerere.rikkahub.data.ai.tools.LocalTools
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.repository.ConversationRepository
 
+/** History access is more sensitive than ordinary MCP discovery: never export it on an unprotected Web server. */
+internal fun historyMcpAccessAllowed(authenticatedRoute: Boolean, jwtEnabled: Boolean) =
+    authenticatedRoute && jwtEnabled
+
 fun Route.statelessMcpRoute(
     mcpManager: McpManager,
     conversationRepository: ConversationRepository,
@@ -52,8 +56,11 @@ fun Route.statelessMcpRoute(
                 availableTools = mcpManager::getAllAvailableTools,
                 callTool = mcpManager::callTool,
                 nativeTools = {
-                    RikkaConversationMcpTools(conversationRepository, settingsStore).tools() +
-                        RikkaDeviceMcpTools(localTools, settingsStore, authenticatedRoute).tools()
+                    val historyTools = if (historyMcpAccessAllowed(
+                            authenticatedRoute, settingsStore.settingsFlow.value.webServerJwtEnabled
+                        )) RikkaConversationMcpTools(conversationRepository, settingsStore).tools()
+                        else emptyList()
+                    historyTools + RikkaDeviceMcpTools(localTools, settingsStore, authenticatedRoute).tools()
                 },
             ).handle(headers, body, call.request.headers[HttpHeaders.Origin])
             call.respond(response.status, response.body)

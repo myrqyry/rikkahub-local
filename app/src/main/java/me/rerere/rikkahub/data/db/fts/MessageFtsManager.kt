@@ -92,6 +92,47 @@ class MessageFtsManager(private val database: AppDatabase) {
         db.execSQL("DELETE FROM message_fts")
     }
 
+    /**
+     * Assistant-scoped FTS candidate query for MCP. Scope *before* LIMIT so other
+     * assistants cannot crowd out the result page. Selected-branch checking happens
+     * after lookup because the FTS index contains alternate message versions.
+     */
+    suspend fun searchForAssistant(
+        keyword: String,
+        assistantId: String,
+        maxCandidates: Int,
+    ): List<MessageSearchResult> = withContext(Dispatchers.IO) {
+        require(maxCandidates in 1..501)
+        val results = mutableListOf<MessageSearchResult>()
+        val cursor = db.query(
+            """
+            SELECT message_fts.node_id, message_fts.message_id, message_fts.conversation_id,
+                   message_fts.title, message_fts.update_at,
+                   simple_snippet(message_fts, 0, '[', ']', '...', 30) AS snippet
+            FROM message_fts
+            JOIN conversationentity ON conversationentity.id = message_fts.conversation_id
+            WHERE message_fts.text MATCH jieba_query(?)
+              AND conversationentity.assistant_id = ?
+            ORDER BY rank, message_fts.update_at DESC
+            LIMIT ?
+            """.trimIndent(),
+            arrayOf(keyword, assistantId, maxCandidates.toString()),
+        )
+        cursor.use {
+            while (it.moveToNext()) {
+                results.add(MessageSearchResult(
+                    nodeId = it.getString(0),
+                    messageId = it.getString(1),
+                    conversationId = it.getString(2),
+                    title = it.getString(3),
+                    updateAt = Instant.ofEpochMilli(it.getLong(4)),
+                    snippet = it.getString(5),
+                ))
+            }
+        }
+        results
+    }
+
     suspend fun search(
         keyword: String,
         sort: MessageSearchSort = MessageSearchSort.RELEVANCE,

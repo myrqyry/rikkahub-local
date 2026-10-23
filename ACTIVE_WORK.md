@@ -1,6 +1,38 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## Current checkpoint — Native RikkaHub history MCP retrieval (2026-10-22)
+
+Integrated the useful retrieval mechanics of Photalia/rikkahub-history-mcp
+directly into the existing RikkaHub `POST /mcp` native Kotlin service; no
+second Python server and no change to app storage or schema. Added
+`rikka.search_conversations` and `rikka.get_conversation_context` alongside
+existing list/full-get tools. Assistant scoping happens in the FTS SQL before
+ranking/limit; selected-branch IDs are rechecked against the current
+conversation; only user/assistant plain text passes the new bounded tools.
+Maximum 200 candidate hits (flagged if there are more), 24k context characters,
+per-side context window at most 20 nodes. Legacy full-get is retained but
+restricted to the selected assistant.
+
+History tools now require both the authenticated MCP route and Web JWT enabled.
+The separate REST Web API is still accessible in unauthenticated mode if Web
+JWT is disabled: this integration is not a replacement for Web Server auth.
+Historical retrieved content remains untrusted; sending it to a remote model
+crosses the local/cloud boundary.
+
+Evidence: new pure projection tests and native-tool callback JSON tests were
+written failing first, then passed; scoped FTS5 SQL fixture passed on SQLite
+(with standard `snippet` substituted for Android's existing `simple_snippet`
+extension). Final `./gradlew :app:testDebugUnitTest :app:assembleDebug` passed
+**1,554 app tests / 228 suites, one intentionally skipped, zero failures**;
+APK assembled. Full procedure and remaining caveats:
+`docs/references/rikkahub-history-mcp.md`.
+
+**Unverified:** actual phone Web/JWT/MCP round trip, extension behavior on
+Android, large-library query latency, and live deployment/phone UI.
+No install, app settings change, or phone data access. Local checkpoint only;
+no remote push.
+
 ## Current checkpoint — REAL local ComfyUI provider acceptance (2026-10-20)
 
 Added opt-in `ComfyUiLiveAcceptanceTest` to exercise the existing, unchanged

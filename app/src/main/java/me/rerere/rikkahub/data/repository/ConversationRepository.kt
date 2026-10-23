@@ -337,6 +337,13 @@ class ConversationRepository(
         filesManager.deleteChatFiles(fullConversation.files)
     }
 
+    /** The MCP search must scope by assistant inside SQL, before relevance limiting. */
+    suspend fun searchMessagesForAssistant(
+        keyword: String,
+        assistantId: Uuid,
+        maxCandidates: Int,
+    ) = messageFtsManager.searchForAssistant(keyword, assistantId.toString(), maxCandidates)
+
     suspend fun searchMessages(
         keyword: String,
         sort: MessageSearchSort = MessageSearchSort.RELEVANCE,
