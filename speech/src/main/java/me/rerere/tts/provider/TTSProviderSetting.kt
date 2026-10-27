@@ -36,6 +36,24 @@ sealed class TTSProviderSetting {
         }
     }
 
+    /**
+     * Explicit self-hosted audio.cpp server. The base URL is the address reachable
+     * from THIS Android device, not the desktop's localhost.
+     * The server must be configured separately; this does not start it.
+     */
+    @Serializable
+    @SerialName("audio-cpp")
+    data class AudioCpp(
+        override var id: Uuid = Uuid.random(),
+        override var name: String = "audio.cpp (Self-hosted)",
+        val baseUrl: String = "",
+        val model: String = "",
+        val voice: String = "",
+    ) : TTSProviderSetting() {
+        override fun copyProvider(id: Uuid, name: String): TTSProviderSetting =
+            copy(id = id, name = name)
+    }
+
     @Serializable
     @SerialName("gemini")
     data class Gemini(
@@ -430,6 +448,7 @@ sealed class TTSProviderSetting {
         val Types by lazy {
             listOf(
                 OpenAI::class,
+                AudioCpp::class,
                 Gemini::class,
                 SystemTTS::class,
                 MiniMax::class,

@@ -11,6 +11,7 @@ import me.rerere.tts.provider.providers.GroqTTSProvider
 import me.rerere.tts.provider.providers.MiMoTTSProvider
 import me.rerere.tts.provider.providers.MiniMaxTTSProvider
 import me.rerere.tts.provider.providers.NekoSpeakTTSProvider
+import me.rerere.tts.provider.providers.AudioCppTTSProvider
 import me.rerere.tts.provider.providers.OpenAITTSProvider
 import me.rerere.tts.provider.providers.KittenTTSProvider
 import me.rerere.tts.provider.providers.MatchaTTSProvider
@@ -24,6 +25,7 @@ import me.rerere.tts.provider.providers.XAITTSProvider
 
 class TTSManager(private val context: Context) {
     private val openAIProvider = OpenAITTSProvider()
+    private val audioCppProvider = AudioCppTTSProvider()
     private val geminiProvider = GeminiTTSProvider()
     private val systemProvider = SystemTTSProvider()
     private val miniMaxProvider = MiniMaxTTSProvider()
@@ -47,6 +49,7 @@ class TTSManager(private val context: Context) {
     ): Flow<AudioChunk> {
         return when (providerSetting) {
             is TTSProviderSetting.OpenAI -> openAIProvider.generateSpeech(context, providerSetting, request)
+            is TTSProviderSetting.AudioCpp -> audioCppProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.Gemini -> geminiProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.SystemTTS -> systemProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.MiniMax -> miniMaxProvider.generateSpeech(context, providerSetting, request)
@@ -73,6 +76,7 @@ class TTSManager(private val context: Context) {
     fun getPromptGuidance(providerSetting: TTSProviderSetting): String {
         return when (providerSetting) {
             is TTSProviderSetting.OpenAI -> openAIProvider.promptGuidance
+            is TTSProviderSetting.AudioCpp -> audioCppProvider.promptGuidance
             is TTSProviderSetting.Gemini -> geminiProvider.promptGuidance
             is TTSProviderSetting.SystemTTS -> systemProvider.promptGuidance
             is TTSProviderSetting.MiniMax -> miniMaxProvider.promptGuidance
@@ -98,6 +102,7 @@ class TTSManager(private val context: Context) {
         currentSetting = providerSetting
         when (providerSetting) {
             is TTSProviderSetting.OpenAI -> openAIProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.AudioCpp -> audioCppProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.Gemini -> geminiProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.SystemTTS -> systemProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.MiniMax -> miniMaxProvider.onSessionStart(providerSetting)
@@ -120,6 +125,7 @@ class TTSManager(private val context: Context) {
     fun onSessionEnd() {
         when (currentSetting) {
             is TTSProviderSetting.OpenAI -> openAIProvider.onSessionEnd()
+            is TTSProviderSetting.AudioCpp -> audioCppProvider.onSessionEnd()
             is TTSProviderSetting.Gemini -> geminiProvider.onSessionEnd()
             is TTSProviderSetting.SystemTTS -> systemProvider.onSessionEnd()
             is TTSProviderSetting.MiniMax -> miniMaxProvider.onSessionEnd()

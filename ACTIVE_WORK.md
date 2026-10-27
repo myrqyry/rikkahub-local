@@ -1,6 +1,25 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-26 — audio.cpp native speech service / RikkaHub opt-in TTS
+
+- Added an opt-in `audio-cpp` TTS provider through the existing RikkaHub
+  speech manager, per-provider settings, and Media3/WAV playback path; no
+  change to existing provider selections or installed phone data.
+- Production adapter sends model, input, WAV response request and optional
+  voice. It validates status and RIFF/WAVE body, caps responses at 32 MiB,
+  and does not silently switch to cloud or another local provider.
+- Official audio.cpp v0.9.3 native runtime independently produced a real
+  Kokoro 82M WAV over HTTP on a local workstation. A **production Kotlin
+  adapter acceptance test** against the same live server passed (not skipped);
+  fake HTTP contract tests and settings serialization also passed.
+- Relevant Android JVM suites and debug APK build passed. Phone install,
+  phone-to-desktop access, and physical phone playback are **not** verified.
+  Other projects were not modified: their consumers need independent checks.
+- Integration contract and limits: `docs/integrations/audio-cpp-tts.md`.
+  Local service/model assets are outside Git and do not require a network
+  listener to be opened for this code checkpoint. No push.
+
 ## 2026-10-26 — GGUF header classification bounded; CherryPit specialist trial
 
 - `GgufClassifier.classifyFile` now reads at most 64 KiB, rather than

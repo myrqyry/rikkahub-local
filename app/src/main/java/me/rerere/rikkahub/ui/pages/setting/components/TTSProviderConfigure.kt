@@ -82,6 +82,7 @@ fun TTSProviderConfigure(
             val types = TTSProviderSetting.Types
             val local = types.filter {
                 it == TTSProviderSetting.SystemTTS::class ||
+                    it == TTSProviderSetting.AudioCpp::class ||
                     it == TTSProviderSetting.NekoSpeakTts::class ||
                     it == TTSProviderSetting.PocketTts::class ||
                     it == TTSProviderSetting.KittenTts::class ||
@@ -91,6 +92,7 @@ fun TTSProviderConfigure(
             }
             val cloud = types.filter {
                 it != TTSProviderSetting.SystemTTS::class &&
+                    it != TTSProviderSetting.AudioCpp::class &&
                     it != TTSProviderSetting.NekoSpeakTts::class &&
                     it != TTSProviderSetting.PocketTts::class &&
                     it != TTSProviderSetting.KittenTts::class &&
@@ -112,6 +114,7 @@ fun TTSProviderConfigure(
                 OutlinedTextField(
                     value = when (setting) {
                         is TTSProviderSetting.OpenAI -> "OpenAI"
+                        is TTSProviderSetting.AudioCpp -> "audio.cpp (Self-hosted)"
                         is TTSProviderSetting.Gemini -> "Gemini"
                         is TTSProviderSetting.SystemTTS -> "System TTS (Local)"
                         is TTSProviderSetting.MiniMax -> "MiniMax"
@@ -148,6 +151,7 @@ fun TTSProviderConfigure(
                                 Text(
                                     when (providerClass) {
                                         TTSProviderSetting.OpenAI::class -> "OpenAI"
+                                        TTSProviderSetting.AudioCpp::class -> "audio.cpp (Self-hosted)"
                                         TTSProviderSetting.Gemini::class -> "Gemini"
                                         TTSProviderSetting.SystemTTS::class -> "System TTS (Local)"
                                         TTSProviderSetting.MiniMax::class -> "MiniMax"
@@ -174,6 +178,11 @@ fun TTSProviderConfigure(
                                     TTSProviderSetting.OpenAI::class -> TTSProviderSetting.OpenAI(
                                         id = setting.id,
                                         name = "OpenAI TTS"
+                                    )
+
+                                    TTSProviderSetting.AudioCpp::class -> TTSProviderSetting.AudioCpp(
+                                        id = setting.id,
+                                        name = "audio.cpp (Self-hosted)"
                                     )
 
                                     TTSProviderSetting.Gemini::class -> TTSProviderSetting.Gemini(
@@ -313,6 +322,7 @@ fun TTSProviderConfigure(
         // Provider-specific fields
         when (setting) {
             is TTSProviderSetting.OpenAI -> OpenAITTSConfiguration(setting, onValueChange)
+            is TTSProviderSetting.AudioCpp -> AudioCppTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.Gemini -> GeminiTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.MiniMax -> MiniMaxTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.SystemTTS -> SystemTTSConfiguration(setting, onValueChange)
@@ -352,6 +362,55 @@ private fun TtsPlaybackSwitch(
             overflow = TextOverflow.Ellipsis,
         )
         Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+@Composable
+private fun AudioCppTTSConfiguration(
+    setting: TTSProviderSetting.AudioCpp,
+    onValueChange: (TTSProviderSetting) -> Unit,
+) {
+    Text(
+        "Self-hosted audio.cpp server (not on-device). Use an address reachable from your phone, " +
+            "such as your desktop's tailnet IP. The server must be running and have a TTS model loaded. " +
+            "No cloud or other TTS fallback is used.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    FormItem(
+        label = { Text("Server URL") },
+        description = { Text("Server origin only, e.g. http://YOUR-DESKTOP:8080 (no /v1 suffix).") },
+    ) {
+        OutlinedTextField(
+            value = setting.baseUrl,
+            onValueChange = { onValueChange(setting.copy(baseUrl = it)) },
+            placeholder = { Text("http://your-desktop:8080") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+    }
+    FormItem(
+        label = { Text("Server model ID") },
+        description = { Text("Use the ID shown by audio.cpp GET /v1/models; not the GGUF filename.") },
+    ) {
+        OutlinedTextField(
+            value = setting.model,
+            onValueChange = { onValueChange(setting.copy(model = it)) },
+            placeholder = { Text("kokoro") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+    }
+    FormItem(
+        label = { Text("Voice (optional)") },
+        description = { Text("Voice preset ID configured on that server; blank uses its default.") },
+    ) {
+        OutlinedTextField(
+            value = setting.voice,
+            onValueChange = { onValueChange(setting.copy(voice = it)) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
     }
 }
 
