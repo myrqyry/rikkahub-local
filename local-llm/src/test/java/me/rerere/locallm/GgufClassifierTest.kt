@@ -2,6 +2,7 @@ package me.rerere.locallm
 
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import org.junit.Assert.assertEquals
@@ -102,6 +103,22 @@ class GgufClassifierTest {
         val tmp = File.createTempFile("gguf-test", ".gguf")
         try {
             tmp.writeBytes(buildGguf("qwen2", "model.embed_tokens.weight"))
+            assertEquals(LocalRuntime.LlamaCpp, GgufClassifier.classifyFile(tmp))
+        } finally {
+            tmp.delete()
+        }
+    }
+
+    @Test
+    fun classifyFileOnlyReadsHeaderEvenWhenModelExceedsTwoGigabytes() {
+        val tmp = File.createTempFile("gguf-large-sparse", ".gguf")
+        try {
+            RandomAccessFile(tmp, "rw").use { file ->
+                file.write(buildGguf("minicpm", "token_embd.weight"))
+                // Sparse file: logical model size exceeds the Java byte-array limit,
+                // but occupies only a few filesystem blocks. The header suffices.
+                file.setLength(Int.MAX_VALUE.toLong() + 1L)
+            }
             assertEquals(LocalRuntime.LlamaCpp, GgufClassifier.classifyFile(tmp))
         } finally {
             tmp.delete()

@@ -1,6 +1,22 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-26 — GGUF header classification bounded; CherryPit specialist trial
+
+- `GgufClassifier.classifyFile` now reads at most 64 KiB, rather than
+  materializing the entire model. Sparse >2 GiB GGUF regression failed first
+  with `OutOfMemoryError`, then passed after the fix. All local-LLM tests,
+  app JVM tests, and `:app:assembleDebug` passed. No phone install.
+- Pulled CherryPit 1.1 WebDev Preview Q4_K_M into desktop Ollama only.
+  One React/TSX counter task failed `tsc` (illegal const assignments), and
+  an explicit correction returned essentially the same invalid code.
+  Existing Qwen3.5 4B generated compilable TSX after fence removal on the
+  same prompt. A single task is not a general benchmark; CherryPit remains
+  **unqualified** for automated delegation or Android Llamatik use.
+- Model test details and raw generations are retained locally under
+  ignored `.meristem/local/model-evals/`; phone models, assistant settings,
+  installed data and network bindings unchanged. No push.
+
 ## Current checkpoint — OpenCode 1 ↔ RikkaHub live workspace interaction (2026-10-22)
 
 Added live OpenCode session monitoring on RikkaHub's existing Kotlin Web
