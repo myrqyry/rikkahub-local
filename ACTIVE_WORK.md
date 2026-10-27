@@ -1,6 +1,28 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-26 — Ollama Speech-ready OpenAI TTS compatibility
+
+- Current desktop Ollama v0.30.10 and alternate v0.35.1 instances all
+  return HTTP 404 at `/v1/audio/speech`. Published Ollama speech API
+  requires v0.40.8+; Phonon packages currently require Apple Silicon.
+  No Ollama upgrade, model pull, daemon configuration or port change.
+- Reused RikkaHub's existing OpenAI-compatible speech provider: optional
+  WAV instead of always MP3, blank API key omits Bearer header, base URL
+  trailing slash normalizes, WAV response validated as RIFF/WAVE, request
+  text no longer logged. Existing saved providers retain MP3 as default.
+- Opt-in MP3/WAV format selector is available in the existing speech
+  settings. Test-first regression initially failed on missing settings
+  field/client injection; focused and full tests passed after the change.
+  `:speech:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug`
+  **PASS**. An opt-in production OpenAI-compatible provider test also
+  generated actual WAV speech through the live audio.cpp/Kokoro endpoint.
+  No real Ollama speech generated, because machine cannot run current
+  Phonon; Android phone playback still not verified.
+- No changes to live audio.cpp v0.9.3 Kokoro engine, installed phone data,
+  other models, or other projects. Integration reference:
+  `docs/integrations/audio-cpp-tts.md`.
+
 ## 2026-10-26 — audio.cpp native speech service / RikkaHub opt-in TTS
 
 - Added an opt-in `audio-cpp` TTS provider through the existing RikkaHub

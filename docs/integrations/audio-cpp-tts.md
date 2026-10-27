@@ -70,3 +70,38 @@ For Aster, podQast and HARMONIA, the shareable piece is the upstream
 audio.cpp service contract, not duplicate synthesis implementations in
 each app. Do not automatically introduce provider/UI changes to those
 independent projects without inspecting their current consumer path.
+
+## Ollama Speech compatibility — 2026-10-26
+
+Ollama introduced a compatible **`POST /v1/audio/speech`** endpoint
+in v0.40.8 (published speech guide recommends v0.40.9+).
+Its Phonon model is currently **Apple Silicon only**; Linux and
+Windows support is not released. The desktop Ollama servers checked
+here are v0.30.10 and v0.35.1 and all return HTTP 404 from
+`/v1/audio/speech`. Do **not** update production Ollama solely to
+install an unsupported speech model.
+
+RikkaHub's existing **OpenAI TTS** provider now supports `responseFormat`
+`mp3` (old default) or `wav`, sending the chosen format unchanged.
+When an Ollama speech-capable server is available, select **OpenAI TTS**
+with its URL ending in `/v1` (e.g. `http://DESKTOP-TAILNET-IP:11434/v1`),
+model `phonon`, voice `default`, blank API key, and response format
+**WAV**. The provider omits the Authorization header when the key is blank.
+The server must be reachable from the device through an authorized
+private route; desktop localhost isn't phone localhost. A configured
+model must report `speech` capability; chat-model registrations are not
+proof of speech support.
+
+This reuses the same buffered `AudioChunk`/Media3 playback boundary
+rather than adding an Ollama-only engine. It does **not** yet play audio
+while the WAV is streaming; Ollama's streaming WAV header uses
+placeholder length fields. The JVM adapter request/WAV handling is
+unit-tested against simulated response bytes. The opt-in
+`OpenAITTSSpeechCompatibilityTest` also **passed against the live
+audio.cpp Kokoro server** using the production OpenAI-compatible
+provider and returned real WAV audio. No Phonon real-model generation
+or physical-phone playback has been demonstrated.
+
+The working Linux speech backend remains audio.cpp v0.9.3 with Kokoro.
+No service settings, app installation, or network bindings were
+changed as part of Ollama compatibility.

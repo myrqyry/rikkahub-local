@@ -507,6 +507,39 @@ private fun OpenAITTSConfiguration(
             }
         }
     }
+
+    var formatExpanded by remember { mutableStateOf(false) }
+    FormItem(
+        label = { Text("Response format") },
+        description = { Text("MP3 for OpenAI (default); WAV for compatible local servers including Ollama Speech.") },
+    ) {
+        ExposedDropdownMenuBox(
+            expanded = formatExpanded,
+            onExpandedChange = { formatExpanded = !formatExpanded },
+        ) {
+            OutlinedTextField(
+                value = setting.responseFormat.uppercase(),
+                onValueChange = {},
+                readOnly = true,
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = formatExpanded) },
+            )
+            ExposedDropdownMenu(
+                expanded = formatExpanded,
+                onDismissRequest = { formatExpanded = false },
+            ) {
+                listOf("mp3", "wav").forEach { format ->
+                    DropdownMenuItem(
+                        text = { Text(format.uppercase()) },
+                        onClick = {
+                            formatExpanded = false
+                            onValueChange(setting.copy(responseFormat = format))
+                        },
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
