@@ -145,6 +145,7 @@ data class ModelsDevModelMetadata(
     val pricePromptPerToken: Double?,
     val priceCompletionPerToken: Double?,
     val reasoningEfforts: List<String>,
+    val reasoningControlTypes: List<String>,
     val isSelectableAsChatOrImage: Boolean,
     val isDeprecated: Boolean,
 ) {
@@ -183,6 +184,7 @@ data class ModelsDevModelMetadata(
             supportsTemperature = temperature ?: model.supportsTemperature,
             supportsStructuredOutput = structuredOutput ?: model.supportsStructuredOutput,
             reasoningEfforts = if (reasoningEfforts.isNotEmpty()) reasoningEfforts else model.reasoningEfforts,
+            reasoningControlTypes = if (reasoningControlTypes.isNotEmpty()) reasoningControlTypes else model.reasoningControlTypes,
             metadataSource = "models.dev:$providerId/$modelId",
         )
     }
@@ -212,6 +214,7 @@ data class ModelsDevModelMetadata(
             supportsTemperature = model.supportsTemperature ?: reportedTemperature ?: temperature,
             supportsStructuredOutput = model.supportsStructuredOutput ?: reportedStructuredOutput ?: structuredOutput,
             reasoningEfforts = if (model.reasoningEfforts.isNotEmpty()) model.reasoningEfforts else reasoningEfforts,
+            reasoningControlTypes = if (model.reasoningControlTypes.isNotEmpty()) model.reasoningControlTypes else reasoningControlTypes,
             metadataSource = model.metadataSource ?: "models.dev:$providerId/$modelId (partial)",
         )
     }
@@ -238,9 +241,14 @@ data class ModelsDevModelMetadata(
                 }
             val limits = node["limit"] as? JsonObject
             val costs = node["cost"] as? JsonObject
-            val efforts = (node["reasoning_options"] as? JsonArray)
+            val reasoningOptions = (node["reasoning_options"] as? JsonArray)
                 ?.mapNotNull { it as? JsonObject }
-                ?.firstOrNull { it["type"]?.jsonPrimitive?.contentOrNull == "effort" }
+                ?: emptyList()
+            val reasoningControlTypes = reasoningOptions
+                .mapNotNull { it["type"]?.jsonPrimitive?.contentOrNull }
+                .distinct()
+            val efforts = reasoningOptions
+                .firstOrNull { it["type"]?.jsonPrimitive?.contentOrNull == "effort" }
                 ?.get("values")
                 ?.let { it as? JsonArray }
                 ?.mapNotNull { it.jsonPrimitive.contentOrNull }
@@ -261,6 +269,7 @@ data class ModelsDevModelMetadata(
                 pricePromptPerToken = price(costs, "input"),
                 priceCompletionPerToken = price(costs, "output"),
                 reasoningEfforts = efforts,
+                reasoningControlTypes = reasoningControlTypes,
                 isSelectableAsChatOrImage = modelType == null &&
                     ((modalities?.get("output") as? JsonArray)?.any {
                         it.jsonPrimitive.contentOrNull in setOf("text", "image")

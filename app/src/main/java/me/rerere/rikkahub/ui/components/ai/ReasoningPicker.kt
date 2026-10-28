@@ -44,14 +44,12 @@ import me.rerere.rikkahub.ui.components.ui.icons.ReasoningLow
 import me.rerere.rikkahub.ui.components.ui.icons.ReasoningMedium
 import kotlin.math.roundToInt
 
-private val levels = ReasoningLevel.entries
-private val levelCount = levels.size
-
 @Composable
 fun ReasoningButton(
     modifier: Modifier = Modifier,
     onlyIcon: Boolean = false,
     reasoningLevel: ReasoningLevel,
+    availableLevels: List<ReasoningLevel> = ReasoningLevel.entries,
     onUpdateReasoningLevel: (ReasoningLevel) -> Unit,
 ) {
     var showPicker by remember { mutableStateOf(false) }
@@ -59,6 +57,7 @@ fun ReasoningButton(
     if (showPicker) {
         ReasoningPicker(
             reasoningLevel = reasoningLevel,
+            availableLevels = availableLevels,
             onDismissRequest = { showPicker = false },
             onUpdateReasoningLevel = onUpdateReasoningLevel
         )
@@ -88,13 +87,20 @@ fun ReasoningButton(
 @Composable
 fun ReasoningPicker(
     reasoningLevel: ReasoningLevel,
+    availableLevels: List<ReasoningLevel> = ReasoningLevel.entries,
     onDismissRequest: () -> Unit = {},
     onUpdateReasoningLevel: (ReasoningLevel) -> Unit,
 ) {
-    val currentIndex = levels.indexOf(reasoningLevel).coerceAtLeast(0)
-    var sliderValue by remember { mutableFloatStateOf(currentIndex.toFloat()) }
+    val levels = availableLevels.distinct()
+    if (levels.isEmpty()) return
+    val selectedLevel = reasoningLevel.takeIf { it in levels }
+        ?: levels.firstOrNull { it == ReasoningLevel.AUTO }
+        ?: levels.first()
+    val levelCount = levels.size
+    val currentIndex = levels.indexOf(selectedLevel)
+    var sliderValue by remember(levels) { mutableFloatStateOf(currentIndex.toFloat()) }
 
-    LaunchedEffect(currentIndex) {
+    LaunchedEffect(currentIndex, levels) {
         sliderValue = currentIndex.toFloat()
     }
 
@@ -133,11 +139,11 @@ fun ReasoningPicker(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val iconColor by animateColorAsState(
-                    if (reasoningLevel.isEnabled) MaterialTheme.colorScheme.primary
+                    if (selectedLevel.isEnabled) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurface
                 )
                 Icon(
-                    imageVector = when (reasoningLevel) {
+                    imageVector = when (selectedLevel) {
                         ReasoningLevel.OFF -> HugeIcons.Idea
                         ReasoningLevel.AUTO -> HugeIcons.Idea01
                         ReasoningLevel.LOW -> ReasoningLow
@@ -150,7 +156,7 @@ fun ReasoningPicker(
                     tint = iconColor,
                 )
                 Text(
-                    text = reasoningLevel.label(),
+                    text = selectedLevel.label(),
                     style = MaterialTheme.typography.titleMedium,
                 )
             }
@@ -159,7 +165,7 @@ fun ReasoningPicker(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Slider(
+                if (levelCount > 1) Slider(
                     value = sliderValue,
                     onValueChange = { sliderValue = it },
                     onValueChangeFinished = {
@@ -196,7 +202,8 @@ fun ReasoningPicker(
                 )
 
                 ReasoningScale(
-                    selectedLevel = reasoningLevel,
+                    selectedLevel = selectedLevel,
+                    levels = levels,
                     onSelect = { level ->
                         sliderValue = levels.indexOf(level).toFloat()
                         onUpdateReasoningLevel(level)
@@ -210,6 +217,7 @@ fun ReasoningPicker(
 @Composable
 private fun ReasoningScale(
     selectedLevel: ReasoningLevel,
+    levels: List<ReasoningLevel>,
     onSelect: (ReasoningLevel) -> Unit,
 ) {
     Row(

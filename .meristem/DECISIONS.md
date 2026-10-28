@@ -14,6 +14,40 @@ Use entries like:
 **Evidence / references:**  
 **Supersedes:** none
 
+## 2026-10-28 — Composer controls must agree with actual model requests
+
+**Decision:**
+Show only known, adapter-supported reasoning choices in the chat composer.
+Keep an assistant's saved reasoning preference unchanged across model switches,
+but derive the current model's effective level for both the visible picker and
+actual generation. Hide the button if reasoning is unavailable or there is no
+adjustable choice. Treat effort, toggle, and numeric-budget metadata as distinct.
+
+**Why:**
+The previous generic picker could display XHIGH for a model with only HIGH,
+or offer OFF even when an API adapter translated OFF into a reasoning-enabled
+request. Having catalog metadata but not using it in the actual composer and
+request path defeats automatic configuration.
+
+**Alternatives considered:**
+Expose all effort levels regardless of capability; silently overwrite saved
+preferences when switching models; assume every provider accepts a generic
+OFF parameter; call numeric budgets LOW/HIGH without validating token bounds.
+
+**Constraints / consequences:**
+No verified budget-token composer yet. Models with no catalog metadata retain
+legacy controls; a catalog model with no known controls uses AUTO only.
+An adapter-level disabling path is needed before showing OFF; provider defaults
+still determine how AUTO behaves. No physical Android UI or provider-authenticated
+round-trip has been verified for this implementation.
+
+**Evidence / references:**
+AI module ComposerReasoningOptions.kt and ComposerReasoningOptionsTest.kt,
+app ChatInput.kt, ReasoningPicker.kt, GenerationHandler.kt, and
+models-dev-provider-directory.md, October 28, 2026.
+
+**Supersedes:** none
+
 ## 2026-10-28 — Automatic model metadata is provider-scoped and override-safe
 
 **Decision:**

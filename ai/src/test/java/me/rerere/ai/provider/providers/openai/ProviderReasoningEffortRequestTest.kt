@@ -88,6 +88,11 @@ class ProviderReasoningEffortRequestTest {
         assertTrue(reasoning["enabled"]!!.jsonPrimitive.boolean)
     }
 
+    @Test fun openAiChatUsesExplicitNoneWhenModelAdvertisesItInsteadOfLow() {
+        val request = chatRequest(listOf("none", "low", "high"), ReasoningLevel.OFF, "https://api.openai.com/v1")
+        assertEquals("none", request["reasoning_effort"]!!.jsonPrimitive.content)
+    }
+
     @Test fun openAiChatUsesAdvertisedLevelsInsteadOfHardcodedXhigh() {
         val request = chatRequest(listOf("low", "high"), ReasoningLevel.XHIGH, "https://api.openai.com/v1")
         assertEquals("high", request["reasoning_effort"]!!.jsonPrimitive.content)

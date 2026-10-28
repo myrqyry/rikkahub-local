@@ -1,6 +1,35 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-28 — Capability-aware chat-composer reasoning picker
+
+- The chat composer previously hid reasoning only when `ModelAbility.REASONING` was
+  absent; the modal always offered OFF/AUTO/LOW/MEDIUM/HIGH/XHIGH regardless of
+  what the currently selected model actually advertised. The selection shown
+  could also disagree with the generated request after switching models.
+- Added a deterministic `Model.composerReasoningLevels(provider)` policy and
+  `effectiveComposerReasoningLevel(saved, provider)`, keyed by the model and
+  its actual provider adapter. Catalog `reasoning_options` are now distinguished
+  as `effort`, `toggle`, or `budget_tokens`; exact supported effort values drive
+  the chooser (including `max` mapped to XHIGH). AUTO uses provider defaults.
+- The composer omits the button for models without reasoning or without more
+  than one meaningful choice. A toggle model gets OFF/AUTO only where a known
+  adapter can actually send OFF. Gemini 3 MINIMAL is not incorrectly labeled OFF,
+  and unknown OpenAI-compatible hosts cannot claim a disable control. Budget-only
+  models remain AUTO-only until a verified budget selector is implemented.
+- Model changes reset the opened picker; they don't mutate saved assistant
+  preferences. Generation uses the same **effective** choice as the composer so
+  stale unsupported settings are not silently emitted. Known OpenAI Chat models
+  advertising explicit `none` now use `reasoning_effort=none` rather than
+  the legacy LOW fallback. Unknown/legacy models retain the existing options.
+- Test-first scenarios cover choice lists, missing metadata, safe OFF gating,
+  model-switch fallback, catalog mapping, and request encoding. An opt-in test
+  against the real models.dev API snapshot covered GPT-5.5 and Gemini-3.5-Flash
+  choices. `:ai:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug`
+  passed offline on desktop; live UI and provider authentication untested (no
+  ADB phone). No user data/settings or API keys modified; local commit only.
+- Details: docs/integrations/models-dev-provider-directory.md.
+
 ## 2026-10-28 — Reasoning effort compatibility for auto-configured models
 
 - Found a request-path gap left by catalog integration: imported `reasoningEfforts`

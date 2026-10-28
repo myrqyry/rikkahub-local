@@ -583,6 +583,7 @@ private fun ModelSettingsForm(
             supportsTemperature = null,
             supportsStructuredOutput = null,
             reasoningEfforts = emptyList(),
+            reasoningControlTypes = emptyList(),
             metadataSource = null,
         )
         val metadata = parentProvider?.let { catalog?.find(it, id) }

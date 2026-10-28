@@ -29,6 +29,9 @@ data class Model(
     val supportsTemperature: Boolean? = null,
     val supportsStructuredOutput: Boolean? = null,
     val reasoningEfforts: List<String> = emptyList(),
+    // models.dev distinguishes explicit effort levels, binary toggle, and token budget.
+    // Empty means unknown; it is not evidence that effort controls are unsupported.
+    val reasoningControlTypes: List<String> = emptyList(),
     val metadataSource: String? = null,
     // Runtime metadata: keeps the format/runtime/execution-backend/accelerator
     // distinction on the model itself instead of inferring it from the file

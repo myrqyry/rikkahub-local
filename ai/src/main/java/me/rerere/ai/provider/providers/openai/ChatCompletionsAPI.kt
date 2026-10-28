@@ -451,8 +451,12 @@ class ChatCompletionsAPI(
                         // OpenAI 官方
                         // 文档中，completions API 只支持 "low", "medium", "high"
                         if (level != ReasoningLevel.AUTO) {
-                            if (level == ReasoningLevel.OFF) put("reasoning_effort", "low")
-                            else supportedEffort?.let { put("reasoning_effort", it) }
+                            if (level == ReasoningLevel.OFF) {
+                                // Only send a real disabled setting when the model advertises it.
+                                // Keep the legacy fallback for models with unknown capabilities.
+                                val offEffort = if ("none" in params.model.reasoningEfforts) "none" else "low"
+                                put("reasoning_effort", offEffort)
+                            } else supportedEffort?.let { put("reasoning_effort", it) }
                         }
                     }
                 }

@@ -85,6 +85,31 @@ class ModelsDevModelMetadataTest {
         assertFalse("temperature" in result.supportedParameters)
     }
 
+    @Test fun reasoningControlTypesFlowFromCatalogIntoNewModels() {
+        val raw = """{"catalog":{"id":"catalog","name":"Catalog","npm":"@ai-sdk/openai-compatible",
+          "api":"https://example.test/v1","models":{
+          "toggle":{"id":"toggle","name":"Toggle","reasoning":true,
+            "reasoning_options":[{"type":"toggle"}],
+            "modalities":{"input":["text"],"output":["text"]}},
+          "budget":{"id":"budget","name":"Budget","reasoning":true,
+            "reasoning_options":[{"type":"budget_tokens","min":1024}],
+            "modalities":{"input":["text"],"output":["text"]}},
+          "effort":{"id":"effort","name":"Effort","reasoning":true,
+            "reasoning_options":[{"type":"effort","values":["none","low","max"]},
+                                 {"type":"budget_tokens","min":1024}],
+            "modalities":{"input":["text"],"output":["text"]}}
+        }}}"""
+        val p = ProviderSetting.OpenAI(baseUrl = "https://example.test/v1")
+        val catalog = ModelsDevModelCatalog.parse(raw)
+        assertEquals(listOf("toggle"), catalog.find(p, "toggle")!!
+            .applyToNewModel(Model(modelId = "toggle")).reasoningControlTypes)
+        assertEquals(listOf("budget_tokens"), catalog.find(p, "budget")!!
+            .applyToNewModel(Model(modelId = "budget")).reasoningControlTypes)
+        val effort = catalog.find(p, "effort")!!.applyToNewModel(Model(modelId = "effort"))
+        assertEquals(listOf("effort", "budget_tokens"), effort.reasoningControlTypes)
+        assertEquals(listOf("none", "low", "max"), effort.reasoningEfforts)
+    }
+
     @Test fun explicitFalseCapabilitiesClearStaticOrDefaultGuessesOnNewModel() {
         val catalog = ModelsDevModelCatalog.parse(fixture)
         val info = catalog.find(ProviderSetting.OpenAI(), "gpt-basic")!!
