@@ -27,7 +27,13 @@
 - RED-first JVM tests in `EmbeddingGemma2CatalogStateTest` and
   `MediaRagImportRulesTest` reproduced the wrong state/label cases and
   passed after the changes. Android app debug APK build passed in focused
-  verification. Full AI/app suites and Android lint were also initiated.
+  verification. Full AI/app JVM suites and debug APK build passed offline.
+  Android lint completed but failed on 150 errors and 127 warnings across the
+  larger existing codebase; the first error is suspicious indentation in the
+  untouched `ModelAssignmentsSection.kt`. No errors were reported in the files
+  changed by this pass; `SettingRAGPage.kt` has one autoboxing hint.
+  Report: `app/build/reports/lint-results-debug.html`. Do not conflate this
+  lint backlog with failing JVM tests or a failed APK build.
   Device UI screenshots/taps and native media inference remain unverified.
 - No user files, app settings, RAG indices, downloaded models, or installed
   Android packages were changed; the work is local source code only.
