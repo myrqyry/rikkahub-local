@@ -50,3 +50,65 @@ desktop on 2026-10-28 (about 5.9 MB, 233 provider entries).
 - Future extension: add individually verified provider-specific adapters and
   model metadata enrichment without conflating public catalog claims with
   actual runtime capabilities.
+
+## 2026-10-28 — Automatic model metadata on import
+
+The existing provider-directory cache is now also used to auto-configure **new**
+model selections in Provider Detail → Models, including typing a model ID and
+choosing one from the provider's actual `/models` listing. A second, searchable
+**Catalog** picker shows advertised models from the matched models.dev provider.
+Catalog entries are deliberately distinct from models the provider has confirmed
+as available to the user's account, and catalog selection does not authenticate
+or imply that the provider will serve that model.
+
+- `data/modelregistry/ModelsDevModelCatalog.kt` maps exact provider+model IDs
+  to supported text/image modalities, tool calling, reasoning, structured output,
+  temperature support, reasoning effort choices, context/output limits, and
+  advertised input/output token prices. Public pricing is USD per million
+  tokens; RikkaHub's pricing fields are USD per token.
+- Provider identity requires an exact endpoint including path and a compatible
+  adapter declaration. Default OpenAI, Claude, and native Gemini endpoints
+  have explicit mappings; mismatched endpoints, unverified aliases, and
+  loopback servers cannot acquire unrelated catalog capabilities. Unsupported
+  audio/video modalities are not presented as implemented text/image support.
+- Provider-reported OpenRouter capabilities/pricing win over catalog claims;
+  models.dev only fills missing known fields there. Custom and generic
+  providers whose API only returns IDs use the catalog when a precise match is
+  available, and the previous static registry otherwise.
+- `ai/provider/Model.kt` gained optional backward-compatible model metadata:
+  max output tokens, temperature support, structured-output support, reasoning
+  efforts, and provenance. No data migrations or destructive preference changes.
+- AI request builders for OpenAI chat/responses, Claude, and Gemini honor explicit
+  temperature support and cap explicit output-token requests to a known
+  advertised model limit. For unknown capabilities/limits, legacy request
+  behavior is retained. Provider-specific generation behaviors still apply.
+- Manually edited or previously saved models are **not overwritten** by
+  refreshes. The new-model dialog prepopulates details on recognized model IDs,
+  handles a catalog arriving after ID entry, and does not overwrite edits made
+  while loading. A successful catalog load is not proof of actual API support.
+- The catalog is loaded only on remote-provider model-settings pages, on
+  `Dispatchers.IO`, preserving local/cloud execution boundaries and the existing
+  24-hour cached/offline fallback. Only the selected provider's models are
+  retained in the in-memory catalog view.
+- Relevant tests: `ModelsDevModelMetadataTest`,
+  `ModelMetadataDefaultsTest`, `OpenRouterModelParseTest` plus existing AI
+  and app suites. RED-before-GREEN checks caught endpoint-adapter confusion,
+  loopback identity collisions and conflicting temperature metadata.
+
+**Verification:** `./gradlew :ai:testDebugUnitTest :app:testDebugUnitTest
+:app:assembleDebug --offline` PASS on Linux Mint. An opt-in live-source
+acceptance test `ModelsDevLiveCatalogContractTest` additionally passed with
+`RIKKAHUB_MODELS_DEV_LIVE_JSON` pointing to a fresh HTTP 200 JSON snapshot
+(5,922,427 bytes), validating actual OpenAI `gpt-4o` and OpenRouter
+`openai/gpt-4o` entries and the model capability/limit/pricing mappings.
+It skips in normal offline unit test runs unless explicitly enabled.
+No physical Android
+screen/API-key/response roundtrip was performed for the new feature.
+The catalog is community maintained, and model metadata can be stale; never
+treat published capabilities as execution receipts.
+
+**Not yet automated:** complex provider-specific parameter contracts (e.g.,
+all reasoning token-budget modes), runtime probing of remote capabilities,
+specialized audio/video or local model formats, additional LiteLLM reconciliation,
+and bulk rewriting of existing user-edited models. These require explicit,
+typed adapters/verified behavior rather than guessing.

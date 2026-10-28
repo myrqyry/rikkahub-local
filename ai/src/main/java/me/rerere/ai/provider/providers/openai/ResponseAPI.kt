@@ -28,6 +28,8 @@ import me.rerere.ai.core.TokenUsage
 import me.rerere.ai.provider.BuiltInTools
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelAbility
+import me.rerere.ai.provider.allowsTemperature
+import me.rerere.ai.provider.clampRequestedMaxTokens
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.TextGenerationParams
 import me.rerere.ai.provider.providers.PartGroup
@@ -213,7 +215,7 @@ class ResponseAPI(
                 if (params.temperature != null) put("temperature", params.temperature)
                 if (params.topP != null) put("top_p", params.topP)
             }
-            if (params.maxTokens != null) put("max_output_tokens", params.maxTokens)
+            params.model.clampRequestedMaxTokens(params.maxTokens)?.let { put("max_output_tokens", it) }
 
             // system instructions
             if (messages.any { it.role == MessageRole.SYSTEM }) {
@@ -787,9 +789,11 @@ class ResponseAPI(
     }
 }
 
-private fun isModelAllowTemperature(model: Model): Boolean {
-    return !ModelRegistry.OPENAI_O_MODELS.match(model.modelId) && !ModelRegistry.GPT_5.match(model.modelId)
-}
+private fun isModelAllowTemperature(model: Model): Boolean =
+    model.allowsTemperature(
+        legacyAllows = !ModelRegistry.OPENAI_O_MODELS.match(model.modelId) &&
+            !ModelRegistry.GPT_5.match(model.modelId)
+    )
 
 private fun List<UIMessagePart>.isOnlyTextPart(): Boolean {
     val gonnaSend = filter { it is UIMessagePart.Text || it is UIMessagePart.Image }.size

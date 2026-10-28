@@ -14,6 +14,41 @@ Use entries like:
 **Evidence / references:**  
 **Supersedes:** none
 
+## 2026-10-28 — Automatic model metadata is provider-scoped and override-safe
+
+**Decision:**
+Use models.dev for auto-configuring newly added remote model metadata after
+matching the exact provider transport/endpoint and model ID. Prefer verified
+provider API fields (particularly OpenRouter) when available, and retain static
+fallbacks for unknown models. Preserve user edits and pre-existing models on
+refresh; never auto-change credentials or turn on a service. Explicitly known
+parameter exclusions and output caps may guide request construction.
+
+**Why:**
+Adding a model should not require repeatedly toggling vision/tools/reasoning,
+entering context/output limits, and copying token pricing. But similar model IDs
+can expose different features through different providers, and a public catalog
+is not proof of actual account access or of the selected adapter's behavior.
+
+**Alternatives considered:**
+Hardcode another expanding list; trust model-name substring heuristics; overwrite
+all saved models at each catalog refresh; treat provider model catalogs as
+independent of their transport/host; silently switch local models to cloud.
+
+**Constraints / consequences:**
+Source-derived fields remain advertised metadata until verified by real API
+usage. Existing manual choices remain authoritative. Transport-specific
+reasoning modes, audio/video adapters, live capability probing, and any
+potential bulk migration require separate verified work.
+
+**Evidence / references:**
+`app/data/modelregistry/ModelsDevModelCatalog.kt`,
+`app/ui/pages/setting/SettingProviderDetailPage.kt`,
+`ai/provider/Model.kt`, and
+`docs/integrations/models-dev-provider-directory.md` (2026-10-28).
+
+**Supersedes:** none
+
 ## 2026-09-20 — Local System One is the primary fuzzy decision layer
 
 **Decision:**  

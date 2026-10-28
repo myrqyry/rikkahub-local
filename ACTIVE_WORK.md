@@ -1,6 +1,35 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-28 — Automatic model capabilities from models.dev
+
+- Extended the existing public provider directory into a provider-scoped model
+  metadata resolver with automatic configuration when importing provider-discovered
+  models or entering a new model ID; added a searchable catalog model picker.
+  No catalog model is represented as confirmed available to the user's API key.
+- Provider adapter and exact endpoint + model ID must match (native OpenAI,
+  Claude, Gemini, or explicit OpenAI-compatible/Router endpoints). Never infer
+  from a coincidental loopback port or unrelated model name.
+- Auto-populates supported text/image modalities, tool calling, reasoning,
+  structured-output/temperature flags, context/output limits, reasoning effort
+  metadata, and per-token prices; OpenRouter's direct model API overrides
+  catalog claims. Catalog is public metadata, not verified model behavior.
+- Request builders for OpenAI Chat/Responses, Claude and Google now honor
+  explicit temperature-support metadata and cap user-requested maximum output
+  tokens against known model maxima; unknown metadata retains old behavior.
+- Persisted model metadata is schema-additive, optional/defaulted. Existing
+  configured models and explicit user edits are preserved on catalog refresh;
+  model settings are never rewritten just because a catalog was fetched.
+- Tests added RED-first for mapping, precedence, exact provider boundaries,
+  serialization and request defaults. Full ":ai:testDebugUnitTest
+  :app:testDebugUnitTest :app:assembleDebug --offline" passed on desktop.
+  Opt-in real-data acceptance also passed against a fresh 5,922,427-byte
+  models.dev HTTP 200 API snapshot, verifying exact OpenAI/OpenRouter model
+  lookup and imported capabilities, context limits, and pricing.
+  Live phone UI, API-key authorization and actual model generation remain
+  unverified. No phone installation, credentials, settings changes or push.
+- Evidence/limits: docs/integrations/models-dev-provider-directory.md.
+
 ## 2026-10-28 — models.dev provider discovery
 
 - Added an opt-in models.dev directory to Models → Add → Provider / API with

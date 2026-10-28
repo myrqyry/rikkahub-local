@@ -61,6 +61,7 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -78,6 +79,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastFilter
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dokar.sonner.ToastType
 import kotlinx.coroutines.CoroutineScope
@@ -94,6 +98,7 @@ import me.rerere.ai.registry.ModelRegistry
 import me.rerere.ai.ui.UIMessage
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.withoutProvider
+import me.rerere.rikkahub.data.modelregistry.ModelsDevModelCatalog
 import me.rerere.rikkahub.ui.components.ai.ModelAbilityTag
 import me.rerere.rikkahub.ui.components.ai.ModelModalityTag
 import me.rerere.rikkahub.ui.components.ai.ModelSelector
@@ -397,6 +402,29 @@ private fun ModelList(
 ) {
     val providerManager = koinInject<ProviderManager>()
     val toaster = LocalToaster.current
+    val context = LocalContext.current
+    val endpoint = when (providerSetting) {
+        is ProviderSetting.OpenAI -> providerSetting.baseUrl
+        is ProviderSetting.Claude -> providerSetting.baseUrl
+        is ProviderSetting.Google -> providerSetting.baseUrl
+        else -> null
+    }
+    val catalog by produceState<ModelsDevModelCatalog?>(null, providerSetting.id, endpoint) {
+        if (endpoint != null) {
+            value = withContext(Dispatchers.IO) {
+                try {
+                    ModelsDevModelCatalog.loadForProvider(
+                        File(context.cacheDir, "models-dev-provider-directory.json"),
+                        providerSetting,
+                    )
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    null // Catalog failure must never block manual/provider model entry.
+                }
+            }
+        }
+    }
     val modelList by produceState(emptyList(), providerSetting) {
         runCatching {
             value = providerManager.getProviderByType(providerSetting)
@@ -499,6 +527,7 @@ private fun ModelList(
         ) {
             AddModelButton(
                 models = modelList,
+                catalog = catalog,
                 selectedModels = providerSetting.models,
                 onAddModel = {
                     onUpdateProvider(providerSetting.addModel(it))
@@ -519,24 +548,46 @@ private fun ModelSettingsForm(
     model: Model,
     onModelChange: (Model) -> Unit,
     isEdit: Boolean,
-    parentProvider: ProviderSetting? = null
+    parentProvider: ProviderSetting? = null,
+    catalog: ModelsDevModelCatalog? = null,
 ) {
     val pagerState = rememberPagerState { 3 }
     val scope = rememberCoroutineScope()
+    var manuallyEdited by remember(model.id) { mutableStateOf(false) }
+    fun userEdit(updated: Model) {
+        manuallyEdited = true
+        onModelChange(updated)
+    }
+    LaunchedEffect(catalog, model.modelId, isEdit) {
+        if (!isEdit && !manuallyEdited && model.metadataSource == null && parentProvider != null) {
+            catalog?.find(parentProvider, model.modelId)
+                ?.takeIf { it.isSelectableAsChatOrImage }
+                ?.let { onModelChange(it.applyToNewModel(model)) }
+        }
+    }
 
     fun setModelId(id: String) {
-        val inputModality = ModelRegistry.MODEL_INPUT_MODALITIES.getData(id)
-        val outputModality = ModelRegistry.MODEL_OUTPUT_MODALITIES.getData(id)
-        val abilities = ModelRegistry.MODEL_ABILITIES.getData(id)
-        onModelChange(
-            model.copy(
-                modelId = id,
-                displayName = id,
-                inputModalities = inputModality,
-                outputModalities = outputModality,
-                abilities = abilities
-            )
+        manuallyEdited = false
+        val base = model.copy(
+            modelId = id,
+            displayName = id,
+            type = ModelType.CHAT,
+            inputModalities = ModelRegistry.MODEL_INPUT_MODALITIES.getData(id),
+            outputModalities = ModelRegistry.MODEL_OUTPUT_MODALITIES.getData(id),
+            abilities = ModelRegistry.MODEL_ABILITIES.getData(id),
+            contextLength = null,
+            maxOutputTokens = null,
+            supportedParameters = emptyList(),
+            pricePromptPerToken = null,
+            priceCompletionPerToken = null,
+            supportsTemperature = null,
+            supportsStructuredOutput = null,
+            reasoningEfforts = emptyList(),
+            metadataSource = null,
         )
+        val metadata = parentProvider?.let { catalog?.find(it, id) }
+            ?.takeIf { it.isSelectableAsChatOrImage }
+        onModelChange(metadata?.applyToNewModel(base) ?: base)
     }
 
     Column {
@@ -607,7 +658,7 @@ private fun ModelSettingsForm(
                         OutlinedTextField(
                             value = model.displayName,
                             onValueChange = {
-                                onModelChange(model.copy(displayName = it.trim()))
+                                userEdit(model.copy(displayName = it.trim()))
                             },
                             label = { Text(stringResource(if (isEdit) R.string.setting_provider_page_model_name else R.string.setting_provider_page_model_display_name)) },
                             modifier = Modifier.fillMaxWidth(),
@@ -618,10 +669,18 @@ private fun ModelSettingsForm(
                             }
                         )
 
+                        if (model.metadataSource != null) {
+                            Text(
+                                "Auto-configured: ${model.metadataSource}. Catalog data is not a connection test; you can override it below.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+
                         ModelTypeSelector(
                             selectedType = model.type,
                             onTypeSelected = {
-                                onModelChange(model.copy(type = it))
+                                userEdit(model.copy(type = it))
                             }
                         )
 
@@ -629,11 +688,11 @@ private fun ModelSettingsForm(
                             model = model,
                             inputModalities = model.inputModalities,
                             onUpdateInputModalities = {
-                                onModelChange(model.copy(inputModalities = it))
+                                userEdit(model.copy(inputModalities = it))
                             },
                             outputModalities = model.outputModalities,
                             onUpdateOutputModalities = {
-                                onModelChange(model.copy(outputModalities = it))
+                                userEdit(model.copy(outputModalities = it))
                             }
                         )
 
@@ -641,7 +700,7 @@ private fun ModelSettingsForm(
                             ModalAbilitySelector(
                                 abilities = model.abilities,
                                 onUpdateAbilities = {
-                                    onModelChange(model.copy(abilities = it))
+                                    userEdit(model.copy(abilities = it))
                                 }
                             )
                         }
@@ -657,10 +716,24 @@ private fun ModelSettingsForm(
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        if (model.contextLength != null || model.maxOutputTokens != null ||
+                            model.supportsTemperature != null || model.reasoningEfforts.isNotEmpty()
+                        ) {
+                            Text("Detected model limits & parameters", style = MaterialTheme.typography.titleSmall)
+                            model.contextLength?.let { Text("Context: $it tokens") }
+                            model.maxOutputTokens?.let { Text("Maximum output: $it tokens") }
+                            model.supportsTemperature?.let {
+                                Text("Temperature parameter: ${if (it) "supported" else "not supported"}")
+                            }
+                            if (model.reasoningEfforts.isNotEmpty()) {
+                                Text("Advertised reasoning efforts: ${model.reasoningEfforts.joinToString()}")
+                            }
+                        }
+
                         ProviderOverrideSettings(
                             providerOverride = model.providerOverwrite,
                             onUpdateProviderOverride = { providerOverride ->
-                                onModelChange(model.copy(providerOverwrite = providerOverride))
+                                userEdit(model.copy(providerOverwrite = providerOverride))
                             },
                             parentProvider = parentProvider
                         )
@@ -668,14 +741,14 @@ private fun ModelSettingsForm(
                         CustomHeaders(
                             headers = model.customHeaders,
                             onUpdate = { headers ->
-                                onModelChange(model.copy(customHeaders = headers))
+                                userEdit(model.copy(customHeaders = headers))
                             }
                         )
 
                         CustomBodies(
                             customBodies = model.customBodies,
                             onUpdate = { bodies ->
-                                onModelChange(model.copy(customBodies = bodies))
+                                userEdit(model.copy(customBodies = bodies))
                             }
                         )
                     }
@@ -686,7 +759,7 @@ private fun ModelSettingsForm(
                     BuiltInToolsSettings(
                         tools = model.tools,
                         onUpdateTools = { tools ->
-                            onModelChange(model.copy(tools = tools))
+                            userEdit(model.copy(tools = tools))
                         }
                     )
                 }
@@ -698,6 +771,7 @@ private fun ModelSettingsForm(
 @Composable
 private fun AddModelButton(
     models: List<Model>,
+    catalog: ModelsDevModelCatalog?,
     selectedModels: List<Model>,
     expanded: Boolean,
     onAddModel: (Model) -> Unit,
@@ -714,9 +788,11 @@ private fun AddModelButton(
     ) {
         ModelPicker(
             models = models,
+            parentProvider = parentProvider,
+            catalog = catalog,
             selectedModels = selectedModels,
             onModelSelected = { model ->
-                onAddModel(model.enrichCapabilities())
+                onAddModel(model.enrichCapabilities(parentProvider, catalog))
             },
             onModelDeselected = { model ->
                 onRemoveModel(model)
@@ -726,7 +802,7 @@ private fun AddModelButton(
                     parentProvider.copyProvider(
                         models = parentProvider.models + it.filter { model ->
                             parentProvider.models.none { existing -> existing.modelId == model.modelId }
-                        }.map { model -> model.enrichCapabilities() }
+                        }.map { model -> model.enrichCapabilities(parentProvider, catalog) }
                     )
                 )
             },
@@ -739,6 +815,15 @@ private fun AddModelButton(
                     )
                 )
             }
+        )
+        ModelsDevCatalogModelPicker(
+            suggestions = catalog?.suggestedModels(parentProvider) ?: emptyList(),
+            configured = selectedModels,
+            onSelect = { metadata ->
+                if (selectedModels.none { it.modelId == metadata.modelId }) {
+                    onAddModel(metadata.applyToNewModel(Model(modelId = metadata.modelId)))
+                }
+            },
         )
 
         Button(
@@ -810,7 +895,8 @@ private fun AddModelButton(
                             model = modelState,
                             onModelChange = { dialogState.currentState = it },
                             isEdit = false,
-                            parentProvider = parentProvider
+                            parentProvider = parentProvider,
+                            catalog = catalog
                         )
                     }
 
@@ -844,6 +930,8 @@ private fun AddModelButton(
 @Composable
 private fun ModelPicker(
     models: List<Model>,
+    parentProvider: ProviderSetting,
+    catalog: ModelsDevModelCatalog?,
     selectedModels: List<Model>,
     onModelSelected: (Model) -> Unit,
     onModelDeselected: (Model) -> Unit,
@@ -948,7 +1036,7 @@ private fun ModelPicker(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
-                                        val modelMeta = remember(it) { it.enrichCapabilities() }
+                                        val modelMeta = remember(it, catalog) { it.enrichCapabilities(parentProvider, catalog) }
                                         ModelModalityTag(
                                             model = modelMeta,
                                         )
@@ -1577,13 +1665,16 @@ private fun ProviderOverrideSettings(
  * the static ModelRegistry lookup for providers that return bare model ids. Without this,
  * the registry lookup clobbered OpenRouter's detected image/tool/reasoning capabilities.
  */
-private fun Model.enrichCapabilities(): Model =
-    if (supportedParameters.isNotEmpty()) {
-        this
-    } else {
-        copy(
-            inputModalities = ModelRegistry.MODEL_INPUT_MODALITIES.getData(modelId),
-            outputModalities = ModelRegistry.MODEL_OUTPUT_MODALITIES.getData(modelId),
-            abilities = ModelRegistry.MODEL_ABILITIES.getData(modelId),
-        )
-    }
+private fun Model.enrichCapabilities(
+    provider: ProviderSetting,
+    catalog: ModelsDevModelCatalog?,
+): Model {
+    val metadata = catalog?.find(provider, modelId)
+        ?.takeIf { it.isSelectableAsChatOrImage }
+    if (metadata != null) return metadata.enrichProviderModel(this)
+    return if (supportedParameters.isNotEmpty()) this else copy(
+        inputModalities = ModelRegistry.MODEL_INPUT_MODALITIES.getData(modelId),
+        outputModalities = ModelRegistry.MODEL_OUTPUT_MODALITIES.getData(modelId),
+        abilities = ModelRegistry.MODEL_ABILITIES.getData(modelId),
+    )
+}

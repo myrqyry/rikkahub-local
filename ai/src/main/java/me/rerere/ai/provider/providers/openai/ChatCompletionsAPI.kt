@@ -33,6 +33,8 @@ import me.rerere.ai.core.TokenUsage
 import me.rerere.ai.provider.Modality
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelAbility
+import me.rerere.ai.provider.allowsTemperature
+import me.rerere.ai.provider.clampRequestedMaxTokens
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.TextGenerationParams
 import me.rerere.ai.provider.providers.PartGroup
@@ -284,7 +286,7 @@ class ChatCompletionsAPI(
                 if (params.temperature != null) put("temperature", params.temperature)
                 if (params.topP != null) put("top_p", params.topP)
             }
-            if (params.maxTokens != null) put("max_tokens", params.maxTokens)
+            params.model.clampRequestedMaxTokens(params.maxTokens)?.let { put("max_tokens", it) }
 
             put("stream", stream)
             if (stream) {
@@ -547,9 +549,11 @@ class ChatCompletionsAPI(
         return JsonObject(this + ("content" to newContent))
     }
 
-    private fun isModelAllowTemperature(model: Model): Boolean {
-        return !ModelRegistry.OPENAI_O_MODELS.match(model.modelId) && !ModelRegistry.GPT_5.match(model.modelId)
-    }
+    private fun isModelAllowTemperature(model: Model): Boolean =
+        model.allowsTemperature(
+            legacyAllows = !ModelRegistry.OPENAI_O_MODELS.match(model.modelId) &&
+                !ModelRegistry.GPT_5.match(model.modelId)
+        )
 
     private fun buildMessages(
         messages: List<UIMessage>,

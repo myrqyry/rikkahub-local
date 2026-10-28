@@ -38,6 +38,8 @@ import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.ai.provider.Modality
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelAbility
+import me.rerere.ai.provider.allowsTemperature
+import me.rerere.ai.provider.clampRequestedMaxTokens
 import me.rerere.ai.provider.ModelType
 import me.rerere.ai.provider.Provider
 import me.rerere.ai.provider.ProviderSetting
@@ -372,9 +374,9 @@ class GoogleProvider(private val client: OkHttpClient, context: Context? = null)
 
         // Generation config
         put("generationConfig", buildJsonObject {
-            if (params.temperature != null) put("temperature", params.temperature)
+            if (params.model.allowsTemperature(true) && params.temperature != null) put("temperature", params.temperature)
             if (params.topP != null) put("topP", params.topP)
-            if (params.maxTokens != null) put("maxOutputTokens", params.maxTokens)
+            params.model.clampRequestedMaxTokens(params.maxTokens)?.let { put("maxOutputTokens", it) }
             if (params.model.outputModalities.contains(Modality.IMAGE)) {
                 put("responseModalities", buildJsonArray {
                     add(JsonPrimitive("TEXT"))
