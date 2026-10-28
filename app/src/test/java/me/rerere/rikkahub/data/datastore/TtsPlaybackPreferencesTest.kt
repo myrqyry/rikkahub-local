@@ -7,6 +7,17 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class TtsPlaybackPreferencesTest {
+    @Test fun telephoneEffectIsOptInAndPerProviderAndSurvivesSerialization() {
+        val a = Uuid.random()
+        val b = Uuid.random()
+        val old = JsonInstant.decodeFromString<TtsPlaybackPreferences>("""{"autoPlay":true}""")
+        assertEquals(me.rerere.tts.effects.VoiceEffectPreset.OFF, old.voiceEffect)
+        val configured = DisplaySetting()
+            .withPlaybackFor(a, old.copy(voiceEffect = me.rerere.tts.effects.VoiceEffectPreset.TELEPHONE))
+        val restored = JsonInstant.decodeFromString<DisplaySetting>(JsonInstant.encodeToString(configured))
+        assertEquals(me.rerere.tts.effects.VoiceEffectPreset.TELEPHONE, restored.playbackFor(a).voiceEffect)
+        assertEquals(me.rerere.tts.effects.VoiceEffectPreset.OFF, restored.playbackFor(b).voiceEffect)
+    }
     @Test fun legacyOptionsAreInheritedWithoutRewritingSavedData() {
         // Mimics a prior installation: no ttsPlaybackProfiles field exists.
         val old = JsonInstant.decodeFromString<DisplaySetting>(

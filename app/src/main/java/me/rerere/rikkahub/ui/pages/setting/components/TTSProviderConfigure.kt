@@ -56,6 +56,7 @@ import me.rerere.tts.matcha.MatchaTtsCatalog
 import me.rerere.tts.pocket.PocketTtsBundle
 import me.rerere.tts.pocket.PocketTtsCatalog
 import me.rerere.tts.provider.TTSProviderSetting
+import me.rerere.tts.effects.VoiceEffectPreset
 import me.rerere.tts.qwen3.Qwen3TtsCatalog
 import me.rerere.tts.scylla.ScyllaTtsCatalog
 import okhttp3.OkHttpClient
@@ -316,6 +317,22 @@ fun TTSProviderConfigure(
                 title = stringResource(R.string.tts_provider_autoplay_title),
                 checked = playback.autoPlay,
                 onChange = { onPlaybackChange(playback.copy(autoPlay = it)) },
+            )
+        }
+
+        // Audio transforms are performed locally after the provider returns PCM16/WAV.
+        // RVC is deliberately not offered until real on-device conversion qualifies.
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(stringResource(R.string.tts_provider_voice_effects_title), style = MaterialTheme.typography.titleSmall)
+            Text(
+                stringResource(R.string.tts_provider_voice_effects_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TtsPlaybackSwitch(
+                title = stringResource(R.string.tts_provider_telephone_effect),
+                checked = playback.voiceEffect == VoiceEffectPreset.TELEPHONE,
+                onChange = { onPlaybackChange(playback.copy(voiceEffect = if (it) VoiceEffectPreset.TELEPHONE else VoiceEffectPreset.OFF)) },
             )
         }
 

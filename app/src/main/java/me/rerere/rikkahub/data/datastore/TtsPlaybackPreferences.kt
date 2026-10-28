@@ -1,6 +1,7 @@
 package me.rerere.rikkahub.data.datastore
 
 import kotlinx.serialization.Serializable
+import me.rerere.tts.effects.VoiceEffectPreset
 import kotlin.uuid.Uuid
 
 /**
@@ -12,6 +13,7 @@ data class TtsPlaybackPreferences(
     val quotedOnly: Boolean = false,
     val skipBracketed: Boolean = false,
     val autoPlay: Boolean = false,
+    val voiceEffect: VoiceEffectPreset = VoiceEffectPreset.OFF,
 )
 
 /** Older installations saved these three flags globally. Treat them as an

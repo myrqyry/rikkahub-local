@@ -220,3 +220,21 @@ packages and all ~309MB of temporary model copies were uninstalled/
 deleted. Package inspection found no remaining probe packages; existing
 RikkaHub PID was still alive and phone free storage ~7.0GB. No production
 RikkaHub code or on-device user app data was changed.
+
+## 2026-10-28 — Local audio postprocessing foundation
+
+An independent, production-wired on-device DSP milestone is now in the `speech`
+module: `effects/AudioEffectsPipeline.kt` decodes mono PCM16 or RIFF/WAV,
+executes ordered local effects, and returns actual PCM/WAV audio before
+`TtsController` playback. Settings persist an opt-in per-provider `TELEPHONE`
+preset; default behavior is unchanged. MP3/other compressed streams are **not**
+currently decoded for effects. Unsupported/invalid input raises an explicit
+error and the TTS controller logs/reports that original speech is played.
+Regression tests verify band attenuation, WAV output, composition,
+serialization, malformed input and invalid samples.
+
+**This is not an RVC implementation or proof of phone playback.** Its processor
+contract allows later model-based stages to return a different sample rate or
+length, but no RVC ONNX pipeline or model import has been connected. The
+previous real-device feasibility and performance gates above remain in force.
+At this checkpoint ADB listed no device, so no physical phone test was run.

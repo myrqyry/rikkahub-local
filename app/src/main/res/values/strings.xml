@@ -2218,4 +2218,7 @@
   <string name="workspace_opencode_detail_send">Send</string>
   <string name="workspace_opencode_detail_abort">Abort session</string>
   <string name="local_llm_catalog_download_percent">Downloading… %1$d%%</string>
+  <string name="tts_provider_voice_effects_title">On-device voice effects</string>
+  <string name="tts_provider_voice_effects_description">Telephone filter for mono PCM16/WAV only. Unsupported formats play unchanged with an error; RVC is not available yet.</string>
+  <string name="tts_provider_telephone_effect">Telephone / narrow-band voice</string>
 </resources>

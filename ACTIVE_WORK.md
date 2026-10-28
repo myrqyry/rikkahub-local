@@ -1,6 +1,29 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-28 — On-device TTS effects foundation (RVC still blocked)
+
+- Added a composable **on-phone PCM16/WAV post-TTS effect path** in `speech`,
+  before `AudioPlayer`, with mono PCM16/WAV decoding/validation, optional
+  sequential processing and WAV/PCM output. The effect API permits sample-rate
+  and frame-count changes for future model-based converters.
+- Added a real opt-in **telephone-band DSP filter**, selected per configured
+  TTS provider in Speech settings and persisted in the existing provider
+  playback profile. Default OFF, with no changes to prior saved profiles.
+- Non-PCM16/WAV formats are **not** decoded: opt-in processing reports the
+  incompatibility and plays the original audio instead of claiming success.
+  Invalid WAV and non-finite effect output are rejected. No remote inference.
+- Tests were written failing first for the processor, serialization and
+  malformed model output. See `speech/src/test/.../AudioEffectsPipelineTest.kt`
+  and `app/src/test/.../TtsPlaybackPreferencesTest.kt`.
+- RVC is **not enabled**. Previous Pixel ONNX synth benchmark ran slower
+  than real time; no full on-device RVC chain with intelligible converted
+  speech has passed. See `docs/rvc-on-device.md`.
+- Phone disconnected in ADB at the time of this change, so **no live phone
+  install, playback or conversion verification** occurred. Existing installed
+  phone data is untouched; no push.
+
+
 ## 2026-10-26 — Ollama Speech-ready OpenAI TTS compatibility
 
 - Current desktop Ollama v0.30.10 and alternate v0.35.1 instances all
