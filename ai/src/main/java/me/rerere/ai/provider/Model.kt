@@ -32,6 +32,10 @@ data class Model(
     // models.dev distinguishes explicit effort levels, binary toggle, and token budget.
     // Empty means unknown; it is not evidence that effort controls are unsupported.
     val reasoningControlTypes: List<String> = emptyList(),
+    // Raw provider-catalog media claims, separate from usable adapter input/output modalities.
+    // In particular, PDF is a document format, not a verified native inference transport.
+    val advertisedInputModalities: List<String> = emptyList(),
+    val advertisedOutputModalities: List<String> = emptyList(),
     val metadataSource: String? = null,
     // Runtime metadata: keeps the format/runtime/execution-backend/accelerator
     // distinction on the model itself instead of inferring it from the file

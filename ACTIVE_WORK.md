@@ -1,6 +1,27 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-28 — Media catalog metadata + Gemini pagination
+
+- Extended imported remote models with **advertised-only** input/output media
+  labels (`text`, `image`, `audio`, `video`, `pdf`) from models.dev; these are
+  distinct from the Android adapter's currently usable text/image modalities.
+  Model settings visibly differentiate catalog claims from working media paths.
+  Audio-only entries are not falsely offered as working chat models. Additive
+  optional serialization leaves previous model settings untouched.
+- Corrected Google's models.list importer to follow `nextPageToken` (initial
+  100-model page is not necessarily exhaustive), with exact token encoding,
+  stable ID de-duplication, a repeated-token/page-count safety guard, and a
+  clear failure on later-page errors instead of silently returning partial lists.
+- RED-first JVM tests for real HTTP request pagination + media parsing passed.
+  Live models.dev JSON contract confirmed Gemini 3.5 Flash advertised PDF,
+  audio, and video while adapter capability flags remained text/image.
+- EmbeddingGemma 2 full is multimodal, but the **installed local artifact is
+  specifically the 270M text-only LiteRT bundle** and the native engine feeds
+  `InputData.Text` only. Do not claim full audio/vision embeddings work on device.
+- Details: docs/integrations/models-dev-provider-directory.md. No user data,
+  API keys, saved models, or phone installation modified. Local commit only.
+
 ## 2026-10-28 — Capability-aware chat-composer reasoning picker
 
 - The chat composer previously hid reasoning only when `ModelAbility.REASONING` was

@@ -41,6 +41,9 @@ class ModelsDevLiveCatalogContractTest {
         val gemini = googleCatalog.find(google, "gemini-3.5-flash")
             ?: throw AssertionError("Public Gemini 3.5 Flash entry is missing")
         val geminiModel = gemini.applyToNewModel(me.rerere.ai.provider.Model(modelId = "gemini-3.5-flash"))
+        assertEquals(listOf("text", "image", "video", "audio", "pdf"), geminiModel.advertisedInputModalities)
+        // Existing Android message/input adapters must not claim unimplemented media transport.
+        assertEquals(listOf(me.rerere.ai.provider.Modality.TEXT, me.rerere.ai.provider.Modality.IMAGE), geminiModel.inputModalities)
         assertEquals(listOf(ReasoningLevel.AUTO, ReasoningLevel.LOW,
             ReasoningLevel.MEDIUM, ReasoningLevel.HIGH), geminiModel.composerReasoningLevels(google))
 

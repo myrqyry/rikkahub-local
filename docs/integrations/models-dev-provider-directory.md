@@ -182,3 +182,60 @@ could disagree with the request sent after switching models.
 - Full AI JVM suite, app JVM suite, and debug Android APK build passed
   offline. No ADB-connected phone or authenticated provider requests were
   available; rendered UI behavior and live provider support remain untested.
+
+## 2026-10-28 — Advertised audio/video/PDF metadata and complete Gemini model listing
+
+Two further improvements, implemented without broadening the app's inferred runtime
+capabilities or modifying user settings:
+
+- Models.dev supports `modalities.input` and `modalities.output` values
+  `text`, `image`, `audio`, `video`, and `pdf`. Imported models now retain
+  the catalog values in optional `advertisedInputModalities` and
+  `advertisedOutputModalities` metadata. The existing `inputModalities`
+  and `outputModalities` fields continue to describe what the currently
+  integrated app adapter can pass through safely (currently text/image).
+  PDF is a document format, not a new general inference transport. The model
+  details screen explicitly distinguishes advertised media from a verified
+  working adapter. Existing serialized models deserialize unchanged.
+- Catalog audio-only models are *not* added to the chat/image suggestion picker
+  merely because their audio capability is known; only compatible chat/image
+  models are suggested. The metadata supports future modality-specific catalogs,
+  attachment routing, and adapter verification without lying about availability.
+- The Google provider models.list request previously fetched just one page of
+  100 entries even when the response included `nextPageToken`. It now follows
+  all pages, preserves exact page-token encoding, avoids repeated IDs, and
+  rejects repeated tokens or more than 50 pages. A later-page error fails
+  the listing rather than returning an incomplete subset as if it were complete.
+  Embed-only entries remain identifiable as embedding models.
+- Google officially documents `pageToken` / `nextPageToken` for its Models API:
+  https://ai.google.dev/api/models
+- `GoogleModelPaginationTest` exercises the actual provider HTTP request path
+  with a synthetic OkHttp interceptor: multiple pages, model type, URL encoding,
+  duplicate IDs, repeated-token guard, and failure on later page.
+  `ModelsDevMediaMetadataTest` covers catalog round-trip, safe adapter
+  modalities, import precedence, and backward-compatible serialization.
+- A real models.dev JSON acceptance test checks `gemini-3.5-flash` as
+  advertising text/image/video/audio/PDF input while the current RikkaHub
+  adapter retains only its integrated text/image input flags.
+
+### EmbeddingGemma 2 boundary
+
+Google's released EmbeddingGemma 2 full model is a 740M-parameter, unified
+text/code, image/visual-document, audio, and video embedding model with a
+768-dimensional output vector and an 8192-token shared context. The optional
+vision/audio encoder modules are *not* present in the text-only 270M LiteRT
+bundle currently pinned by this Android app.
+
+The actual installed model path remains
+`local:embeddinggemma-2-text-270m`, revision
+`9be6e8b90982095dc05c2bd162e4b954ee4dbac7`, with an explicitly
+text-scoped embedding space. The runtime invokes
+`EmbeddingEngine.computeEmbedding(InputData.Text(...))` only. It must not be
+advertised as multimodal embedding inference yet. Future work needs a real
+multimodal LiteRT model/runtime adapter and media encoders, separate vector
+index compatibility, and an actual device inference test.
+
+Sources:
+- https://ai.google.dev/gemma/docs/embeddinggemma/model_card_2
+- https://developers.googleblog.com/embeddinggemma-2-the-developer-guide/
+- https://github.com/anomalyco/models.dev

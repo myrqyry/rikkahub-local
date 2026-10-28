@@ -584,6 +584,8 @@ private fun ModelSettingsForm(
             supportsStructuredOutput = null,
             reasoningEfforts = emptyList(),
             reasoningControlTypes = emptyList(),
+            advertisedInputModalities = emptyList(),
+            advertisedOutputModalities = emptyList(),
             metadataSource = null,
         )
         val metadata = parentProvider?.let { catalog?.find(it, id) }
@@ -673,6 +675,15 @@ private fun ModelSettingsForm(
                         if (model.metadataSource != null) {
                             Text(
                                 "Auto-configured: ${model.metadataSource}. Catalog data is not a connection test; you can override it below.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        if (model.advertisedInputModalities.isNotEmpty() || model.advertisedOutputModalities.isNotEmpty()) {
+                            Text(
+                                "Catalog media (advertised only): input ${model.advertisedInputModalities.joinToString().ifEmpty { "unknown" }}; " +
+                                    "output ${model.advertisedOutputModalities.joinToString().ifEmpty { "unknown" }}. " +
+                                    "Audio, video, and PDF still require a compatible runtime/adapter; these labels do not enable one.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

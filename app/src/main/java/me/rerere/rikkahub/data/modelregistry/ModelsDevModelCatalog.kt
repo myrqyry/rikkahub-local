@@ -146,6 +146,8 @@ data class ModelsDevModelMetadata(
     val priceCompletionPerToken: Double?,
     val reasoningEfforts: List<String>,
     val reasoningControlTypes: List<String>,
+    val advertisedInputModalities: List<String>,
+    val advertisedOutputModalities: List<String>,
     val isSelectableAsChatOrImage: Boolean,
     val isDeprecated: Boolean,
 ) {
@@ -185,6 +187,8 @@ data class ModelsDevModelMetadata(
             supportsStructuredOutput = structuredOutput ?: model.supportsStructuredOutput,
             reasoningEfforts = if (reasoningEfforts.isNotEmpty()) reasoningEfforts else model.reasoningEfforts,
             reasoningControlTypes = if (reasoningControlTypes.isNotEmpty()) reasoningControlTypes else model.reasoningControlTypes,
+            advertisedInputModalities = advertisedInputModalities,
+            advertisedOutputModalities = advertisedOutputModalities,
             metadataSource = "models.dev:$providerId/$modelId",
         )
     }
@@ -215,6 +219,8 @@ data class ModelsDevModelMetadata(
             supportsStructuredOutput = model.supportsStructuredOutput ?: reportedStructuredOutput ?: structuredOutput,
             reasoningEfforts = if (model.reasoningEfforts.isNotEmpty()) model.reasoningEfforts else reasoningEfforts,
             reasoningControlTypes = if (model.reasoningControlTypes.isNotEmpty()) model.reasoningControlTypes else reasoningControlTypes,
+            advertisedInputModalities = model.advertisedInputModalities.ifEmpty { advertisedInputModalities },
+            advertisedOutputModalities = model.advertisedOutputModalities.ifEmpty { advertisedOutputModalities },
             metadataSource = model.metadataSource ?: "models.dev:$providerId/$modelId (partial)",
         )
     }
@@ -229,6 +235,10 @@ data class ModelsDevModelMetadata(
                 obj?.get(name)?.jsonPrimitive?.doubleOrNull
                     ?.takeIf { it.isFinite() && it >= 0 }?.div(1_000_000.0)
             val modalities = node["modalities"] as? JsonObject
+            fun advertisedMods(key: String): List<String> =
+                (modalities?.get(key) as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }
+                    ?.filter { it in setOf("text", "image", "audio", "video", "pdf") }
+                    ?.distinct() ?: emptyList()
             fun mods(key: String): List<Modality>? =
                 (modalities?.get(key) as? JsonArray)?.let { array ->
                     array.mapNotNull { entry ->
@@ -270,6 +280,8 @@ data class ModelsDevModelMetadata(
                 priceCompletionPerToken = price(costs, "output"),
                 reasoningEfforts = efforts,
                 reasoningControlTypes = reasoningControlTypes,
+                advertisedInputModalities = advertisedMods("input"),
+                advertisedOutputModalities = advertisedMods("output"),
                 isSelectableAsChatOrImage = modelType == null &&
                     ((modalities?.get("output") as? JsonArray)?.any {
                         it.jsonPrimitive.contentOrNull in setOf("text", "image")
