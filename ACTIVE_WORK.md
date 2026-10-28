@@ -1,6 +1,23 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-28 — models.dev provider discovery
+
+- Added an opt-in models.dev directory to Models → Add → Provider / API with
+  searchable provider names and indexed model counts; existing providers and
+  custom setup stay available. Only explicitly OpenAI-compatible catalog entries
+  with safe endpoint schemes can prefill a new provider draft; draft remains
+  disabled, API key blank, and models unimported. Other providers are shown as
+  catalog-only until their specific protocol is supported.
+- Live models.dev API from desktop returned HTTP 200, ~5.9 MB and 233 providers.
+  The app fetches on demand, caps at 12 MB, caches public JSON for 24h and
+  clearly signals stale/offline fallback. No provider credentials sent to catalog.
+- Wrote failing parser tests first, then implementation; new cache tests caught
+  a fresh-cache timestamp race and passed after fix. App JVM suite and debug
+  APK build passed. Android UI/phone network/provider authentication untested:
+  ADB currently has no connected phone. No existing settings or phone data changed.
+- Details: docs/integrations/models-dev-provider-directory.md. Local commit only.
+
 ## 2026-10-28 — On-device TTS effects foundation (RVC still blocked)
 
 - Added a composable **on-phone PCM16/WAV post-TTS effect path** in `speech`,

@@ -58,6 +58,7 @@ import org.koin.androidx.compose.koinViewModel
 enum class AddModelsMode {
     ROOT,
     PROVIDER,
+    PROVIDER_DIRECTORY,
     HUGGING_FACE,
     LITERT_MODELS,
 }
@@ -160,6 +161,11 @@ fun AddToModelsSheet(
                                 title = stringResource(R.string.models_add_provider_list),
                                 onBack = { mode = AddModelsMode.ROOT },
                             )
+                            AddChoiceRow(
+                                title = "Browse models.dev providers",
+                                subtitle = "Find and configure supported API providers",
+                                onClick = { mode = AddModelsMode.PROVIDER_DIRECTORY },
+                            )
                             LazyColumn {
                                 item {
                                     AddChoiceRow(
@@ -194,6 +200,17 @@ fun AddToModelsSheet(
                                     )
                                 }
                             }
+                        }
+
+                        AddModelsMode.PROVIDER_DIRECTORY -> {
+                            SheetSubpageHeader(
+                                title = "Provider directory",
+                                onBack = { mode = AddModelsMode.PROVIDER },
+                            )
+                            ModelsDevProviderDirectoryChooser(
+                                configuredProviders = settings.providers,
+                                onChoose = { entry -> editState.open(entry.toProviderDraft()) },
+                            )
                         }
 
                         AddModelsMode.LITERT_MODELS -> {
