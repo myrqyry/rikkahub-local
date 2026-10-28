@@ -1,6 +1,32 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-28 — Investigation: EmbeddingGemma 2 SVD-512d and LFM3-VL-2B
+
+- Checked current Hugging Face repository metadata/README, model artifacts and
+  licensing alongside current Android source without downloading any large
+  model weights or changing application code. Findings recorded in
+  `docs/integrations/model-investigation-embeddinggemma-512d-lfm3-vl-2b.md`.
+- The 512d SVD derivative (744M Transformers Safetensors, not LiteRT) changes
+  only the final projection and offers ~33% smaller raw vectors; its own 13-dataset
+  NanoBEIR result shows near-identical ranking to original 768d, whereas prefix
+  512d loses some ranking quality. The SVD model loses the original's Matryoshka
+  behavior at 256d/128d. Prefer testing native 768→512/256 prefix projection plus
+  L2 normalization and separate index spaces before porting new weights.
+- LFM3-VL-2B is a **generative vision-language model**, not an embedder.
+  Official Q4_K_M GGUF + F16 projector totals ~1.48 GB before runtime buffers;
+  128K claimed context and vendor benchmarks are not phone runtime evidence.
+  Latest upstream llama.cpp v0.8.0 (Oct 28) includes LFM3-VL support, but our
+  pinned Llamatik 1.10.1 predates that merge and our projector locator does not
+  recognize Liquid's official mmproj filenames. Actual Android support is NOT
+  established. Better target: verified newer llama.cpp desktop smoke, optional
+  explicit LAN endpoint, then Android runtime compatibility work.
+- LFM uses the custom LFM Open License v1.0 with a $10M annual company-revenue
+  cutoff for free commercial use, unlike Apache 2.0 for the SVD derivative.
+- No model files downloaded; development filesystem reports ~5 GiB remaining.
+  Code, app settings, indexes and installed data unchanged. This is a research
+  checkpoint, not an implementation claim.
+
 ## 2026-10-28 — HF follow-up: normalize EmbeddingGemma 2 audio inputs
 
 - Hugging Face confirms the tracked LiteRT EmbeddingGemma 2 bundles still show
