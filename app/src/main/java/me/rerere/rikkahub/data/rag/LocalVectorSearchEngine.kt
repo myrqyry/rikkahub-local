@@ -39,10 +39,12 @@ class LocalVectorSearchEngine {
         embeddingSpaceId: String,
         embeddingDimension: Int,
         topK: Int = 10,
+        mediaOnly: Boolean = false,
     ): List<ScoredMatch> {
         return vectors
             .filter {
-                it.embeddingSpaceId == embeddingSpaceId && it.embeddingDimension == embeddingDimension
+                it.embeddingSpaceId == embeddingSpaceId && it.embeddingDimension == embeddingDimension &&
+                    (!mediaOnly || it.metadata.containsKey("mediaType"))
             }
             .map { entry ->
                 ScoredMatch(

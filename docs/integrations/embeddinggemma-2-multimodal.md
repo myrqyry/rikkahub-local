@@ -1,0 +1,129 @@
+# EmbeddingGemma 2 — on-device multimodal RAG
+
+Implemented on 2026-10-28, local branch `aster/device-execution-profile`.
+
+## Scope and present verification
+
+RikkaHub has an actual Android LiteRT-LM 0.18.0 `EmbeddingEngine` implementation
+for three revision-pinned EmbeddingGemma 2 bundles. These are *embedding*
+models, not chat/generation models. The three variants are independent,
+user-selected downloads; existing text-only RAG selection, files, and
+index-space ID remain compatible with the previous implementation.
+
+| Variant | Bundle / pinned commit | Exact size | SHA-256 |
+| --- | --- | ---: | --- |
+| 270M TEXT | `litert-community/embeddinggemma-2-text-270m-litert-lm` / `9be6e8b90982095dc05c2bd162e4b954ee4dbac7` | 164626432 B | `2d079ee2f6f066b1f368e8d7c819f55214eaef1d0513b312321901f30ab286fb` |
+| 440M VISION | `litert-community/embeddinggemma-2-text-vision-440m-litert-lm` / `e301f74d5551b0c2641bd5cb4652a76239d5c5f8` | 387710976 B | `92dcbea108899e5d6e30d919b0744f90d9967e80c67a4ab5503ac16d54f62eb0` |
+| 740M FULL | `litert-community/embeddinggemma-2-740m-litert-lm` / `24d962e906c7d332c6428e71c9676855024569e2` | 484622336 B | `e7a8a2204b91e0f96e92960e84a09a89212e1633dcb7575a9bf3378b4df77f4c` |
+
+Official model revisions, filename sizes, and LFS SHA-256 were checked
+against the public Hugging Face repository API. Each file is downloaded into
+the app's own `local-models/embeddinggemma2/` directory under its *different*
+filename, with a 256 MiB free-space reserve and checksum verified *before*
+the downloader's atomic promotion. Existing files are never overwritten.
+Selection requires a valid SHA; removing the active variant is blocked.
+
+The exact pinned Android AAR was inspected locally: 0.18.0 includes
+`EmbeddingEngineConfig.visionBackend`, `audioBackend`,
+`InputData.Image(ByteArray)`, `InputData.Audio(ByteArray)`, and
+`EmbeddingEngine.computeEmbedding(List<InputData>, EmbeddingOptions)`.
+The implementation makes actual calls through this native engine with
+`InputData.Text`, `Image`, and `Audio`, using CPU adapters, and checks
+that 768-dimensional results are finite. It does not use a mock embedding
+implementation or fall back to remote APIs.
+
+**Verification boundary:** desktop Gradle JVM tests and debug build are
+*not* proof that the 440M/740M native model actually initializes or yields
+correct image/audio vectors on a physical Android device. No phone is attached,
+no multimodal model was downloaded to the nearly-full development machine,
+and no actual image/audio inference outputs have been measured. Keep the
+feature explicitly testable rather than claiming runtime acceptance.
+
+## User path
+
+1. Open **Models → LiteRT models** and download the desired EmbeddingGemma 2
+   variant. Once verified, explicitly **Use ... for RAG**.
+2. Open **Settings → RAG → Local multimodal retrieval**. A 440M/740M variant
+   exposes **Index image, video, PDF, or WAV**. A 440M model accepts JPEG, PNG,
+   MP4, or PDF; 740M additionally accepts RIFF/WAVE audio.
+3. Choose an Android Storage Access Framework source. The original media is
+   read locally only. The app stores normalized vectors and metadata including
+   source label, content URI, page number or video timestamp. It never uploads
+   the source for this embedding operation.
+4. Search the indexed visual/audio media by typing a text query. Results are
+   ranked by cosine similarity of real model embeddings in the same pinned
+   variant's index space. Media is filtered before ranking/limiting so text
+   document chunks cannot crowd out media results.
+
+PDF: Android `PdfRenderer` rasterizes 1–24 pages to bounded PNG images
+(max 1024 px on the longest dimension), then embeds *each page as an image*.
+It does not assume a PDF byte payload is accepted directly by LiteRT.
+Large files over 64 MiB (when stat size is known) or PDFs with more than 24
+pages produce a clear error.
+
+Video: `MediaMetadataRetriever` extracts up to 12 evenly sampled MP4
+frames from a video up to 30 minutes, compresses them to bounded JPEGs, and
+embeds them as separate vision inputs with timestamps. This is **frame-based
+visual retrieval**, not native temporal audio/video embedding, and does not
+index a video's soundtrack. GIFs/HEVC/MKV are not claimed supported.
+
+Audio: the 740M model receives RIFF/WAVE bytes via `InputData.Audio`.
+No transcript or fake text embedding substitutes for audio. MP3 and other
+formats are explicitly excluded until a verified local decoding path exists.
+
+No data store migration or cloud service required. A separate
+`embeddingSpaceId` for each variant prevents querying across incompatible
+spaces, even though all three output 768 floats. Merely switching models
+does not delete old vectors; reindexing source documents may be necessary
+for the new space. Media IDs include model-space and source URI hashes to
+avoid overwriting media vectors from another variant.
+
+## Safety and limitations
+
+- No app installation, user-data deletion, database reset, settings override,
+  automatic model download, or cloud substitution was performed.
+- Current interface displays media search labels and similarity, not
+  thumbnail previews or opening the original file. Retaining the original
+  content URI in metadata does not guarantee a persisted document-provider
+  grant across application restarts.
+- The text-only embedder and Qwen path still function through the old
+  interfaces; other embedders are never incorrectly claimed to embed media.
+- Failed native loads return `null`, with errors logged locally; media
+  ingestion/search surfaces failures rather than presenting simulated vectors.
+- PDF and video ingestion is bounded; a failed multi-page/frame import can
+  retain already-indexed earlier pages/frames. Future resumable/atomic group
+  import is separate work.
+- Search results may be semantically poor until validated with physical-device
+  media retrieval tests. Embedding dimensions, model metadata, compiled Kotlin,
+  and unit tests alone do not establish actual multimodal model behavior.
+- The current RAG text ingestion still uses its own document chunk IDs.
+  Reindexing the *same textual document ID* under another space can replace
+  old rows; selection itself does not. Do not promise indefinite coexistence
+  for same-ID text reindexes until fixed with a scoped primary key.
+
+The RAG index status now counts valid rows for the selected space without
+marking them stale just because other model-space vectors coexist. If the
+selected space is absent but old vectors exist, it still indicates that the
+selected model needs indexing. A regression test covers both spaces coexisting.
+
+## Test coverage
+
+- `EmbeddingGemma2VariantsTest`: immutable asset hashes and sizes, old
+  text compatibility, selection resolution, independent model/index spaces,
+  corrupted-file refusal.
+- `EmbeddingGemma2MediaInputTest`: native image/audio input construction,
+  format and byte bounds, variant capability checks.
+- `MediaEmbeddingRepositoryTest`: actual embedding method dispatch,
+  media-only queries, vector-space isolation, change-of-model protection,
+  high-volume text-vs-media search regression.
+- `MediaRagImportRulesTest`: MIME routing, stable opaque IDs, PDF limits,
+  bounded video frame scheduling, model capability dispatch.
+- Existing RAG index, provider, and model-manager JVM tests.
+
+## Source references
+
+- https://ai.google.dev/gemma/docs/embeddinggemma/model_card_2
+- https://developers.googleblog.com/embeddinggemma-2-the-developer-guide/
+- https://ai.google.dev/edge/litert/litert_lm/embedding_models
+- https://huggingface.co/litert-community/embeddinggemma-2-text-vision-440m-litert-lm
+- https://huggingface.co/litert-community/embeddinggemma-2-740m-litert-lm

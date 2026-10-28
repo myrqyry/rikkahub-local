@@ -32,6 +32,7 @@ import me.rerere.locallm.GgufClassifier
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
 import me.rerere.locallm.ModelInstall
+import me.rerere.locallm.VerifiedModelArtifact
 import me.rerere.locallm.ModelFileImport
 import me.rerere.locallm.ModelCatalog
 import me.rerere.locallm.ModelCatalogEntry
@@ -49,6 +50,7 @@ import me.rerere.locallm.SdCatalog
 import me.rerere.locallm.SdCatalogEntry
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.rag.EmbeddingGemma2Model
+import me.rerere.rikkahub.data.rag.EmbeddingGemma2Variant
 import me.rerere.rikkahub.data.files.FileUtils
 import okhttp3.OkHttpClient
 import kotlin.uuid.Uuid
@@ -225,15 +227,15 @@ class ModelManagerViewModel(
     }
 
     /** EmbeddingGemma 2 is an embedder, never a LiteRT-LM chat model. */
-    val embeddingGemma2Selected: StateFlow<Boolean> = settingsStore.settingsFlow
-        .map { it.ragEmbeddingModel == EmbeddingGemma2Model.MODEL_ID }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val embeddingGemma2SelectedVariant: StateFlow<EmbeddingGemma2Variant?> = settingsStore.settingsFlow
+        .map { EmbeddingGemma2Variant.forModelId(it.ragEmbeddingModel) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    fun downloadEmbeddingGemma2() {
+    fun downloadEmbeddingGemma2(variant: EmbeddingGemma2Variant) {
         if (_downloadProgress.value != null) return
-        val target = EmbeddingGemma2Model.file(context)
+        val target = variant.file(context)
         _errorMessage.value = null
-        _downloadProgress.value = Progress(0, 0, EmbeddingGemma2Model.SIZE_BYTES)
+        _downloadProgress.value = Progress(0, 0, variant.sizeBytes)
         viewModelScope.launch {
             try {
                 check(!target.exists()) {
@@ -242,34 +244,31 @@ class ModelManagerViewModel(
                 val available = withContext(Dispatchers.IO) {
                     StatFs(context.filesDir.absolutePath).availableBytes
                 }
-                check(available > EmbeddingGemma2Model.SIZE_BYTES + 256L * 1024 * 1024) {
+                check(available > variant.sizeBytes + 256L * 1024 * 1024) {
                     "Not enough free storage for EmbeddingGemma 2 and a 256 MB safety reserve"
                 }
                 var finished = false
                 var failure: Throwable? = null
-                ModelInstall.download(httpClient, EmbeddingGemma2Model.downloadUrl, target).collect { progress ->
+                ModelInstall.download(
+                    httpClient,
+                    variant.downloadUrl,
+                    target,
+                    VerifiedModelArtifact(variant.sizeBytes, variant.sha256),
+                ).collect { progress ->
                     when (progress) {
                         is ModelInstall.Progress.Started -> Unit
                         is ModelInstall.Progress.Tick -> {
                             _downloadProgress.value = Progress(
-                                (progress.bytesRead * 100 / EmbeddingGemma2Model.SIZE_BYTES).toInt().coerceIn(0, 100),
+                                (progress.bytesRead * 100 / variant.sizeBytes).toInt().coerceIn(0, 100),
                                 progress.bytesRead,
-                                EmbeddingGemma2Model.SIZE_BYTES,
+                                variant.sizeBytes,
                             )
                         }
                         is ModelInstall.Progress.Failed -> failure = progress.cause
-                        is ModelInstall.Progress.Done -> {
-                            if (!withContext(Dispatchers.IO) {
-                                EmbeddingGemma2Model.verify(progress.file)
-                            }) {
-                                progress.file.delete()
-                                failure = IllegalStateException(
-                                    "EmbeddingGemma 2 model differs from pinned upstream SHA-256"
-                                )
-                            } else {
-                                finished = true
-                            }
-                        }
+                        // The downloader validates expected size/SHA-256 on its partial
+                        // file before atomically promoting it. Avoid hashing a 485 MB
+                        // model for the second time on the UI download path.
+                        is ModelInstall.Progress.Done -> finished = true
                     }
                 }
                 failure?.let { throw IllegalStateException("Model download failed: ${it.message}", it) }
@@ -286,14 +285,14 @@ class ModelManagerViewModel(
     }
 
     /** User explicitly selects this embedding space. Other RAG indices are not mixed in. */
-    fun selectEmbeddingGemma2() {
+    fun selectEmbeddingGemma2(variant: EmbeddingGemma2Variant) {
         if (_downloadProgress.value != null) return
         viewModelScope.launch {
             try {
                 check(withContext(Dispatchers.IO) {
-                    EmbeddingGemma2Model.verify(EmbeddingGemma2Model.file(context))
+                    variant.verify(variant.file(context))
                 }) { "EmbeddingGemma 2 model must pass SHA-256 validation before use" }
-                settingsStore.update { it.copy(ragEmbeddingModel = EmbeddingGemma2Model.MODEL_ID) }
+                settingsStore.update { it.copy(ragEmbeddingModel = variant.modelId) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -311,18 +310,18 @@ class ModelManagerViewModel(
         }
     }
 
-    fun removeEmbeddingGemma2() {
+    fun removeEmbeddingGemma2(variant: EmbeddingGemma2Variant) {
         if (_downloadProgress.value != null) return
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                check(settingsStore.settingsFlow.value.ragEmbeddingModel != EmbeddingGemma2Model.MODEL_ID) {
+                check(settingsStore.settingsFlow.value.ragEmbeddingModel != variant.modelId) {
                     "Switch to another embedding backend before removing the active model"
                 }
-                val target = EmbeddingGemma2Model.file(context)
+                val target = variant.file(context)
                 val root = File(context.getExternalFilesDir(null) ?: context.filesDir,
                     "local-models/embeddinggemma2").canonicalFile
                 check(target.canonicalFile.parentFile == root &&
-                    target.name == EmbeddingGemma2Model.FILE_NAME &&
+                    target.name == variant.fileName &&
                     !java.nio.file.Files.isSymbolicLink(target.toPath())
                 ) { "Refusing to remove a file outside the EmbeddingGemma 2 directory" }
                 if (target.exists()) check(target.isFile && target.delete()) {

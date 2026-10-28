@@ -1,6 +1,46 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-28 — Native EmbeddingGemma 2 multimodal RAG integration
+
+- Extended local EmbeddingGemma 2 from the existing 270M text-only LiteRT bundle to
+  **three separate revision- and SHA-pinned variants**: the original 270M TEXT,
+  440M TEXT+VISION, and 740M FULL (vision+audio). All use the existing LiteRT-LM
+  0.18.0 Android AAR's actual `EmbeddingEngine`, `InputData.Image/Audio`, and
+  vision/audio backend configuration. Model assets/size/SHA/commits verified
+  against Hugging Face public API; no new model was silently downloaded.
+- Model Manager now offers separate opt-in verified downloads, selection and
+  safe removal with free-space reserve and SHA validation before promotion;
+  270M's existing model ID and text embedding-space ID remain unchanged.
+- Native backend checks the bundle SHA before engine initialization; a
+  mutex-guarded single session closes on model switch, validates finite 768d
+  vectors, and never substitutes cloud embeddings. Text-only config remains the
+  previous known config. Model manager and RAG sources resolve selected variant
+  explicitly. Unique per-variant embedding spaces prevent cross-model search.
+- Added a working **code path** in RAG settings to select a local image, PDF,
+  MP4, or WAV through the Android SAF file picker and index native embeddings.
+  JPEG/PNG are directly image-embedded; PDF is rasterized to bounded page PNGs;
+  MP4 video uses up to 12 bounded frames as image embeddings (not temporal
+  video/audio understanding); 740M uses the actual native `InputData.Audio` on
+  RIFF/WAVE input. RAG search embeds the text query and ranks matching media
+  vectors by cosine similarity. Originals remain local; metadata records source
+  URI/label/page/timestamp, not the original media bytes.
+- Media search filters media **before** result limiting to avoid high-scoring
+  text chunks crowding out visual/audio results. Media operations require a
+  real media backend and the selected model's embedding-space ID. Strict input
+  size/type limits and PDF/video page/frame caps guard native runtime.
+- Tests written RED-first for variants, ID/space isolation, media type safety,
+  actual media interface dispatch, PDF/video bounds, and search limit regression.
+  Full Gradle JVM suites + debug build are verified separately. No Android ADB
+  device and no multimodal model file on development machine: compile/tests do
+  **not** prove native inference succeeded on a physical device.
+- Corrected the RAG index-status calculation: valid vectors from different
+  model spaces may coexist without forcing a false stale/rebuild warning for
+  the selected space; no matching vectors with other spaces present still
+  reports stale. RED-first index regression test reproduced the false warning.
+- Full evidence, remaining limitations and exact acceptance workflow:
+  `docs/integrations/embeddinggemma-2-multimodal.md`.
+
 ## 2026-10-28 — Deterministic metadata readiness for new-model imports
 
 - The provider's authenticated `/models` list and the public models.dev catalog

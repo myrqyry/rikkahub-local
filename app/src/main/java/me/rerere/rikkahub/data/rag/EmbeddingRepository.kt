@@ -38,6 +38,32 @@ class EmbeddingRepository(
     suspend fun indexDocument(id: String, text: String, metadata: JsonObject): Boolean {
         val backend = backendProvider() ?: return false
         val result = backend.embed(text) ?: return false
+        return indexResult(id, metadata, backend, result)
+    }
+
+    /** Embed actual media bytes using a native media encoder, not transcript/OCR substitution. */
+    suspend fun indexMedia(
+        id: String,
+        bytes: ByteArray,
+        kind: MediaEmbeddingKind,
+        metadata: JsonObject,
+        expectedSpaceId: String? = null,
+    ): Boolean {
+        val backend = backendProvider() as? MediaEmbeddingBackend ?: return false
+        if (expectedSpaceId != null && backend.embeddingSpaceId != expectedSpaceId) return false
+        val result = when (kind) {
+            MediaEmbeddingKind.IMAGE -> backend.embedImage(bytes)
+            MediaEmbeddingKind.AUDIO -> backend.embedAudio(bytes)
+        } ?: return false
+        return indexResult(id, metadata, backend, result)
+    }
+
+    private suspend fun indexResult(
+        id: String,
+        metadata: JsonObject,
+        backend: EmbeddingBackend,
+        result: EmbeddingResult,
+    ): Boolean {
         val embeddingDimension = result.embedding.size
         searchEngine.addVector(
             id = id,
@@ -55,6 +81,20 @@ class EmbeddingRepository(
         )
         vectorDao.insert(entity)
         return true
+    }
+
+    /** Dedicated cross-modal search without text reranking file names as document prose. */
+    suspend fun searchMedia(query: String, topK: Int = 8): List<LocalVectorSearchEngine.ScoredMatch> {
+        val backend = backendProvider() as? MediaEmbeddingBackend ?: return emptyList()
+        ensureLoaded(backend)
+        val embedding = backend.embedQuery(query)?.embedding ?: return emptyList()
+        return searchEngine.search(
+            queryEmbedding = embedding,
+            embeddingSpaceId = backend.embeddingSpaceId,
+            embeddingDimension = embedding.size,
+            topK = topK,
+            mediaOnly = true,
+        )
     }
 
     suspend fun searchSimilar(
@@ -98,9 +138,11 @@ class EmbeddingRepository(
         val currentSpace = backend.embeddingSpaceId
         val matchingRows = rows.filter { it.embeddingSpaceId == currentSpace }
         val dimensions = matchingRows.map { it.embeddingDimension }.toSet()
+        // Other embedding spaces can coexist. They do not make *this* space
+        // stale unless no vectors exist for the currently selected model.
         val stale = matchingRows.any { it.embeddingDimension <= 0 } ||
             dimensions.size > 1 ||
-            matchingRows.size != rows.size
+            matchingRows.isEmpty()
     return EmbeddingIndexStatus(
         documentCount = if (stale) 0 else matchingRows.size,
         stale = stale,

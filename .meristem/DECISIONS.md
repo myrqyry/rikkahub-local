@@ -14,6 +14,49 @@ Use entries like:
 **Evidence / references:**  
 **Supersedes:** none
 
+## 2026-10-28 — EmbeddingGemma 2 multimodal paths use verified native input and isolated indexes
+
+**Decision:**
+Use three independently pinned local LiteRT-LM EmbeddingGemma 2 variants (270M
+text, 440M text+vision, 740M full). Preserve the old text-only artifact,
+settings ID, text query prefixes and embedding-space ID. Implement native
+Image/Audio input using the already-pinned LiteRT-LM 0.18.0 Kotlin AAR,
+not OCR/transcription substitutes or cloud fallback. Distinguish visual-PDF
+page embeddings from text extraction and frame-based MP4 retrieval from
+true joint video sequence embedding. Keep opt-in downloads and a separate
+embedding space per bundle to prevent cross-model vector mixing.
+
+**Why:**
+The full EmbeddingGemma 2 is multimodal, but the current 270M local bundle
+contains only the text encoder. Official independent LiteRT packages, SHA
+checksums and Android native interfaces now exist for vision and audio.
+Blindly advertising all those capabilities on the text artifact would be wrong,
+while treating every image/audio as plain OCR/transcript text would defeat the
+cross-modal model's value.
+
+**Alternatives considered:**
+Replace the existing 270M bundle/index; silently switch to cloud models;
+generate fake image/audio embeddings; send PDF bytes as image inputs; treat
+MP4 as a native audio/video sequence supported by an API exposing only
+Image and Audio input types; auto-download hundreds of megabytes.
+
+**Constraints / consequences:**
+User explicitly chooses and verifies 440M or 740M, with a disk reserve and
+non-destructive model removal. The app includes a bounded local SAF importer:
+JPEG/PNG, PDF visual pages, MP4 sampled frames and RIFF/WAV for the full model.
+Actual Android native inference and relevance have NOT been confirmed on a
+physical device (no ADB device or model artifact on dev PC); JVM tests and
+APK build are not a substitute. No automatic install, push, or user-data edits.
+Existing text document same-ID reindexes can still replace rows across spaces;
+selection itself does not remove old vectors.
+
+**Evidence / references:**
+`docs/integrations/embeddinggemma-2-multimodal.md`, `EmbeddingGemma2Variant.kt`,
+`EmbeddingGemma2Backend.kt`, `MediaRagIngestion.kt`, `EmbeddingRepository.kt`,
+and test files under `app/src/test/.../data/rag/`, 2026-10-28.
+
+**Supersedes:** none
+
 ## 2026-10-28 — Wait for model metadata before saving newly imported models
 
 **Decision:**
