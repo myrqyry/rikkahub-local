@@ -30,6 +30,7 @@ import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelAbility
 import me.rerere.ai.provider.allowsTemperature
 import me.rerere.ai.provider.clampRequestedMaxTokens
+import me.rerere.ai.provider.supportedReasoningEffort
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.TextGenerationParams
 import me.rerere.ai.provider.providers.PartGroup
@@ -235,8 +236,10 @@ class ResponseAPI(
                     if (capabilities.supportsReasoningSummary) {
                         put("summary", "auto")
                     }
-                    if (level != ReasoningLevel.AUTO) {
-                        put("effort", level.effort)
+                    when (level) {
+                        ReasoningLevel.AUTO -> Unit
+                        ReasoningLevel.OFF -> put("effort", level.effort) // Preserve explicit OFF.
+                        else -> params.model.supportedReasoningEffort(level)?.let { put("effort", it) }
                     }
                 })
                 if (capabilities.supportEncryptedContent) {

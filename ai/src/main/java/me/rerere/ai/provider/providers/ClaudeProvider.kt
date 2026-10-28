@@ -34,6 +34,7 @@ import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelAbility
 import me.rerere.ai.provider.allowsTemperature
 import me.rerere.ai.provider.clampRequestedMaxTokens
+import me.rerere.ai.provider.supportedReasoningEffort
 import me.rerere.ai.provider.Provider
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.TextGenerationParams
@@ -375,9 +376,11 @@ class ClaudeProvider(private val client: OkHttpClient, context: Context? = null)
                             put("type", "adaptive")
                             put("display", "summarized")
                         })
-                        put("output_config", buildJsonObject {
-                            put("effort", params.reasoningLevel.effort)
-                        })
+                        params.model.supportedReasoningEffort(params.reasoningLevel)?.let { effort ->
+                            put("output_config", buildJsonObject {
+                                put("effort", effort)
+                            })
+                        }
                     }
                 }
             }

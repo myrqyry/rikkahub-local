@@ -1,6 +1,28 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-28 — Reasoning effort compatibility for auto-configured models
+
+- Found a request-path gap left by catalog integration: imported `reasoningEfforts`
+  were displayed/stored but OpenAI, OpenRouter, Claude, and Gemini 3 requests
+  could still emit an unsupported effort (for example XHIGH on a HIGH-only model).
+- Added `Model.supportedReasoningEffort` and applied it to OpenAI Responses,
+  OpenAI-compatible chat, OpenRouter, Claude adaptive effort, and Gemini 3
+  `thinkingLevel` mapping. Explicit adjustable levels are selected at or below
+  the user's requested level; if no lower advertised option is known, omit the
+  unsupported explicit effort and defer to the provider default. Provider-specific
+  OFF/AUTO behavior and models without effort metadata remain unchanged.
+- RED-first pure and serialized-request tests cover effort fallback, `max` mapping,
+  no upward forced effort, unknown metadata compatibility, and provider payloads;
+  Gemini request regressions reproduced before the fix. Full
+  `:ai:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --offline`
+  passed on Linux Mint (2026-10-28). `git diff --check` passed.
+- No connected ADB phone and no live authenticated provider round-trip; unit tests
+  validate actual request JSON and desktop build, not live service acceptance.
+  Further provider-specific reasoning modes and OFF-unavailable edge cases remain.
+  No existing installed user settings or credentials changed; local commit only.
+- Details: docs/integrations/models-dev-provider-directory.md.
+
 ## 2026-10-28 — Automatic model capabilities from models.dev
 
 - Extended the existing public provider directory into a provider-scoped model

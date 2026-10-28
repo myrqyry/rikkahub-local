@@ -1,5 +1,6 @@
 package me.rerere.ai.provider
 
+import me.rerere.ai.core.ReasoningLevel
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.uuid.Uuid
@@ -49,6 +50,27 @@ fun Model.allowsTemperature(legacyAllows: Boolean): Boolean =
 fun Model.clampRequestedMaxTokens(requested: Int?): Int? =
     if (requested != null && maxOutputTokens != null) requested.coerceAtMost(maxOutputTokens)
     else requested
+
+/**
+ * Convert an adjustable reasoning level to an advertised effort supported by this exact model.
+ * Unknown catalog data retains old behavior; a known catalog never causes an upward escalation.
+ * Null means no safe explicit effort: let the provider use its default reasoning level.
+ * OFF is handled separately by each provider, so it is never silently switched on here.
+ */
+fun Model.supportedReasoningEffort(requested: ReasoningLevel): String? {
+    if (requested == ReasoningLevel.AUTO || requested == ReasoningLevel.OFF) return null
+    if (reasoningEfforts.isEmpty()) return requested.effort
+
+    val ranks = mapOf(
+        "minimal" to 0, "low" to 1, "medium" to 2,
+        "high" to 3, "xhigh" to 4, "max" to 4,
+    )
+    val requestedRank = ranks.getValue(requested.effort)
+    return reasoningEfforts.asSequence()
+        .filter { (ranks[it] ?: Int.MAX_VALUE) <= requestedRank }
+        .distinct()
+        .maxWithOrNull(compareBy<String> { ranks.getValue(it) }.thenBy { it == requested.effort })
+}
 
 @Serializable
 enum class ModelType {

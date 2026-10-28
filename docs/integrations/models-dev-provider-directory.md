@@ -112,3 +112,39 @@ all reasoning token-budget modes), runtime probing of remote capabilities,
 specialized audio/video or local model formats, additional LiteLLM reconciliation,
 and bulk rewriting of existing user-edited models. These require explicit,
 typed adapters/verified behavior rather than guessing.
+
+## 2026-10-28 — Request-side reasoning effort enforcement
+
+Previously, a model could import `reasoning_options` from models.dev but the
+request builders ignored them. An assistant configured with XHIGH could still
+send `xhigh` to a model explicitly advertising only low/medium/high.
+
+- `Model.supportedReasoningEffort(requested)` resolves adjustable levels against
+  the model's advertised `reasoningEfforts` with a deterministic ordered scale
+  (minimal < low < medium < high < xhigh/max). It picks the highest supported
+  level at or below the requested level. A provider advertising `max` can use
+  that in place of xhigh for an XHIGH request. Unknown effort names are not
+  guessed. When no safe effort is available, no explicit effort is sent and the
+  provider chooses its default; this does **not** guarantee the resulting effort
+  is lower than requested. Empty catalog metadata preserves legacy behavior.
+- Integrated the resolver into OpenAI Responses, OpenAI-compatible Chat
+  Completions (including OpenRouter and OpenCode-compatible hosts),
+  Claude's `output_config.effort`, and Gemini 3's `thinkingLevel` mapping.
+  Provider-specific budget/toggle semantics are not accidentally treated as the
+  same protocol.
+- Explicit OFF and AUTO retain existing provider-specific behavior. The current
+  adapters cannot guarantee that OFF is available for every model, especially
+  providers with a mandatory minimum reasoning effort; don't silently translate
+  OFF into an apparently equivalent but reasoning-enabled mode.
+- This changes **request generation** for models with known effort metadata; it
+  does not modify persisted assistant preferences, override the model selected
+  by a user, fetch new data, or modify provider credentials.
+- Tests: `ai/src/test/.../ModelReasoningEffortTest.kt` verifies pure selection,
+  and `ProviderReasoningEffortRequestTest.kt` verifies serialized OpenAI
+  Responses, OpenRouter, OpenAI Chat, and Claude requests. Two Gemini 3 request
+  tests (in `GoogleProviderMessageTest.kt`) first reproduced unsupported
+  medium/low parameter emission, then passed with the fix.
+- Full local verification:
+  `./gradlew :ai:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --offline`
+  PASS, with `git diff --check` clean. No ADB phone was attached and no real
+  authenticated provider request was made, so service behavior remains unverified.

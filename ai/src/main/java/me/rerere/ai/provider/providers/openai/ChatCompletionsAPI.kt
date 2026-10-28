@@ -35,6 +35,7 @@ import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelAbility
 import me.rerere.ai.provider.allowsTemperature
 import me.rerere.ai.provider.clampRequestedMaxTokens
+import me.rerere.ai.provider.supportedReasoningEffort
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.TextGenerationParams
 import me.rerere.ai.provider.providers.PartGroup
@@ -321,6 +322,7 @@ class ChatCompletionsAPI(
 
             if (params.model.abilities.contains(ModelAbility.REASONING)) {
                 val level = params.reasoningLevel
+                val supportedEffort = params.model.supportedReasoningEffort(level)
                 when (host) {
                     "openrouter.ai" -> {
                         // https://openrouter.ai/docs/use-cases/reasoning-tokens
@@ -328,7 +330,11 @@ class ChatCompletionsAPI(
                             when (level) {
                                 ReasoningLevel.OFF -> put("effort", "none")
                                 ReasoningLevel.AUTO -> put("enabled", true)
-                                else -> put("effort", level.effort)
+                                else -> if (supportedEffort == null) {
+                                    put("enabled", true) // Leave selection to provider if none at/below request.
+                                } else {
+                                    put("effort", supportedEffort)
+                                }
                             }
                         })
                     }
@@ -413,7 +419,7 @@ class ChatCompletionsAPI(
                             put("type", if (!level.isEnabled) "disabled" else "enabled")
                         })
                         if (level.isEnabled && level != ReasoningLevel.AUTO) {
-                            put("reasoning_effort", level.effort)
+                            supportedEffort?.let { put("reasoning_effort", it) }
                         }
                     }
 
@@ -436,7 +442,8 @@ class ChatCompletionsAPI(
 
                     "opencode.ai" -> {
                         if (level != ReasoningLevel.AUTO) {
-                            put("reasoning_effort", level.effort)
+                            if (level == ReasoningLevel.OFF) put("reasoning_effort", level.effort)
+                            else supportedEffort?.let { put("reasoning_effort", it) }
                         }
                     }
 
@@ -444,7 +451,8 @@ class ChatCompletionsAPI(
                         // OpenAI 官方
                         // 文档中，completions API 只支持 "low", "medium", "high"
                         if (level != ReasoningLevel.AUTO) {
-                            put("reasoning_effort", if (level.effort == "none") "low" else level.effort)
+                            if (level == ReasoningLevel.OFF) put("reasoning_effort", "low")
+                            else supportedEffort?.let { put("reasoning_effort", it) }
                         }
                     }
                 }

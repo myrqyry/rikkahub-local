@@ -40,6 +40,7 @@ import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelAbility
 import me.rerere.ai.provider.allowsTemperature
 import me.rerere.ai.provider.clampRequestedMaxTokens
+import me.rerere.ai.provider.supportedReasoningEffort
 import me.rerere.ai.provider.ModelType
 import me.rerere.ai.provider.Provider
 import me.rerere.ai.provider.ProviderSetting
@@ -404,10 +405,14 @@ class GoogleProvider(private val client: OkHttpClient, context: Context? = null)
 
                         else -> {
                             if (ModelRegistry.GEMINI_3_SERIES.match(modelId = params.model.modelId)) {
-                                when (params.reasoningLevel) {
-                                    ReasoningLevel.LOW -> put("thinkingLevel", "LOW")
-                                    ReasoningLevel.MEDIUM -> put("thinkingLevel", "MEDIUM")
-                                    else -> put("thinkingLevel", "HIGH") // HIGH, XHIGH
+                                // Respect the supported effort levels advertised for this model.
+                                // No safe lower level => omit thinkingLevel and use provider default.
+                                when (params.model.supportedReasoningEffort(params.reasoningLevel)) {
+                                    "minimal" -> put("thinkingLevel", "MINIMAL")
+                                    "low" -> put("thinkingLevel", "LOW")
+                                    "medium" -> put("thinkingLevel", "MEDIUM")
+                                    "high", "xhigh", "max" -> put("thinkingLevel", "HIGH")
+                                    else -> Unit
                                 }
                             } else {
                                 put("thinkingBudget", params.reasoningLevel.budgetTokens)
