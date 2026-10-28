@@ -31,6 +31,7 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FloatingToolbarDefaults.ScreenOffset
 import androidx.compose.material3.FloatingToolbarDefaults.floatingToolbarVerticalNestedScroll
@@ -99,6 +100,10 @@ import me.rerere.ai.ui.UIMessage
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.withoutProvider
 import me.rerere.rikkahub.data.modelregistry.ModelsDevModelCatalog
+import me.rerere.rikkahub.data.modelregistry.ModelCatalogLoad
+import me.rerere.rikkahub.data.modelregistry.ProviderScopedCatalogLoad
+import me.rerere.rikkahub.data.modelregistry.ProviderScopedModelList
+import me.rerere.rikkahub.data.modelregistry.resolveImport
 import me.rerere.rikkahub.ui.components.ai.ModelAbilityTag
 import me.rerere.rikkahub.ui.components.ai.ModelModalityTag
 import me.rerere.rikkahub.ui.components.ai.ModelSelector
@@ -409,28 +414,35 @@ private fun ModelList(
         is ProviderSetting.Google -> providerSetting.baseUrl
         else -> null
     }
-    val catalog by produceState<ModelsDevModelCatalog?>(null, providerSetting.id, endpoint) {
-        if (endpoint != null) {
-            value = withContext(Dispatchers.IO) {
-                try {
-                    ModelsDevModelCatalog.loadForProvider(
-                        File(context.cacheDir, "models-dev-provider-directory.json"),
-                        providerSetting,
-                    )
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    null // Catalog failure must never block manual/provider model entry.
-                }
+    val scopedCatalogLoad by produceState(
+        initialValue = ProviderScopedCatalogLoad(providerSetting.id, endpoint, ModelCatalogLoad.Loading),
+        providerSetting.id, endpoint,
+    ) {
+        val catalog = if (endpoint != null) withContext(Dispatchers.IO) {
+            try {
+                ModelsDevModelCatalog.loadForProvider(
+                    File(context.cacheDir, "models-dev-provider-directory.json"),
+                    providerSetting,
+                )
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null // Unavailable catalog must not block custom/provider model entry.
             }
-        }
+        } else null
+        value = ProviderScopedCatalogLoad(providerSetting.id, endpoint, ModelCatalogLoad.Ready(catalog))
     }
-    val modelList by produceState(emptyList(), providerSetting) {
+    // Ignore a previous provider's completed result while Compose switches keys.
+    val catalogLoad = scopedCatalogLoad.forProvider(providerSetting.id, endpoint)
+    val scopedModelList by produceState(ProviderScopedModelList(providerSetting, emptyList()), providerSetting) {
         runCatching {
-            value = providerManager.getProviderByType(providerSetting)
-                .listModels(providerSetting)
-                .sortedBy { it.modelId }
-                .toList()
+            value = ProviderScopedModelList(
+                providerSetting,
+                providerManager.getProviderByType(providerSetting)
+                    .listModels(providerSetting)
+                    .sortedBy { it.modelId }
+                    .toList(),
+            )
         }.onFailure { error ->
             // runCatching catches Throwable, which includes CancellationException
             // (e.g. when the user navigates away from the Models tab mid-fetch
@@ -446,6 +458,7 @@ private fun ModelList(
             )
         }
     }
+    val modelList = scopedModelList.forProvider(providerSetting)
     var expanded by rememberSaveable { mutableStateOf(true) }
     val lazyListState = rememberLazyListState()
     val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
@@ -527,7 +540,7 @@ private fun ModelList(
         ) {
             AddModelButton(
                 models = modelList,
-                catalog = catalog,
+                catalogLoad = catalogLoad,
                 selectedModels = providerSetting.models,
                 onAddModel = {
                     onUpdateProvider(providerSetting.addModel(it))
@@ -783,7 +796,7 @@ private fun ModelSettingsForm(
 @Composable
 private fun AddModelButton(
     models: List<Model>,
-    catalog: ModelsDevModelCatalog?,
+    catalogLoad: ModelCatalogLoad,
     selectedModels: List<Model>,
     expanded: Boolean,
     onAddModel: (Model) -> Unit,
@@ -791,20 +804,25 @@ private fun AddModelButton(
     parentProvider: ProviderSetting,
     onUpdateProvider: (ProviderSetting) -> Unit
 ) {
+    // Manual dialog applies catalog metadata as the ID is entered (unless the user
+    // edits overrides). Don't enrich again on confirm and overwrite those edits.
     val dialogState = useEditState<Model> { onAddModel(it) }
     val scope = rememberCoroutineScope()
+    val importReady = catalogLoad is ModelCatalogLoad.Ready
+    val catalog = (catalogLoad as? ModelCatalogLoad.Ready)?.catalog
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (!importReady) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
         ModelPicker(
             models = models,
             parentProvider = parentProvider,
-            catalog = catalog,
+            catalogLoad = catalogLoad,
             selectedModels = selectedModels,
             onModelSelected = { model ->
-                onAddModel(model.enrichCapabilities(parentProvider, catalog))
+                catalogLoad.resolveImport(model, parentProvider)?.let(onAddModel)
             },
             onModelDeselected = { model ->
                 onRemoveModel(model)
@@ -814,7 +832,7 @@ private fun AddModelButton(
                     parentProvider.copyProvider(
                         models = parentProvider.models + it.filter { model ->
                             parentProvider.models.none { existing -> existing.modelId == model.modelId }
-                        }.map { model -> model.enrichCapabilities(parentProvider, catalog) }
+                        }.mapNotNull { model -> catalogLoad.resolveImport(model, parentProvider) }
                     )
                 )
             },
@@ -924,6 +942,7 @@ private fun AddModelButton(
                             Text(stringResource(R.string.cancel))
                         }
                         TextButton(
+                            enabled = importReady,
                             onClick = {
                                 if (modelState.modelId.isNotBlank() && modelState.displayName.isNotBlank()) {
                                     dialogState.confirm()
@@ -943,15 +962,15 @@ private fun AddModelButton(
 private fun ModelPicker(
     models: List<Model>,
     parentProvider: ProviderSetting,
-    catalog: ModelsDevModelCatalog?,
+    catalogLoad: ModelCatalogLoad,
     selectedModels: List<Model>,
     onModelSelected: (Model) -> Unit,
     onModelDeselected: (Model) -> Unit,
     onAllModelSelected: (List<Model>) -> Unit,
     onAllModelDeselected: (List<Model>) -> Unit
 ) {
-    var showModal by remember { mutableStateOf(false) }
-    if (showModal) {
+    var showModal by remember(parentProvider.id) { mutableStateOf(false) }
+    if (showModal && catalogLoad is ModelCatalogLoad.Ready) {
         ModalBottomSheet(
             onDismissRequest = { showModal = false },
             sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)),
@@ -1048,7 +1067,9 @@ private fun ModelPicker(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
-                                        val modelMeta = remember(it, catalog) { it.enrichCapabilities(parentProvider, catalog) }
+                                        val modelMeta = remember(it, catalogLoad) {
+                                            catalogLoad.resolveImport(it, parentProvider) ?: it
+                                        }
                                         ModelModalityTag(
                                             model = modelMeta,
                                         )
@@ -1102,6 +1123,7 @@ private fun ModelPicker(
         }
     ) {
         IconButton(
+            enabled = catalogLoad is ModelCatalogLoad.Ready,
             onClick = {
                 showModal = true
             }
@@ -1669,24 +1691,4 @@ private fun ProviderOverrideSettings(
             }
         }
     }
-}
-
-/**
- * Prefer capabilities auto-detected at fetch time (OpenRouter's /models populates
- * supportedParameters, modalities, abilities and the IMAGE model type); only fall back to
- * the static ModelRegistry lookup for providers that return bare model ids. Without this,
- * the registry lookup clobbered OpenRouter's detected image/tool/reasoning capabilities.
- */
-private fun Model.enrichCapabilities(
-    provider: ProviderSetting,
-    catalog: ModelsDevModelCatalog?,
-): Model {
-    val metadata = catalog?.find(provider, modelId)
-        ?.takeIf { it.isSelectableAsChatOrImage }
-    if (metadata != null) return metadata.enrichProviderModel(this)
-    return if (supportedParameters.isNotEmpty()) this else copy(
-        inputModalities = ModelRegistry.MODEL_INPUT_MODALITIES.getData(modelId),
-        outputModalities = ModelRegistry.MODEL_OUTPUT_MODALITIES.getData(modelId),
-        abilities = ModelRegistry.MODEL_ABILITIES.getData(modelId),
-    )
 }

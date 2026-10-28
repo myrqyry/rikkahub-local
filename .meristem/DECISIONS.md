@@ -14,6 +14,40 @@ Use entries like:
 **Evidence / references:**  
 **Supersedes:** none
 
+## 2026-10-28 — Wait for model metadata before saving newly imported models
+
+**Decision:**
+Do not permit committing an automatically imported provider model while its
+public capability catalog is still loading. Keep a finite catalog load result,
+explicitly scoped to the provider ID and endpoint, with a fallback path only
+when the catalog attempt has completed or is unavailable. Never rewrite
+existing saved models to fix a rushed import after the fact.
+
+**Why:**
+The provider `/models` request and models.dev fetch are independent. Previously
+an early add could save static guessed capabilities; because persisted manual
+settings are protected on refresh, those incorrect guesses persisted. Compose
+can also retain a previous provider's async value briefly on key changes.
+
+**Alternatives considered:**
+Silently import first then overwrite saved models when the catalog arrives;
+launch a second uncoordinated network fetch for every Add click; treat a
+previous provider's cached state as complete; require API connectivity forever.
+
+**Constraints / consequences:**
+The provider picker and manual Add confirmation briefly await the catalog's
+existing bounded 20-second request, but failure allows existing/manual setup.
+Explicit edits in the manual model dialog remain authoritative; tests cover
+pending/ready/failure/provider-switch resolution. Actual phone UI remains
+unverified until a device is available.
+
+**Evidence / references:**
+`ModelImportResolution.kt`, `ModelImportResolutionTest.kt`,
+`SettingProviderDetailPage.kt`, and models-dev-provider-directory.md,
+October 28, 2026.
+
+**Supersedes:** none
+
 ## 2026-10-28 — Composer controls must agree with actual model requests
 
 **Decision:**

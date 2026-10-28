@@ -1,6 +1,36 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-28 — Deterministic metadata readiness for new-model imports
+
+- The provider's authenticated `/models` list and the public models.dev catalog
+  load independently in Provider Detail. A model could previously be selected
+  before the catalog completed, persisted with fallback static capability guesses,
+  and never automatically enriched afterward (because saved model overrides are
+  intentionally protected).
+- Added `ModelCatalogLoad` (Loading / Ready, including Ready(null) for offline
+  failure) and a provider-scoped readiness guard. Provider model selection and
+  manual model confirmation wait for a completed catalog attempt, so the import
+  uses exact-provider metadata when available and the static/provider fallback
+  only after an actual catalog failure. The catalog picker already awaits data.
+- Compose's `produceState` can briefly retain the previous provider result when
+  keys change; scoped results now reject a previous provider ID/endpoint so
+  switching providers cannot bypass the gate with mismatched metadata.
+  The authenticated provider model listing is also scoped to the entire
+  provider configuration, so switching providers or credentials cannot briefly
+  show the previous provider's list as selectable new models.
+- Manual model edits remain authoritative: the dialog retains its existing
+  field-change handling, catalog prefill only when unedited, and confirm does
+  not re-enrich over the user's explicit changes. A small spinner indicates the
+  import gate is preparing capability data; no silent cloud provider substitution.
+- RED-first tests for pending/ready/offline paths, exact provider boundaries,
+  preserved provider metadata, stale-provider switching and changed API keys.
+  Full `:ai:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug`
+  passed offline on Linux Mint (with real models.dev snapshot acceptance test).
+  Device UI verification remains unavailable because ADB lists no phone;
+  no persistent installed app data was changed.
+- Details: docs/integrations/models-dev-provider-directory.md.
+
 ## 2026-10-28 — Media catalog metadata + Gemini pagination
 
 - Extended imported remote models with **advertised-only** input/output media
@@ -19,6 +49,11 @@
 - EmbeddingGemma 2 full is multimodal, but the **installed local artifact is
   specifically the 270M text-only LiteRT bundle** and the native engine feeds
   `InputData.Text` only. Do not claim full audio/vision embeddings work on device.
+  Verified actual `app` and `local-llm` Gradle dependencies already use LiteRT-LM
+  **0.18.0**, which shipped multimodal EmbeddingGemma support. Official 440M
+  text+vision and 740M full LiteRT packages exist; the next work is binding
+  verified media inputs and downloads to the existing runtime and proving them
+  on a device, not blindly upgrading from a stale 0.17.0 code comment.
 - Details: docs/integrations/models-dev-provider-directory.md. No user data,
   API keys, saved models, or phone installation modified. Local commit only.
 

@@ -239,3 +239,69 @@ Sources:
 - https://ai.google.dev/gemma/docs/embeddinggemma/model_card_2
 - https://developers.googleblog.com/embeddinggemma-2-the-developer-guide/
 - https://github.com/anomalyco/models.dev
+
+## 2026-10-28 — Resolve catalog before committing new model imports
+
+The authenticated provider model list and models.dev catalog fetch are concurrent.
+Previously the provider picker was usable as soon as /models returned, even
+when models.dev was still downloading; pressing Add at that moment saved a
+model with static, potentially incorrect guessed capabilities. We deliberately
+do not modify saved user models later, so this timing bug became permanent.
+
+- New app-level `ModelCatalogLoad` has Loading and Ready(catalog?) states.
+  Ready(null) means the catalog attempt finished without metadata; it permits
+  manual/provider model imports with the previous static registry fallback.
+  Loading does *not* persist a fallback model merely because metadata has not
+  arrived yet. Provider-model selection is disabled while the catalog is
+  pending, with a small progress indicator; manual model entry can begin but
+  its Add confirmation also waits for readiness. There is no unbounded wait:
+  public catalog fetching uses the existing finite 20-second timeout.
+- `ModelCatalogLoad.resolveImport` is the deterministic import path used for
+  individual and bulk selections, preserving rich provider-native metadata
+  (especially OpenRouter) rather than blindly applying static capabilities.
+- A `ProviderScopedCatalogLoad` identifies its provider ID and endpoint.
+  Compose's produceState can otherwise retain a previously completed value
+  briefly across a key change; a mismatched result is treated as Loading,
+  never as a usable catalog for a newly selected provider. The actual
+  authenticated provider `/models` list uses `ProviderScopedModelList` keyed
+  by the complete provider configuration as well, preventing old API-key or
+  previous-provider results from appearing in another provider's picker.
+- The manual model dialog retains its prefill-on-ID behavior and the
+  existing edited-field check; its confirmation does not independently apply
+  metadata again over a manual override.
+- Focused JVM regression tests: `ModelImportResolutionTest` exercises Pending,
+  Ready with exact catalog, unavailable catalog fallback, rich provider
+  precedence, unrelated host refusal, and stale provider result rejection.
+  Android JVM tests and debug build passed. UI interaction on a physical
+  Android device remains unverified; no installed data or credentials changed.
+
+### Verified LiteRT-LM multimodal upgrade path (2026-10-28)
+
+Important correction: the current app and local-llm Gradle dependencies **already
+pin LiteRT-LM 0.18.0**. An older EmbeddingGemma2Backend comment still said
+0.17.0 and was updated to avoid version drift. Google's LiteRT-LM v0.18.0
+release notes explicitly describe multimodal EmbeddingGemma 2 in Kotlin.
+Version 0.18.1 documents an ABI fix for builds from source; don't assume it
+is required for the current prebuilt Android artifact.
+
+Official packaged model choices:
+- Text-only 270M (currently installed code path): ~165 MB.
+  https://huggingface.co/litert-community/embeddinggemma-2-text-270m-litert-lm
+- Text + vision 440M: ~388 MB.
+  https://huggingface.co/litert-community/embeddinggemma-2-text-vision-440m-litert-lm
+- Full text + vision + audio 740M: ~485 MB, with video through the vision
+  encoder's frame processing.
+  https://huggingface.co/litert-community/embeddinggemma-2-740m-litert-lm
+
+Sources:
+- https://developers.google.com/edge/litert/releases/litert_oct
+- https://developers.google.com/edge/litert-lm
+
+**Next actual inference milestone:** inspect the pinned Android
+`EmbeddingEngine`/InputData 0.18.0 API for vision/audio input; add a separately
+pinned model artifact, hashes and opt-in download without overwriting the
+existing 270M checkpoint. Verify one genuine image embedding on device,
+then PDF-page/image retrieval, then audio embeddings. Keep a separately scoped
+index/embeddingSpaceId until vector compatibility has been tested. The
+presence of a supported runtime version and publicly packaged files is
+*not* proof that this app can yet embed media on its phone.

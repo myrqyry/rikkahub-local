@@ -14,7 +14,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
- * Native LiteRT-LM EmbeddingEngine from the app's existing 0.17.0 runtime,
+ * Native LiteRT-LM EmbeddingEngine from the app's pinned LiteRT-LM runtime,
  * not a synthetic embedding. Direct runtime usage avoids MediaPipe 1.1.0's
  * incompatible duplicate libicing.so dependency alongside Android AppSearch.
  * Initial integration intentionally uses CPU: supported on a wider Android
