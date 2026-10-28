@@ -29,11 +29,9 @@ object EmbeddingGemma2MediaInput {
     }
 
     fun audio(bytes: ByteArray): InputData.Audio {
-        require(bytes.size in 16..MAX_AUDIO_BYTES) { "WAV audio must be at most 64 MiB" }
-        require(bytes.copyOfRange(0, 4).contentEquals("RIFF".toByteArray(Charsets.US_ASCII)) &&
-            bytes.copyOfRange(8, 12).contentEquals("WAVE".toByteArray(Charsets.US_ASCII))) {
-            "Only RIFF/WAVE audio files are supported"
-        }
-        return InputData.Audio(bytes)
+        require(bytes.size <= MAX_AUDIO_BYTES) { "WAV audio must be at most 64 MiB" }
+        // EmbeddingGemma 2 expects 16 kHz mono. RIFF/WAVE alone says nothing
+        // about the encoded samples; validate/decode before handing it to LiteRT.
+        return InputData.Audio(EmbeddingGemma2WavNormalizer.normalize(bytes))
     }
 }

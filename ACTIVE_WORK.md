@@ -1,6 +1,29 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-28 — HF follow-up: normalize EmbeddingGemma 2 audio inputs
+
+- Hugging Face confirms the tracked LiteRT EmbeddingGemma 2 bundles still show
+  October 6 as their last update; Google's base model repo changed October 28,
+  without evidence that the Android weights were replaced. No model pins changed.
+- Confirmed Google's model card specifies **16 kHz mono** audio. Previously
+  `InputData.Audio` received any RIFF/WAVE byte stream (including wrong sample
+  rates and channel layouts), and the old test even treated a 16-byte WAV
+  fragment as usable audio.
+- Added a pure on-device WAV normalizer at the actual native-input boundary.
+  It validates the RIFF/chunk structure, accepts PCM16 mono/stereo at 8–96 kHz,
+  downmixes channels, resamples to 16 kHz, and returns proper 16-bit mono WAV
+  bytes. Malformed, floating-point, compressed, unsupported multichannel and
+  partial-frame data fail explicitly rather than being mislabeled. A five-minute
+  duration bound and 64 MiB size limit protect the local encoder.
+- RED-first tests reproduced missing normalization; regression tests cover
+  PCM sample preservation, sample rate conversion, mixing, chunk padding,
+  corrupted headers and unsupported formats. `:ai:testDebugUnitTest`,
+  `:app:testDebugUnitTest`, and `:app:assembleDebug` passed offline on the
+  connected Linux Mint PC. No physical device/native 740M inference proof yet.
+  Existing saved data, model downloads and vector indexes were untouched.
+- Details: docs/integrations/embeddinggemma-2-multimodal.md.
+
 ## 2026-10-28 — Native EmbeddingGemma 2 multimodal RAG integration
 
 - Extended local EmbeddingGemma 2 from the existing 270M text-only LiteRT bundle to

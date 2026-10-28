@@ -67,9 +67,29 @@ embeds them as separate vision inputs with timestamps. This is **frame-based
 visual retrieval**, not native temporal audio/video embedding, and does not
 index a video's soundtrack. GIFs/HEVC/MKV are not claimed supported.
 
-Audio: the 740M model receives RIFF/WAVE bytes via `InputData.Audio`.
-No transcript or fake text embedding substitutes for audio. MP3 and other
-formats are explicitly excluded until a verified local decoding path exists.
+Audio: the 740M model receives normalized **16 kHz mono PCM16 RIFF/WAVE**
+bytes via `InputData.Audio`, matching Google's stated audio sample-rate/channel
+requirements. The local normalizer strictly validates RIFF and WAV chunks,
+accepts mono/stereo 16-bit uncompressed PCM at 8–96 kHz, downmixes stereo,
+and resamples on-device (averaged interval downsampling; interpolated
+upsampling). Duration is capped at five minutes; files exceeding 64 MiB,
+malformed headers, partial frames, floats, compressed WAV, and MP3 are rejected
+with explicit errors. The first resampler is a bounded baseline, not a
+studio-grade DSP implementation; native inference quality remains unverified.
+No transcript or fake text embedding substitutes for audio.
+
+**2026-10-28 HF follow-up:** LiteRT package listings for the 270M/440M/740M
+bundles still show October 6 as their latest updates; Google's principal
+EmbeddingGemma 2 model repository shows October 28 activity. These are
+separate repositories and do not establish changed Android LiteRT weights.
+The normalizer fills a real input-contract gap discovered while reviewing
+new model documentation. RED-first tests cover 48 kHz stereo conversion,
+exact 16 kHz PCM samples, odd RIFF metadata chunks, malformed headers,
+unsupported encodings, and 8→16 kHz conversion. The complete AI JVM suite,
+app JVM suite, and debug APK build passed offline on Linux Mint. Physical
+Android 740M audio inference is still untested.
+
+Reference: https://ai.google.dev/gemma/docs/embeddinggemma/model_card_2
 
 No data store migration or cloud service required. A separate
 `embeddingSpaceId` for each variant prevents querying across incompatible

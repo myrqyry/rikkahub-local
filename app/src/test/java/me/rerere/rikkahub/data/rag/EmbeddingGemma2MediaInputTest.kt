@@ -20,9 +20,21 @@ class EmbeddingGemma2MediaInputTest {
         }
     }
 
-    @Test fun riffWavWithWaveHeaderUsesNativeAudioInput() {
-        val header = "RIFF".toByteArray() + byteArrayOf(36, 0, 0, 0) + "WAVEfmt ".toByteArray()
-        assertNotNull(EmbeddingGemma2MediaInput.audio(header))
+    @Test fun fullPcmWavUsesNativeAudioInputAfterNormalization() {
+        val input = java.nio.ByteBuffer.allocate(48).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            .put("RIFF".toByteArray()).putInt(40).put("WAVEfmt ".toByteArray())
+            .putInt(16).putShort(1.toShort()).putShort(1.toShort())
+            .putInt(16000).putInt(32000).putShort(2.toShort()).putShort(16.toShort())
+            .put("data".toByteArray()).putInt(4).putShort(100.toShort()).putShort((-100).toShort())
+            .array()
+        assertNotNull(EmbeddingGemma2MediaInput.audio(input))
+    }
+
+    @Test fun headerOnlyWavNoLongerPassesAsAudio() {
+        val incomplete = "RIFF".toByteArray() + byteArrayOf(36, 0, 0, 0) + "WAVEfmt ".toByteArray()
+        assertThrows(IllegalArgumentException::class.java) {
+            EmbeddingGemma2MediaInput.audio(incomplete)
+        }
     }
 
     @Test fun mp3AndRandomBytesAreNotMislabelledAsVerifiedAudio() {
