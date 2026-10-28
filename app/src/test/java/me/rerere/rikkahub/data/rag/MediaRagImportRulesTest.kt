@@ -43,6 +43,17 @@ class MediaRagImportRulesTest {
         assertTrue(MediaRagImportRules.videoTimestamps(0L).isEmpty())
     }
 
+    @Test fun importLabelOnlyAdvertisesFilesTheCurrentBundleCanUse() {
+        assertEquals(
+            "Index image, video, or PDF",
+            MediaRagImportRules.importLabel(EmbeddingGemma2Variant.VISION),
+        )
+        assertEquals(
+            "Index image, video, PDF, or WAV",
+            MediaRagImportRules.importLabel(EmbeddingGemma2Variant.FULL),
+        )
+    }
+
     @Test fun mediaCapabilityMustMatchTheSelectedBundle() {
         assertFalse(MediaRagImportRules.canImport(EmbeddingGemma2Variant.TEXT, MediaImportFormat.PDF))
         assertTrue(MediaRagImportRules.canImport(EmbeddingGemma2Variant.VISION, MediaImportFormat.PDF))

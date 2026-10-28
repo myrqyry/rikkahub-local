@@ -1,6 +1,37 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-28 — Pre-device UI and correctness pass for model picker / multimodal RAG
+
+- Before physical phone testing, audited the newly integrated LiteRT model
+  catalog and Settings → RAG media controls against the actual Compose code.
+  No ADB device or emulator was available; layout issues were discovered by
+  inspection and are **not** claimed visually confirmed on hardware.
+- The LiteRT model catalog was a non-scrollable Column inside a modal sheet,
+  with PP-OCR and three EmbeddingGemma bundles stacked ahead of its gallery.
+  Bounded the catalog at 520dp and made the entire section vertically
+  scrollable so controls remain reachable on shorter screens. Shortened model
+  download/select/remove labels to avoid unnecessary multi-line buttons.
+- Found a real selected-state bug: a selected EmbeddingGemma model whose file
+  was missing or incomplete still displayed as "Selected" without a recovery
+  action. Introduced an explicit, pure state policy covering all six
+  combinations of selection and file status, and rendered missing/incomplete
+  states with a clear warning and way back to the default embedder; missing
+  file permits a fresh download. Expected file length is an *availability*
+  hint; SHA-256 is still verified before selecting/loading.
+- Scoped RAG media search input/results and import status to the selected
+  embedding model ID so a model switch cannot show stale matches/messages
+  from a different vector space; the in-flight operation remains guarded.
+  Corrected the 440M import button: it no longer offers WAV when the selected
+  model lacks an audio encoder.
+- RED-first JVM tests in `EmbeddingGemma2CatalogStateTest` and
+  `MediaRagImportRulesTest` reproduced the wrong state/label cases and
+  passed after the changes. Android app debug APK build passed in focused
+  verification. Full AI/app suites and Android lint were also initiated.
+  Device UI screenshots/taps and native media inference remain unverified.
+- No user files, app settings, RAG indices, downloaded models, or installed
+  Android packages were changed; the work is local source code only.
+
 ## 2026-10-28 — Investigation: EmbeddingGemma 2 SVD-512d and LFM3-VL-2B
 
 - Checked current Hugging Face repository metadata/README, model artifacts and

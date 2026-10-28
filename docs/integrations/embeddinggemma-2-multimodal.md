@@ -147,3 +147,51 @@ selected model needs indexing. A regression test covers both spaces coexisting.
 - https://ai.google.dev/edge/litert/litert_lm/embedding_models
 - https://huggingface.co/litert-community/embeddinggemma-2-text-vision-440m-litert-lm
 - https://huggingface.co/litert-community/embeddinggemma-2-740m-litert-lm
+
+## 2026-10-28 — Pre-device Compose layout and model-selection corrections
+
+A targeted source audit of the phone-facing LiteRT gallery and RAG settings
+uncovered several issues before device acceptance:
+
+- The LiteRT gallery's entire verified-package section was an unbounded,
+  non-scrolling Compose Column inside the add-model bottom sheet, with the
+  general gallery nested below multiple large package controls. The full
+  section now has a bounded, vertical scroll viewport to keep package actions
+  reachable on shorter devices; model action labels are shorter. The nested
+  gallery list remains independently bounded and scrollable. **Only Kotlin
+  compilation and tests have been performed; real device layout remains to
+  be observed.**
+- A previously selected EmbeddingGemma variant could show \"Selected\" even
+  when its backing file was missing or only partially present. A tested,
+  explicit 6-state display policy now distinguishes selected/available,
+  selected/missing, selected/incomplete, unselected/available, unselected/
+  missing, and unselected/incomplete. The missing-file state permits a new
+  verified download; the incomplete state gives clear recovery directions.
+  The UI's expected-size check is not a checksum; selecting a bundle still
+  requires full SHA-256 verification.
+- RAG media query/results/status are now scoped to the selected model ID, so
+  old model search results and completion messages are not presented as new
+  model results after a switch (including delayed callbacks). The 440M
+  picker button says \"Index image, video, or PDF\" and reserves WAV for the
+  740M model with its audio encoder.
+- RED-first tests cover the display-state combinations and format-specific
+  import labels; full AI/app JVM suites, debug APK build and Android lint
+  are run in the preflight workflow. No physical device or emulator was
+  attached; none of this is a claim of on-device visual/inference acceptance.
+
+### Device smoke steps once available
+
+1. Open **Models → Add → LiteRT-Models gallery**. Confirm all three
+   EmbeddingGemma variants, download/use actions and the lower community
+   model gallery can be reached by scrolling on the actual phone.
+2. Select a **verified** 440M or 740M bundle (download only with sufficient
+   free space). Confirm that the state changes to selected, and
+   **Return to default** remains accessible. Don't deliberately corrupt
+   installed model files just to test recovery.
+3. In **Settings → RAG**, use the format-appropriate file picker and index
+   one small local JPEG/PNG or PDF. Search by a descriptive text query.
+4. Switch to a different embedding variant. Confirm the old search results
+   are no longer displayed, and the selected model's index status is scoped
+   correctly. Audio requires 740M and a genuine PCM WAV.
+5. Record logcat around any native load/generation errors and compare actual
+   retrieval relevance; Gradle unit tests cannot establish native behavior.

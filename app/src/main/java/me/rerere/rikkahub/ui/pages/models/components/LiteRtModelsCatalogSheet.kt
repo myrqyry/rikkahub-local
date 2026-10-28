@@ -1,6 +1,8 @@
 package me.rerere.rikkahub.ui.pages.models.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -51,7 +53,12 @@ internal fun LiteRtModelsCatalogSheet(
     var removeEmbeddings by remember { mutableStateOf<EmbeddingGemma2Variant?>(null) }
 
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        // The verified package controls can exceed a phone-height sheet. Give
+        // the whole page a bounded, scrollable viewport (not just its gallery).
+        modifier = Modifier.fillMaxWidth()
+            .heightIn(max = 520.dp)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
@@ -98,7 +105,7 @@ internal fun LiteRtModelsCatalogSheet(
                     enabled = !downloadInProgress,
                 ) { Text("Remove downloaded OCR package") }
             }
-            Text("EmbeddingGemma 2 · verified on-device embeddings", style = MaterialTheme.typography.titleSmall)
+            Text("EmbeddingGemma 2 · pinned local models", style = MaterialTheme.typography.titleSmall)
             Text(
                 "Three separate LiteRT models: text, text + vision, or full text + vision + audio. " +
                     "Choose a model explicitly; existing RAG vectors are kept in their own spaces.",
@@ -113,40 +120,69 @@ internal fun LiteRtModelsCatalogSheet(
                     variant.file(context).exists()
                 }
                 val active = embeddingGemma2SelectedVariant == variant
+                val variantState = embeddingGemma2CatalogState(
+                    selected = active,
+                    fileExists = fileExists,
+                    expectedSize = ready,
+                )
                 val variantName = when (variant) {
                     EmbeddingGemma2Variant.TEXT -> "270M · Text/code"
                     EmbeddingGemma2Variant.VISION -> "440M · Text, images, PDF pages, video frames"
                     EmbeddingGemma2Variant.FULL -> "740M · Text, images, PDF pages, video frames, WAV"
                 }
+                val shortName = variantName.substringBefore(" ·")
                 Text(
                     "$variantName · ${variant.sizeBytes / (1024 * 1024)} MiB · 768 dimensions",
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                when {
-                    !ready && !fileExists -> Button(
-                        onClick = { viewModel.downloadEmbeddingGemma2(variant) },
-                        enabled = !downloadInProgress,
-                    ) { Text("Download $variantName") }
-                    active -> {
-                        Text("Selected for local RAG. Existing documents in other model spaces stay unchanged; reindex as needed.",
-                            style = MaterialTheme.typography.bodySmall)
-                        TextButton(
-                            onClick = viewModel::chooseDefaultRagEmbeddings,
+                when (variantState) {
+                    EmbeddingGemma2CatalogState.NOT_DOWNLOADED,
+                    EmbeddingGemma2CatalogState.SELECTED_MISSING -> {
+                        if (active) Text(
+                            "Selected for RAG, but its model file is missing. Download it again or switch back to default.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Button(
+                            onClick = { viewModel.downloadEmbeddingGemma2(variant) },
                             enabled = !downloadInProgress,
-                        ) { Text("Return to default RAG embedding choice") }
+                        ) { Text("Download $shortName") }
                     }
-                    else -> {
-                        if (ready) Button(
+                    EmbeddingGemma2CatalogState.INCOMPLETE,
+                    EmbeddingGemma2CatalogState.SELECTED_INCOMPLETE -> {
+                        Text(
+                            if (active) "Selected model file is incomplete. Switch back or remove the incomplete file."
+                            else "Incomplete model file. Remove it before downloading again.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        if (!active) TextButton(
+                            onClick = { removeEmbeddings = variant },
+                            enabled = !downloadInProgress,
+                        ) { Text("Remove incomplete download") }
+                    }
+                    EmbeddingGemma2CatalogState.SELECTED_AVAILABLE -> {
+                        Text(
+                            "Selected for local RAG. Other model-space vectors are preserved; reindex as needed.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    EmbeddingGemma2CatalogState.AVAILABLE -> {
+                        Button(
                             onClick = { viewModel.selectEmbeddingGemma2(variant) },
                             enabled = !downloadInProgress,
-                        ) { Text("Use $variantName for RAG") }
-                        else Text("Incomplete or unverified model file; remove before retrying.",
-                            color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        ) { Text("Use $shortName for RAG") }
                         TextButton(
                             onClick = { removeEmbeddings = variant },
                             enabled = !downloadInProgress,
-                        ) { Text("Remove $variantName download") }
+                        ) { Text("Remove $shortName download") }
                     }
+                }
+                if (active) {
+                    TextButton(
+                        onClick = viewModel::chooseDefaultRagEmbeddings,
+                        enabled = !downloadInProgress,
+                    ) { Text("Return to default RAG embedding choice") }
                 }
             }
             OutlinedTextField(

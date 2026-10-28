@@ -42,6 +42,7 @@ import me.rerere.rikkahub.data.rag.EmbeddingIndexStatus
 import me.rerere.rikkahub.data.rag.EmbeddingRepository
 import me.rerere.rikkahub.data.rag.EmbeddingGemma2Variant
 import me.rerere.rikkahub.data.rag.MediaRagIngestion
+import me.rerere.rikkahub.data.rag.MediaRagImportRules
 import me.rerere.rikkahub.data.rag.LocalVectorSearchEngine
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.CardGroup
@@ -83,10 +84,14 @@ fun SettingRAGPage() {
 
     val selectedEmbeddingVariant = EmbeddingGemma2Variant.forModelId(settings.ragEmbeddingModel)
     var mediaImportBusy by remember { mutableStateOf(false) }
-    var mediaImportStatus by remember { mutableStateOf<String?>(null) }
-    var mediaSearchQuery by remember { mutableStateOf("") }
+    // The model's embedding space owns these results. Switching models must
+    // never display search matches or success messages from a previous space.
+    var mediaImportStatus by remember(settings.ragEmbeddingModel) { mutableStateOf<String?>(null) }
+    var mediaSearchQuery by remember(settings.ragEmbeddingModel) { mutableStateOf("") }
     var mediaSearchBusy by remember { mutableStateOf(false) }
-    var mediaSearchResults by remember { mutableStateOf<List<LocalVectorSearchEngine.ScoredMatch>>(emptyList()) }
+    var mediaSearchResults by remember(settings.ragEmbeddingModel) {
+        mutableStateOf<List<LocalVectorSearchEngine.ScoredMatch>>(emptyList())
+    }
     var indexRefresh by remember { mutableStateOf(0) }
     val mediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val variant = selectedEmbeddingVariant
@@ -196,7 +201,7 @@ fun SettingRAGPage() {
                                 mediaPicker.launch(types.toTypedArray())
                             },
                             enabled = !mediaImportBusy && !mediaSearchBusy,
-                        ) { Text(if (mediaImportBusy) "Embedding..." else "Index image, video, PDF, or WAV") }
+                        ) { Text(if (mediaImportBusy) "Embedding..." else MediaRagImportRules.importLabel(selectedEmbeddingVariant)) }
                         OutlinedTextField(
                             value = mediaSearchQuery,
                             onValueChange = { mediaSearchQuery = it },

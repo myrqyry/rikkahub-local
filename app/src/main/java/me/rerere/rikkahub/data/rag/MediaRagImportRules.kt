@@ -19,6 +19,11 @@ object MediaRagImportRules {
         else -> null
     }
 
+    /** Tell the truth about which file types the selected bundle can index. */
+    fun importLabel(variant: EmbeddingGemma2Variant): String =
+        if (variant.supportsAudio) "Index image, video, PDF, or WAV"
+        else "Index image, video, or PDF"
+
     fun canImport(variant: EmbeddingGemma2Variant, format: MediaImportFormat): Boolean =
         when (format) {
             MediaImportFormat.IMAGE, MediaImportFormat.PDF, MediaImportFormat.VIDEO -> variant.supportsImage
