@@ -14,6 +14,28 @@ import org.junit.Test
  * Public fixture is stored outside Git; no user credentials or provider calls are needed.
  */
 class ModelsDevLiveCatalogContractTest {
+    @Test fun realProviderDirectoryKeepsAllEntriesAndMakesAllPinnedProvidersActionable() {
+        val source = System.getenv("RIKKAHUB_MODELS_DEV_LIVE_JSON")
+        assumeTrue("Set RIKKAHUB_MODELS_DEV_LIVE_JSON for public catalog acceptance",
+            !source.isNullOrBlank() && File(source).isFile)
+        val entries = ModelsDevProviderDirectory.parse(File(source!!).readText())
+        assertTrue("Unexpectedly small public directory", entries.size > 100)
+        val pinned = ModelsDevProviderPresentation.pinned(entries)
+        val all = ModelsDevProviderPresentation.other(entries)
+        assertEquals(entries.size, pinned.size + all.size)
+        assertEquals(entries.size, (pinned + all).map { it.id }.distinct().size)
+        assertEquals(ModelsDevProviderPresentation.pinnedIds, pinned.map { it.id })
+        for (entry in pinned) {
+            assertNotEquals(
+                "${entry.name} is pinned but not usable",
+                ProviderDirectoryAction.Unsupported,
+                ModelsDevProviderPresentation.resolve(
+                    entry, me.rerere.rikkahub.data.datastore.DEFAULT_PROVIDERS
+                ),
+            )
+        }
+    }
+
     @Test fun currentPublicCatalogCanPopulateRealProviderModelMetadata() {
         val source = System.getenv("RIKKAHUB_MODELS_DEV_LIVE_JSON")
         assumeTrue("Set RIKKAHUB_MODELS_DEV_LIVE_JSON to run against live public metadata",

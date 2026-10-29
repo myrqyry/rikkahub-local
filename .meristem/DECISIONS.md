@@ -14,6 +14,46 @@ Use entries like:
 **Evidence / references:**  
 **Supersedes:** none
 
+## 2026-10-28 — Provider APIs: models.dev as primary discovery, existing settings authoritative
+
+**Decision:**
+Replace the *presentation* of the legacy built-in remote provider list in
+Models → Add → Provider APIs with a cached, searchable models.dev directory.
+Pin familiar providers as display priority, not as a separate model catalog.
+Keep a secondary route to the old saved/default entries and preserve manual
+endpoint setup. Reuse exact saved provider IDs and native adapters when a
+catalog entry matches; create a disabled, blank-key draft only when selected.
+
+**Why:**
+The screenshot showed the old static list crowding out the new public catalog.
+Deleting built-in provider settings or automatically rewriting them would lose
+API keys, assigned models, custom paths, and proven provider-specific options.
+A catalog entry or advertised SDK is not proof that our Android adapter works.
+
+**Alternatives considered:**
+Delete/recreate all default provider records to match models.dev; pin a second
+hardcoded mutable list of model metadata; automatically add every catalog
+provider to saved settings; advertise native SDK support for unknown providers;
+hide unsupported catalog entries entirely.
+
+**Constraints / consequences:**
+Google and Anthropic use their real typed native adapters. Existing configured
+OpenAI/OpenRouter/DeepSeek/xAI endpoints are opened unchanged. Officially
+documented generic Chat Completions endpoints enable Groq, Mistral and Cerebras
+basic API drafts without implying parity with their full native SDK features.
+Unknown catalog providers stay visible but non-selectable. Offline cache,
+manual setup and saved-provider fallback remain. No user keys or model settings
+changed. Physical device visual verification of the *new* list is pending.
+
+**Evidence / references:**
+`ModelsDevProviderPresentation.kt`,
+`ModelsDevProviderDirectoryChooser.kt`,
+`ModelsDevProviderPresentationTest.kt`,
+`ModelsDevLiveCatalogContractTest.kt`, and
+`docs/integrations/models-dev-provider-directory.md`, October 28 2026.
+
+**Supersedes:** prior presentation only, no serialized provider contract
+
 ## 2026-10-28 — EmbeddingGemma 2 multimodal paths use verified native input and isolated indexes
 
 **Decision:**

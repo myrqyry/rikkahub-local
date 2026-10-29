@@ -305,3 +305,71 @@ then PDF-page/image retrieval, then audio embeddings. Keep a separately scoped
 index/embeddingSpaceId until vector compatibility has been tested. The
 presence of a supported runtime version and publicly packaged files is
 *not* proof that this app can yet embed media on its phone.
+
+## 2026-10-28 — Make models.dev the primary Provider APIs picker
+
+The Models → Add → Provider APIs UI previously presented the entire saved
+built-in `DEFAULT_PROVIDERS` list first, with the public models.dev directory
+hidden behind an extra "Browse" row. A user-supplied Android screenshot showed
+the consequence: a long, static list dominated the sheet instead of the
+searchable live provider catalog.
+
+**New presentation:** Provider APIs opens directly into the cached models.dev
+directory, with a compact search box and two sections inside one vertical
+lazy list:
+- **Popular:** OpenAI, Anthropic, Google/Gemini, OpenRouter, DeepSeek, xAI,
+  Groq, Mistral, Cerebras, in a small curated order;
+- **All providers:** the remaining entries alphabetically, without duplicates.
+
+This is presentation prioritization, not another hardcoded provider registry.
+The public catalog's entries, labels, indexed-model counts, and cache/stale
+handling remain the source of all searchable directory rows. The same shared
+on-device cache is used for offline browsing; a catalog load failure still
+offers manual setup and a route to saved providers.
+
+**Real adapter/credential preservation:** The selection resolver looks for an
+existing provider configuration first, including native Google and Claude
+adapters and the built-in OpenAI, OpenRouter, DeepSeek and xAI settings. Clicking
+a matched entry opens its actual settings page, preserving ID, API key, model
+assignments, saved options, enabled state, and any custom edits. Never
+duplicate an existing API configuration merely because the display names in
+models.dev differ (e.g. Google vs Gemini, Anthropic vs Claude).
+
+For an absent supported provider, explicitly selecting its catalog entry
+opens a new disabled, empty-key draft; it does **not** enable, contact or
+auto-configure a network service. Native OpenAI, Google and Anthropic use
+their actual provider adapters; catalog-marked verified OpenAI-compatible
+endpoints use the generic OpenAI adapter.
+
+Additional, **independently documented** OpenAI-compatible Chat Completions
+endpoints are supported for the pinned providers whose models.dev npm entry
+names a native adapter but omits an API URL:
+- Groq `https://api.groq.com/openai/v1`
+  https://console.groq.com/docs/openai
+- Mistral `https://api.mistral.ai/v1`
+  https://docs.mistral.ai/resources/migration-guides
+- Cerebras `https://api.cerebras.ai/v1`
+  https://inference-docs.cerebras.ai/resources/openai
+
+These are **basic chat compatibility claims**, not verified equivalence to
+each provider's SDK, native feature set, model-list permissions or exact
+reasoning/tool parameters. Unknown catalog providers without an adapter or
+safe compatible endpoint remain discoverable but visibly unavailable rather
+than emitting untested requests.
+
+The previous built-in list was **not deleted from settings or migrated**.
+Instead a secondary **Other saved API setups** route preserves access to every
+existing/default/custom remote entry, including legacy services absent from
+models.dev. A separate **Custom API endpoint** action remains available.
+The main UI no longer forces a long list of default-disabled provider templates
+to appear ahead of the actual catalog.
+
+**TDD and validation:** `ModelsDevProviderPresentationTest` covers pinned
+ordering, searching, unique listings, existing Google/DeepSeek/OpenRouter/xAI
+configuration reuse, draft safety, verified native-style endpoints, custom
+URL matching, and unsupported adapters. An opt-in acceptance test using the
+real downloaded models.dev catalog checks all public rows are accounted for
+and every pinned provider is selectable. Android debug APK build and focused
+tests passed. Final full regression result is tracked in `ACTIVE_WORK.md`.
+Physical Android UI screenshot/interaction of the new build remains
+unverified until it is installed on a device; phone data was untouched.

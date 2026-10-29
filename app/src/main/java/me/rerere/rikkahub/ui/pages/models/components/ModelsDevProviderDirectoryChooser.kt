@@ -1,13 +1,18 @@
 package me.rerere.rikkahub.ui.pages.models.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -18,22 +23,32 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import java.io.File
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.rikkahub.data.modelregistry.ModelsDevDirectorySnapshot
 import me.rerere.rikkahub.data.modelregistry.ModelsDevProviderDirectory
 import me.rerere.rikkahub.data.modelregistry.ModelsDevProviderEntry
+import me.rerere.rikkahub.data.modelregistry.ModelsDevProviderPresentation
+import me.rerere.rikkahub.data.modelregistry.ProviderDirectoryAction
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 
-/** Catalog browsing is opt-in and cannot alter previously configured provider entries. */
+/**
+ * Primary API provider picker. models.dev supplies names and ordering, while
+ * RikkaHub's real adapters and existing provider records determine what is
+ * selectable. This component never mutates credentials or provider settings.
+ */
 @Composable
 internal fun ModelsDevProviderDirectoryChooser(
     configuredProviders: List<ProviderSetting>,
-    onChoose: (ModelsDevProviderEntry) -> Unit,
+    onChoose: (ProviderDirectoryAction) -> Unit,
 ) {
     val context = LocalContext.current
     var snapshot by remember { mutableStateOf<ModelsDevDirectorySnapshot?>(null) }
@@ -50,23 +65,23 @@ internal fun ModelsDevProviderDirectoryChooser(
                     File(context.cacheDir, "models-dev-provider-directory.json")
                 )
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
-            error = "Provider directory unavailable. Custom API setup still works."
+            error = "Provider directory unavailable. Use a custom API endpoint or an existing setup."
         }
     }
 
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            "models.dev provider directory",
+            "Browse models.dev",
             style = MaterialTheme.typography.titleSmall,
         )
         Text(
-            "Public catalog, not a connection test. Only OpenAI-compatible endpoints " +
-                "can be added from here; other providers need their own adapter. " +
-                "New connections start disabled with no API key.",
+            "Search the public provider directory. Existing API settings and keys are preserved.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -84,45 +99,86 @@ internal fun ModelsDevProviderDirectoryChooser(
                 Text(error!!, color = MaterialTheme.colorScheme.error)
                 TextButton(onClick = { retryCount++ }) { Text("Retry") }
             }
-            loaded == null -> CircularProgressIndicator()
+            loaded == null -> {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                    Text("Loading provider directory", style = MaterialTheme.typography.bodySmall)
+                }
+            }
             else -> {
                 if (loaded.stale) {
                     Text(
-                        "Offline: showing an older cached directory.",
+                        "Offline · Showing the last cached provider directory",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                val filtered = remember(loaded, search) {
-                    loaded.providers.filter { entry ->
-                        entry.name.contains(search.trim(), ignoreCase = true) ||
-                            entry.id.contains(search.trim(), ignoreCase = true)
-                    }
+                val pinned = remember(loaded, search) {
+                    ModelsDevProviderPresentation.pinned(loaded.providers, search)
+                }
+                val others = remember(loaded, search) {
+                    ModelsDevProviderPresentation.other(loaded.providers, search)
                 }
                 Text(
-                    "${filtered.size} providers · ${filtered.count { it.canAddAsOpenAiCompatible }} compatible",
+                    "${pinned.size + others.size} providers · Directory entries aren't connection tests",
                     style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                LazyColumn(modifier = Modifier.heightIn(max = 480.dp)) {
-                    items(filtered, key = { it.id }) { entry ->
-                        val configured = configuredProviders.any {
-                            it is ProviderSetting.OpenAI && entry.baseUrl != null &&
-                                it.baseUrl.trimEnd('/').equals(
-                                    entry.baseUrl.trimEnd('/'), ignoreCase = true
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp),
+                ) {
+                    if (pinned.isNotEmpty()) {
+                        item("pinned") {
+                            Text(
+                                "Popular",
+                                style = MaterialTheme.typography.titleSmall,
+                                modifier = Modifier.padding(top = 5.dp, bottom = 5.dp),
+                            )
+                        }
+                        items(pinned, key = { "pinned:${it.id}" }) { entry ->
+                            ProviderDirectoryRow(
+                                entry = entry,
+                                action = ModelsDevProviderPresentation.resolve(
+                                    entry, configuredProviders
+                                ),
+                                onChoose = onChoose,
+                            )
+                        }
+                    }
+                    if (others.isNotEmpty()) {
+                        item("all") {
+                            Column {
+                                if (pinned.isNotEmpty()) {
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+                                }
+                                Text(
+                                    "All providers",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier.padding(bottom = 5.dp),
                                 )
+                            }
                         }
-                        val subtitle = when {
-                            configured -> "Already configured"
-                            entry.canAddAsOpenAiCompatible ->
-                                "${entry.modelCount} indexed models · Add disabled, then configure"
-                            else -> "Catalog only · Requires a supported provider adapter"
+                        items(others, key = { "catalog:${it.id}" }) { entry ->
+                            ProviderDirectoryRow(
+                                entry = entry,
+                                action = ModelsDevProviderPresentation.resolve(
+                                    entry, configuredProviders
+                                ),
+                                onChoose = onChoose,
+                            )
                         }
-                        AddChoiceRow(
-                            title = entry.name,
-                            subtitle = subtitle,
-                            enabled = entry.canAddAsOpenAiCompatible && !configured,
-                            onClick = { onChoose(entry) },
-                        )
+                    }
+                    if (pinned.isEmpty() && others.isEmpty()) {
+                        item("empty") {
+                            Text(
+                                "No providers match your search.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(vertical = 12.dp),
+                            )
+                        }
                     }
                 }
             }
@@ -131,23 +187,59 @@ internal fun ModelsDevProviderDirectoryChooser(
 }
 
 @Composable
-private fun AddChoiceRow(
-    title: String,
-    subtitle: String,
-    enabled: Boolean,
-    onClick: () -> Unit,
+private fun ProviderDirectoryRow(
+    entry: ModelsDevProviderEntry,
+    action: ProviderDirectoryAction,
+    onChoose: (ProviderDirectoryAction) -> Unit,
 ) {
-    TextButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.fillMaxWidth(),
+    val available = action != ProviderDirectoryAction.Unsupported
+    val hasKey = when (val provider = (action as? ProviderDirectoryAction.OpenExisting)?.provider) {
+        is ProviderSetting.OpenAI -> provider.apiKey.isNotBlank()
+        is ProviderSetting.Claude -> provider.apiKey.isNotBlank()
+        is ProviderSetting.Google -> provider.apiKey.isNotBlank() || provider.useServiceAccount
+        else -> false
+    }
+    val hint = when (action) {
+        is ProviderDirectoryAction.OpenExisting ->
+            if (hasKey) "Open existing setup" else "Set up API key"
+        is ProviderDirectoryAction.CreateDraft -> "Add provider · Starts disabled"
+        ProviderDirectoryAction.Unsupported -> "Catalog only · Adapter unavailable"
+    }
+    val modelCount = if (entry.modelCount > 0) {
+        "${entry.modelCount} model${if (entry.modelCount == 1) "" else "s"} · "
+    } else ""
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = available) { onChoose(action) }
+            .heightIn(min = 58.dp)
+            .padding(vertical = 7.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                subtitle,
+                entry.name,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (available) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                modelCount + hint,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (available) {
+            Icon(
+                imageVector = HugeIcons.ArrowRight01,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
             )
         }
     }

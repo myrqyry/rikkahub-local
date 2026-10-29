@@ -1,6 +1,35 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-28 — Provider APIs now uses models.dev as its main list
+
+- User-supplied phone screenshot showed the old sheet foregrounding dozens of
+  hardcoded built-in provider defaults, with models.dev hidden behind a separate
+  browse row. Requested replacing that list with models.dev and pinning common
+  providers.
+- Provider APIs now shows a searchable models.dev directory directly, with
+  Popular pinned first (OpenAI, Anthropic, Google, OpenRouter, DeepSeek, xAI,
+  Groq, Mistral and Cerebras), then the remaining catalog providers in
+  alphabetical order without duplication. Public catalog entries and counts
+  remain the source; pinned IDs are only display priority.
+- Selection first opens the actual existing saved provider where one matches,
+  retaining its ID, API key, model assignments and settings. Native OpenAI,
+  Google and Claude adapters are reused, including Google/Gemini name matching.
+  Absent supported providers create disabled, empty-key drafts; unknown
+  adapters remain catalog-only. Verified official Chat Completions-compatible
+  Groq, Mistral and Cerebras endpoints are supported via generic OpenAI adapter
+  without claiming native SDK parity.
+- Long default/saved provider templates remain available via the secondary
+  "Other saved API setups" path; a custom API action also remains. No provider
+  records, keys, installed models or user data migrated or deleted.
+- RED-first tests cover display sorting, search, alias matching, exact reuse,
+  draft safety and unsupported entries. Real 233-provider models.dev snapshot
+  acceptance verifies no missing/duplicate entries and actionable pins;
+  focused app JVM tests and debug APK build passed. Full suite checkpoint
+  separately. The **new** provider-directory UI has not been visually tested
+  on-device; previous Pixel 10 Pro EmbeddingGemma acceptance is independent.
+- Details: docs/integrations/models-dev-provider-directory.md.
+
 ## 2026-10-28 — Pixel 10 Pro native EmbeddingGemma 2 acceptance
 
 - Connected yuzu-mint over ADB to Pixel 10 Pro (Android API 37; arm64).

@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlin.uuid.Uuid
 import me.rerere.ai.provider.ProviderSetting
+import me.rerere.rikkahub.data.modelregistry.ProviderDirectoryAction
 import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
@@ -58,7 +59,7 @@ import org.koin.androidx.compose.koinViewModel
 enum class AddModelsMode {
     ROOT,
     PROVIDER,
-    PROVIDER_DIRECTORY,
+    SAVED_PROVIDERS,
     HUGGING_FACE,
     LITERT_MODELS,
 }
@@ -161,35 +162,60 @@ fun AddToModelsSheet(
                                 title = stringResource(R.string.models_add_provider_list),
                                 onBack = { mode = AddModelsMode.ROOT },
                             )
-                            AddChoiceRow(
-                                title = "Browse models.dev providers",
-                                subtitle = "Find and configure supported API providers",
-                                onClick = { mode = AddModelsMode.PROVIDER_DIRECTORY },
-                            )
-                            LazyColumn {
-                                item {
-                                    AddChoiceRow(
-                                        title = stringResource(R.string.models_add_custom_openai),
-                                        subtitle = stringResource(R.string.models_add_provider_api_desc),
-                                        onClick = {
-                                            editState.open(
-                                                ProviderSetting.OpenAI(
-                                                    id = Uuid.random(),
-                                                    name = "Custom API",
-                                                    baseUrl = "",
-                                                    apiKey = "",
-                                                    enabled = true,
-                                                    builtIn = false,
-                                                )
+                            ModelsDevProviderDirectoryChooser(
+                                configuredProviders = remoteProviders,
+                                onChoose = { action ->
+                                    when (action) {
+                                        is ProviderDirectoryAction.OpenExisting -> {
+                                            onDismiss()
+                                            navController.navigate(
+                                                Screen.SettingProviderDetail(action.provider.id.toString())
                                             )
-                                        },
+                                        }
+                                        is ProviderDirectoryAction.CreateDraft ->
+                                            editState.open(action.provider)
+                                        ProviderDirectoryAction.Unsupported -> Unit
+                                    }
+                                },
+                            )
+                            AddChoiceRow(
+                                title = "Custom API endpoint",
+                                subtitle = "Add an OpenAI-compatible endpoint manually",
+                                onClick = {
+                                    editState.open(
+                                        ProviderSetting.OpenAI(
+                                            id = Uuid.random(),
+                                            name = "Custom API",
+                                            baseUrl = "",
+                                            apiKey = "",
+                                            enabled = false,
+                                            builtIn = false,
+                                        )
                                     )
-                                }
+                                },
+                            )
+                            AddChoiceRow(
+                                title = "Other saved API setups",
+                                subtitle = "Existing and built-in configurations remain available",
+                                onClick = { mode = AddModelsMode.SAVED_PROVIDERS },
+                            )
+                        }
+
+                        AddModelsMode.SAVED_PROVIDERS -> {
+                            SheetSubpageHeader(
+                                title = "Saved API setups",
+                                onBack = { mode = AddModelsMode.PROVIDER },
+                            )
+                            LazyColumn(modifier = Modifier.heightIn(max = 520.dp)) {
                                 items(remoteProviders, key = { it.id }) { provider ->
                                     AddChoiceRow(
                                         title = provider.name,
-                                        subtitle = provider.models.takeIf { it.isNotEmpty() }?.let {
-                                            "${it.size} model${if (it.size == 1) "" else "s"}"
+                                        subtitle = when {
+                                            provider.models.isNotEmpty() ->
+                                                "${provider.models.size} models"
+                                            provider.enabled -> "Enabled"
+                                            provider.builtIn -> "Built-in setup"
+                                            else -> "Custom setup"
                                         },
                                         onClick = {
                                             onDismiss()
@@ -200,17 +226,6 @@ fun AddToModelsSheet(
                                     )
                                 }
                             }
-                        }
-
-                        AddModelsMode.PROVIDER_DIRECTORY -> {
-                            SheetSubpageHeader(
-                                title = "Provider directory",
-                                onBack = { mode = AddModelsMode.PROVIDER },
-                            )
-                            ModelsDevProviderDirectoryChooser(
-                                configuredProviders = settings.providers,
-                                onChoose = { entry -> editState.open(entry.toProviderDraft()) },
-                            )
                         }
 
                         AddModelsMode.LITERT_MODELS -> {
