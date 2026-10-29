@@ -1,6 +1,39 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-28 — Pixel 10 Pro native EmbeddingGemma 2 acceptance
+
+- Connected yuzu-mint over ADB to Pixel 10 Pro (Android API 37; arm64).
+  Installed the signed debug build in place after taking a verified small
+  private backup of debug app databases/preferences/datastore; kept all
+  existing app data and the separately installed release app.
+- Actual device UI screenshots confirmed chat composer/thinking picker,
+  LiteRT gallery vertical scrolling, visible 270M/440M/740M actions and
+  Knowledge & RAG settings. A transient "Support the Developer" prompt
+  interrupted Settings navigation; not a native inference failure.
+- Existing 270M model was checksum-valid. Downloaded pinned 440M and 740M
+  through the app, independently compared device SHA-256 hashes, no silent
+  selection. Temporarily selected 740M to verify its UI state; **restored
+  original default selection** and confirmed "Use 740M for RAG" again.
+- Fixed stale Android instrumentation test source that no longer compiled
+  after the variant-aware RagEmbeddingSource refactor.
+- Real native instrumented tests **passed**: 270M text (semantic query vs
+  cat/physics), 440M PNG vision (two distinct images + text query), 740M
+  WAV audio (two different synthetic 48 kHz stereo WAVs normalized to
+  16 kHz mono + text query), and disposable PDF page -> native vision
+  vector -> isolated in-memory RAG search. All produced finite normalized
+  768-dimensional vectors where applicable.
+- Reran the **complete EmbeddingGemma2DeviceTest class: OK (6 tests)**.
+  No crashes in these tests. Source images/audio/PDF were generated for
+  the test; no user documents/photos/microphone content or live RAG DB
+  were used. The PDF smoke does not yet exercise SAF MediaRagIngestion,
+  and test-vector differences are not proof of retrieval relevance.
+- Phone's free space now **~1.4 GiB / 99% used** after the two downloads.
+  Preserve both weights until user decides whether to remove one;
+  do not download further large models automatically.
+- Tests, private screenshots, model hashes, setup and outstanding gaps:
+  `docs/integrations/embeddinggemma-2-device-acceptance-2026-10-28.md`.
+
 ## 2026-10-28 — Pre-device UI and correctness pass for model picker / multimodal RAG
 
 - Before physical phone testing, audited the newly integrated LiteRT model
