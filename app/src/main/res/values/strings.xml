@@ -887,6 +887,7 @@
   <string name="setting_page_search_result_size">Result Size</string>
   <string name="setting_page_search_service">Search Service</string>
   <string name="setting_page_search_service_desc">Set up search service</string>
+  <string name="setting_page_search_chat_toggle_desc">Use the selected web search service in chats. Model-specific built-in search is configured separately.</string>
   <string name="setting_page_search_test">Test Search</string>
   <string name="setting_page_search_test_query_hint">Enter test query…</string>
   <string name="setting_page_search_test_run">Run Test</string>

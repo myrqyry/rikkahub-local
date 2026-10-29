@@ -111,7 +111,6 @@ import me.rerere.rikkahub.ui.context.LocalToaster
 import me.rerere.rikkahub.ui.hooks.ChatInputState
 import me.rerere.rikkahub.utils.SoundEffectPlayer
 import org.koin.compose.koinInject
-import kotlin.time.Duration.Companion.seconds
 
 @Composable
 fun ChatInput(
@@ -119,13 +118,10 @@ fun ChatInput(
     loading: Boolean,
     settings: Settings,
     hazeState: HazeState,
-    enableSearch: Boolean,
-    onToggleSearch: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     completionProviders: List<ChatCompletionProvider> = emptyList(),
     onUpdateChatModel: (Model) -> Unit,
     onUpdateAssistant: (Assistant) -> Unit,
-    onUpdateSearchService: (Int) -> Unit,
     onMoreClick: () -> Unit,
     onCancelClick: () -> Unit,
     onSendClick: () -> Unit,
@@ -333,28 +329,6 @@ fun ChatInput(
                                 onlyIcon = false,
                                 logoName = selectedProvider?.name,
                                 modifier = Modifier.widthIn(max = 220.dp).testTag("chat_model_selector"),
-                            )
-
-                            // Search
-                            val enableSearchMsg = stringResource(R.string.web_search_enabled)
-                            val disableSearchMsg = stringResource(R.string.web_search_disabled)
-                            SearchPickerButton(
-                                enableSearch = enableSearch,
-                                settings = settings,
-                                onToggleSearch = { enabled ->
-                                    onToggleSearch(enabled)
-                                    toaster.show(
-                                        message = if (enabled) enableSearchMsg else disableSearchMsg,
-                                        duration = 1.seconds,
-                                        type = if (enabled) {
-                                            ToastType.Success
-                                        } else {
-                                            ToastType.Normal
-                                        }
-                                    )
-                                },
-                                onUpdateSearchService = onUpdateSearchService,
-                                model = selectedChatModel,
                             )
 
                             // No button when the model cannot reason or has no adjustable choice.

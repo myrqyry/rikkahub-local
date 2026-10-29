@@ -14,6 +14,44 @@ Use entries like:
 **Evidence / references:**  
 **Supersedes:** none
 
+## 2026-10-29 — Keep web-search configuration out of the composer
+
+**Decision:**
+Remove the web-search picker/settings button from the secondary chat composer
+row without changing the currently saved search-enabled flag or selected
+search provider. Put the existing global `enableWebSearch` switch on
+Settings → Search, where search services are already configured.
+Do not move or remove the separate current-conversation search action
+from the chat's three-dot overflow menu.
+
+**Why:**
+The user explicitly asked to remove the search settings from the composer.
+Deleting the whole search path rather than moving its switch would strand
+the existing global web-search feature without a way to change its state.
+
+**Alternatives considered:**
+Remove only the small settings cog inside the search picker while keeping
+the button in the composer; automatically turn web search off and delete
+saved service entries; hide the switch entirely; add an unrelated web-search
+menu entry to the three-dot menu intended for current-chat actions.
+
+**Constraints / consequences:**
+The search picker composable is retained for potential reuse, but is no
+longer invoked from `ChatInput`. The model selector, reasoning gauge,
+microphone, send, and attachments remain in place. The existing
+`Settings.enableWebSearch` flag is edited only by user interaction in
+Settings → Search; no migration, reset, or automatic data update.
+Model-specific built-in search tools continue to be editable in model
+provider settings. Unit tests exercise preserving unrelated saved
+settings, and Android compilation plus full JVM suites are checked before
+the local commit. Physical UI verification requires installing a new build.
+
+**Evidence / references:**
+`ChatInput.kt`, `ChatPage.kt`, `SettingSearchPage.kt`,
+`WebSearchPreferenceTest.kt`, and `ACTIVE_WORK.md`, 2026-10-29.
+
+**Supersedes:** chat composer web-search action placement only
+
 ## 2026-10-28 — Four Line MD gauges represent supported reasoning effort
 
 **Decision:**

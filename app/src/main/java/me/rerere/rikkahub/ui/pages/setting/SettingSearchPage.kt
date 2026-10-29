@@ -25,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
+import me.rerere.rikkahub.data.datastore.Settings
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.AutoAIIcon
 import me.rerere.rikkahub.ui.components.ui.FormItem
@@ -60,6 +62,10 @@ import org.koin.androidx.compose.koinViewModel
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import kotlin.reflect.full.primaryConstructor
+
+/** Keep global web-search state available outside the chat composer. */
+internal fun Settings.withWebSearchEnabled(enabled: Boolean): Settings =
+    copy(enableWebSearch = enabled)
 
 @Composable
 fun SettingSearchPage(vm: SettingVM = koinViewModel()) {
@@ -116,6 +122,40 @@ fun SettingSearchPage(vm: SettingVM = koinViewModel()) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
             state = lazyListState
         ) {
+            item("web_search_enabled") {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = CustomColors.listItemColors.containerColor
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.use_web_search),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                stringResource(R.string.setting_page_search_chat_toggle_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = settings.enableWebSearch,
+                            onCheckedChange = { enabled ->
+                                vm.updateSettings(settings.withWebSearchEnabled(enabled))
+                            },
+                        )
+                    }
+                }
+            }
+
             items(settings.searchServices, key = { it.id }) { service ->
                 ReorderableItem(
                     state = reorderableState,

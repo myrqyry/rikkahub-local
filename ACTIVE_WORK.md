@@ -1,6 +1,32 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-29 — Remove web-search settings from chat composer
+
+- User requested removing the search settings/control from the composer after
+  the title-only header, gauge, model selector, and new composer layout changes.
+  The only composer search control was `SearchPickerButton` in the secondary
+  tools row (global web search + provider chooser + built-in search settings).
+- Removed the entire search picker from `ChatInput` and its obsolete
+  `enableSearch`, `onToggleSearch`, `onUpdateSearchService` callback wiring
+  through `ChatPage`. The model selector, capability-aware thinking gauge,
+  microphone, + attachment action, text editor, send/stop and long-press send
+  retain their handlers. Existing **in-current-chat search** stays in the
+  title overflow menu (not global chat search).
+- Kept web search functional and user-controllable by adding the existing
+  persistent `enableWebSearch` flag as a switch under Settings → Search.
+  This is not an automatic reset: saved search-service entries, selected
+  provider, existing web-search enabled state, and model-specific built-in
+  search tools are preserved. Native search tools remain configurable through
+  model settings.
+- TDD: `WebSearchPreferenceTest` was RED until the settings state updater
+  existed; it now checks toggling web search modifies only that saved flag.
+  Focused JVM test + debug build passed; full AI/app JVM suites and debug
+  APK verification are run before checkpoint. No app installation, remote
+  push, settings edit or user-data change.
+- User-facing scope: only composer control placement; the separate
+  three-dot **Search in chat** and Compress History actions remain unchanged.
+
 ## 2026-10-28 — Line MD gauge icon integration for thinking effort
 
 - The user supplied four official Line MD Iconify SVG references:
