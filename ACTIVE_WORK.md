@@ -1,6 +1,31 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-29 — Neumorphic renderer edge lighting and selected-state polish
+
+- User requested improving neumorphic styling and supplied an illustrative
+  screenshot and four MIT-licensed CodePen ZIP source examples: Neumorphic
+  Elements, Buttons, CSS Neumorphism Animation and Editable Text.
+- Compared actual source techniques with our locally vendored neumorphic-ui
+  renderer. Existing inset code painted dark/light gradients over entire
+  control surfaces, reducing central contrast. The examples use paired
+  raised highlights and restrained *edge* relief for pressed/inset shapes.
+- Changed static/dynamic inset paint from whole-surface fills to bounded
+  perimeter strokes clipped to exact rounded, pill and circular geometry;
+  avoid drawing a shadow for zero depth/degenerate size. Render rim beneath
+  content to keep text/icons clear; cache the stroke with size/depth.
+- UI Preferences segmented control now distinguishes its selected surface
+  with subtle Material-accent tint and border; tabs expose selected semantics
+  and disabled state prevents clicks. No public APIs or persisted settings
+  changed; the button press animations already implemented were preserved.
+- TDD RED-first geometry and selected-palette tests in the neumorphic module
+  now pass. Full `:neumorphic-ui:testDebugUnitTest`, `:ai:testDebugUnitTest`,
+  `:app:testDebugUnitTest` and `:app:assembleDebug` passed offline on the
+  Linux Mint machine. Physical Pixel screen/rendering remains unverified.
+  No device installation or push.
+- Source analysis, tradeoffs and acceptance cases:
+  docs/ui/neumorphic-lighting-polish-2026-10-29.md.
+
 ## 2026-10-29 — Remove web-search settings from chat composer
 
 - User requested removing the search settings/control from the composer after

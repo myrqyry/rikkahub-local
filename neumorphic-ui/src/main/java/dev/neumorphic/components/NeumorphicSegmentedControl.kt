@@ -3,6 +3,7 @@ package dev.neumorphic.components
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -24,9 +25,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +42,10 @@ import dev.neumorphic.NeumorphicShape
 import dev.neumorphic.haptics.rememberNeumorphicHaptics
 import dev.neumorphic.neumorphicInset
 import dev.neumorphic.neumorphicRaised
+
+/** A hint of the actual Material accent marks selection without a flat solid fill. */
+internal fun selectedSegmentSurface(colors: NeumorphicColors): Color =
+    lerp(colors.surface, colors.accentPrimary, if (colors.isDark) 0.15f else 0.11f)
 
 /**
  * Reusable Neumorphic Segmented Control / Tabs matching image.png top-right (Tab 1, Tab 2, Tab 3).
@@ -69,7 +76,6 @@ fun NeumorphicSegmentedControl(
             .neumorphicInset(colors = colors, shape = trackShape, depth = 3.dp)
             .padding(4.dp)
             .alpha(if (enabled) 1f else 0.4f)
-            .semantics { role = Role.Tab }
             .testTag(testTag)
     ) {
         val totalWidth = maxWidth
@@ -92,7 +98,12 @@ fun NeumorphicSegmentedControl(
                 .fillMaxHeight()
                 .neumorphicRaised(colors = colors, shape = activePillShape, elevation = 3.dp)
                 .clip(activeComposeShape)
-                .background(colors.surface)
+                .background(selectedSegmentSurface(colors))
+                .border(
+                    1.dp,
+                    colors.accentPrimary.copy(alpha = if (colors.isDark) 0.32f else 0.22f),
+                    activeComposeShape,
+                )
         )
 
         // Tab Labels
@@ -109,13 +120,16 @@ fun NeumorphicSegmentedControl(
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
+                            enabled = enabled,
+                            role = Role.Tab,
                             onClick = {
                                 if (index != selectedIndex) {
                                     haptics.select()
                                 }
                                 onItemSelected(index)
                             }
-                        ),
+                        )
+                        .semantics { selected = isSelected },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(

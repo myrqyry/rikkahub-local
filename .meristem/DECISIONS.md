@@ -14,6 +14,46 @@ Use entries like:
 **Evidence / references:**  
 **Supersedes:** none
 
+## 2026-10-29 — Neumorphic depth belongs on edges, not across content
+
+**Decision:**
+Keep RikkaHub's Material surface/accent colors and existing neumorphic API.
+Make static and dynamic inset shadows edge-only, shape-clipped and
+size-bounded, painting them beneath content. Give selected segmented tabs
+a subtle accent tint/border and correct accessible selected semantics.
+Do not import CSS/WebKit/JS animations or distribute the external CodePens.
+
+**Why:**
+User's reference screenshot and CodePen CSS show convincing tactile depth
+through asymmetric raised highlights and pressed/inset edge shadows.
+Our prior renderer was filling inset surfaces with gradients, darkening
+the center and weakening text contrast, especially in dark themes.
+The existing selected segmented tab used the same fill as the track.
+
+**Alternatives considered:**
+Recolor all panels, switch the entire application to one pastel preset,
+copy CSS with a WebView, add endless size-changing animations,
+emboss standard text, keep inactive tabs clickable, or push an
+untested APK directly to the Pixel.
+
+**Constraints / consequences:**
+Retain the upstream vendored module, APIs and licenses, Material theme
+integration, device light-direction support, existing interaction/haptic
+flow and saved preferences. Bound edge-stroke width and honor zero depth;
+render static/dynamic light with the same contour. UI contrast/geometry
+contracts and full Android build are verified, but actual on-device
+appearance still requires a visual check after a separate installation.
+No new dependencies beyond local JUnit dev testing; no user-state changes.
+
+**Evidence / references:**
+docs/ui/neumorphic-lighting-polish-2026-10-29.md,
+neumorphic-ui/src/main/java/dev/neumorphic/NeumorphicShadowModifier.kt,
+neumorphic-ui/src/main/java/dev/neumorphic/components/NeumorphicSegmentedControl.kt,
+neumorphic-ui/src/test/java/dev/neumorphic/NeumorphicLightingPolishTest.kt,
+2026-10-29.
+
+**Supersedes:** the prior full-fill inset rendering implementation only
+
 ## 2026-10-29 — Keep web-search configuration out of the composer
 
 **Decision:**

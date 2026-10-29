@@ -17,6 +17,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.LinearGradientShader
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PaintingStyle
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
@@ -353,6 +355,18 @@ internal fun Modifier.neumorphicRaisedInternal(
 }
 
 /**
+ * Bound inset shading to the perimeter instead of tinting the center.
+ * Compose Stroke is centered on the outline; clipping keeps its inner half.
+ * Zero depth (or a degenerate size) must be a genuine no-op.
+ */
+internal fun insetStrokeWidthPx(depthPx: Float, shortestSidePx: Float): Float {
+    if (!depthPx.isFinite() || !shortestSidePx.isFinite() || depthPx <= 0f || shortestSidePx <= 0f) {
+        return 0f
+    }
+    return (depthPx * 2.6f).coerceAtLeast(1f).coerceAtMost(shortestSidePx * 0.32f)
+}
+
+/**
  * Applies a sunken / concave Neumorphic inner-shadow well effect.
  * Perfect for search bars, switch tracks, sliders, unselected radio/check slots, and pressed states.
  *
@@ -392,16 +406,21 @@ internal fun Modifier.neumorphicInsetInternal(
     return this.drawWithCache {
         val rawDepthPx = depth.toPx() * intensity * colors.depthIntensityMultiplier
         val depthPx = rawDepthPx.coerceIn(0f, 20.dp.toPx().coerceAtLeast(1f))
-        val strokeWidthPx = (depthPx * 2.2f).coerceIn(
-            2f,
-            (minOf(size.width, size.height) * 0.45f).coerceAtLeast(2f)
-        )
+        // Inset is a shaded edge band, never two translucent full-surface fills.
+        // This preserves contrast at the center, including selected chat titles.
+        val strokeWidthPx = insetStrokeWidthPx(depthPx, minOf(size.width, size.height))
         val cornerRadiusPx = when (shape) {
             is NeumorphicShape.Rounded -> shape.cornerRadius.toPx()
             is NeumorphicShape.Pill -> size.height / 2f
             is NeumorphicShape.Circle -> minOf(size.width, size.height) / 2f
         }
         val spread = strokeWidthPx * 1.5f
+        // Cache the edge-stroke geometry with depth, not each sensor redraw.
+        val rimStroke = Stroke(width = strokeWidthPx)
+        paintCache.darkPaint.style = PaintingStyle.Stroke
+        paintCache.lightPaint.style = PaintingStyle.Stroke
+        paintCache.darkPaint.strokeWidth = strokeWidthPx
+        paintCache.lightPaint.strokeWidth = strokeWidthPx
 
         // Cache the exact legacy brushes for the static path. They are rebuilt only when
         // size/depth/palette changes, never for sensor-driven redraws. This preserves the
@@ -418,7 +437,11 @@ internal fun Modifier.neumorphicInsetInternal(
         )
 
         onDrawWithContent {
-            drawContent()
+            // Paint the well *before* its contents: text and icons remain crisp.
+            if (strokeWidthPx <= 0f) {
+                drawContent()
+                return@onDrawWithContent
+            }
 
             val resolved: LightVector? = direction ?: lightHolder?.snapshot?.value
             val dynamicDirection = if (resolved != null && resolved != LightVector.StaticDefault) {
@@ -453,17 +476,27 @@ internal fun Modifier.neumorphicInsetInternal(
                 canvas.clipPath(paintCache.clipPath)
 
                 if (dynamicDirection == null) {
-                    // Exact legacy rendering, with brushes cached by drawWithCache.
-                    drawRoundRect(
-                        brush = legacyDarkBrush,
-                        size = size,
-                        cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx)
-                    )
-                    drawRoundRect(
-                        brush = legacyLightBrush,
-                        size = size,
-                        cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx)
-                    )
+                    // Both gradients illuminate the *inside rim*, not the center.
+                    // Static and dynamic light now share the same edge geometry.
+                    if (shape is NeumorphicShape.Circle) {
+                        val radius = minOf(size.width, size.height) / 2f
+                        val center = Offset(centerX, centerY)
+                        drawCircle(legacyDarkBrush, radius = radius, center = center, style = rimStroke)
+                        drawCircle(legacyLightBrush, radius = radius, center = center, style = rimStroke)
+                    } else {
+                        drawRoundRect(
+                            brush = legacyDarkBrush,
+                            size = size,
+                            cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx),
+                            style = rimStroke
+                        )
+                        drawRoundRect(
+                            brush = legacyLightBrush,
+                            size = size,
+                            cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx),
+                            style = rimStroke
+                        )
+                    }
                 } else {
                     when (shape) {
                         is NeumorphicShape.Circle -> {
@@ -486,6 +519,7 @@ internal fun Modifier.neumorphicInsetInternal(
                 }
                 canvas.restore()
             }
+            drawContent()
         }
     }
 }
