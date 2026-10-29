@@ -1,6 +1,29 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-28 — Line MD gauge icon integration for thinking effort
+
+- The user supplied four official Line MD Iconify SVG references:
+  gauge-empty, gauge-low, gauge, gauge-full. Inspected original SVG
+  contents (same 24×24 dial geometry; final needle rotations 15/65/115/165°).
+  Upstream Material Line Icons is MIT, © 2020 Vjacheslav Trushkin;
+  full license included at docs/licenses/line-md.txt.
+- Integrated a native Compose Canvas dial, no SVG runtime, CDN, or new
+  dependency. Animate the needle with a single non-looping 420ms tween when
+  the effective effort changes; colors follow existing UI theme.
+- OFF→empty, LOW→low, MEDIUM→gauge, HIGH→full. AUTO has a neutral
+  dial with an A marker and no falsely implied medium setting; XHIGH
+  uses full needle with + marker to distinguish maximum-extra level.
+  Both composer button and picker detail use the same gauge. The
+  compact button now has an accessible spoken reasoning-level label.
+- No inference/model settings are changed: per-model capability-gated
+  available effort values and effective request logic remain authoritative;
+  unsupported models still hide the toggle.
+- RED-first pure mapping tests failed with missing API, passed after
+  implementation. Complete AI/app JVM suites and Android debug build
+  verified separately; no phone installation, push, or API/data mutations.
+- Decision and evidence: docs/ui/reasoning-gauge-line-md.md.
+
 ## 2026-10-28 — Chat composer/header simplification from phone screenshots
 
 - User clarified two prior UI mockups and requested actual implementation:

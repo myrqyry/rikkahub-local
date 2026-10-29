@@ -14,6 +14,44 @@ Use entries like:
 **Evidence / references:**  
 **Supersedes:** none
 
+## 2026-10-28 — Four Line MD gauges represent supported reasoning effort
+
+**Decision:**
+Use user-supplied MIT Line MD gauge-empty, gauge-low, gauge and gauge-full
+geometry for the existing reasoning-effort control. Implement as a native
+Compose Canvas icon (24×24 dial, tick marks, rotating needle) that animates
+only when effort changes, not continuously. OFF/LOW/MEDIUM/HIGH map to
+15/65/115/165° needle angles. AUTO is an unspecified, needle-less dial
+marked A rather than pretending to be Medium. XHIGH uses full plus a
+distinct + marker. Retain textual effort labels and accessibility.
+
+**Why:**
+The existing composer still showed lightbulb icons for OFF/AUTO and
+inconsistent other reasoning glyphs. The user suggested a coherent
+set of four animated gauges whose positions naturally map to thinking
+intensity. Changing presentation should not change model reasoning
+capabilities, API payloads or preferences.
+
+**Alternatives considered:**
+Load animated SVGs from an external Iconify/CDN endpoint, add an SVG/SMIL
+runtime dependency, display an identical full needle for HIGH/XHIGH
+without distinction, animate the needle forever, or infer unsupported
+thinking levels from the appearance of the gauge.
+
+**Constraints / consequences:**
+Only the UI is affected. The picker still uses current provider/model
+capability filtering and request-effective thinking level. Compose
+animation duration scaling honors system reduced-motion settings. The
+upstream full MIT license/notice is included at docs/licenses/line-md.txt.
+Source geometry and mapping are tested, but pixel-level animation
+verification on Android still requires installing this build.
+
+**Evidence / references:**
+docs/ui/reasoning-gauge-line-md.md, ReasoningGauge.kt,
+ReasoningGaugeSpecTest.kt and ReasoningPicker.kt, October 28 2026.
+
+**Supersedes:** prior reasoning lightbulb/icon presentation only
+
 ## 2026-10-28 — Chat header title-only; interactive model metadata stays at input
 
 **Decision:**
