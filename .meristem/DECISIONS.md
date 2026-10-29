@@ -20,7 +20,7 @@ Use entries like:
 Keep RikkaHub's Material surface/accent colors and existing neumorphic API.
 Make static and dynamic inset shadows edge-only, shape-clipped and
 size-bounded, painting them beneath content. Give selected segmented tabs
-a subtle accent tint/border and correct accessible selected semantics.
+a soft accent tint without a hard outline, and correct selected semantics.
 Do not import CSS/WebKit/JS animations or distribute the external CodePens.
 
 **Why:**

@@ -15,7 +15,7 @@
   avoid drawing a shadow for zero depth/degenerate size. Render rim beneath
   content to keep text/icons clear; cache the stroke with size/depth.
 - UI Preferences segmented control now distinguishes its selected surface
-  with subtle Material-accent tint and border; tabs expose selected semantics
+  with soft, restrained Material-accent tint and no hard border; tabs expose selected semantics
   and disabled state prevents clicks. No public APIs or persisted settings
   changed; the button press animations already implemented were preserved.
 - TDD RED-first geometry and selected-palette tests in the neumorphic module

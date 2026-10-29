@@ -30,7 +30,7 @@ All four uploaded examples include MIT license text; the existing vendored `neum
 - Both static Compose gradients and directional-light native paints now use stroke outlines clipped to the exact surface shape; the circle branch explicitly renders a circular rim rather than a round rectangle.
 - The rim is drawn **before** content, keeping type/icons crisp. The stroke geometry is calculated/cached with `drawWithCache`, not recreated each draw.
 - The existing directional-light shader matrices, palette semantics, raised shadows, depth tokens and public surface API remain intact.
-- The segmented-control active pill uses a subtle `lerp(surface, accentPrimary)` tint (light/dark tuned) and a modest accent border. The selected tab receives the correct `Role.Tab` and `selected` semantics; disabled controls no longer dispatch clicks.
+- The segmented-control active pill uses a restrained `lerp(surface, accentPrimary)` tint (light/dark tuned) without a hard accent border. The selected tab receives the correct `Role.Tab` and `selected` semantics; disabled controls no longer dispatch clicks.
 - No app settings, installed model state, provider configurations, or external assets changed.
 
 ## Evidence and boundaries
@@ -38,7 +38,7 @@ All four uploaded examples include MIT license text; the existing vendored `neum
 - TDD regression `:neumorphic-ui:testDebugUnitTest --tests dev.neumorphic.NeumorphicLightingPolishTest` was RED for the missing rim-bounds and active-segment logic; the same test passed after implementation.
 - `./gradlew :neumorphic-ui:testDebugUnitTest :ai:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --offline` **passed** on the connected Linux Mint development PC.
 - This validates compilation and pure contracts, **not pixel fidelity or animation performance** on the Pixel. No app reinstall or APK publication was performed.
-- Manual next checks after installing: light/dark app theme; selected conversation legibility; UI Preferences segmented tabs; enabled/disabled navigation taps; selected tab accent and border; portrait/landscape on narrow screens; check for clipping in raised surfaces.
+- Manual next checks after installing: light/dark app theme; selected conversation legibility; UI Preferences segmented tabs; enabled/disabled navigation taps; selected tab softened accent and raised relief; portrait/landscape on narrow screens; check for clipping in raised surfaces.
 - The current app uses these shared surfaces in the chat drawer, conversation list, drawer panels, theme choice cards, and UI preferences segmented control. Full-app global restyling would be a separate design decision.
 
 ## Safe continuation
