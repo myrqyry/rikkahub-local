@@ -163,6 +163,7 @@ fun ModelSelector(
     modifier: Modifier = Modifier,
     onlyIcon: Boolean = false,
     allowClear: Boolean = false,
+    logoName: String? = null,
     onSelect: (Model) -> Unit
 ) {
     val state = rememberModelListState(
@@ -184,9 +185,10 @@ fun ModelSelector(
             ) {
                 model?.modelId?.let {
                     AutoAIIcon(
-                        it, Modifier
+                        name = logoName ?: it,
+                        modifier = Modifier
                             .padding(end = 4.dp)
-                            .size(36.dp),
+                            .size(if (logoName != null) 24.dp else 36.dp),
                         color = Color.Transparent
                     )
                 }

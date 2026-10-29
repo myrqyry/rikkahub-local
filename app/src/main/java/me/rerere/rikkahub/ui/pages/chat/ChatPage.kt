@@ -6,7 +6,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,9 +14,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -45,10 +45,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
@@ -64,15 +64,14 @@ import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.datastore.Settings
-import me.rerere.rikkahub.data.datastore.findProvider
 import me.rerere.rikkahub.data.datastore.getCurrentAssistant
-import me.rerere.rikkahub.data.datastore.getCurrentChatModel
 import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.data.model.Assistant
 import me.rerere.rikkahub.data.model.Conversation
 import me.rerere.rikkahub.data.repository.WorkspaceRepository
 import me.rerere.rikkahub.service.ChatError
 import me.rerere.rikkahub.ui.components.ai.ChatInput
+import me.rerere.rikkahub.ui.components.ai.CompressContextDialog
 import me.rerere.rikkahub.ui.components.ai.FilesPicker
 import me.rerere.rikkahub.ui.components.ai.completion.WorkspaceCompletionProvider
 import me.rerere.rikkahub.ui.components.ai.useCropLauncher
@@ -287,6 +286,7 @@ private fun ChatPageContent(
     val hazeState = rememberHazeState()
     val assistant = setting.getCurrentAssistant()
     var showFilesSheet by remember { mutableStateOf(false) }
+    var showCompressDialog by remember { mutableStateOf(false) }
 
     val completionProviders = remember(assistant.workspaceId, conversation.workspaceCwd, workspaceRepository) {
         assistant.workspaceId?.let { workspaceId ->
@@ -330,20 +330,15 @@ private fun ChatPageContent(
         Scaffold(
             topBar = {
                 TopBar(
-                    settings = setting,
                     conversation = conversation,
                     bigScreen = bigScreen,
                     drawerState = drawerState,
                     previewMode = previewMode,
-                    onNewChat = {
-                        navigateToChatPage(navController)
-                    },
-                    onClickMenu = {
+                    onSearchInConversation = {
                         previewMode = !previewMode
                     },
-                    onUpdateTitle = {
-                        vm.updateTitle(it)
-                    }
+                    onCompressHistory = { showCompressDialog = true },
+                    onUpdateTitle = { vm.updateTitle(it) },
                 )
             },
             bottomBar = {
@@ -515,6 +510,15 @@ private fun ChatPageContent(
             )
         }
 
+        if (showCompressDialog) {
+            CompressContextDialog(
+                onDismiss = { showCompressDialog = false },
+                onConfirm = { prompt, targetTokens, keepRecentMessages ->
+                    vm.handleCompressContext(prompt, targetTokens, keepRecentMessages)
+                },
+            )
+        }
+
         if (showFilesSheet) {
             ChatFilesPickerSheet(
                 inputState = inputState,
@@ -540,14 +544,7 @@ private fun ChatFilesPickerSheet(
     val context = LocalContext.current
     val toaster = LocalToaster.current
     val filesManager: FilesManager = koinInject()
-    var showInjectionSheet by remember { mutableStateOf(false) }
-    var showCompressDialog by remember { mutableStateOf(false) }
-
-    fun dismissAll() {
-        showInjectionSheet = false
-        showCompressDialog = false
-        onDismiss()
-    }
+    fun dismissAll() { onDismiss() }
 
     val cameraPermission = rememberPermissionState(PermissionCamera)
     PermissionManager(permissionState = cameraPermission)
@@ -696,12 +693,8 @@ private fun ChatFilesPickerSheet(
     ) {
         FilesPicker(
             conversation = conversation,
-            state = inputState,
             assistant = assistant,
             mcpManager = vm.mcpManager,
-            onCompressContext = { additionalPrompt, targetTokens, keepRecentMessages ->
-                vm.handleCompressContext(additionalPrompt, targetTokens, keepRecentMessages)
-            },
             onUpdateAssistant = {
                 vm.updateSettings(
                     setting.copy(
@@ -719,10 +712,6 @@ private fun ChatFilesPickerSheet(
                 vm.updateConversation(it)
                 vm.saveConversationAsync()
             },
-            showInjectionSheet = showInjectionSheet,
-            onShowInjectionSheetChange = { showInjectionSheet = it },
-            showCompressDialog = showCompressDialog,
-            onShowCompressDialogChange = { showCompressDialog = it },
             onDismiss = { dismissAll() },
             onTakePic = onLaunchCamera,
             onPickImage = { imagePickerLauncher.launch("image/*") },
@@ -735,13 +724,12 @@ private fun ChatFilesPickerSheet(
 
 @Composable
 private fun TopBar(
-    settings: Settings,
     conversation: Conversation,
     drawerState: DrawerState,
     bigScreen: Boolean,
     previewMode: Boolean,
-    onClickMenu: () -> Unit,
-    onNewChat: () -> Unit,
+    onSearchInConversation: () -> Unit,
+    onCompressHistory: () -> Unit,
     onUpdateTitle: (String) -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -749,6 +737,7 @@ private fun TopBar(
     val titleState = useEditState<String> {
         onUpdateTitle(it)
     }
+    var overflowVisible by remember { mutableStateOf(false) }
 
     TopAppBar(
         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
@@ -775,45 +764,54 @@ private fun TopBar(
                 },
                 color = Color.Transparent,
             ) {
-                Column {
-                    val assistant = settings.getCurrentAssistant()
-                    val model = settings.getCurrentChatModel()
-                    val provider = model?.findProvider(providers = settings.providers, checkOverwrite = false)
-                    Text(
-                        text = conversation.title.ifBlank { stringResource(R.string.chat_page_new_chat) },
-                        maxLines = 1,
-                        style = MaterialTheme.typography.bodyMedium,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (model != null && provider != null) {
-                        Text(
-                            text = "${assistant.name.ifBlank { stringResource(R.string.assistant_page_default_assistant) }} / ${model.displayName} (${provider.name})",
-                            overflow = TextOverflow.Ellipsis,
-                            maxLines = 1,
-                            color = LocalContentColor.current.copy(0.65f),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 8.sp,
-                            )
-                        )
-                    }
-                }
+                Text(
+                    text = chatHeaderTitle(conversation.title, stringResource(R.string.chat_page_new_chat)),
+                    maxLines = 1,
+                    style = MaterialTheme.typography.bodyMedium,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         },
         actions = {
-            IconButton(
-                onClick = {
-                    onClickMenu()
+            androidx.compose.foundation.layout.Box {
+                IconButton(
+                    onClick = { overflowVisible = true },
+                    modifier = Modifier.testTag("chat_overflow_menu"),
+                ) {
+                    Icon(HugeIcons.MoreVertical, contentDescription = stringResource(R.string.chat_page_overflow_menu))
                 }
-            ) {
-                Icon(if (previewMode) HugeIcons.Cancel01 else HugeIcons.LeftToRightListBullet, "Chat Options")
-            }
-
-            IconButton(
-                onClick = {
-                    onNewChat()
+                DropdownMenu(
+                    expanded = overflowVisible,
+                    onDismissRequest = { overflowVisible = false },
+                ) {
+                    ChatOverflowAction.entries.forEach { action ->
+                        when (action) {
+                            ChatOverflowAction.SEARCH_IN_CONVERSATION -> DropdownMenuItem(
+                                text = {
+                                    Text(stringResource(if (previewMode) R.string.chat_page_close_conversation_search else R.string.chat_page_search_in_conversation))
+                                },
+                                leadingIcon = {
+                                    Icon(HugeIcons.Search01, contentDescription = null)
+                                },
+                                onClick = {
+                                    overflowVisible = false
+                                    onSearchInConversation()
+                                },
+                            )
+                            ChatOverflowAction.COMPRESS_HISTORY -> DropdownMenuItem(
+                                text = { Text(stringResource(R.string.chat_page_compress_context)) },
+                                leadingIcon = {
+                                    Icon(HugeIcons.Package01, contentDescription = null)
+                                },
+                                enabled = conversation.messageNodes.isNotEmpty(),
+                                onClick = {
+                                    overflowVisible = false
+                                    onCompressHistory()
+                                },
+                            )
+                        }
+                    }
                 }
-            ) {
-                Icon(HugeIcons.MessageAdd01, "New Message")
             }
         },
     )

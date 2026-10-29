@@ -1,6 +1,36 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-10-28 — Chat composer/header simplification from phone screenshots
+
+- User clarified two prior UI mockups and requested actual implementation:
+  bottom primary row plus → text field → send/stop; retain a secondary
+  row under the input with provider icon + selected model name and the
+  existing web-search, thinking (capability-gated), and voice controls.
+  Top header shows the conversation title alone, removing the model/provider
+  subtitle and old top-right New Chat/preview icons.
+- Replaced top-right icons with a three-dot menu that exposes the
+  existing current-conversation search/preview and Compress History.
+  Search is ChatListPreview (not global Search Chats) with snippets and
+  jump-to-message; its menu item becomes "Close chat search" while active.
+  Compress History runs the existing CompressContextDialog and
+  ChatVM.handleCompressContext without passing through attachments.
+- ModelSelector remains clickable and opens the existing model list,
+  now rendering the selected provider logo and model display name in
+  the second composer row. Bounded label width and horizontal scrolling
+  preserve reasoning/search access on narrow screens. Long-press Send and
+  stop-generation behavior are unchanged; primary touch targets are 48dp.
+- Removed only the Extensions and Compress History rows from the
+  attachment picker; camera, images, files, supported video/audio, workspace
+  and MCP tools remain. No extension settings, API keys, chat records or
+  user data were deleted or reset.
+- TDD: ChatChromeActionsTest first failed for the absent action contract and
+  title policy and then passed; full AI/app JVM suites and Android debug build
+  checked. The new chrome layout has not been visually verified with
+  the updated APK installed on the Pixel; no on-device changes this pass.
+- Implementation/acceptance reference:
+  docs/ui/chat-composer-overflow-2026-10-28.md.
+
 ## 2026-10-28 — Provider APIs now uses models.dev as its main list
 
 - User-supplied phone screenshot showed the old sheet foregrounding dozens of

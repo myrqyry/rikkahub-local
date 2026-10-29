@@ -14,6 +14,44 @@ Use entries like:
 **Evidence / references:**  
 **Supersedes:** none
 
+## 2026-10-28 — Chat header title-only; interactive model metadata stays at input
+
+**Decision:**
+Keep the chat header focused on the conversation title. Put a clickable
+provider-branded model selector with the actual selected model display name
+in a secondary row below the editor. Put attachment (+) at the beginning of
+the primary input row and send/stop at its end. Replace top-right action icons
+with a three-dot menu containing existing in-chat search and Compress History.
+Remove the Extensions and Compress History rows from the attachment sheet.
+
+**Why:**
+The screenshots showed duplicated model identity in the header, a cluttered
+composer and hidden/split chat actions. The user asked specifically for a
+readable, model-aware composer and current-conversation search under overflow;
+global chat search is different and must not be substituted.
+
+**Alternatives considered:**
+Remove the entire secondary composer row and hide the selected model; add
+a non-clickable model badge; send users to global Search Chats; delete
+extension settings when removing its attachment-row shortcut; place
+Compress History under the plus menu; remove the long-press send behavior.
+
+**Constraints / consequences:**
+Retain the existing ModelList selector and its callback; no state migration,
+provider-key edits, network changes or deleted extensions. The in-chat
+preview search and compression dialog both keep their existing behavior.
+The header's New Chat button is removed but that flow stays accessible through
+the conversation drawer. The model text is width-bounded on phones and the
+tool row scrolls. Actual updated-Pixel screenshot verification is pending;
+APK build and JVM tests do not prove final layout on a physical screen.
+
+**Evidence / references:**
+docs/ui/chat-composer-overflow-2026-10-28.md,
+ChatPage.kt, ChatInput.kt, ModelList.kt, FilesPicker.kt,
+ChatChromeActionsTest.kt, 2026-10-28.
+
+**Supersedes:** previous composer/header placement only
+
 ## 2026-10-28 — Provider APIs: models.dev as primary discovery, existing settings authoritative
 
 **Decision:**
