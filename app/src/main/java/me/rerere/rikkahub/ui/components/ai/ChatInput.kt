@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.content.MediaType
@@ -170,6 +171,18 @@ fun ChatInput(
     }
     val asrPermission = rememberPermissionState(PermissionRecordAudio)
     PermissionManager(permissionState = asrPermission)
+    // The five-line composer can stay scrolled at the beginning even though ASR
+    // places the cursor at the end programmatically. Follow newly dictated text
+    // while recording, without changing scroll behavior for normal editing.
+    val asrComposerScroll = rememberScrollState()
+    LaunchedEffect(asrState.isRecording) {
+        if (asrState.isRecording) {
+            // ScrollState.maxValue updates after the text field is remeasured,
+            // which may happen later than the streaming ASR text callback.
+            snapshotFlow { asrComposerScroll.maxValue }
+                .collect { maxScroll -> asrComposerScroll.scrollTo(maxScroll) }
+        }
+    }
     var asrBaseText by remember { mutableStateOf("") }
     LaunchedEffect(asrState.status) {
         when (asrState.status) {
@@ -245,6 +258,7 @@ fun ChatInput(
                         }
                         Box(modifier = Modifier.weight(1f)) {
                             TextInputRow(
+                                asrComposerScroll = asrComposerScroll,
                                 state = state,
                                 completionProviders = completionProviders,
                                 onSendMessage = { sendMessage() },
@@ -402,6 +416,7 @@ private fun ActionIconButton(
 
 @Composable
 private fun TextInputRow(
+    asrComposerScroll: ScrollState,
     state: ChatInputState,
     completionProviders: List<ChatCompletionProvider>,
     onSendMessage: () -> Unit,
@@ -530,6 +545,7 @@ private fun TextInputRow(
 
         TextField(
             state = state.textContent,
+            scrollState = asrComposerScroll,
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("chat_input")
