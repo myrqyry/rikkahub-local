@@ -538,6 +538,14 @@ private fun AddASRProviderButton(onAdd: (ASRProviderSetting) -> Unit) {
                 }
             )
             DropdownMenuItem(
+                text = { Text("Nemotron 3.5 (Local GGUF · Experimental)") },
+                onClick = {
+                    currentProvider = ASRProviderSetting.NemotronGguf()
+                    showTypeMenu = false
+                    showBottomSheet = true
+                }
+            )
+            DropdownMenuItem(
                 text = { Text("Whisper LiteRT") },
                 onClick = {
                     currentProvider = ASRProviderSetting.WhisperLiteRT()
@@ -861,6 +869,7 @@ private fun ASRProviderItem(
                             is ASRProviderSetting.Step -> "Step"
                             is ASRProviderSetting.WhisperAsr -> "Whisper (Local)"
                             is ASRProviderSetting.WhisperLiteRT -> "Whisper LiteRT"
+                            is ASRProviderSetting.NemotronGguf -> "Nemotron 3.5 (GGUF)"
                             is ASRProviderSetting.LocalAudioClassifier -> "Local Audio Classifier"
                         },
                         style = MaterialTheme.typography.bodySmall,

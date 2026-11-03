@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -38,6 +39,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.rerere.asr.ASRProviderSetting
 import me.rerere.asr.WhisperLiteRTModelCatalog
+import me.rerere.asr.NemotronGgufModel
 import me.rerere.asr.WhisperLiteRTModelEntry
 import me.rerere.asr.describeWhisperLiteRTModelError
 import me.rerere.asr.resolveWhisperLiteRTModel
@@ -71,6 +73,7 @@ fun ASRProviderConfigure(
                     is ASRProviderSetting.Step -> "Step"
                     is ASRProviderSetting.WhisperAsr -> "Whisper (Local)"
                     is ASRProviderSetting.WhisperLiteRT -> "Whisper LiteRT"
+                    is ASRProviderSetting.NemotronGguf -> "Nemotron 3.5 (GGUF)"
                     is ASRProviderSetting.LocalAudioClassifier -> "Local Audio Classifier"
                 },
                 onValueChange = {},
@@ -99,6 +102,7 @@ fun ASRProviderConfigure(
             is ASRProviderSetting.Step -> StepASRConfiguration(setting, onValueChange)
             is ASRProviderSetting.WhisperAsr -> WhisperASRConfiguration(setting, onValueChange)
             is ASRProviderSetting.WhisperLiteRT -> WhisperLiteRTConfiguration(setting, onValueChange)
+            is ASRProviderSetting.NemotronGguf -> NemotronGgufConfiguration(setting, onValueChange)
             is ASRProviderSetting.LocalAudioClassifier -> LocalAudioClassifierConfiguration(setting, onValueChange)
         }
     }
@@ -975,4 +979,74 @@ private suspend fun copyModelToAppDir(context: Context, uri: Uri, subDir: String
         } ?: return@withContext null
         target
     } catch (_: Exception) { null }
+}
+
+@Composable
+private fun NemotronGgufConfiguration(
+    setting: ASRProviderSetting.NemotronGguf,
+    onValueChange: (ASRProviderSetting) -> Unit,
+) {
+    val context = LocalContext.current
+    val client = koinInject<OkHttpClient>()
+    val scope = rememberCoroutineScope()
+    var downloading by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf(0) }
+    var downloadError by remember { mutableStateOf<String?>(null) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val imported = copyModelToAppDir(context, uri, "nemotron-gguf")
+            if (imported != null) onValueChange(setting.copy(modelPath = imported.absolutePath))
+        }
+    }
+    FormItem(label = { Text("Model · Nemotron 3.5 Q5_K_M") },
+        description = { Text("559.6 MB · verified downloads use pinned SHA-256; imported files are not verified. Weights: OpenMDW-1.1. Experimental CPU streaming.") }) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(value = setting.modelPath,
+                onValueChange = { onValueChange(setting.copy(modelPath = it)) },
+                label = { Text("Local GGUF path") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { picker.launch(arrayOf("*/*")) }) { Text("Import GGUF") }
+                Button(enabled = !downloading, onClick = {
+                    downloading = true
+                    progress = 0
+                    downloadError = null
+                    scope.launch {
+                        runCatching {
+                            LocalAsrModelManager.downloadNemotron(context, client) { progress = it }
+                        }.onSuccess { model ->
+                            onValueChange(setting.copy(modelPath = model.absolutePath))
+                        }.onFailure { e ->
+                            downloadError = e.message ?: "Nemotron download failed"
+                        }
+                        downloading = false
+                    }
+                }) { Text("Download verified") }
+            }
+            if (downloading) LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth())
+            downloadError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            if (setting.modelPath.isNotBlank() && !File(setting.modelPath).isFile) {
+                Text("Model not found", color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+    FormItem(label = { Text("Language") },
+        description = { Text("Explicit locale: en-US, es-ES, or auto (English and Spanish verified on Pixel 10 Pro).") }) {
+        OutlinedTextField(value = setting.language,
+            onValueChange = { onValueChange(setting.copy(language = it)) }, modifier = Modifier.fillMaxWidth())
+    }
+    FormItem(label = { Text("Streaming right context") },
+        description = { Text("0, 3, 6, or 13 frames. Lower reduces lookahead; 3 was tested on the Pixel. Audio chunks: 1120 ms.") }) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(0, 3, 6, 13).forEach { right ->
+                FilterChip(
+                    selected = setting.rightContext == right,
+                    onClick = { onValueChange(setting.copy(rightContext = right)) },
+                    label = { Text("$right") },
+                )
+            }
+        }
+    }
+    Text("The model file is downloaded only on request. This provider never sends audio to a cloud service.",
+        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }

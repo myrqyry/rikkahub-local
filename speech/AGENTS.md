@@ -8,6 +8,8 @@ LiteRT-backed providers use models downloaded into the app-managed local model
 directory.
 Whisper LiteRT ASR supports catalog-backed Base and Tiny model variants plus
 manual custom `.tflite` imports.
+Experimental Nemotron GGUF ASR uses pinned `third_party/transcribe.cpp` and a dedicated
+CPU JNI bridge; see `NEMOTRON-GGUF.md` for verified device receipts and limits.
 
 ## Key Files
 

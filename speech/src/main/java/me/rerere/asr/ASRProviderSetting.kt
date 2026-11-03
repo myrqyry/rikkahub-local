@@ -211,6 +211,21 @@ sealed class ASRProviderSetting {
     }
 
     @Serializable
+    @SerialName("nemotron_gguf")
+    data class NemotronGguf(
+        override val id: Uuid = Uuid.random(),
+        override val name: String = "Nemotron 3.5 (Local GGUF)",
+        val modelPath: String = "",
+        val language: String = "en-US",
+        val chunkMs: Int = 1120,
+        val rightContext: Int = 3,
+        val threads: Int = 4,
+    ) : ASRProviderSetting() {
+        override fun copyProvider(id: Uuid, name: String): ASRProviderSetting =
+            copy(id = id, name = name)
+    }
+
+    @Serializable
     @SerialName("whisper")
     data class WhisperAsr(
         override val id: Uuid = Uuid.random(),
@@ -241,6 +256,7 @@ sealed class ASRProviderSetting {
                 Step::class,
                 WhisperAsr::class,
                 WhisperLiteRT::class,
+                NemotronGguf::class,
                 LocalAudioClassifier::class,
             )
         }

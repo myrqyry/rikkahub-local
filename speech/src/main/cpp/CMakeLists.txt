@@ -24,3 +24,32 @@ add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../scyllasband"
 add_library(scyllasband_android_jni SHARED scyllasband_android_jni.cpp)
 target_compile_features(scyllasband_android_jni PRIVATE cxx_std_17)
 target_link_libraries(scyllasband_android_jni PRIVATE scyllasband::native android log)
+
+# Pin the ASR engine independently from its downloadable model weights.
+# The third_party/transcribe.cpp Git submodule supplies the matching ggml ABI.
+set(TRANSCRIBE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(TRANSCRIBE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(TRANSCRIBE_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(TRANSCRIBE_USE_SYSTEM_BLAS OFF CACHE BOOL "" FORCE)
+# Link statically into this JNI .so: the app already includes a separate ggml ABI
+# from another dependency. Bundling a second libggml*.so is unsafe.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(TRANSCRIBE_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+# Upstream uses CMAKE_SOURCE_DIR/include when embedded as a subproject.
+include_directories("${RIKKAHUB_ROOT}/third_party/transcribe.cpp/include")
+add_subdirectory("${RIKKAHUB_ROOT}/third_party/transcribe.cpp"
+    "${CMAKE_CURRENT_BINARY_DIR}/transcribe-core")
+# Android Gradle Debug defaults to no native optimization; without this the
+# 10-second Pixel speech sample took over 90 seconds through the JNI bridge.
+# Optimize only this inference engine; preserve debugger settings elsewhere.
+foreach(_asr_target transcribe ggml ggml-base ggml-cpu)
+    if(TARGET ${_asr_target})
+        target_compile_options(${_asr_target} PRIVATE "$<$<CONFIG:Debug>:-O2>")
+    endif()
+endforeach()
+add_library(nemotron_asr_android_jni SHARED nemotron_asr_android_jni.cpp)
+target_compile_features(nemotron_asr_android_jni PRIVATE cxx_std_17)
+target_include_directories(nemotron_asr_android_jni PRIVATE
+    "${RIKKAHUB_ROOT}/third_party/transcribe.cpp/include")
+target_link_libraries(nemotron_asr_android_jni PRIVATE transcribe log)
+target_link_options(nemotron_asr_android_jni PRIVATE "-Wl,--exclude-libs,ALL")
