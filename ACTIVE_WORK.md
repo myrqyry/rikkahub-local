@@ -1,6 +1,15 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-11-02 — Reconcile device-execution profile with master
+
+- Merge target is the repository default `master` (`origin/master@ef22e618d`), not a separate `main` branch.
+- Preserve this branch's newer LiteRT 2.3.0 / LiteRT-LM 0.19.0 runtime and matching official 2.3.0 C SDK staging. The old master-only 2.1.5 bootstrap must not downgrade headers or change the 2.3.0 `LiteRtCreateModelFromFile(environment, filename, model)` ABI.
+- Carry forward master fixes that remain applicable: System-One typed request/result validation and tests, image-gallery resource lookup, model-assignment indentation, Android SDK action v4, and guarded KVM access.
+- Master's 2.1.5 bootstrap/Python resolver was evaluated but not carried into the 2.3 path: a clean Gradle 9.4.1 staging run exposed a configuration-cache serialization failure after the stage task executed. Retain the existing `stage_litert_230.py` task, which SHA-verifies the official 2.3.0 SDK/AAR and is already shared with `:speech`.
+- Keep both generated-native exclusions and Superpowers planning exclusions in `.gitignore`.
+- Verification completed in an isolated clean worktree: the new staging regression test was RED because `is_staged()` accepted an SDK missing `build_config.h`; after pinning the official v2.3.0 GPU+NPU config by SHA-256 and staging/validating it, the test is green. Deleting the generated SDK plus app/speech CMake caches and rerunning `:local-llm:testDebugUnitTest --tests me.rerere.locallm.decision.SystemOneDecisionTest :app:testDebugUnitTest :app:assembleDebug` passed in 4m06s (317 tasks). Existing libomp/deprecation warnings remain. No installed app data or device state was modified.
+
 ## 2026-10-29 — Neumorphic renderer edge lighting and selected-state polish
 
 - User requested improving neumorphic styling and supplied an illustrative

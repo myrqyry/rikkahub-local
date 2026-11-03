@@ -19,6 +19,8 @@ RELEASE = "https://github.com/google-ai-edge/LiteRT/releases/download/v2.3.0/lit
 SDK_SHA256 = "44ebb188ae1a510f233639fa499928fdaaba46436a153a2dbfbb9d87d59728d2"
 AAR_URL = "https://dl.google.com/dl/android/maven2/com/google/ai/edge/litert/litert/2.3.0/litert-2.3.0.aar"
 AAR_SHA256 = "9508c6e9142646f0f2bc1fe68b3925fb470ee7ddd29114540339a04a8ab189dc"
+BUILD_CONFIG_URL = "https://raw.githubusercontent.com/google-ai-edge/LiteRT/v2.3.0/litert/build_common/config/build_config_gpu_npu.h"
+BUILD_CONFIG_SHA256 = "6e69a0cab0a4743d12c5c365784b0faed0d66e39f83b6abe0338e525e508e493"
 ABI_SHA256 = {
     "arm64-v8a": "e5b7e3413a8b428b1a1b669f368cf613058868bc7b63e10d0b9c2e6ba55c97d8",
     "x86_64": "702e378bc626da1e6e0dadf4ff2520c94be48dc89147db8a5cb4139d2213be66",
@@ -52,7 +54,7 @@ def is_staged():
         return False
     try:
         receipt = json.loads(RECEIPT.read_text())
-        if receipt.get("litertVersion") != VERSION or receipt.get("sdkSha256") != SDK_SHA256 or receipt.get("aarSha256") != AAR_SHA256:
+        if receipt.get("litertVersion") != VERSION or receipt.get("sdkSha256") != SDK_SHA256 or receipt.get("aarSha256") != AAR_SHA256 or receipt.get("buildConfigSha256") != BUILD_CONFIG_SHA256:
             return False
         for abi, expected in ABI_SHA256.items():
             path = DEST / abi / "libLiteRt.so"
@@ -62,6 +64,9 @@ def is_staged():
             header = DEST / relative
             if not header.is_file() or hashlib.sha256(header.read_bytes()).hexdigest() != expected:
                 return False
+        build_config = DEST / "litert/build_common/build_config.h"
+        if not build_config.is_file() or hashlib.sha256(build_config.read_bytes()).hexdigest() != BUILD_CONFIG_SHA256:
+            return False
         return True
     except (ValueError, OSError):
         return False
@@ -73,6 +78,7 @@ def main():
         return
     sdk = get(RELEASE, SDK_SHA256)
     aar = get(AAR_URL, AAR_SHA256)
+    build_config = get(BUILD_CONFIG_URL, BUILD_CONFIG_SHA256)
     with zipfile.ZipFile(io.BytesIO(sdk)) as source, zipfile.ZipFile(io.BytesIO(aar)) as library:
         with tempfile.TemporaryDirectory() as temporary:
             tmp = Path(temporary)
@@ -97,10 +103,15 @@ def main():
             target_config = DEST / "litert/build_common/build_config.h.in"
             target_config.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source_config, target_config)
+            generated_config = DEST / "litert/build_common/build_config.h"
+            staged_config = generated_config.with_suffix(".h.staging")
+            staged_config.write_bytes(build_config)
+            staged_config.replace(generated_config)
     RECEIPT.write_text(json.dumps({
         "litertVersion": VERSION,
         "sdkSha256": SDK_SHA256,
         "aarSha256": AAR_SHA256,
+        "buildConfigSha256": BUILD_CONFIG_SHA256,
         "libraries": ABI_SHA256,
         "source": RELEASE,
         "maven": AAR_URL,

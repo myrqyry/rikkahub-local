@@ -68,5 +68,8 @@ app/src/main/jni/litert/litert_cc_sdk/
 .meristem/local/
 # meristem:local-ignore:end
 
-# Verified Scylla LiteRT 2.2 staging; generated at build, never commit native downloads.
+# Verified Scylla/LiteRT native staging; generated at build, never commit native downloads.
 /speech/src/main/jniLibs/
+
+# Local Superpowers planning/workspace artifacts
+superpowers/

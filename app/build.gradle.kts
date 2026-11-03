@@ -22,6 +22,7 @@ val stageLiteRtSdk by tasks.registering(Exec::class) {
         file("src/main/jni/litert/litert_cc_sdk/x86_64/libLiteRt.so"),
         file("src/main/jni/litert/litert_cc_sdk/.bootstrap.json"),
         file("src/main/jni/litert/litert_cc_sdk/litert/build_common/build_config.h.in"),
+        file("src/main/jni/litert/litert_cc_sdk/litert/build_common/build_config.h"),
     )
     outputs.dir(file("src/main/jni/litert/litert_cc_sdk/litert/c"))
 }

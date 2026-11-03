@@ -105,4 +105,147 @@ class SystemOneDecisionTest {
             DecisionAnswer.Boolean(probability = 1.1)
         }
     }
+
+    @Test
+    fun `request question ids must be unique`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            DecisionRequest(
+                state = "state",
+                questions = listOf(
+                    DecisionQuestion.Boolean("same", "First."),
+                    DecisionQuestion.Boolean("same", "Second."),
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `result validation accepts answers inside the declared request domains`() {
+        val request = DecisionRequest(
+            state = "state",
+            questions = listOf(
+                DecisionQuestion.Boolean("continue", "Continue?"),
+                DecisionQuestion.Choice("route", "Choose.", listOf("local", "remote")),
+                DecisionQuestion.Score("quality", "Score.", min = 1, max = 5),
+            ),
+        )
+        val result = DecisionResult(
+            answers = mapOf(
+                "continue" to DecisionAnswer.Boolean(0.8),
+                "route" to DecisionAnswer.Choice(
+                    value = "local",
+                    probabilities = mapOf("local" to 0.8, "remote" to 0.2),
+                ),
+                "quality" to DecisionAnswer.Score(
+                    value = 4,
+                    probabilities = mapOf(3 to 0.1, 4 to 0.8, 5 to 0.1),
+                ),
+            ),
+            provider = "test",
+            latencyMs = 12,
+        )
+
+        assertEquals(result, result.validateAgainst(request))
+    }
+
+    @Test
+    fun `result validation rejects missing extra and mismatched answers`() {
+        val request = DecisionRequest(
+            state = "state",
+            questions = listOf(
+                DecisionQuestion.Boolean("continue", "Continue?"),
+                DecisionQuestion.Choice("route", "Choose.", listOf("local", "remote")),
+            ),
+        )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            DecisionResult(
+                answers = mapOf("continue" to DecisionAnswer.Boolean(0.5)),
+                provider = "test",
+                latencyMs = 1,
+            ).validateAgainst(request)
+        }
+
+        assertThrows(IllegalArgumentException::class.java) {
+            DecisionResult(
+                answers = mapOf(
+                    "continue" to DecisionAnswer.Boolean(0.5),
+                    "route" to DecisionAnswer.Choice("local"),
+                    "extra" to DecisionAnswer.Boolean(0.5),
+                ),
+                provider = "test",
+                latencyMs = 1,
+            ).validateAgainst(request)
+        }
+
+        assertThrows(IllegalArgumentException::class.java) {
+            DecisionResult(
+                answers = mapOf(
+                    "continue" to DecisionAnswer.Score(1),
+                    "route" to DecisionAnswer.Choice("local"),
+                ),
+                provider = "test",
+                latencyMs = 1,
+            ).validateAgainst(request)
+        }
+    }
+
+    @Test
+    fun `result validation rejects values outside choice and score domains`() {
+        val choiceRequest = DecisionRequest(
+            state = "state",
+            questions = listOf(
+                DecisionQuestion.Choice("route", "Choose.", listOf("local", "remote")),
+            ),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            DecisionResult(
+                answers = mapOf(
+                    "route" to DecisionAnswer.Choice(
+                        value = "cloud",
+                        probabilities = mapOf("cloud" to 1.0),
+                    ),
+                ),
+                provider = "test",
+                latencyMs = 1,
+            ).validateAgainst(choiceRequest)
+        }
+
+        val scoreRequest = DecisionRequest(
+            state = "state",
+            questions = listOf(
+                DecisionQuestion.Score("quality", "Score.", min = 1, max = 5),
+            ),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            DecisionResult(
+                answers = mapOf(
+                    "quality" to DecisionAnswer.Score(
+                        value = 6,
+                        probabilities = mapOf(6 to 1.0),
+                    ),
+                ),
+                provider = "test",
+                latencyMs = 1,
+            ).validateAgainst(scoreRequest)
+        }
+    }
+
+    @Test
+    fun `result metadata must be usable`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            DecisionResult(
+                answers = emptyMap(),
+                provider = " ",
+                latencyMs = 0,
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            DecisionResult(
+                answers = emptyMap(),
+                provider = "test",
+                latencyMs = -1,
+            )
+        }
+    }
 }
