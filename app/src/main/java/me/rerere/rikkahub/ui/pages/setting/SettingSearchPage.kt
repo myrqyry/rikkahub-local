@@ -67,6 +67,22 @@ import kotlin.reflect.full.primaryConstructor
 internal fun Settings.withWebSearchEnabled(enabled: Boolean): Settings =
     copy(enableWebSearch = enabled)
 
+internal fun reorderSearchServices(
+    services: List<SearchServiceOptions>,
+    fromLazyIndex: Int,
+    toLazyIndex: Int,
+    leadingItemCount: Int,
+): List<SearchServiceOptions> {
+    val fromIndex = fromLazyIndex - leadingItemCount
+    val toIndex = toLazyIndex - leadingItemCount
+    if (fromIndex !in services.indices || toIndex !in services.indices || fromIndex == toIndex) {
+        return services
+    }
+    return services.toMutableList().apply {
+        add(toIndex, removeAt(fromIndex))
+    }
+}
+
 @Composable
 fun SettingSearchPage(vm: SettingVM = koinViewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
@@ -100,16 +116,14 @@ fun SettingSearchPage(vm: SettingVM = koinViewModel()) {
         containerColor = CustomColors.topBarColors.containerColor
     ) {
         val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
-            val fromIndex = from.index
-            val toIndex = to.index
-
-            if (fromIndex >= 0 && toIndex >= 0 && fromIndex < settings.searchServices.size && toIndex < settings.searchServices.size) {
-                val newServices = settings.searchServices.toMutableList().apply {
-                    add(toIndex, removeAt(fromIndex))
-                }
-                vm.updateSettings(
-                    settings.copy(searchServices = newServices)
-                )
+            val newServices = reorderSearchServices(
+                services = settings.searchServices,
+                fromLazyIndex = from.index,
+                toLazyIndex = to.index,
+                leadingItemCount = 1,
+            )
+            if (newServices !== settings.searchServices) {
+                vm.updateSettings(settings.copy(searchServices = newServices))
             }
         }
         val haptic = LocalHapticFeedback.current

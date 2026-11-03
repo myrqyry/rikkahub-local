@@ -75,6 +75,18 @@ class ModelFileImportTest {
         assertArrayEquals(newer, moved.readBytes())
     }
 
+    @Test fun classifyMoveCreatesMissingTargetDirectory() = withTarget { target ->
+        val source = File(target.parentFile, "downloaded-chat.gguf")
+        val nestedTarget = File(File(target.parentFile, "llama-cpp"), "chat-model.gguf")
+        source.writeBytes(newer)
+
+        val moved = ModelFileImport.moveWithoutReplacing(source, nestedTarget)
+
+        assertTrue(moved.isFile)
+        assertArrayEquals(newer, moved.readBytes())
+        assertFalse(source.exists())
+    }
+
     @Test fun concurrentTargetArrivalNeverGetsOverwritten() = withTarget { target ->
         val data = original
         val stream = object : ByteArrayInputStream(newer) {

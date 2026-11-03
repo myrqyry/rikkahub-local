@@ -53,6 +53,11 @@ object ModelFileImport {
      */
     fun moveWithoutReplacing(source: File, target: File): File {
         check(source.isFile && !Files.isSymbolicLink(source.toPath())) { "Expected a regular imported model" }
+        val directory = target.parentFile ?: error("A model directory is required")
+        require(directory.isDirectory || directory.mkdirs()) { "Could not create model directory" }
+        check(directory.isDirectory && !Files.isSymbolicLink(directory.toPath())) {
+            "Expected a regular model directory"
+        }
         check(!Files.exists(target.toPath(), LinkOption.NOFOLLOW_LINKS)) {
             "An installed model named " + target.name + " already exists"
         }

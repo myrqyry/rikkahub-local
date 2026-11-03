@@ -147,11 +147,11 @@ fun ModelAssignmentsSection(
                         val candidates = compatibleAssignments(ModelRole.CHAT, models)
                         AssignmentItem(
                             row = row,
-                                candidates = candidates,
-                                allModels = models,
-                                repairState = repairState,
-                                rowStateHolder = rowStateHolder,
-                            )
+                            candidates = candidates,
+                            allModels = models,
+                            repairState = repairState,
+                            rowStateHolder = rowStateHolder,
+                        )
                     }
                 }
                 group.rows.forEach { row ->

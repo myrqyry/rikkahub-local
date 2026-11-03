@@ -1,6 +1,16 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-11-02 — PR #22 post-merge-conflict review fixes
+
+- PR #22 is mergeable against `master` at head `8e06b2512`; Codex review identified two P2 regressions and Kilo reported no issues in the device-execution core.
+- Reproduced Codex's GGUF classification failure with a RED `ModelFileImportTest`: moving a chat model into a not-yet-created `local-models/llama-cpp` directory threw `NoSuchFileException`. `moveWithoutReplacing` now creates and validates the target directory before its existing no-replace move; the regression test is green.
+- Reproduced the search-provider reorder offset with a RED pure test. The page now translates lazy-list indices by the leading web-search toggle row before reordering, so dragging providers no longer shifts/rejects the wrong stored entries.
+- Corrected the merge-introduced indentation in `ModelAssignmentsSection`. Focused ModelFileImport + WebSearchPreference tests and `:app:assembleDebug` passed together (317 tasks, BUILD SUCCESSFUL).
+- GitHub Android CI run 41578907638: unit tests passed; lint failed with 152 `MissingTranslation` errors. The API-35 migration job did not report a test assertion failure; GitHub sent the runner a shutdown signal while native builds were running.
+- The repo's established `locale-tui` workflow was inspected before touching translations. Its configured AI translator cannot currently run on this machine because `OPENAI_API_KEY` is unset, and Arabic is not yet listed in `locale-tui/config.yml` despite `values-ar` existing. Do not hide the 152 new translation errors by refreshing the lint baseline.
+
+
 ## 2026-11-02 — Reconcile device-execution profile with master
 
 - Merge target is the repository default `master` (`origin/master@ef22e618d`), not a separate `main` branch.
