@@ -1,0 +1,9 @@
+MingCute Icons
+
+Android VectorDrawable assets: com.maifee.mingcute:mingcute-icons:3.0.2
+Icon set: MingCute Icons — https://www.mingcute.com/
+Upstream artwork: https://github.com/mingcute-design/mingcute-icons
+License: Apache License 2.0 — https://www.apache.org/licenses/LICENSE-2.0
+
+The Android VectorDrawable artifact is published by Maifee Ul Asad and declares
+Apache License 2.0 in its Maven Central metadata.

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "providers": {
+    "rikka-pixel": {
+      "name": "RikkaHub Pixel (ADB / LiteRT)",
+      "package": "@opencode/ai/providers/openai-compatible",
+      "settings": {
+        "baseURL": "http://127.0.0.1:18080/v1"
+      },
+      "models": {
+        "lfm2.5-1.2b": {
+          "modelID": "litert/LFM2.5-1.2B-Instruct_int4.litertlm",
+          "name": "Pixel LiteRT · LFM2.5 1.2B",
+          "capabilities": {
+            "tools": false,
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 4096,
+            "output": 256
+          }
+        }
+      }
+    }
+  },
+  "permissions": [
+    {
+      "action": "external_directory",
+      "resource": "*",
+      "effect": "ask"
+    }
+  ]
+}

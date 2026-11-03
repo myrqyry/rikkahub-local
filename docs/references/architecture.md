@@ -103,6 +103,29 @@ real local inference is wired and evaluated.
 A System-One verdict is evidence, never authority. It cannot grant capabilities, bypass
 HARDLINE/approval, execute tools, or replace deterministic safety/policy gates.
 
+### Local inference execution profile
+
+On-device model selection is a measured pipeline rather than a hardcoded RAM tier:
+
+`Android device facts -> DeviceExecutionProfile -> LiteRtExecutionPlanner -> runtime backend -> observed fallback`
+
+`DeviceExecutionProfile` carries live total/available memory, Android's low-memory signal,
+and the accelerator capabilities actually probed on the device. `LiteRtExecutionPlanner`
+keeps model policy pure/JVM-testable: it revalidates persisted backend choices, honors
+per-model backend preferences, checks live memory with runtime headroom, and ranks only
+curated recommended artifacts for the default install path.
+
+Catalog `minDeviceMemoryGb` remains advisory ranking evidence. Live available memory is
+the hard admission signal. The runtime repeats memory admission after releasing any prior
+native engine so reclaimable KV/model memory cannot cause a false refusal.
+
+Backend labels must describe the backend actually requested from LiteRT-LM. In 0.17.0 the
+SDK exposes CPU, GPU, NPU/QNN, and GOOGLE_TENSOR; it does not expose an NNAPI backend.
+Generic/task-model compute may still use NNAPI where its own adapter supports it.
+
+This policy adapts among artifacts that actually exist. It must not claim adaptive Q4/Q8
+selection unless corresponding verified artifacts are present in the model catalog.
+
 ### Shadow candidate evaluation
 
 `ShadowCandidateEvaluator` scores alternate candidate plans (alias-normalized,
@@ -153,6 +176,7 @@ the app. App-side implementations adapt them and are wired via DI (Koin):
 | `WorkflowReceiptSink`          | `AgentRunWorkflowReceiptSink` |
 | `CapabilityGrantSource`        | `ToolApprovalCapabilityGrantSource` |
 | `SystemOneDecisionEngine`      | (pending local decision-model adapter; optional approved remote adapter) |
+| `DeviceExecutionProfile` / `LiteRtExecutionPlanner` | `ExecutionProfileProbe` Android adapter |
 | `ProcedureCache`               | (pending Room-backed repo)    |
 | `MicroAgentEventSink`          | (pending AgentRun trace sink) |
 

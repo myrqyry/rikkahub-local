@@ -5,6 +5,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import me.rerere.reranker.QwenReranker
 
 data class EmbeddingIndexStatus(
@@ -27,10 +29,41 @@ class EmbeddingRepository(
     private val rerankerProvider: () -> QwenReranker? = { null },
 ) {
     private val searchEngine = LocalVectorSearchEngine()
+    // Previously the persisted RAG vectors were only loaded by an explicit
+    // loadFromDatabase() caller; there was no caller in the app. On first
+    // search, and on backend selection changes, rehydrate that embedding space.
+    private val hydrationMutex = Mutex()
+    @Volatile private var hydratedSpaceId: String? = null
 
     suspend fun indexDocument(id: String, text: String, metadata: JsonObject): Boolean {
         val backend = backendProvider() ?: return false
         val result = backend.embed(text) ?: return false
+        return indexResult(id, metadata, backend, result)
+    }
+
+    /** Embed actual media bytes using a native media encoder, not transcript/OCR substitution. */
+    suspend fun indexMedia(
+        id: String,
+        bytes: ByteArray,
+        kind: MediaEmbeddingKind,
+        metadata: JsonObject,
+        expectedSpaceId: String? = null,
+    ): Boolean {
+        val backend = backendProvider() as? MediaEmbeddingBackend ?: return false
+        if (expectedSpaceId != null && backend.embeddingSpaceId != expectedSpaceId) return false
+        val result = when (kind) {
+            MediaEmbeddingKind.IMAGE -> backend.embedImage(bytes)
+            MediaEmbeddingKind.AUDIO -> backend.embedAudio(bytes)
+        } ?: return false
+        return indexResult(id, metadata, backend, result)
+    }
+
+    private suspend fun indexResult(
+        id: String,
+        metadata: JsonObject,
+        backend: EmbeddingBackend,
+        result: EmbeddingResult,
+    ): Boolean {
         val embeddingDimension = result.embedding.size
         searchEngine.addVector(
             id = id,
@@ -50,13 +83,31 @@ class EmbeddingRepository(
         return true
     }
 
+    /** Dedicated cross-modal search without text reranking file names as document prose. */
+    suspend fun searchMedia(query: String, topK: Int = 8): List<LocalVectorSearchEngine.ScoredMatch> {
+        val backend = backendProvider() as? MediaEmbeddingBackend ?: return emptyList()
+        ensureLoaded(backend)
+        val embedding = backend.embedQuery(query)?.embedding ?: return emptyList()
+        return searchEngine.search(
+            queryEmbedding = embedding,
+            embeddingSpaceId = backend.embeddingSpaceId,
+            embeddingDimension = embedding.size,
+            topK = topK,
+            mediaOnly = true,
+        )
+    }
+
     suspend fun searchSimilar(
         query: String,
         topK: Int = 20,
         finalTopK: Int = 5,
     ): List<LocalVectorSearchEngine.ScoredMatch> {
         val backend = backendProvider() ?: return emptyList()
-        val result = backend.embed(query) ?: return emptyList()
+        // Different embedding models have incompatible vector spaces. Reload
+        // matching persisted vectors before searching, rather than searching an
+        // empty/previous-model in-memory index after app restart or selection.
+        ensureLoaded(backend)
+        val result = backend.embedQuery(query) ?: return emptyList()
         val candidates = searchEngine.search(
             queryEmbedding = result.embedding,
             embeddingSpaceId = backend.embeddingSpaceId,
@@ -87,9 +138,11 @@ class EmbeddingRepository(
         val currentSpace = backend.embeddingSpaceId
         val matchingRows = rows.filter { it.embeddingSpaceId == currentSpace }
         val dimensions = matchingRows.map { it.embeddingDimension }.toSet()
+        // Other embedding spaces can coexist. They do not make *this* space
+        // stale unless no vectors exist for the currently selected model.
         val stale = matchingRows.any { it.embeddingDimension <= 0 } ||
             dimensions.size > 1 ||
-            matchingRows.size != rows.size
+            matchingRows.isEmpty()
     return EmbeddingIndexStatus(
         documentCount = if (stale) 0 else matchingRows.size,
         stale = stale,
@@ -102,20 +155,37 @@ class EmbeddingRepository(
     }
 
     suspend fun loadFromDatabase() {
-        searchEngine.clear()
         val backend = backendProvider() ?: return
-        for (entity in vectorDao.getAll()) {
+        hydrationMutex.withLock { hydrate(backend) }
+    }
+
+    private suspend fun ensureLoaded(backend: EmbeddingBackend) {
+        if (hydratedSpaceId == backend.embeddingSpaceId) return
+        hydrationMutex.withLock {
+            if (hydratedSpaceId != backend.embeddingSpaceId) hydrate(backend)
+        }
+    }
+
+    /** Caller holds hydrationMutex. Only vectors for this exact model space. */
+    private suspend fun hydrate(backend: EmbeddingBackend) {
+        val rows = vectorDao.getAll()
+        searchEngine.clear()
+        for (entity in rows) {
             if (entity.embeddingSpaceId != backend.embeddingSpaceId ||
-                entity.embeddingDimension <= 0
+                entity.embeddingDimension <= 0 ||
+                entity.embedding.size.toLong() != entity.embeddingDimension.toLong() * 4L
             ) continue
+            val embedding = bytesToFloatArray(entity.embedding)
+            if (embedding.any { !it.isFinite() }) continue
             searchEngine.addVector(
                 id = entity.id,
-                embedding = bytesToFloatArray(entity.embedding),
+                embedding = embedding,
                 metadata = json.parseToJsonElement(entity.metadata).jsonObject,
                 embeddingSpaceId = entity.embeddingSpaceId,
                 embeddingDimension = entity.embeddingDimension,
             )
         }
+        hydratedSpaceId = backend.embeddingSpaceId
     }
 
     companion object {

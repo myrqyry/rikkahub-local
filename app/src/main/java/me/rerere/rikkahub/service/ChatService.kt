@@ -60,6 +60,11 @@ import me.rerere.rikkahub.RouteActivity
 import me.rerere.rikkahub.utils.cancelNotification
 import me.rerere.rikkahub.utils.sendNotification
 import me.rerere.rikkahub.R
+import me.rerere.rikkahub.data.ai.prompts.toCompressionSource
+import me.rerere.rikkahub.data.ai.prompts.preCompressionBackup
+import me.rerere.rikkahub.data.ai.prompts.checkedCompressedSummary
+import me.rerere.rikkahub.data.ai.prompts.generatedConversationTitle
+import me.rerere.rikkahub.data.ai.prompts.generatedReplySuggestions
 import me.rerere.rikkahub.data.ai.GenerationChunk
 import me.rerere.rikkahub.data.ai.GenerationHandler
 import me.rerere.rikkahub.data.ai.mcp.McpManager
@@ -174,6 +179,7 @@ class ChatService(
     private val workspaceReminderTransformer = WorkspaceReminderTransformer(workspaceRepository)
 
     // 统一会话管理
+    private val auxJobs = AuxJobRegistry()
     private val sessions = ConcurrentHashMap<Uuid, ConversationSession>()
     private val _sessionsVersion = MutableStateFlow(0L)
 
@@ -250,6 +256,7 @@ class ChatService(
 
     fun cleanup() = runCatching {
         ProcessLifecycleOwner.get().lifecycle.removeObserver(lifecycleObserver)
+        sessions.keys.forEach { auxJobs.cancelAll(it) }
         sessions.values.forEach { it.cleanup() }
         sessions.clear()
         sessionMutexes.clear()
@@ -304,6 +311,7 @@ class ChatService(
      * user reset it. Safe to call when no session exists — no-op.
      */
     fun dropSession(conversationId: Uuid) {
+        auxJobs.cancelAll(conversationId)
         val session = sessions.remove(conversationId) ?: return
         session.cleanup()
         sessionMutexes.remove(conversationId)
@@ -325,6 +333,19 @@ class ChatService(
         conversationId: Uuid,
         block: suspend () -> Unit
     ): Job = appScope.launch {
+        addConversationReference(conversationId)
+        try {
+            block()
+        } finally {
+            removeConversationReference(conversationId)
+        }
+    }
+
+    private fun launchAuxJob(
+        conversationId: Uuid,
+        kind: AuxJobKind,
+        block: suspend () -> Unit,
+    ): Job = auxJobs.launch(appScope, conversationId, kind) {
         addConversationReference(conversationId)
         try {
             block()
@@ -389,6 +410,7 @@ class ChatService(
 
     fun sendMessage(conversationId: Uuid, content: List<UIMessagePart>, answer: Boolean = true) {
         if (content.isEmptyInputMessage()) return
+        auxJobs.cancelAll(conversationId)
 
         val session = getOrCreateSession(conversationId)
         val previousJob = session.getJob()
@@ -581,6 +603,7 @@ class ChatService(
         message: UIMessage,
         regenerateAssistantMsg: Boolean = true
     ) {
+        auxJobs.cancelAll(conversationId)
         val session = getOrCreateSession(conversationId)
         session.getJob()?.cancel()
 
@@ -767,6 +790,7 @@ class ChatService(
         conversationId: Uuid,
         messageRange: ClosedRange<Int>? = null
     ) {
+        auxJobs.cancelAll(conversationId)
         val settings = settingsStore.settingsFlow.first()
         // Resolve the assistant from this conversation's own assistantId — the global
         // current-assistant pointer can have moved if the user switched assistants while
@@ -1069,10 +1093,10 @@ class ChatService(
             val finalConversation = getConversationFlow(conversationId).value
             saveConversation(conversationId, finalConversation)
 
-            launchWithConversationReference(conversationId) {
+            launchAuxJob(conversationId, AuxJobKind.TITLE) {
                 generateTitle(conversationId, finalConversation)
             }
-            launchWithConversationReference(conversationId) {
+            launchAuxJob(conversationId, AuxJobKind.SUGGESTION) {
                 generateSuggestion(conversationId, finalConversation)
             }
         }
@@ -1213,7 +1237,8 @@ class ChatService(
             conversationRepo.getConversationById(conversation.id)?.let {
                 saveConversation(
                     conversationId,
-                    it.copy(title = result.choices[0].message?.toText()?.trim() ?: "")
+                    it.copy(title = generatedConversationTitle(result.choices.firstOrNull()?.message?.toText())
+                        ?: it.title)
                 )
             }
         }.onFailure {
@@ -1258,9 +1283,9 @@ class ChatService(
                 ),
                 params = backgroundTextGenerationParams(model),
             )
-            val suggestions =
-                result.choices[0].message?.toText()?.split("\n")?.map { it.trim() }
-                    ?.filter { it.isNotBlank() } ?: emptyList()
+            val suggestions = generatedReplySuggestions(
+                result.choices.firstOrNull()?.message?.toText()
+            )
 
             val latestConversation = conversationRepo.getConversationById(conversationId)
                 ?: sessions[conversationId]?.state?.value
@@ -1305,6 +1330,7 @@ class ChatService(
 
         val providerHandler = providerManager.getProviderByType(provider)
 
+        require(targetTokens > 0) { "Compression token target must be positive" }
         val maxMessagesPerChunk = 256
         val allMessages = conversation.currentMessages
 
@@ -1332,7 +1358,7 @@ class ChatService(
         }
 
         suspend fun compressMessages(messages: List<UIMessage>): String {
-            val contentToCompress = messages.joinToString("\n\n") { it.summaryAsText(maxLength = 2000) }
+            val contentToCompress = messages.joinToString("\n\n") { it.toCompressionSource() }
             val prompt = settings.compressPrompt.applyPlaceholders(
                 "content" to contentToCompress,
                 "target_tokens" to targetTokens.toString(),
@@ -1348,8 +1374,7 @@ class ChatService(
                 params = backgroundTextGenerationParams(model),
             )
 
-            return result.choices[0].message?.toText()?.trim()
-                ?: throw IllegalStateException("Failed to generate compressed summary")
+            return checkedCompressedSummary(result.choices.firstOrNull()?.message?.toText())
         }
 
         val compressedSummaries = coroutineScope {
@@ -1358,19 +1383,37 @@ class ChatService(
                 .awaitAll()
         }
 
-        // Create new conversation with compressed history as multiple user messages + kept messages
-        val newMessageNodes = buildList {
-            compressedSummaries.forEach { summary ->
-                add(UIMessage.user(summary).toMessageNode())
+        // Serialize archival and replacement against other chat-generation paths.
+        // The expensive model call happens outside this mutex.
+        mutexFor(conversationId).withLock {
+            // Never replace history from a stale UI snapshot or from a conversation
+            // that changed while the model was summarizing. Re-check stored evidence
+            // after the asynchronous calls, before any original data is replaced.
+            val authoritative = conversationRepo.getConversationById(conversationId)
+                ?: throw IllegalStateException("Conversation was removed during compression")
+            check(authoritative.messageNodes == conversation.messageNodes) {
+                "Conversation changed during compression; original messages were preserved"
             }
-            addAll(messagesToKeep.map { it.toMessageNode() })
-        }
-        val newConversation = conversation.copy(
-            messageNodes = newMessageNodes,
-            chatSuggestions = emptyList(),
-        )
 
-        saveConversation(conversationId, newConversation)
+            // Preserve a separate discoverable original, including all alternate
+            // message nodes and cloned attachments, BEFORE updating the active chat.
+            // A failed archival insert prevents the destructive update altogether.
+            val archive = authoritative.preCompressionBackup { it.copyWithForkedFileUrl() }
+            conversationRepo.insertConversation(archive)
+
+            // Create new conversation with compressed history as multiple user messages + kept messages
+            val newMessageNodes = buildList {
+                compressedSummaries.forEach { summary ->
+                    add(UIMessage.user(summary).toMessageNode())
+                }
+                addAll(messagesToKeep.map { it.toMessageNode() })
+            }
+            val newConversation = authoritative.copy(
+                messageNodes = newMessageNodes,
+                chatSuggestions = emptyList(),
+            )
+
+            saveConversation(conversationId, newConversation)        }
     }
 
     // ---- 通知 ----
@@ -1831,6 +1874,7 @@ class ChatService(
             is UIMessagePart.Document -> copy(url = copyLocalFileIfNeeded(url))
             is UIMessagePart.Video -> copy(url = copyLocalFileIfNeeded(url))
             is UIMessagePart.Audio -> copy(url = copyLocalFileIfNeeded(url))
+            is UIMessagePart.Tool -> copy(output = output.map { it.copyWithForkedFileUrl() })
             else -> this
         }
     }
@@ -1857,6 +1901,7 @@ class ChatService(
 
     // 停止当前会话生成任务（不清理会话缓存）
     suspend fun stopGeneration(conversationId: Uuid) {
+        auxJobs.cancelAll(conversationId)
         val convMutex = mutexFor(conversationId)
         // cancelAndJoin BEFORE the mutex so the cancelled coroutine can drain its own
         // writes (which may try to acquire the same mutex via their save path).

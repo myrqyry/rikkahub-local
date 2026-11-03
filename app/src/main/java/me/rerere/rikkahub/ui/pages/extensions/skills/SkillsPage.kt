@@ -53,16 +53,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.text.font.FontWeight
-import com.composables.icons.lucide.Globe
-import com.composables.icons.lucide.Lucide
-import com.composables.icons.lucide.X
+import me.rerere.rikkahub.ui.icons.MingcuteIcons
 import me.rerere.rikkahub.R
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Add01
-import me.rerere.hugeicons.stroke.Delete01
-import me.rerere.hugeicons.stroke.Download01
-import me.rerere.hugeicons.stroke.MoreVertical
-import me.rerere.hugeicons.stroke.Puzzle
 import me.rerere.rikkahub.data.files.SkillFrontmatterParser
 import me.rerere.rikkahub.data.files.SkillMetadata
 import me.rerere.rikkahub.Screen
@@ -105,13 +97,13 @@ fun SkillsPage() {
                 actions = {
                     IconButton(onClick = { showCatalog = true }) {
                         Icon(
-                            imageVector = Lucide.Globe,
+                            imageVector = MingcuteIcons.Globe,
                             contentDescription = stringResource(R.string.skill_catalog_title),
                         )
                     }
                     IconButton(onClick = { context.openUrl("https://skills.sh") }) {
                         Icon(
-                            imageVector = Lucide.Globe,
+                            imageVector = MingcuteIcons.Globe,
                             contentDescription = stringResource(R.string.setting_home_browse_catalogs),
                         )
                     }
@@ -127,12 +119,12 @@ fun SkillsPage() {
             ) {
                 SmallFloatingActionButton(onClick = { showImportDialog = true }) {
                     Icon(
-                        HugeIcons.Download01,
+                        MingcuteIcons.Download01,
                         contentDescription = stringResource(R.string.skills_page_import_from_github)
                     )
                 }
                 FloatingActionButton(onClick = { showAddDialog = true }) {
-                    Icon(HugeIcons.Add01, contentDescription = null)
+                    Icon(MingcuteIcons.Add01, contentDescription = null)
                 }
             }
         },
@@ -159,7 +151,7 @@ fun SkillsPage() {
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Icon(
-                            imageVector = HugeIcons.Puzzle,
+                            imageVector = MingcuteIcons.Puzzle,
                             contentDescription = null,
                             modifier = Modifier.size(48.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -361,7 +353,7 @@ private fun FeaturedCatalogSheet(
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = onDismiss) {
-                    Icon(Lucide.X, contentDescription = stringResource(R.string.cancel))
+                    Icon(MingcuteIcons.Cancel01, contentDescription = stringResource(R.string.cancel))
                 }
             }
             if (entries.isEmpty()) {
@@ -465,7 +457,7 @@ private fun SkillCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = HugeIcons.Puzzle,
+                imageVector = MingcuteIcons.Puzzle,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary,
@@ -497,7 +489,7 @@ private fun SkillCard(
             Box {
                 IconButton(onClick = { menuExpanded = true }) {
                     Icon(
-                        imageVector = HugeIcons.MoreVertical,
+                        imageVector = MingcuteIcons.MoreVertical,
                         contentDescription = stringResource(R.string.skills_page_more_actions),
                     )
                 }
@@ -509,7 +501,7 @@ private fun SkillCard(
                         text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) },
                         leadingIcon = {
                             Icon(
-                                imageVector = HugeIcons.Delete01,
+                                imageVector = MingcuteIcons.Delete01,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.error,
                             )

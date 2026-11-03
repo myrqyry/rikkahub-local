@@ -1,10 +1,8 @@
 import com.android.build.api.dsl.Packaging
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.gradle.api.tasks.Exec
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.io.FileInputStream
 import java.util.Properties
-import java.util.concurrent.TimeUnit
 
 plugins {
     alias(libs.plugins.android.application)
@@ -12,6 +10,21 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     id("jacoco")
+}
+
+// Stage matching LiteRT 2.3.0 C headers and Maven-native libraries before CMake.
+// This task is also required by :speech for its shared Scylla native linkage.
+val stageLiteRtSdk by tasks.registering(Exec::class) {
+    commandLine("python3", rootProject.file("scripts/stage_litert_230.py").absolutePath)
+    inputs.file(rootProject.file("scripts/stage_litert_230.py"))
+    outputs.files(
+        file("src/main/jni/litert/litert_cc_sdk/arm64-v8a/libLiteRt.so"),
+        file("src/main/jni/litert/litert_cc_sdk/x86_64/libLiteRt.so"),
+        file("src/main/jni/litert/litert_cc_sdk/.bootstrap.json"),
+        file("src/main/jni/litert/litert_cc_sdk/litert/build_common/build_config.h.in"),
+        file("src/main/jni/litert/litert_cc_sdk/litert/build_common/build_config.h"),
+    )
+    outputs.dir(file("src/main/jni/litert/litert_cc_sdk/litert/c"))
 }
 
 android {
@@ -183,98 +196,6 @@ android {
     }
 }
 
-val liteRtNativeSdkDir = layout.projectDirectory.dir("src/main/jni/litert/litert_cc_sdk")
-val pythonCommand = providers.provider {
-    val configuredPython = providers.gradleProperty("litertPython").orNull
-    val isWindows = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
-    val candidates = if (configuredPython != null) {
-        listOf(listOf(configuredPython))
-    } else if (isWindows) {
-        listOf(listOf("py", "-3"), listOf("python"), listOf("python3"))
-    } else {
-        listOf(listOf("python3"), listOf("python"))
-    }
-    val versionProbe = listOf(
-        "-c",
-        "import sys; print('EXE=' + sys.executable); print('VERSION=' + sys.version.split()[0]); " +
-            "raise SystemExit(0 if sys.version_info >= (3, 10) else 1)",
-    )
-    val failures = mutableListOf<String>()
-    var resolvedCommand: List<String>? = null
-
-    for (candidate in candidates) {
-        val label = candidate.joinToString(" ")
-        try {
-            val process = ProcessBuilder(candidate + versionProbe)
-                .redirectErrorStream(true)
-                .start()
-            if (!process.waitFor(10, TimeUnit.SECONDS)) {
-                process.destroyForcibly()
-                failures += "$label: timed out"
-                continue
-            }
-
-            val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
-            if (process.exitValue() == 0) {
-                val executable = output.lineSequence()
-                    .firstOrNull { it.startsWith("EXE=") }
-                    ?.removePrefix("EXE=")
-                    ?.trim()
-                if (executable.isNullOrEmpty()) {
-                    failures += "$label: probe returned no tagged interpreter path"
-                    continue
-                }
-                resolvedCommand = listOf(executable)
-                break
-            }
-
-            failures += "$label: " + output.ifBlank {
-                "exited with ${process.exitValue()}"
-            }
-        } catch (exc: Exception) {
-            failures += "$label: ${exc.message ?: exc::class.simpleName}"
-        }
-    }
-
-    resolvedCommand ?: throw GradleException(
-        buildString {
-            append("Python 3.10+ is required to bootstrap LiteRT. ")
-            if (configuredPython != null) {
-                append("The -PlitertPython override failed. ")
-            } else {
-                append("Install Python or pass -PlitertPython=/path/to/python3. ")
-            }
-            append("Probe results: ")
-            append(failures.joinToString("; "))
-        },
-    )
-}
-val bootstrapLiteRtNativeSdk = tasks.register<Exec>("bootstrapLiteRtNativeSdk") {
-    group = "build setup"
-    description = "Bootstrap the pinned LiteRT 2.1.5 native libraries and C headers"
-
-    val bootstrapScript = rootProject.file("scripts/bootstrap-litert-native-sdk.py")
-    inputs.file(bootstrapScript)
-    outputs.dir(liteRtNativeSdkDir)
-
-    doFirst {
-        commandLine(
-            pythonCommand.get() +
-                listOf(
-                    bootstrapScript.absolutePath,
-                    "--output",
-                    liteRtNativeSdkDir.asFile.absolutePath,
-                ),
-        )
-    }
-}
-
-tasks.configureEach {
-    if (name.startsWith("configureCMake") || name.startsWith("buildCMake")) {
-        dependsOn(bootstrapLiteRtNativeSdk)
-    }
-}
-
 composeCompiler {
     stabilityConfigurationFiles.add(
         project.layout.projectDirectory.file("compose_compiler_config.conf")
@@ -298,6 +219,9 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":neumorphic-ui"))
+    // Explicit compile dependency for EmbeddingEngine; already shipped via :local-llm.
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.19.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.process)
@@ -408,9 +332,8 @@ dependencies {
     // Reorderable (https://github.com/Calvin-LL/Reorderable/)
     implementation(libs.reorderable)
 
-    // lucide icons
-    implementation(libs.lucide.icons)
-    implementation(libs.huge.icons)
+    // MingCute provides tintable Android VectorDrawables used by the Compose icon facade.
+    implementation(libs.mingcute.icons)
 
     // image viewer
     implementation(libs.image.viewer)
@@ -473,9 +396,10 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":material3"))
     implementation(project(":workspace"))
-    // LiteRT CompiledModel / Accelerator.NPU Kotlin API — same 2.1.5 pin as :speech
+    // LiteRT CompiledModel / Accelerator.NPU API; GPU accelerator is separate since 2.3.0
     // (the org.tensorflow.lite.* drop-in lives in this AAR, so no duplicate-class risk).
-    implementation("com.google.ai.edge.litert:litert:2.1.5")
+    implementation("com.google.ai.edge.litert:litert:2.3.0")
+    implementation("com.google.ai.edge.litert:litert-gpu:2.3.0")
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar", "*.aar"))))
     implementation(kotlin("reflect"))
 
@@ -514,4 +438,12 @@ tasks.register("jacocoTestReport", JacocoReport::class) {
         }
     )
     executionData.setFrom(fileTree("build/outputs/unit_test_code_coverage/debugUnitTest"))
+}
+
+// Reproducible C API staging for CI and clean developer clones.
+tasks.configureEach {
+    if (name.startsWith("configureCMake") || name.contains("JniLibFolders") ||
+        name.contains("NativeLibs")) {
+        dependsOn(stageLiteRtSdk)
+    }
 }

@@ -57,8 +57,16 @@ object GgufClassifier {
     fun classifyFile(file: File): LocalRuntime? {
         if (!file.isFile || !file.exists()) return null
         return try {
-            val header = file.readBytes().let { if (it.size > HEADER_SCAN_BYTES) it.copyOf(HEADER_SCAN_BYTES) else it }
-            classify(header)
+            file.inputStream().use { input ->
+                val header = ByteArray(HEADER_SCAN_BYTES)
+                var bytesRead = 0
+                while (bytesRead < header.size) {
+                    val count = input.read(header, bytesRead, header.size - bytesRead)
+                    if (count <= 0) break
+                    bytesRead += count
+                }
+                classify(header.copyOf(bytesRead))
+            }
         } catch (_: Exception) {
             null
         }

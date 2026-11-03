@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import me.rerere.tts.effects.VoiceEffectPreset
+import me.rerere.tts.effects.pipeline
 import me.rerere.tts.model.PlaybackState
 import me.rerere.tts.model.PlaybackStatus
 import me.rerere.tts.model.TTSResponse
@@ -47,6 +50,12 @@ class TtsController(
     private var currentProvider: TTSProviderSetting? = null
     private var workerJob: Job? = null
     private var isPaused = false
+    private var voiceEffect = VoiceEffectPreset.OFF
+
+    /** Voice effects run on the device after synthesis, before playback. */
+    fun setVoiceEffect(preset: VoiceEffectPreset) {
+        voiceEffect = preset
+    }
 
     // 队列与缓存（基于稳定 ID）
     private val queue: java.util.concurrent.ConcurrentLinkedQueue<TtsChunk> = java.util.concurrent.ConcurrentLinkedQueue()
@@ -268,9 +277,21 @@ class TtsController(
                         continue
                     }
 
+                    // Apply the explicitly selected on-device PCM postprocessor.
+                    // Failure is reported; original speech remains available.
+                    val preset = voiceEffect
+                    val playbackResponse = if (preset == VoiceEffectPreset.OFF) response else try {
+                        withContext(Dispatchers.Default) { preset.pipeline().process(response) }
+                    } catch (e: Exception) {
+                        if (e is CancellationException) throw e
+                        Log.e(TAG, "On-device voice effect failed: $preset", e)
+                        _error.update { "Voice effect $preset unavailable: ${e.message}; playing original audio" }
+                        response
+                    }
+
                     // 播放
                     try {
-                        audio.play(response)
+                        audio.play(playbackResponse)
                     } catch (e: Exception) {
                         if (e is CancellationException) throw e
                         Log.e(TAG, "Playback error", e)

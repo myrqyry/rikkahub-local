@@ -3,6 +3,7 @@ package me.rerere.locallm.litert.image
 import java.io.File
 import kotlin.io.path.createTempDirectory
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -113,6 +114,55 @@ class Flux2KleinPackageTest {
         assertEquals(legacy, result)
         assertEquals(Flux2KleinPackageStatus.Ready, Flux2KleinPackage(result).validate().status)
         assertTrue(legacy.exists())
+    }
+
+    @Test
+    fun `removing FLUX package deletes only its bounded installed directory`() {
+        val parent = createTempDirectory().toFile()
+        val modelDir = File(parent, "local-models")
+        val root = File(modelDir, "flux2-klein")
+        val neighbor = File(modelDir, "LFM2.5-keep.litertlm")
+        val sibling = File(parent, "other-app-data.txt")
+        neighbor.parentFile!!.mkdirs()
+        neighbor.writeText("keep")
+        sibling.writeText("keep")
+        createRequiredFiles(root, includeTokenizer = true)
+
+        Flux2KleinPackage(root).deleteInstalledFiles()
+
+        assertFalse(root.exists())
+        assertTrue(neighbor.isFile)
+        assertTrue(sibling.isFile)
+        // Repeated calls are harmless: no directory and no unrelated files touched.
+        Flux2KleinPackage(root).deleteInstalledFiles()
+        assertTrue(neighbor.isFile)
+    }
+
+    @Test
+    fun `removing a non FLUX directory is rejected without deletion`() {
+        val parent = createTempDirectory().toFile()
+        val root = File(parent, "local-models/other-model")
+        root.mkdirs()
+        val marker = File(root, "keep.dat").apply { writeText("keep") }
+
+        val rejected = runCatching { Flux2KleinPackage(root).deleteInstalledFiles() }
+        assertTrue(rejected.isFailure)
+        assertTrue(marker.isFile)
+    }
+
+    @Test
+    fun `symbolic FLUX package directory does not delete its target`() {
+        val parent = createTempDirectory().toFile()
+        val root = File(parent, "local-models/flux2-klein")
+        val outsider = File(parent, "keep-this").apply { mkdirs() }
+        val marker = File(outsider, "keep.dat").apply { writeText("keep") }
+        root.parentFile!!.mkdirs()
+        java.nio.file.Files.createSymbolicLink(root.toPath(), outsider.toPath())
+
+        val rejected = runCatching { Flux2KleinPackage(root).deleteInstalledFiles() }
+        assertTrue(rejected.isFailure)
+        assertTrue(marker.isFile)
+        assertTrue(root.exists())
     }
 
     private fun createRequiredFiles(

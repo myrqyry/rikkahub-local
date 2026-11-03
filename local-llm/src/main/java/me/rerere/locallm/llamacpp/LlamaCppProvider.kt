@@ -17,6 +17,7 @@ import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import me.rerere.ai.core.MessageRole
 import me.rerere.ai.provider.EmbeddingGenerationParams
@@ -43,6 +44,20 @@ class LlamaCppProvider(
     private val sessions = ConcurrentHashMap<String, LlamaSession>()
     private val histories = ConcurrentHashMap<String, List<String>>()
     private val activeSessions = ConcurrentHashMap<String, LlamaSession>()
+    private val tuningStore = GgufTuningStore(context)
+    private var loadedTextConfig: GgufTuningConfig? = null
+
+    init { GgufNativeGate.register(this) }
+
+    /** Called only under GgufNativeGate.mutex, before tuner switches native models. */
+    internal fun closeCachedSessionsForTuning() {
+        activeSessions.values.forEach { it.cancel() }
+        sessions.values.forEach { runCatching { it.close() } }
+        activeSessions.clear()
+        sessions.clear()
+        histories.clear()
+        loadedTextConfig = null
+    }
 
     override suspend fun listModels(providerSetting: ProviderSetting.LlamaCppLocal): List<Model> {
         return prefs.installedModels(LocalRuntime.LlamaCpp)
@@ -104,17 +119,24 @@ class LlamaCppProvider(
 
         val job = if (imageParts.isEmpty()) {
             launch(Dispatchers.IO) {
-                streamTextNative(modelPath, messages, providerSetting, params, streamId)
+                GgufNativeGate.mutex.withLock {
+                    streamTextNative(modelPath, messages, providerSetting, params, streamId)
+                }
             }
         } else {
             launch(Dispatchers.IO) {
-                streamVisionNative(modelPath, messages, imageParts, params, streamId)
+                GgufNativeGate.mutex.withLock {
+                    streamVisionNative(modelPath, messages, imageParts, params, streamId)
+                }
             }
         }
 
         awaitClose {
-            LlamaBridge.nativeCancelGenerate()
-            MultimodalBridge.cancelAnalysis()
+            // Cancel our own session, not a subsequently started benchmark.
+            // The Llamatik runtime is global and shared; unscoped native cancellation
+            // after a completed text stream can interrupt an unrelated benchmark.
+            // Vision has its own cancellation API; preserve it for image requests.
+            if (imageParts.isNotEmpty()) MultimodalBridge.cancelAnalysis()
             activeSessions.values.forEach { it.cancel() }
             job.cancel()
         }
@@ -131,6 +153,14 @@ class LlamaCppProvider(
         val incoming = LlamaCppPrompt.rawTexts(messages)
         val modelId = params.model.modelId
 
+        val tuned = tuningStore.applied(modelId, File(modelPath))
+        val effectiveConfig = tuned ?: GgufTuningConfig(Runtime.getRuntime().availableProcessors())
+        if (loadedTextConfig != null && loadedTextConfig != effectiveConfig) {
+            // Threads and flash attention take effect only at model init. Don't reuse
+            // a session compiled with the previous tuning choice after Apply/Revert.
+            closeCachedSessionsForTuning()
+            LlamaBridge.shutdown()
+        }
         LlamaBridge.updateGenerateParams(
             temperature = providerSetting.temperature?.toFloat() ?: params.temperature ?: DEFAULT_TEMPERATURE,
             maxTokens = params.maxTokens ?: DEFAULT_MAX_TOKENS,
@@ -138,9 +168,9 @@ class LlamaCppProvider(
             topK = providerSetting.topK ?: DEFAULT_TOP_K,
             repeatPenalty = DEFAULT_REPEAT_PENALTY,
             contextLength = DEFAULT_CONTEXT_LENGTH,
-            numThreads = Runtime.getRuntime().availableProcessors(),
+            numThreads = effectiveConfig.threads,
             useMmap = true,
-            flashAttention = true,
+            flashAttention = effectiveConfig.flashAttention,
             batchSize = DEFAULT_BATCH_SIZE,
             gpuLayers = 0,
         )
@@ -163,6 +193,7 @@ class LlamaCppProvider(
             close(IllegalStateException("Failed to load model \"${params.model.modelId}\" with llama.cpp"))
             return
         }
+        loadedTextConfig = effectiveConfig
         val session = LlamaBridge.createSession(modelId)
             ?: run {
                 close(IllegalStateException("Failed to create a llama.cpp session for \"${params.model.modelId}\""))
@@ -309,6 +340,7 @@ class LlamaCppProvider(
             )
         }
         return withContext(Dispatchers.IO) {
+            GgufNativeGate.mutex.withLock {
             if (!LlamaBridge.initEmbedModel(modelPath)) {
                 throw IllegalStateException("Failed to load embedding model \"${params.model.modelId}\" with llama.cpp")
             }
@@ -316,6 +348,7 @@ class LlamaCppProvider(
                 LlamaBridge.embed(input).toList()
             }
             EmbeddingGenerationResult(model = params.model.modelId, embeddings = embeddings)
+            }
         }
     }
 

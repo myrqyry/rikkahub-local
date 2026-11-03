@@ -18,11 +18,13 @@ import kotlinx.coroutines.launch
 import me.rerere.tts.model.PlaybackState
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.datastore.getSelectedTTSProvider
+import me.rerere.rikkahub.data.datastore.selectedTtsPlayback
 import me.rerere.rikkahub.utils.stripMarkdown
 import me.rerere.tts.model.TTSResponse
 import me.rerere.tts.provider.TTSManager
 import me.rerere.tts.provider.TTSProviderSetting
 import me.rerere.tts.controller.TtsController
+import me.rerere.tts.effects.VoiceEffectPreset
 import org.koin.compose.koinInject
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -48,8 +50,9 @@ fun rememberCustomTtsState(): CustomTtsState {
     }
 
     // Update the provider when settings change
-    DisposableEffect(settings.selectedTTSProviderId, settings.ttsProviders) {
+    DisposableEffect(settings.selectedTTSProviderId, settings.ttsProviders, settings.displaySetting.ttsPlaybackProfiles) {
         ttsState.updateProvider(settings.getSelectedTTSProvider())
+        ttsState.updateVoiceEffect(settings.selectedTtsPlayback().voiceEffect)
         onDispose { }
     }
 
@@ -136,6 +139,10 @@ private class CustomTtsStateImpl(
 
     fun updateProvider(provider: TTSProviderSetting?) {
         controller.setProvider(provider)
+    }
+
+    fun updateVoiceEffect(preset: VoiceEffectPreset) {
+        controller.setVoiceEffect(preset)
     }
 
     override fun speak(text: String, flushCalled: Boolean) {

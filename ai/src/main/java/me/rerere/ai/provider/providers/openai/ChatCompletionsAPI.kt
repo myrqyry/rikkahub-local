@@ -33,6 +33,9 @@ import me.rerere.ai.core.TokenUsage
 import me.rerere.ai.provider.Modality
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelAbility
+import me.rerere.ai.provider.allowsTemperature
+import me.rerere.ai.provider.clampRequestedMaxTokens
+import me.rerere.ai.provider.supportedReasoningEffort
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.TextGenerationParams
 import me.rerere.ai.provider.providers.PartGroup
@@ -67,6 +70,15 @@ import okhttp3.sse.EventSources
 import kotlin.time.Clock
 
 private const val TAG = "ChatCompletionsAPI"
+
+/** Some compatible gateways include literal `null` or other JSON primitives as
+ * SSE lines. Ignore those, but keep malformed JSON an error rather than
+ * concealing a broken streaming response. */
+internal fun parseChatCompletionEventObjects(data: String): List<JsonObject> =
+    data.trim().split("\n").asSequence()
+        .filter { it.isNotBlank() }
+        .mapNotNull { json.parseToJsonElement(it).jsonObjectOrNull }
+        .toList()
 
 class ChatCompletionsAPI(
     private val client: OkHttpClient,
@@ -168,11 +180,7 @@ class ChatCompletionsAPI(
                     return
                 }
                 Log.d(TAG, "onEvent: $data")
-                data
-                    .trim()
-                    .split("\n")
-                    .filter { it.isNotBlank() }
-                    .map { json.parseToJsonElement(it).jsonObject }
+                parseChatCompletionEventObjects(data)
                     .forEach {
                         if (it["error"] != null) {
                             val error = it["error"]!!.parseErrorDetail()
@@ -279,7 +287,7 @@ class ChatCompletionsAPI(
                 if (params.temperature != null) put("temperature", params.temperature)
                 if (params.topP != null) put("top_p", params.topP)
             }
-            if (params.maxTokens != null) put("max_tokens", params.maxTokens)
+            params.model.clampRequestedMaxTokens(params.maxTokens)?.let { put("max_tokens", it) }
 
             put("stream", stream)
             if (stream) {
@@ -314,6 +322,7 @@ class ChatCompletionsAPI(
 
             if (params.model.abilities.contains(ModelAbility.REASONING)) {
                 val level = params.reasoningLevel
+                val supportedEffort = params.model.supportedReasoningEffort(level)
                 when (host) {
                     "openrouter.ai" -> {
                         // https://openrouter.ai/docs/use-cases/reasoning-tokens
@@ -321,7 +330,11 @@ class ChatCompletionsAPI(
                             when (level) {
                                 ReasoningLevel.OFF -> put("effort", "none")
                                 ReasoningLevel.AUTO -> put("enabled", true)
-                                else -> put("effort", level.effort)
+                                else -> if (supportedEffort == null) {
+                                    put("enabled", true) // Leave selection to provider if none at/below request.
+                                } else {
+                                    put("effort", supportedEffort)
+                                }
                             }
                         })
                     }
@@ -406,7 +419,7 @@ class ChatCompletionsAPI(
                             put("type", if (!level.isEnabled) "disabled" else "enabled")
                         })
                         if (level.isEnabled && level != ReasoningLevel.AUTO) {
-                            put("reasoning_effort", level.effort)
+                            supportedEffort?.let { put("reasoning_effort", it) }
                         }
                     }
 
@@ -429,7 +442,8 @@ class ChatCompletionsAPI(
 
                     "opencode.ai" -> {
                         if (level != ReasoningLevel.AUTO) {
-                            put("reasoning_effort", level.effort)
+                            if (level == ReasoningLevel.OFF) put("reasoning_effort", level.effort)
+                            else supportedEffort?.let { put("reasoning_effort", it) }
                         }
                     }
 
@@ -437,7 +451,12 @@ class ChatCompletionsAPI(
                         // OpenAI 官方
                         // 文档中，completions API 只支持 "low", "medium", "high"
                         if (level != ReasoningLevel.AUTO) {
-                            put("reasoning_effort", if (level.effort == "none") "low" else level.effort)
+                            if (level == ReasoningLevel.OFF) {
+                                // Only send a real disabled setting when the model advertises it.
+                                // Keep the legacy fallback for models with unknown capabilities.
+                                val offEffort = if ("none" in params.model.reasoningEfforts) "none" else "low"
+                                put("reasoning_effort", offEffort)
+                            } else supportedEffort?.let { put("reasoning_effort", it) }
                         }
                     }
                 }
@@ -542,9 +561,11 @@ class ChatCompletionsAPI(
         return JsonObject(this + ("content" to newContent))
     }
 
-    private fun isModelAllowTemperature(model: Model): Boolean {
-        return !ModelRegistry.OPENAI_O_MODELS.match(model.modelId) && !ModelRegistry.GPT_5.match(model.modelId)
-    }
+    private fun isModelAllowTemperature(model: Model): Boolean =
+        model.allowsTemperature(
+            legacyAllows = !ModelRegistry.OPENAI_O_MODELS.match(model.modelId) &&
+                !ModelRegistry.GPT_5.match(model.modelId)
+        )
 
     private fun buildMessages(
         messages: List<UIMessage>,
@@ -930,14 +951,14 @@ class ChatCompletionsAPI(
 
     private fun parseAnnotations(jsonArray: JsonArray): List<UIMessageAnnotation> {
         return jsonArray.mapNotNull { element ->
-            val type =
-                element.jsonObject["type"]?.jsonPrimitive?.contentOrNull
+            val annotation = element.jsonObjectOrNull ?: return@mapNotNull null
+            val type = annotation["type"]?.jsonPrimitive?.contentOrNull
             when (type) {
                 "url_citation" -> {
                     UIMessageAnnotation.UrlCitation(
-                        title = element.jsonObject["url_citation"]?.jsonObject?.get("title")?.jsonPrimitive?.contentOrNull
+                        title = annotation["url_citation"]?.jsonObjectOrNull?.get("title")?.jsonPrimitive?.contentOrNull
                             ?: "",
-                        url = element.jsonObject["url_citation"]?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
+                        url = annotation["url_citation"]?.jsonObjectOrNull?.get("url")?.jsonPrimitive?.contentOrNull
                             ?: "",
                     )
                 }

@@ -40,9 +40,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Edit03
-import me.rerere.hugeicons.stroke.LookTop
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.datastore.Settings
@@ -58,12 +56,16 @@ fun AssistantPicker(
     onUpdateSettings: (Settings) -> Unit,
     modifier: Modifier = Modifier,
     onClickSetting: () -> Unit,
+    trigger: (@Composable (Assistant, () -> Unit) -> Unit)? = null,
 ) {
     val state = rememberAssistantState(settings, onUpdateSettings)
     val defaultAssistantName = stringResource(R.string.assistant_page_default_assistant)
     var showPicker by remember { mutableStateOf(false) }
 
-    NavigationDrawerItem(
+    if (trigger != null) {
+        trigger(state.currentAssistant) { showPicker = true }
+    } else {
+        NavigationDrawerItem(
         icon = {
             Icon(HugeIcons.LookTop, contentDescription = null)
         },
@@ -91,7 +93,8 @@ fun AssistantPicker(
         },
         modifier = modifier,
         selected = false,
-    )
+        )
+    }
 
     if (showPicker) {
         AssistantPickerSheet(

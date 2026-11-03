@@ -21,7 +21,16 @@ interface EmbeddingBackend {
 
     suspend fun embed(text: String): EmbeddingResult?
 
+    /** Query representation may be asymmetrically prompted; defaults to legacy behavior. */
+    suspend fun embedQuery(text: String): EmbeddingResult? = embed(text)
+
     suspend fun embedBatch(texts: List<String>): List<EmbeddingResult?>
+}
+
+/** Separate from text embedding: no silent OCR/ASR/transcript surrogate. */
+interface MediaEmbeddingBackend : EmbeddingBackend {
+    suspend fun embedImage(imageBytes: ByteArray): EmbeddingResult?
+    suspend fun embedAudio(audioBytes: ByteArray): EmbeddingResult?
 }
 
 sealed interface RagEmbeddingSource {
@@ -33,6 +42,8 @@ sealed interface RagEmbeddingSource {
     data class LocalQwen(
         val modelDir: File,
     ) : RagEmbeddingSource
+
+    data class LocalEmbeddingGemma2(val variant: EmbeddingGemma2Variant) : RagEmbeddingSource
 }
 
 /** Sentinel value of [Settings.ragEmbeddingModel] meaning "no provider model assigned yet". */
@@ -49,6 +60,10 @@ fun resolveRagEmbeddingSource(
     embedderDir: File,
     localReady: Boolean,
 ): RagEmbeddingSource? {
+    EmbeddingGemma2Variant.forModelId(settings.ragEmbeddingModel)?.let { variant ->
+        // Explicit selection never falls back to a different embedding space.
+        return RagEmbeddingSource.LocalEmbeddingGemma2(variant)
+    }
     if (localReady && settings.ragEmbeddingModel == DEFAULT_EMBEDDING_MODEL) {
         return RagEmbeddingSource.LocalQwen(embedderDir)
     }

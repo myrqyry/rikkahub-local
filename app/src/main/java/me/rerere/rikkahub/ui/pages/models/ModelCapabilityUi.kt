@@ -9,23 +9,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.annotation.DrawableRes
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.AiBrain01
-import me.rerere.hugeicons.stroke.AiChat01
-import me.rerere.hugeicons.stroke.AiEditing
-import me.rerere.hugeicons.stroke.AiImage
-import me.rerere.hugeicons.stroke.AiMic
-import me.rerere.hugeicons.stroke.AiScan
-import me.rerere.hugeicons.stroke.AudioWave01
-import me.rerere.hugeicons.stroke.Database01
-import me.rerere.hugeicons.stroke.DocumentValidation
-import me.rerere.hugeicons.stroke.Eye
-import me.rerere.hugeicons.stroke.Sorting01
-import me.rerere.hugeicons.stroke.Speaker01
-import me.rerere.hugeicons.stroke.Tools
+import me.rerere.rikkahub.ui.icons.MingcuteIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.modelregistry.ModelCapability
 import me.rerere.rikkahub.data.modelregistry.ModelDescriptor
@@ -73,21 +61,22 @@ val ModelCapability.labelRes: Int
         ModelCapability.RERANKING -> R.string.models_capability_reranking
     }
 
-val ModelCapability.icon: ImageVector
+@get:DrawableRes
+val ModelCapability.iconRes: Int
     get() = when (this) {
-        ModelCapability.CHAT -> HugeIcons.AiChat01
-        ModelCapability.REASONING -> HugeIcons.AiBrain01
-        ModelCapability.TOOLS -> HugeIcons.Tools
-        ModelCapability.VISION -> HugeIcons.Eye
-        ModelCapability.OCR -> HugeIcons.AiScan
-        ModelCapability.DOCUMENT_ANALYSIS -> HugeIcons.DocumentValidation
-        ModelCapability.IMAGE_GENERATION -> HugeIcons.AiImage
-        ModelCapability.IMAGE_EDITING -> HugeIcons.AiEditing
-        ModelCapability.TEXT_TO_SPEECH -> HugeIcons.Speaker01
-        ModelCapability.SPEECH_TO_TEXT -> HugeIcons.AiMic
-        ModelCapability.AUDIO_UNDERSTANDING -> HugeIcons.AudioWave01
-        ModelCapability.EMBEDDINGS -> HugeIcons.Database01
-        ModelCapability.RERANKING -> HugeIcons.Sorting01
+        ModelCapability.CHAT -> MingcuteIcons.AiChat01Res
+        ModelCapability.REASONING -> MingcuteIcons.AiBrain01Res
+        ModelCapability.TOOLS -> MingcuteIcons.ToolsRes
+        ModelCapability.VISION -> MingcuteIcons.EyeRes
+        ModelCapability.OCR -> MingcuteIcons.AiScanRes
+        ModelCapability.DOCUMENT_ANALYSIS -> MingcuteIcons.DocumentValidationRes
+        ModelCapability.IMAGE_GENERATION -> MingcuteIcons.AiImageRes
+        ModelCapability.IMAGE_EDITING -> MingcuteIcons.AiEditingRes
+        ModelCapability.TEXT_TO_SPEECH -> MingcuteIcons.Speaker01Res
+        ModelCapability.SPEECH_TO_TEXT -> MingcuteIcons.AiMicRes
+        ModelCapability.AUDIO_UNDERSTANDING -> MingcuteIcons.AudioWave01Res
+        ModelCapability.EMBEDDINGS -> MingcuteIcons.Database01Res
+        ModelCapability.RERANKING -> MingcuteIcons.Sorting01Res
     }
 
 @Composable
@@ -99,7 +88,7 @@ fun ModelCapabilityRow(capabilities: Collection<ModelCapability>, modifier: Modi
     ) {
         capabilities.sortedBy { it.name }.forEach { capability ->
             Icon(
-                imageVector = capability.icon,
+                painter = painterResource(capability.iconRes),
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,

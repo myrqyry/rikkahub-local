@@ -90,17 +90,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.rerere.ai.ui.ImageAspectRatio
 import me.rerere.common.android.appTempFolder
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Add01
-import me.rerere.hugeicons.stroke.ArrowUp02
-import me.rerere.hugeicons.stroke.Cancel01
-import me.rerere.hugeicons.stroke.Colors
-import me.rerere.hugeicons.stroke.Copy01
-import me.rerere.hugeicons.stroke.Delete01
-import me.rerere.hugeicons.stroke.FloppyDisk
-import me.rerere.hugeicons.stroke.Image03
-import me.rerere.hugeicons.stroke.Sparkles
-import me.rerere.hugeicons.stroke.Tools
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.Settings
 import me.rerere.rikkahub.data.files.FileUtils
@@ -257,6 +247,8 @@ private fun ImageGenScreen(
     val aspectRatio by vm.aspectRatio.collectAsStateWithLifecycle()
     val isGenerating by vm.isGenerating.collectAsStateWithLifecycle()
     val progress by vm.generationProgress.collectAsStateWithLifecycle()
+    val comfyUiStatus by vm.comfyUiStatus.collectAsStateWithLifecycle()
+    val isComfyUiSelected by vm.isComfyUiSelected.collectAsStateWithLifecycle()
     val currentGeneratedImages by vm.currentGeneratedImages.collectAsStateWithLifecycle()
     val referenceImages by vm.referenceImages.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
@@ -317,7 +309,33 @@ private fun ImageGenScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
             }
-            progress?.let { p ->
+            if (isGenerating && isComfyUiSelected && comfyUiStatus != null) {
+                val state = comfyUiStatus!!
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    val sampling = state.step != null && state.totalSteps != null &&
+                        state.totalSteps > 0
+                    Text(
+                        text = if (sampling) {
+                            "ComfyUI · " + state.stage + " " +
+                                state.step + "/" + state.totalSteps
+                        } else "ComfyUI · " + state.stage,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    if (sampling) {
+                        LinearProgressIndicator(
+                            progress = { state.step!!.toFloat() / state.totalSteps!! },
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        )
+                    }
+                }
+            }
+            if (isGenerating && !isComfyUiSelected) progress?.let { p ->
                 val formattedElapsed = "%.1f s".format(p.elapsedMs / 1000f)
                 Column(
                     modifier = Modifier

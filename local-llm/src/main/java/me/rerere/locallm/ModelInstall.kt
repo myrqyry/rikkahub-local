@@ -26,7 +26,46 @@ private const val TAG = "ModelInstall"
  *
  * Files land under `${context.filesDir}/local-models/litert/<basename>`.
  */
+/**
+ * Cryptographic identity for a verified, immutable catalog download. Ordinary
+ * hand-pasted URLs remain unverified and must not be promoted as pinned assets.
+ */
+data class VerifiedModelArtifact(val sizeBytes: Long, val sha256: String) {
+    init {
+        require(sizeBytes > 0L)
+        require(sha256.matches(Regex("[0-9a-fA-F]{64}")))
+    }
+}
+
 object ModelInstall {
+    /** Validate a Content-Range before appending any bytes from a resumed response. */
+    fun contentRangeMatches(header: String?, resumeFrom: Long, expectedSize: Long?): Boolean {
+        if (resumeFrom < 0L) return false
+        val match = Regex("""bytes ([0-9]+)-([0-9]+)/([0-9]+)""").matchEntire(header.orEmpty())
+            ?: return false
+        val start = match.groupValues[1].toLongOrNull() ?: return false
+        val end = match.groupValues[2].toLongOrNull() ?: return false
+        val total = match.groupValues[3].toLongOrNull() ?: return false
+        return start == resumeFrom && end >= start && end < total &&
+            (expectedSize == null || total == expectedSize)
+    }
+
+    /** SHA-256 and exact byte length are required before atomic promotion. */
+    fun verifiedArtifactMatches(file: File, expected: VerifiedModelArtifact): Boolean {
+        if (file.length() != expected.sizeBytes) return false
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        val actual = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        return actual.equals(expected.sha256, ignoreCase = true)
+    }
+
 
     private const val LOCAL_MODELS_DIRNAME = "local-models"
 
@@ -148,8 +187,9 @@ object ModelInstall {
     }
 
     /**
-     * Download [url] into [target], emitting progress as it goes. Atomic rename to
-     * [target] only on success after a magic-byte integrity check.
+     * Download [url] into [target], emitting progress as it goes. Optional
+     * [expectedArtifact] additionally enforces publisher size/SHA-256 before
+     * promotion, and refuses to overwrite a preexisting installed model.
      *
      * Resume logic is intentionally omitted in v1 (Phase 22A). Always starts fresh —
      * any leftover .partial file is deleted before the request is issued. Resume with
@@ -168,13 +208,24 @@ object ModelInstall {
         client: OkHttpClient,
         url: String,
         target: File,
+        expectedArtifact: VerifiedModelArtifact? = null,
     ): Flow<Progress> = flow {
         target.parentFile?.mkdirs()
+        // A verified catalog install has a unique app-local name. Never delete
+        // or replace an existing user file just because the install was tapped.
+        if (expectedArtifact != null && target.exists()) {
+            emit(Progress.Failed(IllegalStateException(
+                "Model file already exists; refusing to overwrite ${target.name}."
+            )))
+            return@flow
+        }
         val partial = File(target.absolutePath + ".partial")
         // Resume support: if a `.partial` survives from a prior interrupted attempt, ask
-        // the server for `Range: bytes=<existing-size>-`. HuggingFace's `/resolve/` URLs
-        // serve immutable per-commit files so the partial bytes are guaranteed to match
-        // the rest of the response. If the server returns 206 we append; if it returns
+        // the server for `Range: bytes=<existing-size>-`. A mutable `/resolve/main/`
+        // URL does NOT guarantee that the partial comes from the same artifact.
+        // Pinned catalog models use an immutable revision plus SHA/size verification;
+        // an unknown manual URL retains best-effort resume only. For a 206 we append
+        // after verifying the expected Content-Range on pinned entries; if it returns
         // 200 (Range not honored) we silently overwrite the partial; if 416 (partial >=
         // server's file size, e.g. server file shrank or partial corrupt-trailing) we
         // delete + restart from zero. Without this, leaving the Settings page mid-
@@ -225,10 +276,32 @@ object ModelInstall {
             // comes from Content-Range when resuming (`bytes 1024-4095/4096`); from
             // Content-Length when fresh.
             val isResume = response.code == 206 && resumeFrom > 0
+            if (expectedArtifact != null && response.code == 206 &&
+                (!isResume || !contentRangeMatches(
+                    response.header("Content-Range"), resumeFrom, expectedArtifact.sizeBytes,
+                ))
+            ) {
+                // Mismatched partial provenance or offset; don't append another revision
+                // to this one. Clear only our .partial file, never the installed target.
+                runCatching { partial.delete() }
+                emit(Progress.Failed(IllegalStateException(
+                    "Download resume range does not match the pinned model; retry to start fresh."
+                )))
+                return@flow
+            }
             val total: Long? = if (isResume) {
                 response.header("Content-Range")?.substringAfterLast('/')?.toLongOrNull()
             } else {
                 response.header("Content-Length")?.toLongOrNull()
+            }
+            if (expectedArtifact != null && total != null &&
+                total != expectedArtifact.sizeBytes
+            ) {
+                runCatching { partial.delete() }
+                emit(Progress.Failed(IllegalStateException(
+                    "Downloaded model size does not match the pinned publisher artifact."
+                )))
+                return@flow
             }
             emit(Progress.Started(total))
 
@@ -329,7 +402,23 @@ object ModelInstall {
                 return@flow
             }
 
-            if (target.exists()) target.delete()
+            if (expectedArtifact != null && !verifiedArtifactMatches(partial, expectedArtifact)) {
+                runCatching { partial.delete() }
+                emit(Progress.Failed(IllegalStateException(
+                    "Downloaded model checksum or byte length does not match the pinned artifact; file rejected."
+                )))
+                return@flow
+            }
+
+            // For verified catalog models, a pre-existing target is never replaced.
+            // Recheck after the stream in case another download completed concurrently.
+            if (expectedArtifact != null && target.exists()) {
+                emit(Progress.Failed(IllegalStateException(
+                    "Model was already installed by another request; refusing to overwrite."
+                )))
+                return@flow
+            }
+            if (expectedArtifact == null && target.exists()) target.delete()
             val renamed = partial.renameTo(target)
             if (!renamed) {
                 // renameTo() returns false silently on cross-partition moves or permission errors.

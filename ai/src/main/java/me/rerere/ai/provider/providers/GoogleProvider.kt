@@ -38,6 +38,9 @@ import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.ai.provider.Modality
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelAbility
+import me.rerere.ai.provider.allowsTemperature
+import me.rerere.ai.provider.clampRequestedMaxTokens
+import me.rerere.ai.provider.supportedReasoningEffort
 import me.rerere.ai.provider.ModelType
 import me.rerere.ai.provider.Provider
 import me.rerere.ai.provider.ProviderSetting
@@ -122,41 +125,57 @@ class GoogleProvider(private val client: OkHttpClient, context: Context? = null)
 
     override suspend fun listModels(providerSetting: ProviderSetting.Google): List<Model> =
         withContext(Dispatchers.IO) {
-            val url = buildUrl(providerSetting = providerSetting, path = "models?pageSize=100")
-            val request = transformRequest(
-                providerSetting = providerSetting,
-                request = Request.Builder()
-                    .url(url)
-                    .get()
-                    .build()
-            )
-            val response = client.newCall(request).await()
-            if (response.isSuccessful) {
-                val body = response.body.string()
-                Log.d(TAG, "listModels: $body")
-                val bodyObject = json.parseToJsonElement(body).jsonObject
-                val models = bodyObject["models"]?.jsonArray ?: return@withContext emptyList()
+            // Gemini models.list is paginated; a single page can silently omit available models.
+            // Don't return a misleading partial list when a later page fails.
+            val initialUrl = buildUrl(providerSetting = providerSetting, path = "models?pageSize=100")
+            val found = linkedMapOf<String, Model>()
+            val seenTokens = mutableSetOf<String>()
+            var pageToken: String? = null
+            var pageCount = 0
 
-                models.mapNotNull {
-                    val modelObject = it.jsonObject
-
-                    // 忽略非chat/embedding模型
-                    val supportedGenerationMethods =
-                        modelObject["supportedGenerationMethods"]!!.jsonArray
-                            .map { method -> method.jsonPrimitive.content }
-                    if ("generateContent" !in supportedGenerationMethods && "embedContent" !in supportedGenerationMethods) {
-                        return@mapNotNull null
+            do {
+                check(++pageCount <= 50) { "Google model listing exceeded 50 pages" }
+                val pageUrl = initialUrl.newBuilder().apply {
+                    pageToken?.let { addQueryParameter("pageToken", it) }
+                }.build()
+                val request = transformRequest(
+                    providerSetting = providerSetting,
+                    request = Request.Builder().url(pageUrl).get().build(),
+                )
+                val response = client.newCall(request).await()
+                val body = response.use {
+                    val contents = it.body.string()
+                    if (!it.isSuccessful) {
+                        throw java.io.IOException("Google models.list HTTP ${it.code}")
                     }
-
-                    Model(
-                        modelId = modelObject["name"]!!.jsonPrimitive.content.substringAfter("/"),
-                        displayName = modelObject["displayName"]!!.jsonPrimitive.content,
-                        type = if ("generateContent" in supportedGenerationMethods) ModelType.CHAT else ModelType.EMBEDDING,
+                    contents
+                }
+                val bodyObject = json.parseToJsonElement(body).jsonObject
+                val models = bodyObject["models"] as? JsonArray ?: JsonArray(emptyList())
+                for (item in models) {
+                    val modelObject = item as? JsonObject ?: continue
+                    val id = modelObject["name"]?.jsonPrimitive?.contentOrNull
+                        ?.substringAfter("/")?.takeIf { it.isNotBlank() } ?: continue
+                    val methods = (modelObject["supportedGenerationMethods"] as? JsonArray)
+                        ?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
+                    if ("generateContent" !in methods && "embedContent" !in methods) continue
+                    found.putIfAbsent(
+                        id,
+                        Model(
+                            modelId = id,
+                            displayName = modelObject["displayName"]?.jsonPrimitive?.contentOrNull ?: id,
+                            type = if ("generateContent" in methods) ModelType.CHAT else ModelType.EMBEDDING,
+                        )
                     )
                 }
-            } else {
-                emptyList()
-            }
+                pageToken = bodyObject["nextPageToken"]?.jsonPrimitive?.contentOrNull
+                    ?.takeIf { it.isNotBlank() }
+                if (pageToken != null) {
+                    check(seenTokens.add(pageToken)) { "Google models.list repeated a page token" }
+                }
+            } while (pageToken != null)
+
+            found.values.toList()
         }
 
     override suspend fun generateText(
@@ -372,9 +391,9 @@ class GoogleProvider(private val client: OkHttpClient, context: Context? = null)
 
         // Generation config
         put("generationConfig", buildJsonObject {
-            if (params.temperature != null) put("temperature", params.temperature)
+            if (params.model.allowsTemperature(true) && params.temperature != null) put("temperature", params.temperature)
             if (params.topP != null) put("topP", params.topP)
-            if (params.maxTokens != null) put("maxOutputTokens", params.maxTokens)
+            params.model.clampRequestedMaxTokens(params.maxTokens)?.let { put("maxOutputTokens", it) }
             if (params.model.outputModalities.contains(Modality.IMAGE)) {
                 put("responseModalities", buildJsonArray {
                     add(JsonPrimitive("TEXT"))
@@ -402,10 +421,14 @@ class GoogleProvider(private val client: OkHttpClient, context: Context? = null)
 
                         else -> {
                             if (ModelRegistry.GEMINI_3_SERIES.match(modelId = params.model.modelId)) {
-                                when (params.reasoningLevel) {
-                                    ReasoningLevel.LOW -> put("thinkingLevel", "LOW")
-                                    ReasoningLevel.MEDIUM -> put("thinkingLevel", "MEDIUM")
-                                    else -> put("thinkingLevel", "HIGH") // HIGH, XHIGH
+                                // Respect the supported effort levels advertised for this model.
+                                // No safe lower level => omit thinkingLevel and use provider default.
+                                when (params.model.supportedReasoningEffort(params.reasoningLevel)) {
+                                    "minimal" -> put("thinkingLevel", "MINIMAL")
+                                    "low" -> put("thinkingLevel", "LOW")
+                                    "medium" -> put("thinkingLevel", "MEDIUM")
+                                    "high", "xhigh", "max" -> put("thinkingLevel", "HIGH")
+                                    else -> Unit
                                 }
                             } else {
                                 put("thinkingBudget", params.reasoningLevel.budgetTokens)

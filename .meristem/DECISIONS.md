@@ -14,6 +14,346 @@ Use entries like:
 **Evidence / references:**  
 **Supersedes:** none
 
+## 2026-10-29 — Neumorphic depth belongs on edges, not across content
+
+**Decision:**
+Keep RikkaHub's Material surface/accent colors and existing neumorphic API.
+Make static and dynamic inset shadows edge-only, shape-clipped and
+size-bounded, painting them beneath content. Give selected segmented tabs
+a soft accent tint without a hard outline, and correct selected semantics.
+Do not import CSS/WebKit/JS animations or distribute the external CodePens.
+
+**Why:**
+User's reference screenshot and CodePen CSS show convincing tactile depth
+through asymmetric raised highlights and pressed/inset edge shadows.
+Our prior renderer was filling inset surfaces with gradients, darkening
+the center and weakening text contrast, especially in dark themes.
+The existing selected segmented tab used the same fill as the track.
+
+**Alternatives considered:**
+Recolor all panels, switch the entire application to one pastel preset,
+copy CSS with a WebView, add endless size-changing animations,
+emboss standard text, keep inactive tabs clickable, or push an
+untested APK directly to the Pixel.
+
+**Constraints / consequences:**
+Retain the upstream vendored module, APIs and licenses, Material theme
+integration, device light-direction support, existing interaction/haptic
+flow and saved preferences. Bound edge-stroke width and honor zero depth;
+render static/dynamic light with the same contour. UI contrast/geometry
+contracts and full Android build are verified, but actual on-device
+appearance still requires a visual check after a separate installation.
+No new dependencies beyond local JUnit dev testing; no user-state changes.
+
+**Evidence / references:**
+docs/ui/neumorphic-lighting-polish-2026-10-29.md,
+neumorphic-ui/src/main/java/dev/neumorphic/NeumorphicShadowModifier.kt,
+neumorphic-ui/src/main/java/dev/neumorphic/components/NeumorphicSegmentedControl.kt,
+neumorphic-ui/src/test/java/dev/neumorphic/NeumorphicLightingPolishTest.kt,
+2026-10-29.
+
+**Supersedes:** the prior full-fill inset rendering implementation only
+
+## 2026-10-29 — Keep web-search configuration out of the composer
+
+**Decision:**
+Remove the web-search picker/settings button from the secondary chat composer
+row without changing the currently saved search-enabled flag or selected
+search provider. Put the existing global `enableWebSearch` switch on
+Settings → Search, where search services are already configured.
+Do not move or remove the separate current-conversation search action
+from the chat's three-dot overflow menu.
+
+**Why:**
+The user explicitly asked to remove the search settings from the composer.
+Deleting the whole search path rather than moving its switch would strand
+the existing global web-search feature without a way to change its state.
+
+**Alternatives considered:**
+Remove only the small settings cog inside the search picker while keeping
+the button in the composer; automatically turn web search off and delete
+saved service entries; hide the switch entirely; add an unrelated web-search
+menu entry to the three-dot menu intended for current-chat actions.
+
+**Constraints / consequences:**
+The search picker composable is retained for potential reuse, but is no
+longer invoked from `ChatInput`. The model selector, reasoning gauge,
+microphone, send, and attachments remain in place. The existing
+`Settings.enableWebSearch` flag is edited only by user interaction in
+Settings → Search; no migration, reset, or automatic data update.
+Model-specific built-in search tools continue to be editable in model
+provider settings. Unit tests exercise preserving unrelated saved
+settings, and Android compilation plus full JVM suites are checked before
+the local commit. Physical UI verification requires installing a new build.
+
+**Evidence / references:**
+`ChatInput.kt`, `ChatPage.kt`, `SettingSearchPage.kt`,
+`WebSearchPreferenceTest.kt`, and `ACTIVE_WORK.md`, 2026-10-29.
+
+**Supersedes:** chat composer web-search action placement only
+
+## 2026-10-28 — Four Line MD gauges represent supported reasoning effort
+
+**Decision:**
+Use user-supplied MIT Line MD gauge-empty, gauge-low, gauge and gauge-full
+geometry for the existing reasoning-effort control. Implement as a native
+Compose Canvas icon (24×24 dial, tick marks, rotating needle) that animates
+only when effort changes, not continuously. OFF/LOW/MEDIUM/HIGH map to
+15/65/115/165° needle angles. AUTO is an unspecified, needle-less dial
+marked A rather than pretending to be Medium. XHIGH uses full plus a
+distinct + marker. Retain textual effort labels and accessibility.
+
+**Why:**
+The existing composer still showed lightbulb icons for OFF/AUTO and
+inconsistent other reasoning glyphs. The user suggested a coherent
+set of four animated gauges whose positions naturally map to thinking
+intensity. Changing presentation should not change model reasoning
+capabilities, API payloads or preferences.
+
+**Alternatives considered:**
+Load animated SVGs from an external Iconify/CDN endpoint, add an SVG/SMIL
+runtime dependency, display an identical full needle for HIGH/XHIGH
+without distinction, animate the needle forever, or infer unsupported
+thinking levels from the appearance of the gauge.
+
+**Constraints / consequences:**
+Only the UI is affected. The picker still uses current provider/model
+capability filtering and request-effective thinking level. Compose
+animation duration scaling honors system reduced-motion settings. The
+upstream full MIT license/notice is included at docs/licenses/line-md.txt.
+Source geometry and mapping are tested, but pixel-level animation
+verification on Android still requires installing this build.
+
+**Evidence / references:**
+docs/ui/reasoning-gauge-line-md.md, ReasoningGauge.kt,
+ReasoningGaugeSpecTest.kt and ReasoningPicker.kt, October 28 2026.
+
+**Supersedes:** prior reasoning lightbulb/icon presentation only
+
+## 2026-10-28 — Chat header title-only; interactive model metadata stays at input
+
+**Decision:**
+Keep the chat header focused on the conversation title. Put a clickable
+provider-branded model selector with the actual selected model display name
+in a secondary row below the editor. Put attachment (+) at the beginning of
+the primary input row and send/stop at its end. Replace top-right action icons
+with a three-dot menu containing existing in-chat search and Compress History.
+Remove the Extensions and Compress History rows from the attachment sheet.
+
+**Why:**
+The screenshots showed duplicated model identity in the header, a cluttered
+composer and hidden/split chat actions. The user asked specifically for a
+readable, model-aware composer and current-conversation search under overflow;
+global chat search is different and must not be substituted.
+
+**Alternatives considered:**
+Remove the entire secondary composer row and hide the selected model; add
+a non-clickable model badge; send users to global Search Chats; delete
+extension settings when removing its attachment-row shortcut; place
+Compress History under the plus menu; remove the long-press send behavior.
+
+**Constraints / consequences:**
+Retain the existing ModelList selector and its callback; no state migration,
+provider-key edits, network changes or deleted extensions. The in-chat
+preview search and compression dialog both keep their existing behavior.
+The header's New Chat button is removed but that flow stays accessible through
+the conversation drawer. The model text is width-bounded on phones and the
+tool row scrolls. Actual updated-Pixel screenshot verification is pending;
+APK build and JVM tests do not prove final layout on a physical screen.
+
+**Evidence / references:**
+docs/ui/chat-composer-overflow-2026-10-28.md,
+ChatPage.kt, ChatInput.kt, ModelList.kt, FilesPicker.kt,
+ChatChromeActionsTest.kt, 2026-10-28.
+
+**Supersedes:** previous composer/header placement only
+
+## 2026-10-28 — Provider APIs: models.dev as primary discovery, existing settings authoritative
+
+**Decision:**
+Replace the *presentation* of the legacy built-in remote provider list in
+Models → Add → Provider APIs with a cached, searchable models.dev directory.
+Pin familiar providers as display priority, not as a separate model catalog.
+Keep a secondary route to the old saved/default entries and preserve manual
+endpoint setup. Reuse exact saved provider IDs and native adapters when a
+catalog entry matches; create a disabled, blank-key draft only when selected.
+
+**Why:**
+The screenshot showed the old static list crowding out the new public catalog.
+Deleting built-in provider settings or automatically rewriting them would lose
+API keys, assigned models, custom paths, and proven provider-specific options.
+A catalog entry or advertised SDK is not proof that our Android adapter works.
+
+**Alternatives considered:**
+Delete/recreate all default provider records to match models.dev; pin a second
+hardcoded mutable list of model metadata; automatically add every catalog
+provider to saved settings; advertise native SDK support for unknown providers;
+hide unsupported catalog entries entirely.
+
+**Constraints / consequences:**
+Google and Anthropic use their real typed native adapters. Existing configured
+OpenAI/OpenRouter/DeepSeek/xAI endpoints are opened unchanged. Officially
+documented generic Chat Completions endpoints enable Groq, Mistral and Cerebras
+basic API drafts without implying parity with their full native SDK features.
+Unknown catalog providers stay visible but non-selectable. Offline cache,
+manual setup and saved-provider fallback remain. No user keys or model settings
+changed. Physical device visual verification of the *new* list is pending.
+
+**Evidence / references:**
+`ModelsDevProviderPresentation.kt`,
+`ModelsDevProviderDirectoryChooser.kt`,
+`ModelsDevProviderPresentationTest.kt`,
+`ModelsDevLiveCatalogContractTest.kt`, and
+`docs/integrations/models-dev-provider-directory.md`, October 28 2026.
+
+**Supersedes:** prior presentation only, no serialized provider contract
+
+## 2026-10-28 — EmbeddingGemma 2 multimodal paths use verified native input and isolated indexes
+
+**Decision:**
+Use three independently pinned local LiteRT-LM EmbeddingGemma 2 variants (270M
+text, 440M text+vision, 740M full). Preserve the old text-only artifact,
+settings ID, text query prefixes and embedding-space ID. Implement native
+Image/Audio input using the already-pinned LiteRT-LM 0.18.0 Kotlin AAR,
+not OCR/transcription substitutes or cloud fallback. Distinguish visual-PDF
+page embeddings from text extraction and frame-based MP4 retrieval from
+true joint video sequence embedding. Keep opt-in downloads and a separate
+embedding space per bundle to prevent cross-model vector mixing.
+
+**Why:**
+The full EmbeddingGemma 2 is multimodal, but the current 270M local bundle
+contains only the text encoder. Official independent LiteRT packages, SHA
+checksums and Android native interfaces now exist for vision and audio.
+Blindly advertising all those capabilities on the text artifact would be wrong,
+while treating every image/audio as plain OCR/transcript text would defeat the
+cross-modal model's value.
+
+**Alternatives considered:**
+Replace the existing 270M bundle/index; silently switch to cloud models;
+generate fake image/audio embeddings; send PDF bytes as image inputs; treat
+MP4 as a native audio/video sequence supported by an API exposing only
+Image and Audio input types; auto-download hundreds of megabytes.
+
+**Constraints / consequences:**
+User explicitly chooses and verifies 440M or 740M, with a disk reserve and
+non-destructive model removal. The app includes a bounded local SAF importer:
+JPEG/PNG, PDF visual pages, MP4 sampled frames and RIFF/WAV for the full model.
+Actual Android native inference and relevance have NOT been confirmed on a
+physical device (no ADB device or model artifact on dev PC); JVM tests and
+APK build are not a substitute. No automatic install, push, or user-data edits.
+Existing text document same-ID reindexes can still replace rows across spaces;
+selection itself does not remove old vectors.
+
+**Evidence / references:**
+`docs/integrations/embeddinggemma-2-multimodal.md`, `EmbeddingGemma2Variant.kt`,
+`EmbeddingGemma2Backend.kt`, `MediaRagIngestion.kt`, `EmbeddingRepository.kt`,
+and test files under `app/src/test/.../data/rag/`, 2026-10-28.
+
+**Supersedes:** none
+
+## 2026-10-28 — Wait for model metadata before saving newly imported models
+
+**Decision:**
+Do not permit committing an automatically imported provider model while its
+public capability catalog is still loading. Keep a finite catalog load result,
+explicitly scoped to the provider ID and endpoint, with a fallback path only
+when the catalog attempt has completed or is unavailable. Never rewrite
+existing saved models to fix a rushed import after the fact.
+
+**Why:**
+The provider `/models` request and models.dev fetch are independent. Previously
+an early add could save static guessed capabilities; because persisted manual
+settings are protected on refresh, those incorrect guesses persisted. Compose
+can also retain a previous provider's async value briefly on key changes.
+
+**Alternatives considered:**
+Silently import first then overwrite saved models when the catalog arrives;
+launch a second uncoordinated network fetch for every Add click; treat a
+previous provider's cached state as complete; require API connectivity forever.
+
+**Constraints / consequences:**
+The provider picker and manual Add confirmation briefly await the catalog's
+existing bounded 20-second request, but failure allows existing/manual setup.
+Explicit edits in the manual model dialog remain authoritative; tests cover
+pending/ready/failure/provider-switch resolution. Actual phone UI remains
+unverified until a device is available.
+
+**Evidence / references:**
+`ModelImportResolution.kt`, `ModelImportResolutionTest.kt`,
+`SettingProviderDetailPage.kt`, and models-dev-provider-directory.md,
+October 28, 2026.
+
+**Supersedes:** none
+
+## 2026-10-28 — Composer controls must agree with actual model requests
+
+**Decision:**
+Show only known, adapter-supported reasoning choices in the chat composer.
+Keep an assistant's saved reasoning preference unchanged across model switches,
+but derive the current model's effective level for both the visible picker and
+actual generation. Hide the button if reasoning is unavailable or there is no
+adjustable choice. Treat effort, toggle, and numeric-budget metadata as distinct.
+
+**Why:**
+The previous generic picker could display XHIGH for a model with only HIGH,
+or offer OFF even when an API adapter translated OFF into a reasoning-enabled
+request. Having catalog metadata but not using it in the actual composer and
+request path defeats automatic configuration.
+
+**Alternatives considered:**
+Expose all effort levels regardless of capability; silently overwrite saved
+preferences when switching models; assume every provider accepts a generic
+OFF parameter; call numeric budgets LOW/HIGH without validating token bounds.
+
+**Constraints / consequences:**
+No verified budget-token composer yet. Models with no catalog metadata retain
+legacy controls; a catalog model with no known controls uses AUTO only.
+An adapter-level disabling path is needed before showing OFF; provider defaults
+still determine how AUTO behaves. No physical Android UI or provider-authenticated
+round-trip has been verified for this implementation.
+
+**Evidence / references:**
+AI module ComposerReasoningOptions.kt and ComposerReasoningOptionsTest.kt,
+app ChatInput.kt, ReasoningPicker.kt, GenerationHandler.kt, and
+models-dev-provider-directory.md, October 28, 2026.
+
+**Supersedes:** none
+
+## 2026-10-28 — Automatic model metadata is provider-scoped and override-safe
+
+**Decision:**
+Use models.dev for auto-configuring newly added remote model metadata after
+matching the exact provider transport/endpoint and model ID. Prefer verified
+provider API fields (particularly OpenRouter) when available, and retain static
+fallbacks for unknown models. Preserve user edits and pre-existing models on
+refresh; never auto-change credentials or turn on a service. Explicitly known
+parameter exclusions and output caps may guide request construction.
+
+**Why:**
+Adding a model should not require repeatedly toggling vision/tools/reasoning,
+entering context/output limits, and copying token pricing. But similar model IDs
+can expose different features through different providers, and a public catalog
+is not proof of actual account access or of the selected adapter's behavior.
+
+**Alternatives considered:**
+Hardcode another expanding list; trust model-name substring heuristics; overwrite
+all saved models at each catalog refresh; treat provider model catalogs as
+independent of their transport/host; silently switch local models to cloud.
+
+**Constraints / consequences:**
+Source-derived fields remain advertised metadata until verified by real API
+usage. Existing manual choices remain authoritative. Transport-specific
+reasoning modes, audio/video adapters, live capability probing, and any
+potential bulk migration require separate verified work.
+
+**Evidence / references:**
+`app/data/modelregistry/ModelsDevModelCatalog.kt`,
+`app/ui/pages/setting/SettingProviderDetailPage.kt`,
+`ai/provider/Model.kt`, and
+`docs/integrations/models-dev-provider-directory.md` (2026-10-28).
+
+**Supersedes:** none
+
 ## 2026-09-20 — Local System One is the primary fuzzy decision layer
 
 **Decision:**  
@@ -32,3 +372,277 @@ Decision models never grant capabilities or execute tools. Local is primary. Rem
 `local-llm/src/main/java/me/rerere/locallm/decision/SystemOneDecision.kt`; `docs/references/architecture.md`; shared Meristem skill `system-one-decisions`.
 
 **Supersedes:** none
+
+## 2026-10-05 — Local model selection uses measured execution profiles, not fixed device tiers
+
+**Decision:**
+Route Android local-inference selection through a measured `DeviceExecutionProfile` and pure `LiteRtExecutionPlanner`. Live available memory is the hard admission signal; catalog minimum-RAM bands are advisory ranking evidence. Persisted accelerator choices are revalidated against current capabilities before reuse, while native runtime fallback remains the final execution truth.
+
+**Why:**
+RikkaHub already had the right ingredients (live `availMem`, accelerator probes, memory admission, model metadata, runtime fallback) but they were independent decisions. A single profile/planner boundary prevents contradictory model/backend choices and gives future quantized variants one place to plug in without copying hardcoded device tiers.
+
+**Alternatives considered:**
+Copy Brownie's 6/8/12 GB tiers; select only from total RAM; trust cached accelerator labels indefinitely; implement advertised Q4/Q8 switching without verified matching artifacts.
+
+**Constraints / consequences:**
+The planner is evidence/policy, not capability authority. Runtime fallback is reported as degraded execution, not proof the preferred backend worked. LiteRT-LM backend labels must map to real SDK backends; 0.17.0 has no NNAPI backend, so NNAPI remains available only to compute/task adapters that truly support it. Do not claim adaptive quantization until verified Q4/Q8 artifacts exist.
+
+**Evidence / references:**
+`local-llm/.../litert/compute/DeviceExecutionProfile.kt`; `local-llm/.../litert/LiteRtExecutionPlanner.kt`; `ExecutionProfileProbe.kt`; `LiteRtRuntime.ensureLoaded`; `docs/references/architecture.md`.
+
+**Supersedes:** none
+
+## 2026-10-08 — LiteRT model capabilities require bundle evidence and device execution receipts
+
+**Decision:** On a selected .litertlm chat model, inspect the official LiteRT-LM 0.18.0 `ModelInfo` when possible. A positive LLM bundle declaration can restrict actual image/audio encoder initialization and constrain the model's requested maximum tokens; an embedding-only bundle is not accepted by the chat engine. An unrecognized or uninspectable legacy bundle falls back to curated catalog settings rather than treating unknown as unsupported. An unknown model filename does *not* independently prove TOOL support for newly registered models.
+
+**Why:** Filename/catalog estimates were used as if they were built-in features of every downloaded model, and arbitrary Hugging Face imports were labelled tool-capable. Gallery's modern `OnDeviceEmbedder` now reads `ModelInfo` to constrain execution; LiteRT-LM introduced a richer model file metadata contract in 0.18.0.
+
+**Alternatives considered:** Trust only filenames, automatically enable every advertised modality, treat any metadata parse failure as a negative result, or populate device capability results directly from the model header. Each would conflate at least two evidence levels.
+
+**Constraints / consequences:** Bundle-declared support is **not** hardware/backend availability, verified native inference, native tool execution or user authorization. Current installed user overrides remain intact; additive migrations never remove existing manually set capabilities. The model import/download path still needs immutable, hash-verified artifacts before parsing untrusted arbitrary files for UI registration, so bundle introspection currently happens lazily on selected engine load. Audio/vision are only forwarded after post-load execution gates. Core LiteRT 2.3.0 remains a separate, unqualified branch. Pixel validation of LiteRT-LM 0.18.0 remains outstanding while ADB is disconnected.
+
+**Evidence / references:** `local-llm/src/main/java/me/rerere/locallm/litert/LiteRtFileCapabilities.kt`, `LiteRtRuntime.ensureLoaded`, `LiteRtModelMetadata`, `LiteRtProvider`; official `google-ai-edge/LiteRT-LM` v0.18.0 `ModelInfo.kt`; `google-ai-edge/gallery` 1.0.20 `OnDeviceEmbedder.kt`. Host tests/build: `/tmp/rikkahub-modelinfo-integrated-20261008.log` (full local-llm JVM unit test task, app and instrumented APK assemble successful). No device claim.
+
+**Supersedes:** none
+
+## 2026-10-13 — Port OpenCode's Meristem visual language as opt-in Android styling
+
+**Decision:** Add a selectable `meristem` theme family in RikkaHub with two variations and the eight project-accent categories used by the OpenCode design; restyle the local/remote workspace list and OpenCode conversation/composer with compact raised surfaces, subtle accent edges, and readable outlines. Leave the user's existing theme selection untouched.
+
+**Why:** The OpenCode `meristem-desktop` branch introduced a quieter soft-material surface hierarchy, compact project identity, and theme-based accents. These are reusable design mechanisms; CSS geometry, desktop sidebar mechanics, and simulated session state are not.
+
+**Alternatives considered:** Globally replace Material 3 colors/shapes; embed the OpenCode desktop web UI in Android; copy its CSS verbatim.
+
+**Constraints / consequences:** Existing theme families and chat/model/inference screens remain behaviorally unchanged. Meristem colors are Android tonal adaptations, not exact CSS token parity. Workspace connection/operation status must come from observed backend state; do not infer liveness from an attractive indicator. Theme selection uses the pre-existing Settings → Theme UI and requires disabling dynamic color as with other presets. No phone APK installation was performed during this styling pass.
+
+**Evidence / references:** OpenCode `~/loam/opencode-upstream/packages/app/src/index.css`, `packages/app/src/pages/layout/meristem-sidebar.css`; RikkaHub `ui/theme/{Theme.kt,ThemeFamily.kt}`, `ui/pages/extensions/workspace/{WorkspacePage.kt,OpenCodeWorkspaceDetailPage.kt}`; focused `MeristemThemeTest`. Host Kotlin compilation, focused tests and debug APK assembly passed on 2026-10-13.
+
+**Supersedes:** none
+
+## 2026-10-13 — Two built-in visual systems, with safe legacy-theme fallback
+
+**Decision:** Retire the five older built-in preset palettes (Sakura, Ocean, Spring, Autumn, Black) and five theme-kit families (Dracula, Catppuccin, Rosé Pine, Tokyo Night, Gruvbox). Material You remains wallpaper-derived by default on Android 12+ (custom seed optional), and Meristem is the sole static built-in theme, with two variations and eight accents. Make theme choice explicit and visible in Settings → Theme, instead of a separate Dynamic Color switch and preset carousel.
+
+**Why:** The old selection split the same decision across pages and left a dozen stylistic directions in the main appearance UI. The compact dual-choice preview now shows actual color/surface hierarchy. Both modes use restrained, consistent Material 3 shape geometry. The Material You seed editor is folded by default, so it no longer dominates the page.
+
+**Compatibility:** Preserve existing settings, custom/imported palette records and color sources; never delete their app data. Existing saved retired preset IDs resolve visually to Meristem without silently rewriting the stored ID; selecting Meristem commits the new ID through the normal preference update. User-authored custom palettes remain available under a collapsible section. Below Android 12, Material You uses a generated fallback rather than silently choosing a retired preset. Deleting an active custom palette selects Meristem. Changes to the old palette implementations remain recoverable from Git history.
+
+**Evidence:** Focused theme unit tests passed; `:app:compileDebugKotlin` and `:app:assembleDebug` passed. A private, checksum-verified backup of databases, shared preferences and DataStore was created before a safe in-place Pixel 10 Pro debug update. The new screen was inspected on-device in both Material You and Meristem modes; after the test, Material You was reselected with its pre-existing custom source color intact. App database and DataStore paths were observed after installation. No user model weights or app data were removed.
+
+**Scope:** This does not redesign every feature screen. Existing CardGroup styling and non-theme settings pages remain as they were; the shared shape tokens and new theme chooser carry the main appearance improvement. No remote push.
+
+## 2026-10-13 — Downloadable Colorway theme library and tactile Compose controls
+
+**Decision:** Keep Material You and Meristem as the only built-in modes, but make custom/imported themes a first-class extensibility surface. Add an opt-in online browser of the public Colorway Git tree, search, bounded/safe download, a real palette preview, explicit Save & use, deduplication of downloaded themes, and local persistence using existing CustomTheme data. Import RikkaHub JSON and Colorway/OBS .ovt text through paste or Android OpenDocument. Do not auto-sync, modify stored model files, or execute/import CSS as code.
+
+**Mechanism:** ThemeImport strips CSS comments before reading live @OBSThemeVars (because Colorway stores frozen provenance colors inside comments), supports hex and bounded direct var() aliases, and maps a whitelist of imported roles (background, surfaces, text, border, accent, error) to Material ColorScheme. Contrast fallback protects foreground text. Persist source/provenance and a dark or light role map alongside the prior seed fields so old saved themes remain readable; the other color mode uses a generated tonal fallback rather than incorrectly reusing a one-mode palette. Editing seed colors removes imported role overrides. The remote browser uses a fixed GitHub API endpoint, whitelisted public/themes paths, fixed raw.githubusercontent.com host, no redirects, timeouts and file-size limits. User-created JSON themes remain supported.
+
+**Tactile treatment:** Vendor myrqyry/neumorphic-ui revision a4b7321 into a portable local Gradle library with upstream MIT LICENSE. Use its actual raised surface primitive for theme-choice cards and the inset/animated segmented control for Meristem variations. Bridge it to the current Material3 color scheme; it is a physical treatment, not another global palette. The original project is untouched.
+
+**Evidence:** The public Colorway tree returned 159 supported theme paths. Focused JVM tests passed (15 tests / three suites); in a temporary non-committed corpus test, 159/159 of the actual local Colorway .ovt files parsed and produced light/dark schemes. :neumorphic-ui:compileDebugKotlin, :app:compileDebugKotlin, :app:testDebugUnitTest (focused), and :app:assembleDebug passed. The debug APK installed in place on the Pixel 10 Pro. On-device, the browser loaded 159 entries; downloading 90sAnime displayed the dark palette preview without applying it, Save & use applied it, and deleting it restored empty custom themes. The prior Material You theme and custom seed #2AFFBC were reselected/observed afterward. Android OpenDocument was opened and dismissed; importing actual content through SAF was not separately exercised on-device. App database and DataStore paths remained accessible. A checksum-verified pre-update archive of database/preferences/datastore files was saved under ~/.local/state/meristem/rikkahub-backups, excluding large model weights.
+
+**Boundaries:** This is a theme browser, not a pixel-perfect OBS/CSS renderer, nor an implementation of Colorway's entire cross-platform color editor. One-mode imports intentionally use a generated opposite mode. GitHub rate limits and network access affect browsing, but already imported palettes work offline. SLCE's React bindings/solver were not ported to Android; existing responsive Compose layout remains. No push or publication.
+
+**Supersedes:** The earlier two-built-in-modes decision is retained; it now explicitly coexists with a large user-downloadable theme library.
+
+## 2026-10-14 — Flatten Appearance navigation into a single functional screen
+
+**Decision:** Settings → Appearance now opens the consolidated `SettingThemePage` directly. The redundant `SettingPreferencesThemePage` has been removed, and both old route IDs remain supported by routing them to the same unified Compose page (existing navigation stacks may still refer to the old ID). The page uses a compact top app bar and places Color Mode (System/Light/Dark) and AMOLED black controls above Material You/Meristem theme previews and the downloadable Colorway library. The download library appears before advanced active-theme color customization.
+
+**Why:** The previous design forced Appearance → Theme → actual themes, used three huge rows above mostly empty space, and hid the primary theme library. The user supplied a screenshot and explicitly challenged that design. This is a hierarchy and visibility correction, not a new theme.
+
+**Constraints / consequences:** Preserve `rememberColorMode()`, `rememberAmoledDarkMode()` and settings persistence without migrating stored values or modifying existing themes. Keep the Colorway import/download flow and custom palettes unchanged. The saved source color remains #2AFFBC on the connected Pixel. Existing navigation IDs remain compatible; no extra route page is rendered.
+
+**Verification:** `:app:compileDebugKotlin` passed; `:app:testDebugUnitTest --tests 'me.rerere.rikkahub.ui.theme.*'` passed 15/15; `:app:assembleDebug` passed. A checksum-verified backup of app databases/preferences/DataStore was created before `adb install -r`. The in-place Pixel 10 Pro installation succeeded; database and DataStore paths remained present. Final device screenshot verifies Settings → Appearance directly displays the Color Mode segment, AMOLED switch, Themes section, Material You/Meristem cards, Colorway/Import actions and current #2AFFBC seed. No APK publication/push; local checkpoint only.
+
+## 2026-10-14 — One personal theme; wallpaper or chromatic background source with independent accent
+
+**Decision:** Remove the Material You vs Meristem choice cards from Settings → Appearance. The app's existing quiet, tactile Compose design remains constant, and a single My theme control chooses palette **source** (Android wallpaper, or a manually selected background color) plus an optional independent accent override. Keep the downloadable/imported theme library and active saved palettes intact. The older Meristem ID remains a compatibility path in the runtime, not an exposed competing theme.
+
+**Why:** Screenshots from the user demonstrated that wallpaper-derived Android dynamic colors create dramatically richer colored backgrounds than choosing a blue Material You source color. Inspection confirmed the latter used the neutral-heavy TONAL_SPOT generator, rather than Android's wallpaper scheme. The user wanted one cohesive interface design with background-color choice and/or color override, not two separately named visual themes.
+
+**Mechanism:** `PersonalPalette.personalPalette` uses the actual Android dynamic scheme unmodified when the source is Wallpaper and no override is set. For manual color, it generates the chromatic roles from the existing color generator but replaces the neutral/surface family with a more colored (HCT hue, chroma 20) tonal ladder. The independent accent override changes primary/secondary/tertiary roles and their associated on/container colors, leaving background and surface roles alone. These are separate controls so wallpaper vibrancy survives an accent change.
+
+**Persistence/migration:** Preserve `dynamicColor`, `themeId`, `materialYouSourceColor`, all previously installed `customThemes`, and the saved custom palette route. Persist only additive `personalThemeAccentColor` and `personalLastBackgroundColor` in DataStore. Switching Wallpaper does not discard the last manual background; switching back restores it. Existing Meristem settings remain readable through their legacy resolver and can transition to the personal scheme by using the new controls. AMOLED black mode remains explicit and can override background black as before.
+
+**Verification:** Kotlin compilation, focused theme regression suite (21 tests, 0 failures) and debug APK assembly passed on 2026-10-14. Six new tests verify wallpaper preservation, manual surface chroma, independent accent roles, dark/light contrast and settings compatibility. A checksum-verified backup of user app settings/databases/DataStore was made before the debug APK was installed in place on the Pixel 10 Pro; model files were not touched. On-device screenshot: one My theme card, Wallpaper/Background color segmented control, independent accent switch and preserved Colorway library. Toggling Background color visibly recolored the entire interface; enabling accent exposed a separate picker without changing the background; original Wallpaper selection and accent-off state were restored afterward. Installation preserved the on-device datastore/database paths.
+
+**Scope:** This is a coherent theme color-system correction, not a replacement of individual application screen layouts, nor an SLCE Compose layout port. No remote push.
+
+## 2026-10-14 — Appearance becomes a compact palette console with theme orbs
+
+**Decision:** Preserve the currently liked Appearance aesthetics and all theme color/persistence mechanics, but replace the long vertical presentation with a compact game-menu-like configuration surface. Color mode System/Light/Dark is three accessible MingCute icon controls in the top-right header (phone/sun/moon), and AMOLED becomes a compact inline switch. A single main panel holds Wallpaper toggle, hue-only rainbow slider for manual background, and independent Accent Override switch + optional second hue slider. Installed themes appear as a compact three-column grid, with the original multi-color circular thumbnails and name beneath. Tap selects; long-press gives Edit / Copy theme JSON / Delete in a context menu with haptics. Installed palettes, Colorway browser, import file and create/paste functions remain available. The selection indicator animates gently with spring motion.
+
+**Why:** The user explicitly praised the existing theme appearance but wanted less scrolling and more graphic/animated game-like menus, proposing icon-only mode controls in unused header space, hue adjustment without three simultaneous HSL sliders, a wallpaper toggle, optional accent override, and circular installed-theme grid with hold-to-open options. Mechanism over wholesale redesign: reuse existing theme orbs, preserve color model and detailed theme editor in a sheet, and keep the bounded existing Colorway importer.
+
+**Runtime:** `HueControl` modifies only hue in HCT color space, preserving the source chroma/tone as closely as gamut permits. It holds drag position locally and writes settings on drag completion rather than firing a DataStore update and Pebble invalidation for every pointer pixel. Wallpaper mode disables manual hue selection, retaining the prior manual source for later use. Long-press shows a menu without changing the active theme. Deleting an active custom palette now returns to the personal dynamic palette rather than exposing the retired built-in Meristem fallback.
+
+**Evidence:** `:app:compileDebugKotlin` passed; `:app:testDebugUnitTest --tests 'me.rerere.rikkahub.ui.theme.*'` and `:app:assembleDebug` passed (23 focused tests, 0 failures). A checksum-verified archive of app databases/preferences/DataStore was created before the debug APK in-place update on the connected Pixel 10 Pro; no installed model weights were touched. On-device screenshot verifies compact layout containing My theme, Adapta Evergreen, Pastel Pixels and Fairyfloss visible as orbs without scrolling, header icon modes, hue strip and two color toggles. Long press on Pastel Pixels revealed Edit Theme / Copy theme JSON / Delete Theme. No item was deleted or applied during the smoke test. Final APK reinstalled after the small fallback correction, with database and DataStore paths verified intact. No remote push.
+## 2026-10-14 — Compact Settings hub: category strip and three-column destinations
+
+**Decision:** Replace Settings' home page long stacked groups with a horizontally scrollable category strip and three-column graphic grid. Preserve every existing destination, keyword alias, cross-category search, provider-warning state, and developer-mode gating. Ordinary navigation shows one category at a time, while search spans all sections. Use existing icons and theme colors with a subtle press spring.
+
+**Why:** The user loved the compact theme orb gallery and requested that same game-like, low-scroll layout across RikkaHub. Settings home had more than thirty tall rows with repeated descriptions.
+
+**Evidence:** Kotlin compilation, SettingsPageTest and debug APK build passed. A Pixel screenshot initially showed an unintended two-column wrap; changed to deterministic three-column rows and verified on-device at the real phone width. Five AI/Models destinations fit in two rows with no vertical scrolling. App databases/preferences/DataStore were backed up before in-place update and preserved.
+
+**Follow-up:** Apply the compact pattern to preference-heavy screens while protecting complex provider/model editors' existing functionality.
+## 2026-10-14 — Compact Chat and UI preference consoles
+
+**Decision:** Replace Chat Preferences' tall toggle rows with two-column interactive switch tiles. A tile toggles on tap, animates track/thumb and card color, exposes Switch-style accessibility semantics, and opens the original explanatory description by long press. Conditional message-jumper placement, paste-as-file threshold, and volume-key scroll ratio remain available only when relevant. Preserve the original SharedPreferences and DisplaySetting update mechanisms.
+
+**UI Preferences:** Replace the long mixed font-and-message document with compact Messages / Typography / Code selector tabs. Message visibility and code settings use the same toggle tiles. Bubble opacity stays a dedicated slider, and Typography retains font family selection, SAF import/removal, percentage slider, and live Markdown font preview. All options remain available; grouping is presentation-only.
+
+**Evidence:** Kotlin compilation passed; 25 targeted unit tests and APK assembly passed. Pixel screen checks show General/Chat Preferences toggles in two columns with no settings missing, UI Preferences' three functional tabs, and an unchanged live Typography preview. Device checks identified an off-switch track that blended into dark surface; adjusted track contrast and position indicator in a follow-up build. The conditional Message Jumper Position option was moved back near its parent. User state never reset, and no unrelated model/provider configuration changed.
+## 2026-10-14 — Compact routed headers for Models, Assistants, Prompt Library, Workspaces and Search
+
+**Decision:** Continue the graphic, low-scroll interface pass without disrupting the complex model inventory, assistant reordering, prompt editing, workspace management, or search provider forms. Switch only the oversized collapsible header to a compact Material3 TopAppBar in the real routed screens for Models (including model assignments), Assistants, Workspace, Prompt Library, and Search Service. The current route for Settings → Prompt Library is PromptLibraryPage, not the legacy PromptPage; discard the ineffective uncommitted edit to that legacy file.
+
+**Evidence and scope:** A full 1,475-test Android JVM run passed with zero failures or errors after the final header correction; :app:assembleDebug and Kotlin compilation passed. Installed the debug APK in place on the connected Pixel 10 Pro. On-device screenshots verified compact headers and surviving visible controls on Models (model filters/inventory and toggles), Assistant Settings (search and assistant cards), Workspace (OpenCode connection list), Search Service (provider row and result size), and the corrected Prompt Library (two tabs, existing editing toolbar and empty state). Navigation through the new three-column Settings hub remained working. Existing databases, DataStore and preferences had a verified pre-install tar archive under ~/.local/state/meristem/rikkahub-backups, and installed app data was not reset. Does not claim end-to-end execution of every provider/model editing action.
+
+**Intentional limit:** Rich model/provider/assistant forms remain structurally unchanged; this checkpoint preserves their behavior while recovering vertical space. The larger visual/game-like pass on those forms can proceed against this verified baseline. No remote push.
+
+## 2026-10-14 — RVC inference must run on Pixel, not Voxa (correction)
+
+The user corrected the RVC filter architecture: RVC conversion is **device-local inference**, not a network request to the PC. Undo the earlier Voxa HTTP-based RikkaHub feature and do not ship it under a misleading on-device label. Preserve the old implementation in Git history instead of rewriting commits. RikkaHub's existing ONNX Runtime and a complete Apache-2.0 audio.cpp RVC native C ABI are candidates. We cross-compiled only the `rvc` model family to Android ARM64 and executed the CLI on the Pixel to enumerate the CPU backend, with no extra libomp dependency; **no actual RVC model inference was proven**. Model packaging, JNI/ORT adaptation, controls, warm TTL and real on-device audio validation remain to be done. Do not silently copy the 1.2-GiB experimental GGUF package onto the phone (which had ~7.4 GiB free) or substitute the desktop server. Details: `docs/rvc-on-device.md`.
+
+## 2026-10-14 — Offline Pixel RVC GGUF benchmark: CPU route too slow
+
+The Remote Desktop connection was used to test the full on-device RVC model
+after prior native startup verification. A 1.2-GB packaged F16 GGUF and
+short synthetic WAV were transferred temporarily over USB, verified by
+SHA-256 and cleaned afterward. The same model completed on desktop CPU
+in 25.50s cold (non-silent 5.56s converted WAV; ~1.8GB peak RSS).
+**Pixel native conversion did not complete:** baseline arm64 timed out
+at 90s; optimized FP16+dot-product arm64 build timed out at 135s,
+both without WAV output. The optimized runtime itself compiled and ran
+on Pixel correctly with no extra OpenMP libraries. No crash or
+app reinstall; cleanup removed temporary test paths and RikkaHub
+remained running. Therefore do not present the native GGUF CPU pipeline
+as usable for interactive RikkaHub TTS. Advance to a smaller on-device
+ONNX model chain/delegate feasibility test; keep warm TTL as a future
+requirement, not an implemented capability. Evidence and reproducible
+configuration in `docs/rvc-on-device.md`. No remote push.
+
+## 2026-10-14 — Android ONNX voice conversion feasibility, not feature
+
+Real, independent Android ONNX Runtime 1.25.0 stage tests verified
+INT8 ContentVec (2s waveform ~0.6s warm), INT8 RMVPE (128 synthetic mel
+frames ~0.5s warm) and licensed Nova_HD RVC v2 synthesizer (0.96s output
+tensor ~1.4s warm) on Pixel 10 Pro. XNNPACK and NNAPI did not improve
+the synthesizer; WebGPU was ~4.7s warm. Tests had synthetic inputs, not
+complete voice conversion or verified intelligible output. Therefore this
+specific model family/graph is NOT yet acceptable for responsive RikkaHub
+post-TTS filtering. Do not ship a fake ONNX/TFLite toggle, repurpose a
+remote server, or equate provider availability with GPU/NPU acceleration.
+RVC v1 lightweight synth and Beatrice are alternative hypotheses, not
+verified products; their model format and license constraints differ.
+Reproducible isolated benchmark source, model hashes, raw device metrics,
+methodology, limits and follow-up gates are in
+tools/experiments/rvc-onnx-probe and docs/rvc-on-device.md. All temporary
+test packages and files were removed from the phone; the existing RikkaHub
+process remained running. No push.
+
+## 2026-10-15 — Selective harvest from original RikkaHub and RikkaHub Agent
+
+Source-reviewed original at 240deb5fe and immediate parent
+ExTV/rikkahub-agent at a88f5854b. Adopted the needed original
+conversation cancellation and null-compatible SSE fixes (63d3c6826),
+the Agent auxiliary title/suggestion job replacement lifecycle
+(1aef8a3b6), and original MCP schema local-ref expansion (b6bb5e7b6).
+AI 200 and app 1,486 JVM tests and APK assembly passed. No merge,
+push, on-device install or data migration. Full lineage, tests,
+unsupported claims and remaining candidates are documented in
+.meristem/upstream-harvest-2026-10-15.md. Do not copy whole upstream
+settings, memory, agent or UI frameworks over our fork.
+
+## 2026-10-15 — RWKV App 4.8.5 mechanisms, not a replacement runtime
+
+Compared upstream tag 4.8.5 backend and catalog integrity with the
+existing local-LLM subsystem. Our pinned downloads and measured
+accelerator/memory planners already cover much of its model catalog.
+Adapted missing safety: staged, cancellable, no-replace model URI import
+and GGUF relocation (dd9a3e8ee); resolver now requires local lifecycle
+READY instead of installed-only (bfb4ec7fe). 507 local-LLM, 200 AI,
+1488 app JVM tests + APK assembly pass, no device installation.
+A READY status based only on path existence remains weaker than native
+inference qualification. Published G1k NPU artifacts are not Tensor G5
+compatible; G1j Palm W4 is untested. Full comparison and future gates:
+.meristem/rwkv-app-review-2026-10-15.md.
+
+## 2026-10-15 — ML Drift PowerVR real GpuModel inference verified
+
+Bazel8/NDK28 compatibility fixes confined to disposable source;
+upstream official Android AArch64 OpenCL add suite: 108 passed,
+54 unsupported-layout skips, 0 failures of 162 cases. Official
+GpuModel inference-context optional nodes/subgraphs: 2 of 2
+passed on Pixel 10 Pro (389ms total). Repeatable runner in
+scripts/probes/run-ml-drift-android-tests.sh rejects host ELF
+and cleans device temp. Next: app-process JNI and actual model
+compatibility/parity/latency, not a fake provider option.
+No installed app/data change or push. Full evidence:
+.meristem/ml-drift-review-2026-10-15.md.
+
+## 2026-10-15 — Reciprocal inference: real Pixel-to-desktop provider path
+
+Adapted the existing RikkaHub web server for guarded, text-only
+OpenAI-compatible direct inference separate from the agent and
+capability broker. Desktop HTTP client saw Pixel native LiteRT
+generate orchid, and actual OpenCode compatible provider SDK
+generated paprika. 507 + 200 + 1495 JVM tests and APK build passed.
+In-place installed Pixel build preserves existing files and settings;
+pre-install database/settings backup verified. Added a separate
+rikka-pixel model provider to backed-up OpenCode config; model list
+discovery passes. Full opencode CLI agent run timed out before
+connecting to the model. Reverse phone-to-desktop inference blocked
+by Pixel Tailscale VPN/DNS and remains unverified. Future auto
+offload not implemented. Full evidence and reconnect command in
+docs/integrations/opencode-inference-bridge.md.
+
+## 2026-10-15 — Phone to desktop inference verified through RikkaHub OpenAI
+
+After Pixel Tailscale reconnection, tun0 routing and MagicDNS worked.
+Phone-originated HTTPS GET model catalog and POST Ollama completion
+returned HTTP 200, with desktop Granite 4.1 3B generating cedar.
+Backed up app settings/databases and added that single verified model
+to the enabled pre-existing tailscale OpenAI provider. Compared all
+28 other providers and unrelated settings unchanged.
+An opt-in Android instrumentation test of RikkaHub's real
+ProviderManager/OpenAI provider generated willow, warm provider-call
+time 547ms, JUnit OK (1 test). Manual test APK installation kept
+main app data; normal app process relaunched after instrumentation,
+its Ktor loopback gateway confirmed restored, installed local models
+intact. Experimental ADB reverse port and standalone phone DEX
+removed. Genuine two-way inference is now established; automatic
+device scheduling and full OpenCode CLI agent sessions are not.
+See docs/integrations/opencode-inference-bridge.md.
+
+## 2026-10-15 — Prepare for OpenCode 2 without premature migration
+
+Current published V2 migration guide says supported V1 config
+loads in V2; breaking surfaces are plugins, terminal client config
+and server/session API. Preserve OpenCode 1 live server/profile and
+ongoing user UI changes. Added guarded RikkaHub OpenCode client
+recognition of native V2 ServerInfo after legacy HTTP 404, with
+no prompt replay and V1 HTML fallback regression tests. Added
+read-only 4-test V2 preflight and credential-free Pixel provider
+preview using native providers/package/settings/capabilities, with
+external_directory explicitly ask. No full V2 session adapter,
+migration, installation or push. Native V2 API remains provisional;
+verify against a running isolated server before any cutover.
+docs/integrations/opencode-v2-readiness.md.
+
+## 2026-10-16 — Native soft-material RikkaHub drawer
+
+Use OpenCode sidebar design principles (separate icon rail and
+scrollable conversation panel) without copying desktop CSS.
+RikkaHub Material colors and existing neumorphic-ui raised/inset
+primitives own tactile depth, concise 140ms press feedback and
+selected recessed states. Keep 44dp a11y navigation targets,
+existing long-press actions, persistent user data and assistant
+selection. 2204 JVM tests, debug APK build, Pixel screenshot,
+accessibility and overflow/long-press menu checks passed.
+Pre-install settings/database backup verified, APK installed in
+place; model files unchanged. No OpenCode worktree changes.
+See docs/ui/rikkahub-soft-drawer-2026-10-16.md.

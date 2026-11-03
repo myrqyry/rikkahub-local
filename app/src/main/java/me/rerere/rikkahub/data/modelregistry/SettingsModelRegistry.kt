@@ -1,6 +1,8 @@
 package me.rerere.rikkahub.data.modelregistry
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,6 +16,8 @@ import me.rerere.ai.provider.ProviderSetting
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
 import me.rerere.locallm.litert.image.FLUX2_KLEIN_MODEL
+import me.rerere.locallm.litert.image.bonsai.BONSAI_IMAGE_MODEL
+import me.rerere.locallm.litert.image.bonsai.BonsaiBundlePackage
 import me.rerere.locallm.litert.image.Flux2KleinPackage
 import me.rerere.locallm.litert.image.Flux2KleinPackageStatus
 import me.rerere.rikkahub.data.datastore.SettingsStore
@@ -30,6 +34,7 @@ class SettingsModelRegistry(
     scope: CoroutineScope,
     private val providerManager: ProviderManager,
     private val fluxPackage: Flux2KleinPackage,
+    private val bonsaiPackage: BonsaiBundlePackage,
 ) : ModelRegistry {
     private val _models = MutableStateFlow<List<ModelDescriptor>>(emptyList())
     private val _providers = MutableStateFlow<List<ModelProviderDescriptor>>(emptyList())
@@ -184,6 +189,19 @@ class SettingsModelRegistry(
             ?: error("Unknown model: $modelId")
         val source = model.source as? ModelSource.Local
             ?: error("Cloud models cannot be removed from the local registry")
+        if (source.runtime == LocalRuntime.LiteRT &&
+            modelId == FLUX2_KLEIN_MODEL.id.toString()
+        ) {
+            // The FLUX entry refers to an on-disk directory, not a single installedModels
+            // file. Delete it before deregistering; otherwise the UI claims space was freed
+            // while the multi-GB package stays on disk. Other providers' files are untouched.
+            withContext(Dispatchers.IO) { fluxPackage.deleteInstalledFiles() }
+        }
+        if (source.runtime == LocalRuntime.LiteRT &&
+            BONSAI_IMAGE_MODEL.modelId in source.files
+        ) {
+            withContext(Dispatchers.IO) { bonsaiPackage.deleteInstalledFiles() }
+        }
         val removedPaths = source.files.mapNotNull { localPreferences.installedModels(source.runtime)[it] }
         source.files.forEach { localPreferences.removeInstalledModel(source.runtime, it) }
         settingsStore.update { settings ->
@@ -219,28 +237,53 @@ class SettingsModelRegistry(
             else -> null
         }
         val inferred = ModelCapabilityInference.infer(model)
+        val isTaskOcr = provider is ProviderSetting.TaskOcrLocal
+        val taskOcr = provider as? ProviderSetting.TaskOcrLocal
+        val ocrPaths = taskOcr?.let {
+            listOf(it.detModelPath, it.recModelPath, File(it.recModelPath).parentFile?.resolve("ppocrv5_dict.txt")?.absolutePath.orEmpty())
+        }.orEmpty()
+        val ocrReady = ocrPaths.size == 3 && ocrPaths.all { path ->
+            path.isNotBlank() && File(path).isFile && File(path).length() > 0L
+        }
         val isFlux = provider is ProviderSetting.LiteRtLocal && model.modelId == FLUX2_KLEIN_MODEL.modelId
+        val isBonsai = provider is ProviderSetting.LiteRtLocal &&
+            model.modelId == BONSAI_IMAGE_MODEL.modelId
+        val bonsaiReady = isBonsai && bonsaiPackage.isInstalled()
         val fluxStatus = if (isFlux) fluxPackage.validate().status else null
-        val files = if (isFlux) {
+        val files = if (isFlux || isBonsai) {
             listOf(model.modelId)
         } else {
             runtime?.let { localFiles[it].orEmpty().keys.filter { file -> file == model.modelId } }.orEmpty()
         }
-        val installed = if (isFlux) fluxPackage.root.exists() else files.isNotEmpty()
-        val capabilities = inferred.verified
+        val installed = if (isTaskOcr) ocrReady
+            else if (isFlux) fluxPackage.root.exists()
+            else if (isBonsai) bonsaiReady
+            else files.isNotEmpty()
+        val capabilities = inferred.verified +
+            (if (isTaskOcr) setOf(ModelCapability.OCR) else emptySet())
         return ModelDescriptor(
             id = modelId(model),
             displayName = model.displayName.ifBlank { model.modelId },
-            source = runtime?.let { ModelSource.Local(it, files) }
-                ?: ModelSource.Cloud(provider.id.toString(), model.modelId),
+            source = if (isTaskOcr) {
+                ModelSource.Local(LocalRuntime.LiteRT, ocrPaths.map { File(it).name })
+            } else {
+                runtime?.let { ModelSource.Local(it, files) }
+                    ?: ModelSource.Cloud(provider.id.toString(), model.modelId)
+            },
             capabilities = capabilities,
             enabledCapabilities = capabilities - disabledCapabilities,
-            lifecycle = if (isFlux) {
+            lifecycle = if (isTaskOcr) {
+                if (ocrReady) ModelLifecycle.READY else ModelLifecycle.ERROR
+            } else if (isFlux) {
                 when (fluxStatus) {
                     Flux2KleinPackageStatus.Ready -> ModelLifecycle.READY
                     null -> ModelLifecycle.AVAILABLE
                     else -> if (installed) ModelLifecycle.ERROR else ModelLifecycle.AVAILABLE
                 }
+            } else if (isBonsai) {
+                if (bonsaiReady) ModelLifecycle.READY
+                else if (bonsaiPackage.root.exists()) ModelLifecycle.ERROR
+                else ModelLifecycle.AVAILABLE
             } else if (runtime != null) {
                 if (installed && files.all { file -> localFiles[runtime]?.get(file)?.let(::File)?.exists() == true }) {
                     ModelLifecycle.READY
@@ -262,6 +305,10 @@ class SettingsModelRegistry(
                 if (isFlux) {
                     put("path", fluxPackage.root.absolutePath)
                     put("packageStatus", fluxStatus.toString())
+                }
+                if (isBonsai) {
+                    put("path", bonsaiPackage.root.absolutePath)
+                    put("packageStatus", if (bonsaiReady) "verified" else "not-verified")
                 }
             },
         )

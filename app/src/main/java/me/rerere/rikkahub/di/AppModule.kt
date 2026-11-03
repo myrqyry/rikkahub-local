@@ -362,8 +362,14 @@ val appModule = module {
             packageRoot = get(),
         )
     }
+    single {
+        me.rerere.locallm.litert.image.bonsai.BonsaiImageRuntime(context = get())
+    }
+    single {
+        me.rerere.locallm.litert.image.bonsai.BonsaiBundle.fromContext(get())
+    }
     single<me.rerere.rikkahub.data.modelregistry.ModelRegistry> {
-        me.rerere.rikkahub.data.modelregistry.SettingsModelRegistry(get(), get(), get<me.rerere.rikkahub.AppScope>(), get(), get())
+        me.rerere.rikkahub.data.modelregistry.SettingsModelRegistry(get(), get(), get<me.rerere.rikkahub.AppScope>(), get(), get(), get())
     }
     single { me.rerere.rikkahub.data.modelregistry.ModelRoleResolver(get()) }
     single<me.rerere.rikkahub.data.ai.tools.image.ImageToolBackend> { me.rerere.rikkahub.data.ai.tools.image.ProviderImageToolBackend(get()) }
@@ -421,6 +427,7 @@ val appModule = module {
             filesManager = get(),
             mcpManager = get(),
             localTools = get(),
+            providerManager = get(),
         )
     }
 

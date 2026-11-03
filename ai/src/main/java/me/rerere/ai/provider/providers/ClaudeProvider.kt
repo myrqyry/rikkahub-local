@@ -32,6 +32,9 @@ import me.rerere.ai.provider.ClaudePromptCacheTtl
 import me.rerere.ai.provider.ImageGenerationParams
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelAbility
+import me.rerere.ai.provider.allowsTemperature
+import me.rerere.ai.provider.clampRequestedMaxTokens
+import me.rerere.ai.provider.supportedReasoningEffort
 import me.rerere.ai.provider.Provider
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.TextGenerationParams
@@ -320,14 +323,14 @@ class ClaudeProvider(private val client: OkHttpClient, context: Context? = null)
                 "messages",
                 buildMessages(messages, providerSetting.promptCaching, providerSetting.promptCacheTtl)
             )
-            put("max_tokens", params.maxTokens ?: 64_000)
+            put("max_tokens", params.model.clampRequestedMaxTokens(params.maxTokens ?: 64_000) ?: 64_000)
 
             // 顶层 cache_control: 让 Anthropic 自动管理缓存断点
             if (providerSetting.promptCaching) {
                 put("cache_control", cacheControlEphemeral(providerSetting.promptCacheTtl))
             }
 
-            if (params.temperature != null && !params.reasoningLevel.isEnabled) put(
+            if (params.model.allowsTemperature(true) && params.temperature != null && !params.reasoningLevel.isEnabled) put(
                 "temperature",
                 params.temperature
             )
@@ -373,9 +376,11 @@ class ClaudeProvider(private val client: OkHttpClient, context: Context? = null)
                             put("type", "adaptive")
                             put("display", "summarized")
                         })
-                        put("output_config", buildJsonObject {
-                            put("effort", params.reasoningLevel.effort)
-                        })
+                        params.model.supportedReasoningEffort(params.reasoningLevel)?.let { effort ->
+                            put("output_config", buildJsonObject {
+                                put("effort", effort)
+                            })
+                        }
                     }
                 }
             }

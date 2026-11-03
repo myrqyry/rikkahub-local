@@ -1,12 +1,6 @@
 package me.rerere.rikkahub.ui.pages.chat
 
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Folder01
-import me.rerere.hugeicons.stroke.Forward02
-import me.rerere.hugeicons.stroke.Pin
-import me.rerere.hugeicons.stroke.PinOff
-import me.rerere.hugeicons.stroke.Refresh01
-import me.rerere.hugeicons.stroke.Delete01
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
@@ -15,9 +9,10 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,11 +34,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import dev.neumorphic.NeumorphicElevation
+import dev.neumorphic.NeumorphicShape
+import dev.neumorphic.NeumorphicInsetSurface
+import me.rerere.rikkahub.ui.theme.rememberRikkaNeumorphicColors
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.paging.compose.LazyPagingItems
@@ -52,8 +48,6 @@ import androidx.paging.compose.itemKey
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.model.Conversation
 import me.rerere.rikkahub.ui.theme.extendColors
-import me.rerere.rikkahub.utils.toLocalString
-import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.uuid.Uuid
 
@@ -61,13 +55,9 @@ import kotlin.uuid.Uuid
  * Represents different types of items in the conversation list
  */
 sealed class ConversationListItem {
-    data class DateHeader(
-        val date: LocalDate,
-        val label: String
-    ) : ConversationListItem()
-    data object PinnedHeader : ConversationListItem()
     data class Item(
-        val conversation: Conversation
+        val conversation: Conversation,
+        val untitledPreview: String? = null,
     ) : ConversationListItem()
 }
 
@@ -77,6 +67,8 @@ fun ColumnScope.ConversationList(
     conversations: LazyPagingItems<ConversationListItem>,
     conversationJobs: Collection<Uuid>,
     listState: LazyListState,
+    projectNames: Map<Uuid, String>,
+    showProjectBadges: Boolean,
     modifier: Modifier = Modifier,
     onClick: (Conversation) -> Unit = {},
     onDelete: (Conversation) -> Unit = {},
@@ -104,7 +96,7 @@ fun ColumnScope.ConversationList(
     LazyColumn(
         state = listState,
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         if (conversations.itemCount == 0) {
             item {
@@ -127,33 +119,16 @@ fun ColumnScope.ConversationList(
 
         items(
             count = conversations.itemCount,
-            key = conversations.itemKey { item ->
-                when (item) {
-                    is ConversationListItem.DateHeader -> "date_${item.date}"
-                    is ConversationListItem.PinnedHeader -> "pinned_header"
-                    is ConversationListItem.Item -> item.conversation.id.toString()
-                }
-            }
+            key = conversations.itemKey { (it as ConversationListItem.Item).conversation.id.toString() }
         ) { index ->
             when (val item = conversations[index]) {
-                is ConversationListItem.DateHeader -> {
-                    DateHeaderItem(
-                        label = item.label,
-                        modifier = Modifier.animateItem()
-                    )
-                }
-
-                is ConversationListItem.PinnedHeader -> {
-                    PinnedHeader(
-                        modifier = Modifier.animateItem()
-                    )
-                }
-
                 is ConversationListItem.Item -> {
                     ConversationItem(
                         conversation = item.conversation,
                         selected = item.conversation.id == current.id,
                         loading = item.conversation.id in conversationJobs,
+                        projectName = if (showProjectBadges) item.conversation.folderId?.let(projectNames::get) else null,
+                        untitledPreview = item.untitledPreview,
                         onClick = onClick,
                         onDelete = onDelete,
                         onRegenerateTitle = onRegenerateTitle,
@@ -173,58 +148,12 @@ fun ColumnScope.ConversationList(
 }
 
 @Composable
-private fun DateHeaderItem(
-    label: String,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-    }
-}
-
-@Composable
-private fun PinnedHeader(
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = HugeIcons.Pin,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(Modifier.size(8.dp))
-        Text(
-            text = stringResource(R.string.pinned_chats),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-    }
-}
-
-@Composable
 private fun ConversationItem(
     conversation: Conversation,
     selected: Boolean,
     loading: Boolean,
+    projectName: String?,
+    untitledPreview: String?,
     modifier: Modifier = Modifier,
     onDelete: (Conversation) -> Unit = {},
     onRegenerateTitle: (Conversation) -> Unit = {},
@@ -234,134 +163,169 @@ private fun ConversationItem(
     onClick: (Conversation) -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-    val backgroundColor = if (selected) {
-        MaterialTheme.colorScheme.surfaceColorAtElevation(8.dp)
-    } else {
-        Color.Transparent
+    val colors = rememberRikkaNeumorphicColors()
+    var showDropdownMenu by remember { mutableStateOf(false) }
+    val zone = ZoneId.systemDefault()
+    // A consistent, compact date leaves more width for generated titles and previews.
+    val dateLabel = conversation.updateAt.atZone(zone)
+        .format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))
+    // Prefer a meaningful preview when the title model has not produced a title.
+    // Only a chat without usable user text falls back to a creation timestamp.
+    val title = conversation.title.ifBlank {
+        untitledPreview ?: conversation.createAt.atZone(zone)
+            .format(java.time.format.DateTimeFormatter.ofPattern("MMM d, h:mm a"))
     }
-    var showDropdownMenu by remember {
-        mutableStateOf(false)
-    }
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(50f))
-            .combinedClickable(
-                interactionSource = interactionSource,
-                indication = LocalIndication.current,
-                onClick = { onClick(conversation) },
-                onLongClick = {
-                    showDropdownMenu = true
-                }
-            )
-            .background(backgroundColor),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = conversation.title.ifBlank { stringResource(id = R.string.chat_page_new_message) },
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(Modifier.weight(1f))
-
-            // 置顶图标
-            AnimatedVisibility(conversation.isPinned) {
-                Icon(
-                    imageVector = HugeIcons.Pin,
-                    contentDescription = "Pinned",
-                    modifier = Modifier.size(12.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-            AnimatedVisibility(loading) {
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(MaterialTheme.extendColors.green6)
-                        .size(4.dp)
-                        .semantics {
-                            contentDescription = "Loading"
-                        }
-                )
-            }
-            DropdownMenu(
-                expanded = showDropdownMenu,
-                onDismissRequest = { showDropdownMenu = false },
+    Box(modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+        val content: @Composable BoxScope.() -> Unit = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .combinedClickable(
+                        interactionSource = interactionSource,
+                        indication = LocalIndication.current,
+                        onClick = { onClick(conversation) },
+                        onLongClick = { showDropdownMenu = true },
+                    )
+                    .heightIn(min = 44.dp)
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            if (conversation.isPinned) stringResource(R.string.unpin_chat) else stringResource(R.string.pin_chat)
-                        )
-                    },
-                    onClick = {
-                        onPin(conversation)
-                        showDropdownMenu = false
-                    },
-                    leadingIcon = {
-                        Icon(
-                            if (conversation.isPinned) HugeIcons.PinOff else HugeIcons.Pin,
-                            null
-                        )
-                    }
+                if (projectName != null) {
+                    Icon(
+                        imageVector = HugeIcons.Folder01,
+                        contentDescription = projectName,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 8.dp).size(16.dp),
+                    )
+                }
+                Text(
+                    text = title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
                 )
+                // Include previews from failed title generation; omit the date only
+                // when the left label itself is the last-resort date/time fallback.
+                if (conversation.title.isNotBlank() || !untitledPreview.isNullOrBlank()) {
+                    Text(
+                        text = dateLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
 
-                DropdownMenuItem(
-                    text = {
-                        Text(stringResource(id = R.string.chat_page_regenerate_title))
-                    },
-                    onClick = {
-                        onRegenerateTitle(conversation)
-                        showDropdownMenu = false
-                    },
-                    leadingIcon = {
-                        Icon(HugeIcons.Refresh01, null)
-                    }
-                )
-
-                DropdownMenuItem(
-                    text = {
-                        Text(stringResource(R.string.chat_page_move_to_assistant))
-                    },
-                    onClick = {
-                        onMoveToAssistant(conversation)
-                        showDropdownMenu = false
-                    },
-                    leadingIcon = {
-                        Icon(HugeIcons.Forward02, null)
-                    }
-                )
-
-                DropdownMenuItem(
-                    text = {
-                        Text(stringResource(R.string.chat_page_move_to_folder))
-                    },
-                    onClick = {
-                        onMoveToFolder(conversation)
-                        showDropdownMenu = false
-                    },
-                    leadingIcon = {
-                        Icon(HugeIcons.Folder01, null)
-                    }
-                )
-
-                DropdownMenuItem(
-                    text = {
-                        Text(stringResource(id = R.string.chat_page_delete))
-                    },
-                    onClick = {
-                        onDelete(conversation)
-                        showDropdownMenu = false
-                    },
-                    leadingIcon = {
-                        Icon(HugeIcons.Delete01, null)
-                    }
-                )
+                // 置顶图标
+                AnimatedVisibility(conversation.isPinned) {
+                    Icon(
+                        imageVector = HugeIcons.Pin,
+                        contentDescription = "Pinned",
+                        modifier = Modifier.size(12.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                AnimatedVisibility(loading) {
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(MaterialTheme.extendColors.green6)
+                            .size(4.dp)
+                            .semantics {
+                                contentDescription = "Loading"
+                            }
+                    )
+                }
             }
         }
+        if (selected) {
+            NeumorphicInsetSurface(
+                modifier = Modifier.fillMaxWidth(),
+                colors = colors,
+                shape = NeumorphicShape.Rounded(18.dp),
+                elevation = NeumorphicElevation.Subtle,
+                backgroundColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                content = content,
+            )
+        } else {
+            Box(modifier = Modifier.fillMaxWidth(), content = content)
+        }
+        DropdownMenu(
+            expanded = showDropdownMenu,
+            onDismissRequest = { showDropdownMenu = false },
+        ) {
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        if (conversation.isPinned) stringResource(R.string.unpin_chat) else stringResource(R.string.pin_chat)
+                    )
+                },
+                onClick = {
+                    onPin(conversation)
+                    showDropdownMenu = false
+                },
+                leadingIcon = {
+                    Icon(
+                        if (conversation.isPinned) HugeIcons.PinOff else HugeIcons.Pin,
+                        null
+                    )
+                }
+            )
+
+            DropdownMenuItem(
+                text = {
+                    Text(stringResource(id = R.string.chat_page_regenerate_title))
+                },
+                onClick = {
+                    onRegenerateTitle(conversation)
+                    showDropdownMenu = false
+                },
+                leadingIcon = {
+                    Icon(HugeIcons.Refresh01, null)
+                }
+            )
+
+            DropdownMenuItem(
+                text = {
+                    Text(stringResource(R.string.chat_page_move_to_assistant))
+                },
+                onClick = {
+                    onMoveToAssistant(conversation)
+                    showDropdownMenu = false
+                },
+                leadingIcon = {
+                    Icon(HugeIcons.Forward02, null)
+                }
+            )
+
+            DropdownMenuItem(
+                text = {
+                    Text(stringResource(R.string.chat_drawer_move_to_project))
+                },
+                onClick = {
+                    onMoveToFolder(conversation)
+                    showDropdownMenu = false
+                },
+                leadingIcon = {
+                    Icon(HugeIcons.Folder01, null)
+                }
+            )
+
+            DropdownMenuItem(
+                text = {
+                    Text(stringResource(id = R.string.chat_page_delete))
+                },
+                onClick = {
+                    onDelete(conversation)
+                    showDropdownMenu = false
+                },
+                leadingIcon = {
+                    Icon(HugeIcons.Delete01, null)
+                }
+            )
+        }
+        }
     }
-}

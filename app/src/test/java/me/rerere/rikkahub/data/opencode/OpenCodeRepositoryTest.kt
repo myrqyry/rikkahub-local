@@ -118,6 +118,14 @@ class OpenCodeRepositoryTest {
     }
 
     private class FakeClient : OpenCodeClient {
+        override fun observeSession(sessionId: String, directory: String?) =
+            kotlinx.coroutines.flow.flowOf<OpenCodeSessionSignal>(OpenCodeSessionSignal.Connected)
+        override suspend fun getSessionStatus(sessionId: String, directory: String?) = "idle"
+        override suspend fun listPendingPermissions(sessionId: String, directory: String?) =
+            emptyList<OpenCodePermission>()
+        override suspend fun replyPermission(
+            sessionId: String, directory: String?, requestId: String, reply: OpenCodePermissionReply,
+        ) = false
         var promptText: String? = null
         var abortedSession: String? = null
         override suspend fun health() = OpenCodeHealth(true, "1.0")

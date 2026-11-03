@@ -2,217 +2,172 @@ package me.rerere.locallm.ocr
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import com.google.ai.edge.litert.CompiledModel
+import android.graphics.Canvas
+import android.graphics.Color
+import android.util.Log
+import com.google.ai.edge.litert.Accelerator
+import java.io.File
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.tensorflow.lite.Interpreter
-import java.io.File
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
+import me.rerere.locallm.ocr.compiled.PpocrDetector
+import me.rerere.locallm.ocr.compiled.PpocrRecognizer
 
 class PpOcrEngineException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
+/**
+ * Real PP-OCRv5 image-to-text pipeline.
+ *
+ * Uses the GPU-clean PP-OCRv5 converted graphs and decoding from Google's
+ * litert-samples Model Zoo (Apache-2.0, source snapshot
+ * 83add91158301c911f34c7e0a74c3fa5c2ebc7e1).
+ *
+ * Previous implementation fed 320x320 NHWC pixels into a 640x640 NCHW
+ * DB detector, passed an arbitrary bounding crop to the recognizer, and did
+ * not perform CTC collapsing. The outputs were not trustworthy OCR.
+ *
+ * This implementation retains the model's own channel order, normalization,
+ * dimensions, connected component text detection, padded line crops and CTC
+ * decoding. Every graph/buffer is closed on both normal and failed runs.
+ */
 open class PpOcrEngine(
-    private val interpreterFactory: InterpreterFactory = TensorFlowInterpreterFactory,
-    private val npuDetFactory: (String) -> CompiledModel? = { null },
-    private val modelDispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1, "ModelDispatcher"),
+    private val modelDispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1, "PpOcr"),
 ) {
-    fun interface InterpreterFactory {
-        fun create(path: String): Interpreter
-    }
-
-    object TensorFlowInterpreterFactory : InterpreterFactory {
-        override fun create(path: String): Interpreter =
-            Interpreter(File(path), Interpreter.Options().setNumThreads(2))
-    }
-
-    companion object {
-        private const val INPUT_SIZE = 320
-        private const val DET_MAP_SIZE = 80
-        private const val DET_THRESHOLD = 0.3f
-    }
-
-    // ponytail: naive det->rec pipeline. det output is binarized into a single region whose
-    // bounding box is cropped and fed to rec; rec logits are argmaxed against a bundled vocab.
-    // No polygon reconstruction, no CTC. Upgrade when real OCR accuracy is needed.
-    open suspend fun recognize(imagePath: String, detPath: String, recPath: String): String {
-        val detFile = File(detPath)
-        if (!detFile.exists()) throw PpOcrEngineException("PP-OCR detection model not found: $detPath")
-        val recFile = File(recPath)
-        if (!recFile.exists()) throw PpOcrEngineException("PP-OCR recognition model not found: $recPath")
-
-        return withContext(modelDispatcher) {
-            val detNpu = runCatching { npuDetFactory(detPath) }.getOrNull()
-            if (detNpu != null) warmUpDetection(detNpu)
-            val rec = interpreterFactory.create(recPath)
+    open suspend fun recognize(imagePath: String, detPath: String, recPath: String): String =
+        withContext(modelDispatcher) {
+            val detFile = File(detPath)
+            if (!detFile.isFile) throw PpOcrEngineException("PP-OCR detection model not found: $detPath")
+            val recFile = File(recPath)
+            if (!recFile.isFile) throw PpOcrEngineException("PP-OCR recognition model not found: $recPath")
+            val folder = recFile.parentFile
+                ?: throw PpOcrEngineException("PP-OCR model directory unavailable")
+            if (detFile.parentFile?.canonicalPath != folder.canonicalPath ||
+                detFile.name != PpocrDetector.MODEL ||
+                recFile.name != PpocrRecognizer.MODEL
+            ) {
+                throw PpOcrEngineException(
+                    "PP-OCRv5 needs ppocr_det_fp16.tflite and ppocr_rec_fp16.tflite together in one directory"
+                )
+            }
+            val dict = File(folder, PpocrRecognizer.DICT)
+            if (!dict.isFile || dict.length() == 0L) {
+                throw PpOcrEngineException("PP-OCRv5 dictionary not found: ${dict.absolutePath}")
+            }
+            val image = BitmapFactory.decodeFile(imagePath)
+                ?: throw PpOcrEngineException("Cannot decode OCR image: $imagePath")
             try {
-                val image = decodePixels(imagePath) ?: return@withContext ""
-                val bbox = if (detNpu != null) {
-                    runDetectionNpu(detNpu, image)
-                } else {
-                    val det = interpreterFactory.create(detPath)
+                try {
+                    runBackend(folder, image, Accelerator.GPU)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (gpuFailure: Exception) {
+                    Log.w("PpOcrEngine", "GPU OCR unavailable; retrying on CPU", gpuFailure)
                     try {
-                        runDetection(det, image)
-                    } finally {
-                        det.close()
+                        runBackend(folder, image, Accelerator.CPU)
+                    } catch (cpuFailure: Exception) {
+                        cpuFailure.addSuppressed(gpuFailure)
+                        throw PpOcrEngineException(
+                            "PP-OCRv5 could not execute on GPU or CPU: ${cpuFailure.message}",
+                            cpuFailure,
+                        )
                     }
                 }
-                val crop = cropBbox(image, bbox)
-                val logits = runRecognition(rec, crop)
-                argmaxText(logits, loadVocab(recPath))
             } finally {
-                runCatching { detNpu?.close() }
-                rec.close()
+                image.recycle()
             }
         }
-    }
 
-    private fun warmUpDetection(det: CompiledModel) = runCatching {
-        val input = det.createInputBuffers()[0]
-        val output = det.createOutputBuffers()[0]
+    private fun runBackend(modelDir: File, image: Bitmap, accelerator: Accelerator): String {
+        val detector = PpocrDetector(modelDir, accelerator)
         try {
-            input.writeFloat(FloatArray(INPUT_SIZE * INPUT_SIZE * 3))
-            det.run(listOf(input), listOf(output))
+            val recognizer = PpocrRecognizer(modelDir, accelerator)
+            try {
+                val letterboxed = letterbox(image)
+                try {
+                    val rgb = bitmapRgb(letterboxed)
+                    val probability = detector.probMap(rgb)
+                    val boxes = PpocrDetector.boxes(probability)
+                    val lines = ArrayList<Pair<PpocrDetector.Box, String>>()
+                    for (box in boxes) {
+                        val text = recognizer.recognize(cropAndPad(letterboxed, box))
+                        if (text.isNotBlank()) lines.add(box to text)
+                    }
+                    // Detector returns approximate top-to-bottom/left-to-right order;
+                    // retain separate lines rather than silently concatenating regions.
+                    return lines.joinToString("\n") { it.second }
+                } finally {
+                    letterboxed.recycle()
+                }
+            } finally {
+                recognizer.close()
+            }
         } finally {
-            runCatching { input.close() }
-            runCatching { output.close() }
+            detector.close()
         }
     }
 
-    private fun runDetectionNpu(det: CompiledModel, image: ByteBuffer): IntArray {
-        val input = det.createInputBuffers()[0]
-        val output = det.createOutputBuffers()[0]
+    private fun letterbox(image: Bitmap): Bitmap {
+        val size = PpocrDetector.SIZE
+        val scale = minOf(size.toFloat() / image.width, size.toFloat() / image.height)
+        val w = (image.width * scale).toInt().coerceAtLeast(1)
+        val h = (image.height * scale).toInt().coerceAtLeast(1)
+        val resized = Bitmap.createScaledBitmap(image, w, h, true)
         try {
-            val floats = FloatArray(INPUT_SIZE * INPUT_SIZE * 3)
-            val holder = ByteBuffer.allocate(floats.size * 4).order(ByteOrder.nativeOrder())
-            image.rewind()
-            holder.put(image)
-            holder.rewind()
-            holder.asFloatBuffer().get(floats)
-            input.writeFloat(floats)
-            det.run(listOf(input), listOf(output))
-            return binarizeBbox(output.readFloat())
+            val out = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            Canvas(out).apply {
+                drawColor(Color.WHITE)
+                drawBitmap(resized, (size - w) / 2f, (size - h) / 2f, null)
+            }
+            return out
         } finally {
-            runCatching { input.close() }
-            runCatching { output.close() }
+            if (resized !== image) resized.recycle()
         }
     }
 
-    private fun binarizeBbox(detScores: FloatArray): IntArray {
-        // 1x80x80x1 region map: binarize at threshold, then take the enclosing box.
-        var minX = DET_MAP_SIZE
-        var minY = DET_MAP_SIZE
-        var maxX = -1
-        var maxY = -1
-        var idx = 0
-        for (y in 0 until DET_MAP_SIZE) {
-            for (x in 0 until DET_MAP_SIZE) {
-                if (detScores[idx++] > DET_THRESHOLD) {
-                    if (x < minX) minX = x
-                    if (x > maxX) maxX = x
-                    if (y < minY) minY = y
-                    if (y > maxY) maxY = y
+    private fun bitmapRgb(bitmap: Bitmap): FloatArray {
+        val count = bitmap.width * bitmap.height
+        val pixels = IntArray(count)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        val rgb = FloatArray(count * 3)
+        for (i in pixels.indices) {
+            val p = pixels[i]
+            rgb[i * 3] = ((p ushr 16) and 0xff).toFloat()
+            rgb[i * 3 + 1] = ((p ushr 8) and 0xff).toFloat()
+            rgb[i * 3 + 2] = (p and 0xff).toFloat()
+        }
+        return rgb
+    }
+
+    private fun cropAndPad(img: Bitmap, box: PpocrDetector.Box): FloatArray {
+        val w = box.x1 - box.x0 + 1
+        val h = box.y1 - box.y0 + 1
+        val crop = Bitmap.createBitmap(img, box.x0, box.y0, w, h)
+        try {
+            val resizedWidth = minOf(
+                (PpocrRecognizer.H.toFloat() * w / h).toInt(),
+                PpocrRecognizer.W,
+            ).coerceAtLeast(1)
+            val resized = Bitmap.createScaledBitmap(crop, resizedWidth, PpocrRecognizer.H, true)
+            try {
+                val px = IntArray(resizedWidth * PpocrRecognizer.H)
+                resized.getPixels(px, 0, resizedWidth, 0, 0, resizedWidth, PpocrRecognizer.H)
+                val result = FloatArray(PpocrRecognizer.H * PpocrRecognizer.W * 3)
+                for (y in 0 until PpocrRecognizer.H) {
+                    for (x in 0 until resizedWidth) {
+                        val p = px[y * resizedWidth + x]
+                        val index = (y * PpocrRecognizer.W + x) * 3
+                        result[index] = ((p ushr 16) and 0xff).toFloat()
+                        result[index + 1] = ((p ushr 8) and 0xff).toFloat()
+                        result[index + 2] = (p and 0xff).toFloat()
+                    }
                 }
+                return result
+            } finally {
+                if (resized !== crop) resized.recycle()
             }
+        } finally {
+            crop.recycle()
         }
-        if (maxX < 0) return intArrayOf(0, 0, 0, 0)
-        val scale = INPUT_SIZE.toFloat() / DET_MAP_SIZE
-        return intArrayOf(
-            (minX * scale).toInt(),
-            (minY * scale).toInt(),
-            ((maxX - minX + 1) * scale).toInt(),
-            ((maxY - minY + 1) * scale).toInt(),
-        )
-    }
-
-    private fun decodePixels(imagePath: String): ByteBuffer? = runCatching {
-        val src = BitmapFactory.decodeFile(imagePath) ?: return@runCatching null
-        val bitmap = if (src.width == INPUT_SIZE && src.height == INPUT_SIZE) src
-        else Bitmap.createScaledBitmap(src, INPUT_SIZE, INPUT_SIZE, true)
-        val buffer = ByteBuffer.allocateDirect(INPUT_SIZE * INPUT_SIZE * 3 * 4).order(ByteOrder.nativeOrder())
-        val pixels = IntArray(INPUT_SIZE * INPUT_SIZE)
-        bitmap.getPixels(pixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE)
-        for (p in pixels) {
-            buffer.putFloat(((p shr 16 and 0xFF) / 255f) * 2f - 1f)
-            buffer.putFloat(((p shr 8 and 0xFF) / 255f) * 2f - 1f)
-            buffer.putFloat(((p and 0xFF) / 255f) * 2f - 1f)
-        }
-        buffer.rewind()
-        if (bitmap !== src) bitmap.recycle()
-        src.recycle()
-        buffer
-    }.getOrNull()
-
-    private fun runDetection(det: Interpreter, image: ByteBuffer): IntArray {
-        val out = ByteBuffer.allocateDirect(det.getOutputTensor(0).numBytes().toInt())
-            .order(ByteOrder.nativeOrder())
-        det.run(image, out)
-        out.rewind()
-        val scores = FloatArray(out.capacity() / 4)
-        for (i in scores.indices) scores[i] = out.float
-        return binarizeBbox(scores)
-    }
-
-    private fun cropBbox(image: ByteBuffer, box: IntArray): ByteBuffer {
-        val x = box[0]
-        val y = box[1]
-        val w = box[2].coerceAtLeast(1)
-        val h = box[3].coerceAtLeast(1)
-        val crop = ByteBuffer.allocateDirect(w * h * 3 * 4).order(ByteOrder.nativeOrder())
-        image.rewind()
-        val rowBytes = INPUT_SIZE * 12
-        for (row in 0 until h) {
-            val src = (y + row).coerceAtMost(INPUT_SIZE - 1)
-            image.position(src * rowBytes + x * 12)
-            val slice = image.slice()
-            slice.limit(w * 12)
-            crop.put(slice)
-        }
-        crop.rewind()
-        return crop
-    }
-
-    private fun runRecognition(rec: Interpreter, crop: ByteBuffer): FloatArray {
-        val outTensor = rec.getOutputTensor(0)
-        val numBytes = outTensor.numBytes().toInt()
-        val out = ByteBuffer.allocateDirect(numBytes).order(ByteOrder.nativeOrder())
-        val inTensor = rec.getInputTensor(0)
-        inTensor.shape()?.let { rec.resizeInput(0, it) }
-        rec.run(crop, out)
-        out.rewind()
-        val logits = FloatArray(numBytes / 4)
-        for (i in logits.indices) logits[i] = out.float
-        return logits
-    }
-
-    private fun loadVocab(recPath: String): List<String> {
-        val dict = File(File(recPath).parentFile ?: File("."), "ppocrv5_dict.txt")
-        return runCatching { dict.readLines().map { it.trim() } }.getOrDefault(emptyList())
-    }
-
-    private fun argmaxText(logits: FloatArray, vocab: List<String>): String {
-        if (vocab.isEmpty()) return ""
-        val stepSize = vocab.size
-        val sb = StringBuilder()
-        var step = 0
-        while (step < logits.size / stepSize) {
-            val base = step * stepSize
-            var best = 0
-            var bestScore = Float.NEGATIVE_INFINITY
-            for (i in 0 until stepSize) {
-                val v = logits[base + i]
-                if (v > bestScore) {
-                    bestScore = v
-                    best = i
-                }
-            }
-            if (best != 0) {
-                val c = vocab.getOrNull(best) ?: continue
-                if (c.isNotBlank()) sb.append(c)
-            }
-            step++
-        }
-        return sb.toString()
     }
 }

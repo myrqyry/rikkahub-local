@@ -6,7 +6,6 @@ import android.os.Build
 import android.os.PerformanceHintManager
 import android.os.Process
 import com.google.ai.edge.litertlm.Backend
-import com.google.ai.edge.litertlm.Capabilities
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Conversation
@@ -28,8 +27,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import me.rerere.locallm.AcceleratorProbe
+import me.rerere.locallm.ExecutionProfileProbe
+import me.rerere.locallm.litert.compute.MemoryAdmission
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.util.concurrent.CancellationException
 import java.util.concurrent.TimeUnit
 
@@ -106,7 +107,23 @@ class LiteRtVisionUnavailableException(
 )
 
 /**
- * Wraps Google's LiteRT-LM runtime (com.google.ai.edge.litertlm:litertlm-android:0.17.0)
+ * Refusal raised before native engine creation when live free-memory evidence says the
+ * model exceeds the runtime headroom budget. This is intentionally checked after
+ * any prior engine is released, so model switching does not count reclaimable native RAM
+ * against the next model.
+ */
+class LiteRtInsufficientMemoryException(
+    val modelPath: String,
+    val modelFileBytes: Long,
+    val availableMemoryBytes: Long,
+    val requiredFreeBytes: Long,
+) : RuntimeException(
+    "Not enough free memory for LiteRT model: need $requiredFreeBytes bytes free " +
+        "for a $modelFileBytes-byte model, but only $availableMemoryBytes bytes are available.",
+)
+
+/**
+ * Wraps Google's LiteRT-LM runtime (currently litertlm-android:0.19.0)
  * for on-device inference of `.litertlm` model files.
  *
  * # Why this rewrite (vs. the simpler v22A original)
@@ -149,6 +166,12 @@ class LiteRtRuntime(private val context: Context) {
 
     private val mutex = Mutex()
     private var loaded: LoadedModel? = null
+
+    /** Only the active native turn may be cancelled by Stop. Native callbacks
+     * may arrive after a Flow collector has gone away. */
+    private class ActiveNativeTurn(val gate: NativeTurnGate, val conversation: Conversation)
+
+    @Volatile private var activeTurn: ActiveNativeTurn? = null
 
     /**
      * In-session fallback accelerator. If the preferred/probed accelerator failed and we
@@ -288,7 +311,7 @@ class LiteRtRuntime(private val context: Context) {
         var conversationSpec: ConversationSpec,
         val engine: Engine,
         var conversation: Conversation,
-        /** Captured from `Capabilities.hasSpeculativeDecodingSupport()` at engine build
+        /** Captured from `ModelInfo.Llm.hasSpeculativeDecodingSupport()` at engine build
          *  time. Persisted so we can surface it on warm-reuse paths too. */
         val fileSupportsSpeculativeDecoding: Boolean,
         /** True iff [engineKey.speculativeDecoding] was true at engine.initialize() time.
@@ -356,7 +379,7 @@ class LiteRtRuntime(private val context: Context) {
      *
      * Returns the resolved accelerator label that was actually used.
      */
-    @OptIn(ExperimentalApi::class) // ExperimentalFlags.* + Capabilities.hasSpeculativeDecodingSupport
+    @OptIn(ExperimentalApi::class) // ExperimentalFlags.* + ModelInfo metadata probe
     suspend fun ensureLoaded(
         modelPath: String,
         preferredAccel: String? = null,
@@ -375,27 +398,54 @@ class LiteRtRuntime(private val context: Context) {
         topP: Double = 0.95,
         temperature: Double = 1.0,
     ): LoadOutcome = mutex.withLock {
-        // Use in-session fallback if a prior GPU→CPU retry already succeeded this session.
-        // forceCpu wins over a non-null preferredAccel.
-        val accel = if (forceCpu) "CPU"
-        else sessionFallbackAccelerator
-            ?: preferredAccel
-            ?: AcceleratorProbe.probeLiteRt(context)
+        val modelFile = File(modelPath)
+        val modelConfig = LiteRtModelDefaults.forModelFile(modelFile.name)
+        val modelFileBytes = modelFile.length().takeIf { it > 0L } ?: modelConfig.sizeBytes
 
-        // Probe the file for speculative-decoding support BEFORE building the engine.
-        val supportsSpeculativeDecoding = try {
-            Capabilities(modelPath).use { it.hasSpeculativeDecodingSupport() }
-        } catch (_: Throwable) {
-            false
-        }
+        // Build one measured execution profile instead of selecting the accelerator from a
+        // disconnected cached label. A persisted/session fallback is still useful evidence,
+        // but the planner revalidates it against the capabilities this process can observe.
+        val initialProfile = ExecutionProfileProbe.capture(context)
+        val initialPlan = LiteRtExecutionPlanner.plan(
+            config = modelConfig,
+            modelFileBytes = modelFileBytes,
+            profile = initialProfile,
+            cachedAccelerator = sessionFallbackAccelerator ?: preferredAccel,
+            forceCpu = forceCpu,
+        )
+        val accel = initialPlan.accelerator
+
+        // Gallery's current model-bundle introspection: distinguish file-declared
+        // capabilities from curated catalog assumptions. A metadata failure or an
+        // UNKNOWN bundle retains the existing fallback, never falsely claims denial.
+        val fileCapabilities = LiteRtFileIntrospector.inspect(modelPath)
+        val fileExecution = fileCapabilities?.executionPlan(
+            requestedImage = supportImage,
+            requestedAudio = supportAudio,
+            requestedMaxNumTokens = maxNumTokens,
+        ) ?: LiteRtFileCapabilities.ExecutionPlan(
+            image = supportImage,
+            audio = supportAudio,
+            maxNumTokens = maxNumTokens,
+        )
+        val supportsSpeculativeDecoding = fileCapabilities?.speculativeDecoding == true
         val effectiveSpeculativeDecoding = speculativeDecoding && supportsSpeculativeDecoding
+        fileCapabilities?.let { evidence ->
+            android.util.Log.i(
+                "LiteRtRuntime",
+                "Bundle declares kind=${evidence.kind} vision=${evidence.vision} " +
+                    "audio=${evidence.audio} tools=${evidence.toolCalling} " +
+                    "thinking=${evidence.thinking} backends=${evidence.textBackends} " +
+                    "context=${evidence.maxContextTokens} minRuntime=${evidence.minRuntimeVersion}",
+            )
+        }
 
         val desiredEngineKey = EngineKey(
             modelPath = modelPath,
             accelerator = accel,
-            maxNumTokens = maxNumTokens,
-            supportImage = supportImage,
-            supportAudio = supportAudio,
+            maxNumTokens = fileExecution.maxNumTokens,
+            supportImage = fileExecution.image,
+            supportAudio = fileExecution.audio,
             speculativeDecoding = effectiveSpeculativeDecoding,
             visionAccelerator = visionAccelerator,
         )
@@ -425,6 +475,7 @@ class LiteRtRuntime(private val context: Context) {
                 return@withLock LoadOutcome(
                     accelerator = accel,
                     visionEnabled = current.engineKey.supportImage,
+                    audioEnabled = current.engineKey.supportAudio,
                     visionFellBackToTextOnly = false,
                     fileSupportsSpeculativeDecoding = current.fileSupportsSpeculativeDecoding,
                     speculativeDecodingEngaged = current.speculativeDecodingEngaged,
@@ -444,6 +495,7 @@ class LiteRtRuntime(private val context: Context) {
             return@withLock LoadOutcome(
                 accelerator = accel,
                 visionEnabled = current.engineKey.supportImage,
+                audioEnabled = current.engineKey.supportAudio,
                 visionFellBackToTextOnly = false,
                 fileSupportsSpeculativeDecoding = current.fileSupportsSpeculativeDecoding,
                 speculativeDecodingEngaged = current.speculativeDecodingEngaged,
@@ -455,6 +507,33 @@ class LiteRtRuntime(private val context: Context) {
         try { current?.engine?.close() } catch (_: Throwable) {}
         loaded = null
 
+        // Re-read live memory AFTER releasing the old native engine. Checking before this
+        // point would incorrectly reject a model switch because reclaimable engine/KV-cache
+        // memory was still counted as unavailable.
+        val postReleasePlan = LiteRtExecutionPlanner.plan(
+            config = modelConfig,
+            modelFileBytes = modelFileBytes,
+            profile = ExecutionProfileProbe.capture(context),
+            cachedAccelerator = accel,
+            forceCpu = forceCpu,
+        )
+        val memoryAdmission = postReleasePlan.memoryAdmission
+        if (memoryAdmission is MemoryAdmission.TooLarge) {
+            throw LiteRtInsufficientMemoryException(
+                modelPath = modelPath,
+                modelFileBytes = memoryAdmission.modelFileBytes,
+                availableMemoryBytes = memoryAdmission.availMemBytes,
+                requiredFreeBytes = memoryAdmission.requiredFreeBytes,
+            )
+        }
+        if (postReleasePlan.warnings.isNotEmpty()) {
+            android.util.Log.w(
+                "LiteRtRuntime",
+                "Execution profile warning(s) for ${modelFile.name}: " +
+                    postReleasePlan.warnings.joinToString(),
+            )
+        }
+
         // Try the preferred accelerator first; fall back to CPU if it isn't already CPU.
         val firstAttempt = runCatching {
             tryLoadWithBackend(desiredEngineKey, accel, desiredConversationSpec)
@@ -463,7 +542,7 @@ class LiteRtRuntime(private val context: Context) {
             val classified = classifyEngineError(modelPath, firstError)
             // Vision executor failed (typically Adreno 7xx + OEM linker namespace blocking
             // libvndksupport.so → OpenCL discovery fails → OpenGL fallback hits the 0.11
-            // `CreateSharedMemoryManager` UNIMPLEMENTED stub; upstream issue #2292). The
+            // `CreateSharedMemoryManager` UNIMPLEMENTED path; upstream issue #2292). The
             // text path is fine on this device, so retry once with the vision backend off.
             // The provider catches the typed exception we surface after the retry and
             // persists the "vision unavailable" flag so subsequent loads skip the doomed
@@ -587,6 +666,7 @@ class LiteRtRuntime(private val context: Context) {
         LoadOutcome(
             accelerator = loadResult.accelerator,
             visionEnabled = loadResult.supportImage,
+            audioEnabled = desiredEngineKey.supportAudio,
             visionFellBackToTextOnly = desiredEngineKey.supportImage && !loadResult.supportImage,
             fileSupportsSpeculativeDecoding = supportsSpeculativeDecoding,
             speculativeDecodingEngaged = effectiveSpeculativeDecoding,
@@ -614,8 +694,9 @@ class LiteRtRuntime(private val context: Context) {
     data class LoadOutcome(
         val accelerator: String,
         val visionEnabled: Boolean,
+        val audioEnabled: Boolean,
         val visionFellBackToTextOnly: Boolean,
-        /** True iff `Capabilities.hasSpeculativeDecodingSupport()` returned true for the
+        /** True iff `ModelInfo.Llm.hasSpeculativeDecodingSupport()` returned true for the
          *  model file. */
         val fileSupportsSpeculativeDecoding: Boolean,
         /** True iff the caller requested speculative decoding AND the file supports it
@@ -817,6 +898,10 @@ class LiteRtRuntime(private val context: Context) {
             }
 
             val conv = instance.conversation
+            val turnGate = NativeTurnGate()
+            val currentTurn = ActiveNativeTurn(turnGate, conv)
+            val nativeTerminalSignal = kotlinx.coroutines.CompletableDeferred<Unit>()
+            lastTelemetry = null // Never reuse performance metrics from an earlier turn.
             // Build Contents in Gallery's order: images and audio first, text last.
             val contentList = mutableListOf<Content>()
             for (image in images) contentList.add(Content.ImageBytes(image.toPngByteArray()))
@@ -831,55 +916,132 @@ class LiteRtRuntime(private val context: Context) {
             val telemetryInputChars = inputText.length
             val callStartedNs = System.nanoTime()
             var firstMessageNs: Long = 0L
+            val streamText = LiteRtStreamTextAccumulator()
             var lastCumulative = ""
-            conv.sendMessageAsync(
-                Contents.of(contentList),
-                object : MessageCallback {
-                    override fun onMessage(message: Message) {
-                        if (firstMessageNs == 0L) firstMessageNs = System.nanoTime()
-                        message.channels["thought"]?.let { thinking ->
-                            if (thinking.isNotEmpty()) onThinking?.invoke(thinking)
+            activeTurn = currentTurn
+            try {
+                conv.sendMessageAsync(
+                    Contents.of(contentList),
+                    object : MessageCallback {
+                        override fun onMessage(message: Message) {
+                            if (!turnGate.acceptsOutput) return
+                            if (firstMessageNs == 0L) firstMessageNs = System.nanoTime()
+                            message.channels["thought"]?.let { thinking ->
+                                if (thinking.isNotEmpty()) onThinking?.invoke(thinking)
+                            }
+                            // LiteRT-LM sends NEW chunks, not cumulative snapshots.
+                            // RikkaHub consumers expect cumulative text; replacing it with each
+                            // chunk made the final answer only the last token (e.g. "ellow").
+                            val chunk = message.toString()
+                            if (chunk.isNotEmpty()) {
+                                lastCumulative = streamText.append(chunk)
+                                trySend(lastCumulative)
+                            }
                         }
-                        val text = message.toString()
-                        if (text.isNotEmpty()) {
-                            lastCumulative = text
-                            trySend(text)
+                        override fun onDone() {
+                            val terminal = turnGate.nativeTerminal()
+                            nativeTerminalSignal.complete(Unit)
+                            when (terminal) {
+                                NativeTurnGate.Terminal.Duplicate -> return
+                                NativeTurnGate.Terminal.Cancelled -> {
+                                    // A native onDone racing Stop is NOT a successful turn.
+                                    close()
+                                    return
+                                }
+                                NativeTurnGate.Terminal.Active -> Unit
+                            }
+                            // The Conversation's KV cache now holds [history…] + the assistant
+                            // turn just generated. Record that so the NEXT call can warm-continue
+                            // if it is a clean single-turn append. Mutating [processed] here is
+                            // safe: the mutex is held for this whole streamTurns invocation.
+                            instance.processed.clear()
+                            instance.processed.addAll(historySignatures)
+                            instance.processed.add(turnSignature(ROLE_ASSISTANT, lastCumulative))
+                            // Stamp telemetry for the provider to read + persist.
+                            val endNs = System.nanoTime()
+                            val prefillMs = if (firstMessageNs > 0L)
+                                (firstMessageNs - callStartedNs) / 1_000_000L else 0L
+                            val decodeMs = if (firstMessageNs > 0L)
+                                (endNs - firstMessageNs) / 1_000_000L else 0L
+                            lastTelemetry = StreamTelemetry(
+                                prefillMs = prefillMs,
+                                decodeMs = decodeMs,
+                                inputCharCount = telemetryInputChars,
+                                outputCharCount = lastCumulative.length,
+                                specDecodingEngaged = instance.speculativeDecodingEngaged,
+                            )
+                            instance.lastUseAtMs = android.os.SystemClock.elapsedRealtime()
+                            close()
                         }
+                        override fun onError(throwable: Throwable) {
+                            val terminal = turnGate.nativeTerminal()
+                            nativeTerminalSignal.complete(Unit)
+                            when (terminal) {
+                                NativeTurnGate.Terminal.Duplicate -> return
+                                NativeTurnGate.Terminal.Cancelled -> {
+                                    // Collection/Stop already invalidated the cache. Do not
+                                    // mutate state from a late callback of an abandoned turn.
+                                    close()
+                                    return
+                                }
+                                NativeTurnGate.Terminal.Active -> Unit
+                            }
+                            // The KV-cache state is now unknown — force the next turn cold.
+                            instance.processed.clear()
+                            lastTelemetry = null
+                            instance.lastUseAtMs = android.os.SystemClock.elapsedRealtime()
+                            if (throwable is CancellationException) close() else close(throwable)
+                        }
+                    },
+                    emptyMap(),
+                )
+                awaitClose {
+                    // onDone/onError close the channel after declaring a native terminal.
+                    // If the collector instead stops early (navigation, request cancelled,
+                    // first()/take(), etc.), cancel native inference explicitly. Without
+                    // this, inference continues outside the abandoned Flow and can race
+                    // the next request when the mutex is released.
+                    if (turnGate.requestCancellation()) {
+                        runCatching { conv.cancelProcess() }
+                            .onFailure { android.util.Log.w("LiteRtRuntime", "Failed to cancel abandoned turn", it) }
                     }
-                    override fun onDone() {
-                        // The Conversation's KV cache now holds [history…] + the assistant
-                        // turn just generated. Record that so the NEXT call can warm-continue
-                        // if it is a clean single-turn append. Mutating [processed] here is
-                        // safe: the mutex is held for this whole streamTurns invocation.
+                    if (turnGate.wasCancelled) {
+                        // Handles both cancellation of the Flow collector and explicit
+                        // Stop. This runs before the mutex is released; late native
+                        // callbacks must not mutate a future turn's cache state.
                         instance.processed.clear()
-                        instance.processed.addAll(historySignatures)
-                        instance.processed.add(turnSignature(ROLE_ASSISTANT, lastCumulative))
-                        // Stamp telemetry for the provider to read + persist.
-                        val endNs = System.nanoTime()
-                        val prefillMs = if (firstMessageNs > 0L)
-                            (firstMessageNs - callStartedNs) / 1_000_000L else 0L
-                        val decodeMs = if (firstMessageNs > 0L)
-                            (endNs - firstMessageNs) / 1_000_000L else 0L
-                        lastTelemetry = StreamTelemetry(
-                            prefillMs = prefillMs,
-                            decodeMs = decodeMs,
-                            inputCharCount = telemetryInputChars,
-                            outputCharCount = lastCumulative.length,
-                            specDecodingEngaged = instance.speculativeDecodingEngaged,
-                        )
+                        lastTelemetry = null
                         instance.lastUseAtMs = android.os.SystemClock.elapsedRealtime()
-                        close()
                     }
-                    override fun onError(throwable: Throwable) {
-                        // The KV-cache state is now unknown — force the next turn cold.
-                        instance.processed.clear()
-                        instance.lastUseAtMs = android.os.SystemClock.elapsedRealtime()
-                        if (throwable is CancellationException) close() else close(throwable)
+                    if (activeTurn === currentTurn) activeTurn = null
+                }
+            } finally {
+                // sendMessageAsync can throw synchronously before any callback or
+                // awaitClose is registered. Never leave a stale Stop target or
+                // falsely keep the warm KV cache in that case.
+                if (turnGate.requestCancellation()) {
+                    instance.processed.clear()
+                    lastTelemetry = null
+                    runCatching { conv.cancelProcess() }
+                }
+                if (turnGate.wasCancelled) {
+                    // Gallery's 2026-10-08 fix establishes that native cancellation
+                    // finishes asynchronously on the inference worker. Give it a
+                    // bounded grace period before releasing the model mutex and
+                    // allowing the next request to reuse the conversation.
+                    val nativeStopped = kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                        kotlinx.coroutines.withTimeoutOrNull(5_000L) {
+                            nativeTerminalSignal.await()
+                            true
+                        } ?: false
                     }
-                },
-                emptyMap(),
-            )
-            awaitClose { /* SDK callback already closed the channel above. */ }
+                    if (!nativeStopped) android.util.Log.w(
+                        "LiteRtRuntime",
+                        "Native generation did not acknowledge cancellation in 5s; warm KV cache invalidated",
+                    )
+                }
+                if (activeTurn === currentTurn) activeTurn = null
+            }
         } } finally {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 runCatching { hintSession?.close() }
@@ -896,7 +1058,16 @@ class LiteRtRuntime(private val context: Context) {
      * generating. Does NOT tear down the Engine or Conversation; the runtime stays warm.
      */
     fun stop() {
-        try { loaded?.conversation?.cancelProcess() } catch (_: Throwable) {}
+        // Mark the active turn *before* asking native inference to cancel:
+        // onDone may race the cancellation and must never populate a warm
+        // assistant-turn signature from a stopped response.
+        val active = activeTurn ?: return
+        if (active.gate.requestCancellation()) {
+            try { active.conversation.cancelProcess() }
+            catch (e: Exception) {
+                android.util.Log.w("LiteRtRuntime", "Failed to stop native generation", e)
+            }
+        }
     }
 
     /**
@@ -956,7 +1127,7 @@ class LiteRtRuntime(private val context: Context) {
          * source file path in the SDK's native stack), but in practice the error can also
          * surface as `vision_litert` truncated, `CreateSharedMemoryManager is not
          * implemented` (the upstream root cause on Adreno 7xx + One UI / OriginOS), or
-         * `gpu_backend_opengl.cc` (the file that hosts the stub). Match any of those.
+         * `gpu_backend_opengl.cc` (the file that hosts the unimplemented path). Match any of those.
          */
         internal fun isVisionExecutorError(joinedMessage: String): Boolean =
             joinedMessage.contains("vision_litert", ignoreCase = true) ||

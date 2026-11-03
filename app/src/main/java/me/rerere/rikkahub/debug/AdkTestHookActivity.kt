@@ -33,7 +33,7 @@ import java.io.File
  * [ChatProviderAdkModel]) plus one FunctionTool through ADK's LlmAgent + InMemoryRunner
  * (see [SimpleAgentRuntime]), and logs the resulting [AgentEvent] stream. Mirrors the
  * LlamaCppTestHookActivity pattern (Activity not BroadcastReceiver — the Android 17
- * preview on the test device stalls the broadcast queue, see SESSION-STATE.md).
+ * preview on the test device stalls the broadcast queue.
  */
 class AdkTestHookActivity : Activity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

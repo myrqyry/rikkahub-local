@@ -67,6 +67,58 @@ internal class OpenCodeHttpClient(
         return true
     }
 
+    override fun observeSession(sessionId: String, directory: String?): kotlinx.coroutines.flow.Flow<OpenCodeSessionSignal> {
+        val url = "$baseUrl/global/event".toHttpUrl().newBuilder().apply {
+            directory?.let { addQueryParameter("directory", it) }
+        }.build().toString()
+        return openCodeSessionEvents(client, url, authorizationValue(), directory, sessionId)
+    }
+
+    override suspend fun getSessionStatus(sessionId: String, directory: String?): String? {
+        val all = get("/session/status", directoryQuery(directory)) as? JsonObject ?: return null
+        val status = all[sessionId] as? JsonObject ?: return "unknown"
+        return status.string("type") ?: "unknown"
+    }
+
+    override suspend fun listPendingPermissions(sessionId: String, directory: String?): List<OpenCodePermission> {
+        val all = get("/permission", directoryQuery(directory)) as? JsonArray ?: return emptyList()
+        return all.mapNotNull { item ->
+            val obj = item as? JsonObject ?: return@mapNotNull null
+            val id = obj.string("id") ?: return@mapNotNull null
+            val owner = obj.string("sessionID") ?: return@mapNotNull null
+            if (owner != sessionId) return@mapNotNull null
+            OpenCodePermission(
+                id = id,
+                sessionId = owner,
+                permission = obj.string("permission") ?: "unspecified",
+                patterns = (obj["patterns"] as? JsonArray)?.mapNotNull {
+                    (it as? JsonPrimitive)?.takeIf { part -> part.isString }?.contentOrNull
+                }?.take(20) ?: emptyList(),
+            )
+        }
+    }
+
+    override suspend fun replyPermission(
+        sessionId: String,
+        directory: String?,
+        requestId: String,
+        reply: OpenCodePermissionReply,
+    ): Boolean {
+        require(requestId.matches(Regex("per_[A-Za-z0-9_-]{1,120}"))) { "Invalid OpenCode permission ID" }
+        // Re-read authority at execution time; stale or foreign requests must never be approved.
+        if (listPendingPermissions(sessionId, directory).none { it.id == requestId }) return false
+        val result = post(
+            "/permission/${requestId.pathSegment()}/reply", directoryQuery(directory),
+            buildJsonObject { put("reply", reply.wireValue) },
+        )
+        return (result as? JsonPrimitive)?.booleanOrNull == true
+    }
+
+    private fun authorizationValue(): String? = credential?.let { value ->
+        if (value.startsWith("Basic ") || value.startsWith("Bearer ")) value
+        else "Basic ${Base64.encodeToString(value.encodeToByteArray(), Base64.NO_WRAP)}"
+    }
+
     private suspend fun get(path: String, query: Map<String, String> = emptyMap()): JsonElement =
         request("GET", path, query, null)
 
@@ -91,10 +143,44 @@ internal class OpenCodeHttpClient(
         }.build()
         client.newCall(request).execute().use { response ->
             val text = response.body.string()
-            if (!response.isSuccessful) throw IOException("OpenCode HTTP ${response.code}: ${text.take(300)}")
+            if (!response.isSuccessful) {
+                // OpenCode 2 changes session paths and prompt acknowledgement
+                // semantics. Never replay prompts while probing an unknown API.
+                if (response.code == 404 && nativeV2ServerInfo()) {
+                    throw IOException(
+                        "OpenCode 2 server detected; RikkaHub's workspace client " +
+                            "still uses the V1 session API. Use the separate " +
+                            "inference provider or a verified V2 adapter."
+                    )
+                }
+                throw IOException("OpenCode HTTP ${response.code}: ${text.take(300)}")
+            }
             if (text.isBlank()) JsonObject(emptyMap()) else JsonInstant.decodeFromString<JsonElement>(text)
         }
     }
+
+    /** V1 can serve HTML on /api/info; only JSON V2 server-info
+     * counts. This read-only probe runs solely after a V1 404.
+     */
+    private fun nativeV2ServerInfo(): Boolean = runCatching {
+        val probe = Request.Builder().url("$baseUrl/api/info").get().apply {
+            credential?.let { value ->
+                header("Authorization", if (value.startsWith("Basic ") || value.startsWith("Bearer "))
+                    value else "Basic ${Base64.encodeToString(value.encodeToByteArray(), Base64.NO_WRAP)}")
+            }
+            header("Accept", "application/json")
+        }.build()
+        client.newCall(probe).execute().use { response ->
+            if (!response.isSuccessful ||
+                response.body.contentType()?.subtype != "json"
+            ) return@use false
+            val info = JsonInstant.decodeFromString<JsonElement>(
+                response.body.string().take(131072)
+            ) as? JsonObject ?: return@use false
+            (info["urls"] is JsonArray) &&
+                (info.containsKey("ready") || info.containsKey("paths"))
+        }
+    }.getOrDefault(false)
 
     private fun directoryQuery(directory: String?): Map<String, String> =
         directory?.takeIf { it.isNotBlank() }?.let { mapOf("directory" to it) } ?: emptyMap()
@@ -112,10 +198,15 @@ internal class OpenCodeHttpClient(
     )
 
     private fun JsonObject.toMessageOrNull(): OpenCodeMessage? {
-        val id = string("id") ?: return null
-        val role = string("role") ?: get("info")?.jsonObject?.string("role") ?: "assistant"
-        val text = string("text") ?: get("parts")?.jsonArray?.joinToString("") { part -> part.jsonObject.string("text").orEmpty() }
-            ?: return null
+        // OpenCode's session message API returns { info: { id, role, ... }, parts: [...] }.
+        // Accept the older flat shape too, but prefer the canonical nested metadata.
+        val info = get("info") as? JsonObject
+        val id = info?.string("id") ?: string("id") ?: return null
+        val role = info?.string("role") ?: string("role") ?: "assistant"
+        val text = string("text") ?: (get("parts") as? JsonArray)?.mapNotNull { element ->
+            val part = element as? JsonObject ?: return@mapNotNull null
+            if (part.string("type") == "text") part.string("text") else null
+        }?.joinToString("") ?: return null
         return OpenCodeMessage(id, role, text)
     }
 

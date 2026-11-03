@@ -47,24 +47,7 @@ import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import me.rerere.common.http.jsonObjectOrNull
 import me.rerere.highlight.HighlightText
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Clipboard
-import me.rerere.hugeicons.stroke.Clock02
-import me.rerere.hugeicons.stroke.Delete01
-import me.rerere.hugeicons.stroke.Eraser
-import me.rerere.hugeicons.stroke.GlobalSearch
-import me.rerere.hugeicons.stroke.MagicWand01
-import me.rerere.hugeicons.stroke.Message02
-import me.rerere.hugeicons.stroke.Pin
-import me.rerere.hugeicons.stroke.QuillWrite01
-import me.rerere.hugeicons.stroke.Refresh01
-import me.rerere.hugeicons.stroke.Search01
-import me.rerere.hugeicons.stroke.Settings03
-import me.rerere.hugeicons.stroke.Calendar03
-import me.rerere.hugeicons.stroke.CalendarAdd01
-import me.rerere.hugeicons.stroke.SmartPhone01
-import me.rerere.hugeicons.stroke.Time02
-import me.rerere.hugeicons.stroke.VolumeHigh
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.event.AppEvent
 import me.rerere.rikkahub.data.event.AppEventBus
@@ -95,6 +78,7 @@ object MemoryToolUI : ToolUIRenderer {
     private fun action(context: ToolUIContext): String? =
         context.arguments.getStringContent("action")
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = when (action(context)) {
         ACTION_DELETE -> HugeIcons.Eraser
         else -> HugeIcons.QuillWrite01
@@ -162,6 +146,7 @@ object MemoryToolUI : ToolUIRenderer {
 object SearchWebToolUI : ToolUIRenderer {
     override val toolName: String = "search_web"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.Search01
 
     @Composable
@@ -224,6 +209,7 @@ object SearchWebToolUI : ToolUIRenderer {
 object ScrapeWebToolUI : ToolUIRenderer {
     override val toolName: String = "scrape_web"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.GlobalSearch
 
     @Composable
@@ -259,6 +245,7 @@ object ScrapeWebToolUI : ToolUIRenderer {
 object GetTimeInfoToolUI : ToolUIRenderer {
     override val toolName: String = "get_time_info"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.Time02
 
     @Composable
@@ -275,6 +262,7 @@ object ClipboardToolUI : ToolUIRenderer {
 
     override val toolName: String = "clipboard_tool"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.Clipboard
 
     @Composable
@@ -292,6 +280,7 @@ object ClipboardToolUI : ToolUIRenderer {
 object TextToSpeechToolUI : ToolUIRenderer {
     override val toolName: String = "text_to_speech"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.VolumeHigh
 
     @Composable
@@ -343,6 +332,7 @@ object TextToSpeechToolUI : ToolUIRenderer {
 object UseSkillToolUI : ToolUIRenderer {
     override val toolName: String = "use_skill"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.MagicWand01
 
     @Composable
@@ -359,6 +349,7 @@ object UseSkillToolUI : ToolUIRenderer {
 object RecentChatsToolUI : ToolUIRenderer {
     override val toolName: String = "recent_chats"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.Message02
 
     @Composable
@@ -391,6 +382,7 @@ object RecentChatsToolUI : ToolUIRenderer {
 object ConversationSearchToolUI : ToolUIRenderer {
     override val toolName: String = "conversation_search"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.Search01
 
     @Composable
@@ -425,6 +417,7 @@ object GetScreenTimeToolUI : ToolUIRenderer {
 
     override val toolName: String = "get_screen_time"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.SmartPhone01
 
     @Composable
@@ -512,6 +505,7 @@ object GetScreenTimeToolUI : ToolUIRenderer {
 object CalendarQueryToolUI : ToolUIRenderer {
     override val toolName: String = "calendar_query"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.Calendar03
 
     @Composable
@@ -553,6 +547,7 @@ object CalendarQueryToolUI : ToolUIRenderer {
 object CalendarCreateToolUI : ToolUIRenderer {
     override val toolName: String = "calendar_create"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.CalendarAdd01
 
     @Composable
@@ -838,6 +833,7 @@ private fun ScrapeWebPreview(content: JsonElement) {
 object RunJsToolUI : ToolUIRenderer {
     override val toolName: String = "run_js"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.MagicWand01
 
     @Composable
@@ -854,6 +850,7 @@ object RunJsToolUI : ToolUIRenderer {
 object CreateCalendarEventToolUI : ToolUIRenderer {
     override val toolName: String = "create_calendar_event"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.Clock02
 
     @Composable
@@ -867,6 +864,7 @@ object CreateCalendarEventToolUI : ToolUIRenderer {
 object CreateContactToolUI : ToolUIRenderer {
     override val toolName: String = "create_contact"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.SmartPhone01
 
     @Composable
@@ -882,6 +880,7 @@ object CreateContactToolUI : ToolUIRenderer {
 object SendSmsIntentToolUI : ToolUIRenderer {
     override val toolName: String = "send_sms_intent"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.SmartPhone01
 
     @Composable
@@ -895,6 +894,7 @@ object SendSmsIntentToolUI : ToolUIRenderer {
 object SendEmailIntentToolUI : ToolUIRenderer {
     override val toolName: String = "send_email_intent"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.Message02
 
     @Composable
@@ -908,6 +908,7 @@ object SendEmailIntentToolUI : ToolUIRenderer {
 object OpenWifiSettingsToolUI : ToolUIRenderer {
     override val toolName: String = "open_wifi_settings"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.Settings03
 
     @Composable
@@ -918,6 +919,7 @@ object OpenWifiSettingsToolUI : ToolUIRenderer {
 object ShowLocationOnMapToolUI : ToolUIRenderer {
     override val toolName: String = "show_location_on_map"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.Pin
 
     @Composable

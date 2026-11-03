@@ -2,6 +2,7 @@ package me.rerere.rikkahub.ui.pages.modelmanager
 
 import android.content.Context
 import android.net.Uri
+import android.os.StatFs
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
@@ -9,6 +10,9 @@ import androidx.lifecycle.viewModelScope
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -28,21 +32,37 @@ import me.rerere.locallm.GgufClassifier
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
 import me.rerere.locallm.ModelInstall
+import me.rerere.locallm.VerifiedModelArtifact
+import me.rerere.locallm.ModelFileImport
 import me.rerere.locallm.ModelCatalog
 import me.rerere.locallm.ModelCatalogEntry
 import me.rerere.locallm.litert.LiteRtCatalog
 import me.rerere.locallm.litert.LiteRtModelDefaults
+import me.rerere.locallm.litert.image.bonsai.BONSAI_IMAGE_MODEL
+import me.rerere.locallm.litert.image.bonsai.BonsaiBundle
+import me.rerere.locallm.litert.image.bonsai.BonsaiBundlePackage
+import me.rerere.locallm.litert.image.bonsai.BonsaiPackageImport
+import me.rerere.locallm.litert.image.bonsai.BonsaiPackageDownload
 import me.rerere.locallm.litert.image.FLUX2_KLEIN_MODEL
 import me.rerere.locallm.litert.image.Flux2KleinPackage
 import me.rerere.locallm.litert.image.Flux2KleinPackageStatus
 import me.rerere.locallm.SdCatalog
 import me.rerere.locallm.SdCatalogEntry
 import me.rerere.rikkahub.data.datastore.SettingsStore
+import me.rerere.rikkahub.data.rag.EmbeddingGemma2Model
+import me.rerere.rikkahub.data.rag.EmbeddingGemma2Variant
 import me.rerere.rikkahub.data.files.FileUtils
 import okhttp3.OkHttpClient
 import kotlin.uuid.Uuid
 
 data class Progress(val percent: Int, val bytesRead: Long, val totalBytes: Long?)
+
+data class GalleryDiscovery(
+    val modelSlug: String? = null,
+    val loading: Boolean = false,
+    val assets: List<LiteRtGalleryAsset> = emptyList(),
+    val error: String? = null,
+)
 
 class ModelManagerViewModel(
     private val context: Context,
@@ -50,12 +70,386 @@ class ModelManagerViewModel(
     private val httpClient: OkHttpClient,
     private val settingsStore: SettingsStore,
     private val fluxPackage: Flux2KleinPackage,
+    private val bonsaiPackage: BonsaiBundlePackage,
 ) : ViewModel() {
 
     private val runtime = LocalRuntime.StableDiffusion
 
     val catalogEntries: List<SdCatalogEntry> = SdCatalog.ENTRIES
     val unifiedCatalog: List<ModelCatalogEntry> = ModelCatalog.entries
+
+    val liteRtGallery: List<LiteRtGalleryModel> = LiteRtModelsGallery.load(context)
+    private val _galleryDiscovery = MutableStateFlow(GalleryDiscovery())
+    val galleryDiscovery: StateFlow<GalleryDiscovery> = _galleryDiscovery.asStateFlow()
+    private var galleryLookup: Job? = null
+    private val _galleryVersion = MutableStateFlow(0)
+    val galleryVersion: StateFlow<Int> = _galleryVersion.asStateFlow()
+
+    val ppOcrSelected: StateFlow<Boolean> = settingsStore.settingsFlow
+        .map { settings ->
+            settings.providers.filterIsInstance<ProviderSetting.TaskOcrLocal>().any { provider ->
+                provider.enabled &&
+                    provider.detModelPath == PpOcrVerifiedPackage.target(context, PpOcrVerifiedPackage.files[0]).absolutePath &&
+                    provider.recModelPath == PpOcrVerifiedPackage.target(context, PpOcrVerifiedPackage.files[1]).absolutePath &&
+                    provider.models.any {
+                        it.modelId == PpOcrVerifiedPackage.MODEL_ID && it.id == settings.ocrModelId
+                    }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun downloadVerifiedPpOcr() {
+        if (_downloadProgress.value != null) return
+        _errorMessage.value = null
+        _downloadProgress.value = Progress(0, 0, PpOcrVerifiedPackage.totalBytes)
+        viewModelScope.launch {
+            try {
+                val remaining = PpOcrVerifiedPackage.files.filter { asset ->
+                    !PpOcrVerifiedPackage.target(context, asset).exists()
+                }.sumOf { it.bytes }
+                val available = withContext(Dispatchers.IO) {
+                    StatFs(context.filesDir.absolutePath).availableBytes
+                }
+                check(available > remaining + 256L * 1024 * 1024) {
+                    "Not enough storage for the complete OCR package and a 256 MB reserve"
+                }
+                var complete = 0L
+                for (asset in PpOcrVerifiedPackage.files) {
+                    val target = PpOcrVerifiedPackage.target(context, asset)
+                    if (target.exists()) {
+                        check(withContext(Dispatchers.IO) {
+                            PpOcrVerifiedPackage.verify(target, asset)
+                        }) {
+                            "Existing ${asset.name} failed SHA-256 verification; remove it deliberately before retrying"
+                        }
+                        complete += asset.bytes
+                        continue
+                    }
+                    var failure: Throwable? = null
+                    var finished = false
+                    ModelInstall.download(httpClient, asset.url, target).collect { p ->
+                        when (p) {
+                            is ModelInstall.Progress.Started -> Unit
+                            is ModelInstall.Progress.Tick -> {
+                                val bytes = complete + p.bytesRead
+                                _downloadProgress.value = Progress(
+                                    ((bytes * 100L) / PpOcrVerifiedPackage.totalBytes).toInt().coerceIn(0, 100),
+                                    bytes,
+                                    PpOcrVerifiedPackage.totalBytes,
+                                )
+                            }
+                            is ModelInstall.Progress.Failed -> failure = p.cause
+                            is ModelInstall.Progress.Done -> {
+                                if (!withContext(Dispatchers.IO) {
+                                    PpOcrVerifiedPackage.verify(p.file, asset)
+                                }) {
+                                    p.file.delete()
+                                    failure = IllegalStateException(
+                                        "${asset.name} did not match the publisher's bytes and SHA-256"
+                                    )
+                                } else {
+                                    finished = true
+                                }
+                            }
+                        }
+                    }
+                    failure?.let { cause ->
+                        throw IllegalStateException(
+                            "OCR download failed (${asset.name}): ${cause.message}", cause
+                        )
+                    }
+                    check(finished) { "OCR download did not complete: ${asset.name}" }
+                    complete += asset.bytes
+                }
+                check(withContext(Dispatchers.IO) {
+                    PpOcrVerifiedPackage.verified(context)
+                }) { "OCR package is incomplete or failed verification" }
+                _galleryVersion.value += 1
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "OCR download failed"
+            } finally {
+                _downloadProgress.value = null
+            }
+        }
+    }
+
+    fun removeVerifiedPpOcr() {
+        if (_downloadProgress.value != null) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val directory = PpOcrVerifiedPackage.directory(context).canonicalFile
+                val inUse = settingsStore.settingsFlow.value.providers
+                    .filterIsInstance<ProviderSetting.TaskOcrLocal>()
+                    .any { provider ->
+                        provider.detModelPath == File(directory, PpOcrVerifiedPackage.files[0].name).absolutePath ||
+                            provider.recModelPath == File(directory, PpOcrVerifiedPackage.files[1].name).absolutePath
+                    }
+                check(!inUse) {
+                    "This OCR package is configured in a provider. Remove that model/provider configuration before deleting its files."
+                }
+                for (asset in PpOcrVerifiedPackage.files) {
+                    val target = PpOcrVerifiedPackage.target(context, asset)
+                    check(target.canonicalFile.parentFile == directory &&
+                        !java.nio.file.Files.isSymbolicLink(target.toPath())
+                    ) { "Refusing to remove an OCR file outside the package" }
+                    if (target.exists()) check(target.isFile && target.delete()) {
+                        "Could not remove ${asset.name}"
+                    }
+                }
+                _galleryVersion.value += 1
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Could not remove OCR package"
+            }
+        }
+    }
+
+    /** Explicitly opt into using the verified package for the OCR model role. */
+    fun selectVerifiedPpOcr() {
+        if (_downloadProgress.value != null) return
+        viewModelScope.launch {
+            try {
+                check(withContext(Dispatchers.IO) { PpOcrVerifiedPackage.verified(context) }) {
+                    "The detector, recognizer and dictionary must all pass SHA-256 verification"
+                }
+                val det = PpOcrVerifiedPackage.target(context, PpOcrVerifiedPackage.files[0]).absolutePath
+                val rec = PpOcrVerifiedPackage.target(context, PpOcrVerifiedPackage.files[1]).absolutePath
+                settingsStore.update { settings ->
+                    settings.withPpOcrSelected(det, rec)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Cannot select PP-OCRv5"
+            }
+        }
+    }
+
+    /** EmbeddingGemma 2 is an embedder, never a LiteRT-LM chat model. */
+    val embeddingGemma2SelectedVariant: StateFlow<EmbeddingGemma2Variant?> = settingsStore.settingsFlow
+        .map { EmbeddingGemma2Variant.forModelId(it.ragEmbeddingModel) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun downloadEmbeddingGemma2(variant: EmbeddingGemma2Variant) {
+        if (_downloadProgress.value != null) return
+        val target = variant.file(context)
+        _errorMessage.value = null
+        _downloadProgress.value = Progress(0, 0, variant.sizeBytes)
+        viewModelScope.launch {
+            try {
+                check(!target.exists()) {
+                    "EmbeddingGemma 2 file already exists. RikkaHub won't overwrite an existing model."
+                }
+                val available = withContext(Dispatchers.IO) {
+                    StatFs(context.filesDir.absolutePath).availableBytes
+                }
+                check(available > variant.sizeBytes + 256L * 1024 * 1024) {
+                    "Not enough free storage for EmbeddingGemma 2 and a 256 MB safety reserve"
+                }
+                var finished = false
+                var failure: Throwable? = null
+                ModelInstall.download(
+                    httpClient,
+                    variant.downloadUrl,
+                    target,
+                    VerifiedModelArtifact(variant.sizeBytes, variant.sha256),
+                ).collect { progress ->
+                    when (progress) {
+                        is ModelInstall.Progress.Started -> Unit
+                        is ModelInstall.Progress.Tick -> {
+                            _downloadProgress.value = Progress(
+                                (progress.bytesRead * 100 / variant.sizeBytes).toInt().coerceIn(0, 100),
+                                progress.bytesRead,
+                                variant.sizeBytes,
+                            )
+                        }
+                        is ModelInstall.Progress.Failed -> failure = progress.cause
+                        // The downloader validates expected size/SHA-256 on its partial
+                        // file before atomically promoting it. Avoid hashing a 485 MB
+                        // model for the second time on the UI download path.
+                        is ModelInstall.Progress.Done -> finished = true
+                    }
+                }
+                failure?.let { throw IllegalStateException("Model download failed: ${it.message}", it) }
+                check(finished) { "EmbeddingGemma 2 download was not completed" }
+                _galleryVersion.value += 1
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "EmbeddingGemma 2 download failed"
+            } finally {
+                _downloadProgress.value = null
+            }
+        }
+    }
+
+    /** User explicitly selects this embedding space. Other RAG indices are not mixed in. */
+    fun selectEmbeddingGemma2(variant: EmbeddingGemma2Variant) {
+        if (_downloadProgress.value != null) return
+        viewModelScope.launch {
+            try {
+                check(withContext(Dispatchers.IO) {
+                    variant.verify(variant.file(context))
+                }) { "EmbeddingGemma 2 model must pass SHA-256 validation before use" }
+                settingsStore.update { it.copy(ragEmbeddingModel = variant.modelId) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Could not select EmbeddingGemma 2"
+            }
+        }
+    }
+
+    fun chooseDefaultRagEmbeddings() {
+        if (_downloadProgress.value != null) return
+        viewModelScope.launch {
+            settingsStore.update {
+                it.copy(ragEmbeddingModel = me.rerere.rikkahub.data.rag.DEFAULT_EMBEDDING_MODEL)
+            }
+        }
+    }
+
+    fun removeEmbeddingGemma2(variant: EmbeddingGemma2Variant) {
+        if (_downloadProgress.value != null) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                check(settingsStore.settingsFlow.value.ragEmbeddingModel != variant.modelId) {
+                    "Switch to another embedding backend before removing the active model"
+                }
+                val target = variant.file(context)
+                val root = File(context.getExternalFilesDir(null) ?: context.filesDir,
+                    "local-models/embeddinggemma2").canonicalFile
+                check(target.canonicalFile.parentFile == root &&
+                    target.name == variant.fileName &&
+                    !java.nio.file.Files.isSymbolicLink(target.toPath())
+                ) { "Refusing to remove a file outside the EmbeddingGemma 2 directory" }
+                if (target.exists()) check(target.isFile && target.delete()) {
+                    "Could not remove EmbeddingGemma 2 model"
+                }
+                _galleryVersion.value += 1
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Could not remove EmbeddingGemma 2"
+            }
+        }
+    }
+
+    fun inspectGalleryModel(model: LiteRtGalleryModel) {
+        galleryLookup?.cancel()
+        _galleryDiscovery.value = GalleryDiscovery(modelSlug = model.slug, loading = true)
+        galleryLookup = viewModelScope.launch {
+            try {
+                val files = LiteRtModelsGallery.discover(httpClient, model)
+                _galleryDiscovery.value = GalleryDiscovery(modelSlug = model.slug, assets = files)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _galleryDiscovery.value = GalleryDiscovery(
+                    modelSlug = model.slug,
+                    error = e.message ?: "Could not inspect repository files",
+                )
+            }
+        }
+    }
+
+    fun galleryFileDownloaded(model: LiteRtGalleryModel, asset: LiteRtGalleryAsset): Boolean {
+        val file = LiteRtModelsGallery.targetFile(context, model, asset)
+        return file.isFile && file.length() > 0 &&
+            (asset.sizeBytes == null || file.length() == asset.sizeBytes)
+    }
+
+    /** Remove only one downloaded, non-runnable gallery artifact after UI confirmation. */
+    fun deleteGalleryAsset(model: LiteRtGalleryModel, asset: LiteRtGalleryAsset) {
+        if (asset.isRunnableLiteRtLm) {
+            _errorMessage.value = "Remove installed chat models from the Models page"
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val root = File(
+                    context.getExternalFilesDir(null) ?: context.filesDir,
+                    "local-models/litert-gallery",
+                ).canonicalFile
+                val target = LiteRtModelsGallery.targetFile(context, model, asset)
+                check(target.canonicalFile.toPath().startsWith(root.toPath())) {
+                    "Refusing to remove anything outside downloaded gallery files"
+                }
+                check(!java.nio.file.Files.isSymbolicLink(target.toPath())) {
+                    "Refusing to remove linked files"
+                }
+                if (target.exists()) {
+                    check(target.isFile && target.delete()) { "Could not remove gallery file" }
+                }
+                _galleryVersion.value += 1
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Could not delete downloaded file"
+            }
+        }
+    }
+
+    fun downloadGalleryAsset(model: LiteRtGalleryModel, asset: LiteRtGalleryAsset) {
+        if (_downloadProgress.value != null) return
+        if (_galleryDiscovery.value.modelSlug != model.slug ||
+            asset !in _galleryDiscovery.value.assets
+        ) {
+            _errorMessage.value = "Choose an asset from the repository file list first"
+            return
+        }
+        // Claim the download slot before dispatching; double taps cannot start two writers.
+        _downloadProgress.value = Progress(0, 0, asset.sizeBytes)
+        _errorMessage.value = null
+        viewModelScope.launch {
+            val target = LiteRtModelsGallery.targetFile(context, model, asset)
+            try {
+                check(!target.exists()) {
+                    "Already downloaded: ${target.name}. Remove it through file management before downloading again."
+                }
+                asset.sizeBytes?.let { bytes ->
+                    val available = StatFs(context.filesDir.absolutePath).availableBytes
+                    check(available > bytes + 256L * 1024 * 1024) {
+                        "Not enough free space for this model and a 256 MB safety reserve"
+                    }
+                }
+                ModelInstall.download(httpClient, asset.downloadUrl, target).collect { progress ->
+                    when (progress) {
+                        is ModelInstall.Progress.Started ->
+                            _downloadProgress.value = Progress(0, 0, progress.totalBytes)
+                        is ModelInstall.Progress.Tick -> {
+                            val size = progress.totalBytes
+                            _downloadProgress.value = Progress(
+                                if (size != null && size > 0) (progress.bytesRead * 100 / size).toInt() else 0,
+                                progress.bytesRead,
+                                size,
+                            )
+                        }
+                        is ModelInstall.Progress.Failed ->
+                            _errorMessage.value = progress.cause.message ?: "Download failed"
+                        is ModelInstall.Progress.Done -> {
+                            if (!withContext(Dispatchers.IO) {
+                                LiteRtModelsGallery.verify(progress.file, asset)
+                            }) {
+                                progress.file.delete()
+                                error("Downloaded size or SHA-256 differs from repository metadata")
+                            }
+                            if (asset.isRunnableLiteRtLm) {
+                                registerLiteRtModel(target.name, target.absolutePath)
+                            }
+                            // Other formats remain files, not registered as an unsupported
+                            // 'ready' chat model. Their download location is shown in the UI.
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Model download failed"
+            } finally {
+                _downloadProgress.value = null
+            }
+        }
+    }
 
     private val fluxPackageRoot = fluxPackage.root
     private val _fluxStatus = MutableStateFlow<Flux2KleinPackageStatus>(
@@ -127,6 +521,143 @@ class ModelManagerViewModel(
         }
     }
 
+    /** An explicit folder selection, never an automatic 4+ GiB download. The
+     * import is isolated from the existing FLUX package and published as a model
+     * only after complete integrity verification.
+     */
+    fun importBonsaiPackageFromTree(uri: Uri) {
+        if (_downloadProgress.value != null) return
+        _errorMessage.value = null
+        _downloadProgress.value = Progress(0, 0, BonsaiBundle.files.sumOf { it.bytes })
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val source = DocumentFile.fromTreeUri(context, uri)
+                        ?.takeIf { it.isDirectory }
+                        ?: error("Choose the folder containing the Bonsai model graphs and tokenizer")
+                    if (!bonsaiPackage.isInstalled()) {
+                        val requiredBytes = BonsaiBundle.files.sumOf { it.bytes }
+                        val installParent = bonsaiPackage.root.parentFile!!
+                        check(installParent.isDirectory || installParent.mkdirs()) {
+                            "Cannot create Bonsai model storage"
+                        }
+                        val availableBytes = StatFs(installParent.absolutePath)
+                            .availableBytes
+                        check(availableBytes > requiredBytes + 512L * 1024 * 1024) {
+                            "Bonsai needs about 4.3 GB free plus 512 MB temporary reserve"
+                        }
+                        val importContext = currentCoroutineContext()
+                        BonsaiPackageImport.import(
+                            packageRoot = bonsaiPackage.root,
+                            onVerifiedBeforePromote = { staging ->
+                                BonsaiBundlePackage(staging).markVerified()
+                            },
+                            open = { spec ->
+                                val item = spec.relative.split('/').fold(source as DocumentFile?) { folder, name ->
+                                    folder?.findFile(name)
+                                }
+                                check(item?.isFile == true) {
+                                    "Missing selected folder file: ${spec.relative}"
+                                }
+                                context.contentResolver.openInputStream(item.uri)
+                                    ?: error("Unable to read ${spec.relative}")
+                            },
+                            onProgress = { copied, total ->
+                                importContext.ensureActive()
+                                _downloadProgress.value = Progress(
+                                    ((copied * 100) / total).toInt().coerceIn(0, 100),
+                                    copied, total,
+                                )
+                            },
+                        )
+                    }
+                    check(bonsaiPackage.isInstalled()) {
+                        "Bonsai package could not be verified after import"
+                    }
+                }
+                settingsStore.update { settings ->
+                    ModelRegistration.register(
+                        settings, LITERT_PROVIDER_ID, BONSAI_IMAGE_MODEL,
+                        bonsaiPackage.root.absolutePath,
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Bonsai package import failed"
+            } finally {
+                _downloadProgress.value = null
+            }
+        }
+    }
+
+    private val _bonsaiDownloading = MutableStateFlow(false)
+    val bonsaiDownloading: StateFlow<Boolean> = _bonsaiDownloading.asStateFlow()
+    private var bonsaiDownloadJob: Job? = null
+
+    /** An explicit user-initiated download of the revision-pinned, full Bonsai
+     * package. Uses the shared resumable verified downloader, never a manual
+     * Hugging Face URL or an implicit multi-GB background transfer. */
+    fun downloadBonsaiPackage() {
+        if (_downloadProgress.value != null || bonsaiDownloadJob?.isActive == true) return
+        _errorMessage.value = null
+        val total = BonsaiBundle.files.sumOf { it.bytes }
+        _downloadProgress.value = Progress(0, 0, total)
+        _bonsaiDownloading.value = true
+        bonsaiDownloadJob = viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val parent = bonsaiPackage.root.parentFile!!
+                    check(parent.isDirectory || parent.mkdirs()) { "Cannot create Bonsai model storage" }
+                    if (!bonsaiPackage.isInstalled()) {
+                        check(!bonsaiPackage.root.exists()) {
+                            "An incomplete Bonsai package exists; refusing to overwrite it"
+                        }
+                        val remaining = BonsaiPackageDownload.remainingBytes(bonsaiPackage.root)
+                        val available = StatFs(parent.absolutePath).availableBytes
+                        check(available > remaining + 512L * 1024L * 1024L) {
+                            "Insufficient space for Bonsai (download needs " +
+                                (remaining / 1_048_576L) + " MiB plus 512 MiB reserve)"
+                        }
+                        BonsaiPackageDownload.download(
+                            client = httpClient,
+                            packageRoot = bonsaiPackage.root,
+                            onProgress = { transferred, expected ->
+                                _downloadProgress.value = Progress(
+                                    ((transferred * 100L) / expected).toInt().coerceIn(0, 100),
+                                    transferred, expected,
+                                )
+                            },
+                        )
+                    }
+                    check(bonsaiPackage.isInstalled()) {
+                        "Bonsai download completed without a valid package receipt"
+                    }
+                }
+                settingsStore.update { settings ->
+                    ModelRegistration.register(
+                        settings, LITERT_PROVIDER_ID, BONSAI_IMAGE_MODEL,
+                        bonsaiPackage.root.absolutePath,
+                    )
+                }
+                _galleryVersion.value += 1
+            } catch (e: CancellationException) {
+                // Keep .partial files in download-only staging for a later retry.
+                throw e
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Bonsai download failed; tap Download to retry"
+            } finally {
+                _bonsaiDownloading.value = false
+                _downloadProgress.value = null
+                bonsaiDownloadJob = null
+            }
+        }
+    }
+
+    fun cancelBonsaiDownload() {
+        bonsaiDownloadJob?.cancel()
+    }
+
     fun setEnabled(enabled: Boolean) = viewModelScope.launch {
         updateMyProvider { (it as? ProviderSetting.StableDiffusion)?.copy(enabled = enabled) ?: it }
     }
@@ -155,10 +686,9 @@ class ModelManagerViewModel(
         ModelInstall.runtimeForExtension(fileName.substringAfterLast('.', ""))
 
     fun importModelFromUri(uri: Uri) = viewModelScope.launch {
-        var cleanupTarget: File? = null
         try {
             val displayName = withContext(Dispatchers.IO) {
-                FileUtils.getFileNameFromUri(context, uri) ?: "model_${System.currentTimeMillis()}"
+                FileUtils.getFileNameFromUri(context, uri) ?: "model_" + System.currentTimeMillis()
             }
             val safeName = sanitizeModelFileName(displayName)
             val targetRuntime = runtimeForFileName(safeName) ?: run {
@@ -167,38 +697,26 @@ class ModelManagerViewModel(
             }
             val extension = safeName.substringAfterLast('.', "")
             val targetFile = ModelInstall.targetFile(
-                ModelInstall.localModelsDir(context),
-                targetRuntime,
-                safeName,
+                ModelInstall.localModelsDir(context), targetRuntime, safeName
             )
-            cleanupTarget = targetFile
             withContext(Dispatchers.IO) {
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                    targetFile.outputStream().use { output -> input.copyTo(output) }
-                } ?: error("Cannot open selected file")
+                val input = context.contentResolver.openInputStream(uri)
+                    ?: error("Cannot open selected file")
+                val jobContext = currentCoroutineContext()
+                ModelFileImport.copyVerified(input, targetFile, extension) {
+                    jobContext.ensureActive()
+                }
             }
-            val buf = ByteArray(16)
-            val bytesRead = targetFile.inputStream().use { it.read(buf) }
-            if (
-                bytesRead < 4 ||
-                !ModelInstall.isValidMagicForExtension(extension, buf.copyOf(bytesRead))
-            ) {
-                targetFile.delete()
-                _errorMessage.value = "Invalid or corrupted model file"
-                return@launch
-            }
+            // Register only the fully validated new file. Do not delete a valid
+            // newly imported file if subsequent model registration fails.
             if (targetRuntime == LocalRuntime.LiteRT) {
                 registerLiteRtModel(safeName, targetFile.absolutePath)
             } else {
-                prefs.addInstalledModel(targetRuntime, safeName, targetFile.absolutePath)
                 registerByClassification(safeName, targetFile)
             }
-            cleanupTarget = null
         } catch (e: CancellationException) {
-            cleanupTarget?.delete()
             throw e
         } catch (e: Exception) {
-            cleanupTarget?.delete()
             _errorMessage.value = e.message ?: "Import failed"
         }
     }
@@ -290,13 +808,12 @@ class ModelManagerViewModel(
             LocalRuntime.LlamaCpp,
             fileName,
         )
-        if (file.absolutePath != chatTarget.absolutePath && file.renameTo(chatTarget)) {
-            prefs.addInstalledModel(LocalRuntime.LlamaCpp, fileName, chatTarget.absolutePath)
-            registerChatModel(fileName, chatTarget.absolutePath)
-        } else {
-            prefs.addInstalledModel(LocalRuntime.LlamaCpp, fileName, file.absolutePath)
-            registerChatModel(fileName, file.absolutePath)
-        }
+        val registeredPath = if (file.absolutePath == chatTarget.absolutePath) file
+            else withContext(Dispatchers.IO) {
+                ModelFileImport.moveWithoutReplacing(file, chatTarget)
+            }
+        prefs.addInstalledModel(LocalRuntime.LlamaCpp, fileName, registeredPath.absolutePath)
+        registerChatModel(fileName, registeredPath.absolutePath)
     }
 
     private suspend fun registerChatModel(fileName: String, absolutePath: String) {

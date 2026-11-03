@@ -2,63 +2,62 @@ package me.rerere.rikkahub.ui.theme
 
 import me.rerere.rikkahub.data.datastore.Settings
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ThemeFamilyTest {
     @Test
-    fun registryContainsAllThemeKitFamilies() {
-        assertTrue(ThemeFamilies.map { it.id }.containsAll(listOf(
-            "dracula",
-            "catppuccin",
-            "rose_pine",
-            "tokyo_night",
-            "gruvbox_dark",
-        )))
+    fun onlyMeristemStaticFamilyRemains() {
+        assertEquals(listOf(MERISTEM_THEME_ID), ThemeFamilies.map { it.id })
+        assertEquals(listOf(MERISTEM_THEME_ID), PresetThemes.map { it.id })
+        listOf("sakura", "ocean", "spring", "autumn", "black", "dracula",
+            "catppuccin", "rose_pine", "tokyo_night", "gruvbox_dark").forEach {
+            assertNull(findThemeFamily(it))
+            assertEquals(MERISTEM_THEME_ID, findPresetTheme(it).id)
+        }
     }
 
     @Test
-    fun selectingActiveVariationCyclesWithWraparound() {
-        val family = findThemeFamily("dracula")!!
-
-        assertEquals("soft", nextThemeVariation(family, "default"))
-        assertEquals("high_contrast", nextThemeVariation(family, "soft"))
-        assertEquals("default", nextThemeVariation(family, "high_contrast"))
+    fun variationAndAccentCyclingWrapAround() {
+        val family = requireNotNull(findThemeFamily(MERISTEM_THEME_ID))
+        assertEquals("warm", nextThemeVariation(family, "slate"))
+        assertEquals("slate", nextThemeVariation(family, "warm"))
+        assertEquals("teal", nextThemeAccent(family, "blue"))
+        assertEquals("blue", nextThemeAccent(family, "pink"))
     }
 
     @Test
-    fun longPressAccentCyclesWithWraparound() {
-        val family = findThemeFamily("tokyo_night")!!
-
-        assertEquals("blue", nextThemeAccent(family, "purple"))
-        assertEquals("purple", nextThemeAccent(family, "red"))
+    fun unknownSelectionsStartAfterFallbackFirstEntry() {
+        val family = requireNotNull(findThemeFamily(MERISTEM_THEME_ID))
+        assertEquals("warm", nextThemeVariation(family, "missing"))
+        assertEquals("teal", nextThemeAccent(family, "missing"))
     }
 
     @Test
-    fun unknownSelectionsStartAtTheFirstEntry() {
-        val family = findThemeFamily("catppuccin")!!
-
-        assertEquals("macchiato", nextThemeVariation(family, "missing"))
-        assertEquals("blue", nextThemeAccent(family, "missing"))
-    }
-
-    @Test
-    fun generatedFamilyHasLightAndDarkSchemes() {
-        val family = findThemeFamily("rose_pine")!!
-        val light = family.colorScheme("default", "iris", dark = false)
-        val dark = family.colorScheme("default", "iris", dark = true)
-
+    fun generatesDistinctLightAndDarkPalettes() {
+        val family = requireNotNull(findThemeFamily(MERISTEM_THEME_ID))
+        val light = family.colorScheme("slate", "blue", dark = false)
+        val dark = family.colorScheme("slate", "blue", dark = true)
         assertNotEquals(light.background, dark.background)
         assertNotEquals(light.onBackground, dark.onBackground)
     }
 
     @Test
-    fun newSettingsUseCompatibleThemeDefaults() {
-        val settings = Settings()
+    fun savedCustomPalettesRemainResolvableEvenAfterRetiringBuiltIns() {
+        val custom = CustomTheme(id = "saved-user-theme", name = "My palette", primaryColorArgb = 0xFFAF8A77)
+        assertEquals(custom.id, findThemeById(custom.id, listOf(custom))?.id)
+        assertNull(findThemeById("old-retired-theme", listOf(custom)))
+    }
 
-        assertEquals("default", settings.themeVariation)
-        assertEquals("default", settings.themeAccent)
-        assertEquals(null, settings.materialYouSourceColor)
+    @Test
+    fun settingsKeepMaterialYouDefaultAndPreferMeristemAsStaticFallback() {
+        val settings = Settings()
+        assertTrue(settings.dynamicColor)
+        assertEquals(MERISTEM_THEME_ID, settings.themeId)
+        assertNull(settings.materialYouSourceColor)
+        assertFalse(Settings(dynamicColor = false).dynamicColor)
     }
 }

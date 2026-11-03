@@ -1,15 +1,6 @@
 package me.rerere.rikkahub.ui.pages.setting
 
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Package01
-import me.rerere.hugeicons.stroke.Connect
-import me.rerere.hugeicons.stroke.ArrowDown01
-import me.rerere.hugeicons.stroke.Add01
-import me.rerere.hugeicons.stroke.Refresh03
-import me.rerere.hugeicons.stroke.Tools
-import me.rerere.hugeicons.stroke.Share01
-import me.rerere.hugeicons.stroke.Delete01
-import me.rerere.hugeicons.stroke.Cancel01
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,6 +31,7 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FloatingToolbarDefaults.ScreenOffset
 import androidx.compose.material3.FloatingToolbarDefaults.floatingToolbarVerticalNestedScroll
@@ -70,6 +62,7 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -87,6 +80,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastFilter
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dokar.sonner.ToastType
 import kotlinx.coroutines.CoroutineScope
@@ -102,6 +98,12 @@ import me.rerere.ai.provider.TextGenerationParams
 import me.rerere.ai.registry.ModelRegistry
 import me.rerere.ai.ui.UIMessage
 import me.rerere.rikkahub.R
+import me.rerere.rikkahub.data.datastore.withoutProvider
+import me.rerere.rikkahub.data.modelregistry.ModelsDevModelCatalog
+import me.rerere.rikkahub.data.modelregistry.ModelCatalogLoad
+import me.rerere.rikkahub.data.modelregistry.ProviderScopedCatalogLoad
+import me.rerere.rikkahub.data.modelregistry.ProviderScopedModelList
+import me.rerere.rikkahub.data.modelregistry.resolveImport
 import me.rerere.rikkahub.ui.components.ai.ModelAbilityTag
 import me.rerere.rikkahub.ui.components.ai.ModelModalityTag
 import me.rerere.rikkahub.ui.components.ai.ModelSelector
@@ -162,10 +164,7 @@ fun SettingProviderDetailPage(id: Uuid, vm: SettingVM = koinViewModel()) {
         vm.updateSettings(newSettings)
     }
     val onDelete = {
-        val newSettings = settings.copy(
-            providers = settings.providers - provider
-        )
-        vm.updateSettings(newSettings)
+        vm.updateSettings(settings.withoutProvider(provider))
         navController.popBackStack()
     }
 
@@ -316,20 +315,18 @@ private fun SettingProviderConfigPage(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            ProviderConnectionTester(
-                internalProvider = internalProvider,
-            )
+            if (internalProvider !is ProviderSetting.ComfyUi) {
+                ProviderConnectionTester(internalProvider = internalProvider)
+            }
 
             Spacer(Modifier.weight(1f))
 
-            if (!internalProvider.builtIn) {
-                IconButton(
-                    onClick = {
-                        showDeleteDialog = true
-                    },
-                ) {
-                    Icon(HugeIcons.Delete01, null)
-                }
+            // Built-in providers are removable too: confirmed removal writes a
+            // tombstone so PreferencesStore cannot silently re-add them.
+            IconButton(
+                onClick = { showDeleteDialog = true },
+            ) {
+                Icon(HugeIcons.Delete01, contentDescription = stringResource(R.string.delete))
             }
 
             IconButton(
@@ -410,12 +407,42 @@ private fun ModelList(
 ) {
     val providerManager = koinInject<ProviderManager>()
     val toaster = LocalToaster.current
-    val modelList by produceState(emptyList(), providerSetting) {
+    val context = LocalContext.current
+    val endpoint = when (providerSetting) {
+        is ProviderSetting.OpenAI -> providerSetting.baseUrl
+        is ProviderSetting.Claude -> providerSetting.baseUrl
+        is ProviderSetting.Google -> providerSetting.baseUrl
+        else -> null
+    }
+    val scopedCatalogLoad by produceState(
+        initialValue = ProviderScopedCatalogLoad(providerSetting.id, endpoint, ModelCatalogLoad.Loading),
+        providerSetting.id, endpoint,
+    ) {
+        val catalog = if (endpoint != null) withContext(Dispatchers.IO) {
+            try {
+                ModelsDevModelCatalog.loadForProvider(
+                    File(context.cacheDir, "models-dev-provider-directory.json"),
+                    providerSetting,
+                )
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null // Unavailable catalog must not block custom/provider model entry.
+            }
+        } else null
+        value = ProviderScopedCatalogLoad(providerSetting.id, endpoint, ModelCatalogLoad.Ready(catalog))
+    }
+    // Ignore a previous provider's completed result while Compose switches keys.
+    val catalogLoad = scopedCatalogLoad.forProvider(providerSetting.id, endpoint)
+    val scopedModelList by produceState(ProviderScopedModelList(providerSetting, emptyList()), providerSetting) {
         runCatching {
-            value = providerManager.getProviderByType(providerSetting)
-                .listModels(providerSetting)
-                .sortedBy { it.modelId }
-                .toList()
+            value = ProviderScopedModelList(
+                providerSetting,
+                providerManager.getProviderByType(providerSetting)
+                    .listModels(providerSetting)
+                    .sortedBy { it.modelId }
+                    .toList(),
+            )
         }.onFailure { error ->
             // runCatching catches Throwable, which includes CancellationException
             // (e.g. when the user navigates away from the Models tab mid-fetch
@@ -431,6 +458,7 @@ private fun ModelList(
             )
         }
     }
+    val modelList = scopedModelList.forProvider(providerSetting)
     var expanded by rememberSaveable { mutableStateOf(true) }
     val lazyListState = rememberLazyListState()
     val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
@@ -512,6 +540,7 @@ private fun ModelList(
         ) {
             AddModelButton(
                 models = modelList,
+                catalogLoad = catalogLoad,
                 selectedModels = providerSetting.models,
                 onAddModel = {
                     onUpdateProvider(providerSetting.addModel(it))
@@ -532,24 +561,49 @@ private fun ModelSettingsForm(
     model: Model,
     onModelChange: (Model) -> Unit,
     isEdit: Boolean,
-    parentProvider: ProviderSetting? = null
+    parentProvider: ProviderSetting? = null,
+    catalog: ModelsDevModelCatalog? = null,
 ) {
     val pagerState = rememberPagerState { 3 }
     val scope = rememberCoroutineScope()
+    var manuallyEdited by remember(model.id) { mutableStateOf(false) }
+    fun userEdit(updated: Model) {
+        manuallyEdited = true
+        onModelChange(updated)
+    }
+    LaunchedEffect(catalog, model.modelId, isEdit) {
+        if (!isEdit && !manuallyEdited && model.metadataSource == null && parentProvider != null) {
+            catalog?.find(parentProvider, model.modelId)
+                ?.takeIf { it.isSelectableAsChatOrImage }
+                ?.let { onModelChange(it.applyToNewModel(model)) }
+        }
+    }
 
     fun setModelId(id: String) {
-        val inputModality = ModelRegistry.MODEL_INPUT_MODALITIES.getData(id)
-        val outputModality = ModelRegistry.MODEL_OUTPUT_MODALITIES.getData(id)
-        val abilities = ModelRegistry.MODEL_ABILITIES.getData(id)
-        onModelChange(
-            model.copy(
-                modelId = id,
-                displayName = id,
-                inputModalities = inputModality,
-                outputModalities = outputModality,
-                abilities = abilities
-            )
+        manuallyEdited = false
+        val base = model.copy(
+            modelId = id,
+            displayName = id,
+            type = ModelType.CHAT,
+            inputModalities = ModelRegistry.MODEL_INPUT_MODALITIES.getData(id),
+            outputModalities = ModelRegistry.MODEL_OUTPUT_MODALITIES.getData(id),
+            abilities = ModelRegistry.MODEL_ABILITIES.getData(id),
+            contextLength = null,
+            maxOutputTokens = null,
+            supportedParameters = emptyList(),
+            pricePromptPerToken = null,
+            priceCompletionPerToken = null,
+            supportsTemperature = null,
+            supportsStructuredOutput = null,
+            reasoningEfforts = emptyList(),
+            reasoningControlTypes = emptyList(),
+            advertisedInputModalities = emptyList(),
+            advertisedOutputModalities = emptyList(),
+            metadataSource = null,
         )
+        val metadata = parentProvider?.let { catalog?.find(it, id) }
+            ?.takeIf { it.isSelectableAsChatOrImage }
+        onModelChange(metadata?.applyToNewModel(base) ?: base)
     }
 
     Column {
@@ -620,7 +674,7 @@ private fun ModelSettingsForm(
                         OutlinedTextField(
                             value = model.displayName,
                             onValueChange = {
-                                onModelChange(model.copy(displayName = it.trim()))
+                                userEdit(model.copy(displayName = it.trim()))
                             },
                             label = { Text(stringResource(if (isEdit) R.string.setting_provider_page_model_name else R.string.setting_provider_page_model_display_name)) },
                             modifier = Modifier.fillMaxWidth(),
@@ -631,10 +685,27 @@ private fun ModelSettingsForm(
                             }
                         )
 
+                        if (model.metadataSource != null) {
+                            Text(
+                                "Auto-configured: ${model.metadataSource}. Catalog data is not a connection test; you can override it below.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        if (model.advertisedInputModalities.isNotEmpty() || model.advertisedOutputModalities.isNotEmpty()) {
+                            Text(
+                                "Catalog media (advertised only): input ${model.advertisedInputModalities.joinToString().ifEmpty { "unknown" }}; " +
+                                    "output ${model.advertisedOutputModalities.joinToString().ifEmpty { "unknown" }}. " +
+                                    "Audio, video, and PDF still require a compatible runtime/adapter; these labels do not enable one.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+
                         ModelTypeSelector(
                             selectedType = model.type,
                             onTypeSelected = {
-                                onModelChange(model.copy(type = it))
+                                userEdit(model.copy(type = it))
                             }
                         )
 
@@ -642,11 +713,11 @@ private fun ModelSettingsForm(
                             model = model,
                             inputModalities = model.inputModalities,
                             onUpdateInputModalities = {
-                                onModelChange(model.copy(inputModalities = it))
+                                userEdit(model.copy(inputModalities = it))
                             },
                             outputModalities = model.outputModalities,
                             onUpdateOutputModalities = {
-                                onModelChange(model.copy(outputModalities = it))
+                                userEdit(model.copy(outputModalities = it))
                             }
                         )
 
@@ -654,7 +725,7 @@ private fun ModelSettingsForm(
                             ModalAbilitySelector(
                                 abilities = model.abilities,
                                 onUpdateAbilities = {
-                                    onModelChange(model.copy(abilities = it))
+                                    userEdit(model.copy(abilities = it))
                                 }
                             )
                         }
@@ -670,10 +741,24 @@ private fun ModelSettingsForm(
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        if (model.contextLength != null || model.maxOutputTokens != null ||
+                            model.supportsTemperature != null || model.reasoningEfforts.isNotEmpty()
+                        ) {
+                            Text("Detected model limits & parameters", style = MaterialTheme.typography.titleSmall)
+                            model.contextLength?.let { Text("Context: $it tokens") }
+                            model.maxOutputTokens?.let { Text("Maximum output: $it tokens") }
+                            model.supportsTemperature?.let {
+                                Text("Temperature parameter: ${if (it) "supported" else "not supported"}")
+                            }
+                            if (model.reasoningEfforts.isNotEmpty()) {
+                                Text("Advertised reasoning efforts: ${model.reasoningEfforts.joinToString()}")
+                            }
+                        }
+
                         ProviderOverrideSettings(
                             providerOverride = model.providerOverwrite,
                             onUpdateProviderOverride = { providerOverride ->
-                                onModelChange(model.copy(providerOverwrite = providerOverride))
+                                userEdit(model.copy(providerOverwrite = providerOverride))
                             },
                             parentProvider = parentProvider
                         )
@@ -681,14 +766,14 @@ private fun ModelSettingsForm(
                         CustomHeaders(
                             headers = model.customHeaders,
                             onUpdate = { headers ->
-                                onModelChange(model.copy(customHeaders = headers))
+                                userEdit(model.copy(customHeaders = headers))
                             }
                         )
 
                         CustomBodies(
                             customBodies = model.customBodies,
                             onUpdate = { bodies ->
-                                onModelChange(model.copy(customBodies = bodies))
+                                userEdit(model.copy(customBodies = bodies))
                             }
                         )
                     }
@@ -699,7 +784,7 @@ private fun ModelSettingsForm(
                     BuiltInToolsSettings(
                         tools = model.tools,
                         onUpdateTools = { tools ->
-                            onModelChange(model.copy(tools = tools))
+                            userEdit(model.copy(tools = tools))
                         }
                     )
                 }
@@ -711,6 +796,7 @@ private fun ModelSettingsForm(
 @Composable
 private fun AddModelButton(
     models: List<Model>,
+    catalogLoad: ModelCatalogLoad,
     selectedModels: List<Model>,
     expanded: Boolean,
     onAddModel: (Model) -> Unit,
@@ -718,18 +804,25 @@ private fun AddModelButton(
     parentProvider: ProviderSetting,
     onUpdateProvider: (ProviderSetting) -> Unit
 ) {
+    // Manual dialog applies catalog metadata as the ID is entered (unless the user
+    // edits overrides). Don't enrich again on confirm and overwrite those edits.
     val dialogState = useEditState<Model> { onAddModel(it) }
     val scope = rememberCoroutineScope()
+    val importReady = catalogLoad is ModelCatalogLoad.Ready
+    val catalog = (catalogLoad as? ModelCatalogLoad.Ready)?.catalog
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (!importReady) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
         ModelPicker(
             models = models,
+            parentProvider = parentProvider,
+            catalogLoad = catalogLoad,
             selectedModels = selectedModels,
             onModelSelected = { model ->
-                onAddModel(model.enrichCapabilities())
+                catalogLoad.resolveImport(model, parentProvider)?.let(onAddModel)
             },
             onModelDeselected = { model ->
                 onRemoveModel(model)
@@ -739,7 +832,7 @@ private fun AddModelButton(
                     parentProvider.copyProvider(
                         models = parentProvider.models + it.filter { model ->
                             parentProvider.models.none { existing -> existing.modelId == model.modelId }
-                        }.map { model -> model.enrichCapabilities() }
+                        }.mapNotNull { model -> catalogLoad.resolveImport(model, parentProvider) }
                     )
                 )
             },
@@ -752,6 +845,15 @@ private fun AddModelButton(
                     )
                 )
             }
+        )
+        ModelsDevCatalogModelPicker(
+            suggestions = catalog?.suggestedModels(parentProvider) ?: emptyList(),
+            configured = selectedModels,
+            onSelect = { metadata ->
+                if (selectedModels.none { it.modelId == metadata.modelId }) {
+                    onAddModel(metadata.applyToNewModel(Model(modelId = metadata.modelId)))
+                }
+            },
         )
 
         Button(
@@ -823,7 +925,8 @@ private fun AddModelButton(
                             model = modelState,
                             onModelChange = { dialogState.currentState = it },
                             isEdit = false,
-                            parentProvider = parentProvider
+                            parentProvider = parentProvider,
+                            catalog = catalog
                         )
                     }
 
@@ -839,6 +942,7 @@ private fun AddModelButton(
                             Text(stringResource(R.string.cancel))
                         }
                         TextButton(
+                            enabled = importReady,
                             onClick = {
                                 if (modelState.modelId.isNotBlank() && modelState.displayName.isNotBlank()) {
                                     dialogState.confirm()
@@ -857,14 +961,16 @@ private fun AddModelButton(
 @Composable
 private fun ModelPicker(
     models: List<Model>,
+    parentProvider: ProviderSetting,
+    catalogLoad: ModelCatalogLoad,
     selectedModels: List<Model>,
     onModelSelected: (Model) -> Unit,
     onModelDeselected: (Model) -> Unit,
     onAllModelSelected: (List<Model>) -> Unit,
     onAllModelDeselected: (List<Model>) -> Unit
 ) {
-    var showModal by remember { mutableStateOf(false) }
-    if (showModal) {
+    var showModal by remember(parentProvider.id) { mutableStateOf(false) }
+    if (showModal && catalogLoad is ModelCatalogLoad.Ready) {
         ModalBottomSheet(
             onDismissRequest = { showModal = false },
             sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)),
@@ -961,7 +1067,9 @@ private fun ModelPicker(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
-                                        val modelMeta = remember(it) { it.enrichCapabilities() }
+                                        val modelMeta = remember(it, catalogLoad) {
+                                            catalogLoad.resolveImport(it, parentProvider) ?: it
+                                        }
                                         ModelModalityTag(
                                             model = modelMeta,
                                         )
@@ -1015,6 +1123,7 @@ private fun ModelPicker(
         }
     ) {
         IconButton(
+            enabled = catalogLoad is ModelCatalogLoad.Ready,
             onClick = {
                 showModal = true
             }
@@ -1583,20 +1692,3 @@ private fun ProviderOverrideSettings(
         }
     }
 }
-
-/**
- * Prefer capabilities auto-detected at fetch time (OpenRouter's /models populates
- * supportedParameters, modalities, abilities and the IMAGE model type); only fall back to
- * the static ModelRegistry lookup for providers that return bare model ids. Without this,
- * the registry lookup clobbered OpenRouter's detected image/tool/reasoning capabilities.
- */
-private fun Model.enrichCapabilities(): Model =
-    if (supportedParameters.isNotEmpty()) {
-        this
-    } else {
-        copy(
-            inputModalities = ModelRegistry.MODEL_INPUT_MODALITIES.getData(modelId),
-            outputModalities = ModelRegistry.MODEL_OUTPUT_MODALITIES.getData(modelId),
-            abilities = ModelRegistry.MODEL_ABILITIES.getData(modelId),
-        )
-    }

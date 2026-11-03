@@ -38,12 +38,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Add01
-import me.rerere.hugeicons.stroke.Delete01
-import me.rerere.hugeicons.stroke.Edit01
-import me.rerere.hugeicons.stroke.MoreVertical
-import me.rerere.hugeicons.stroke.Zap
+import me.rerere.rikkahub.ui.icons.MingcuteIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.model.QuickMessage
 import me.rerere.rikkahub.ui.components.nav.BackButton
@@ -98,7 +93,7 @@ internal fun QuickMessagesContent(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Icon(
-                            imageVector = HugeIcons.Zap,
+                            imageVector = MingcuteIcons.Zap,
                             contentDescription = null,
                             modifier = Modifier.size(48.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -132,7 +127,7 @@ internal fun QuickMessagesContent(
                 .align(Alignment.BottomEnd)
                 .padding(16.dp),
         ) {
-            Icon(HugeIcons.Add01, contentDescription = null)
+            Icon(MingcuteIcons.Add01, contentDescription = null)
         }
     }
 
@@ -199,7 +194,7 @@ private fun QuickMessageCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = HugeIcons.Zap,
+                imageVector = MingcuteIcons.Zap,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary,
@@ -227,7 +222,7 @@ private fun QuickMessageCard(
             Box {
                 IconButton(onClick = { menuExpanded = true }) {
                     Icon(
-                        imageVector = HugeIcons.MoreVertical,
+                        imageVector = MingcuteIcons.MoreVertical,
                         contentDescription = stringResource(R.string.skills_page_more_actions),
                     )
                 }
@@ -239,7 +234,7 @@ private fun QuickMessageCard(
                         text = { Text(stringResource(R.string.edit)) },
                         leadingIcon = {
                             Icon(
-                                imageVector = HugeIcons.Edit01,
+                                imageVector = MingcuteIcons.Edit01,
                                 contentDescription = null,
                             )
                         },
@@ -252,7 +247,7 @@ private fun QuickMessageCard(
                         text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) },
                         leadingIcon = {
                             Icon(
-                                imageVector = HugeIcons.Delete01,
+                                imageVector = MingcuteIcons.Delete01,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.error,
                             )

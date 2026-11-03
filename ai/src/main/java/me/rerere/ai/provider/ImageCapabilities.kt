@@ -27,6 +27,18 @@ data class ImageCapabilities(
 /** Per-runtime capabilities; local Stable Diffusion is deliberately bounded. */
 val ProviderSetting.imageCapabilities: ImageCapabilities
     get() = when (this) {
+        is ProviderSetting.ComfyUi -> ImageCapabilities(
+            generation = true,
+            editing = false,
+            maxOutputs = 4,
+            supportedAspectRatios = ImageAspectRatio.entries.toSet(),
+            supportsSeed = true,
+            supportsNegativePrompt = true,
+            supportsSteps = true,
+            supportsCfg = true,
+            supportsPartialPreview = false,
+            maxReferenceImages = 0,
+        )
         is ProviderSetting.StableDiffusion -> ImageCapabilities(
             generation = true,
             editing = false,

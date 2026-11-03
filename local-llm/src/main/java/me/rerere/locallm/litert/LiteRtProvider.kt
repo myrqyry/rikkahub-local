@@ -25,15 +25,30 @@ import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
 import me.rerere.locallm.litert.image.LiteRtImageGenerationRuntime
 import me.rerere.locallm.litert.image.FLUX2_KLEIN_MODEL
+import me.rerere.locallm.litert.image.bonsai.BONSAI_IMAGE_MODEL
+import me.rerere.locallm.litert.image.bonsai.BonsaiImageRuntime
 import com.google.ai.edge.litertlm.tool as litertTool
 import com.google.ai.edge.litertlm.ToolProvider
 
 private const val TAG = "LiteRtProvider"
 
-internal fun listLiteRtModels(installed: Map<String, String>): List<Model> =
-    installed.filterKeys { it != FLUX2_KLEIN_MODEL.modelId }
-        .map { (fileName, _) -> Model(modelId = fileName, displayName = fileName) } +
-        FLUX2_KLEIN_MODEL
+internal fun listLiteRtModels(
+    installed: Map<String, String>,
+    bonsaiVerified: Boolean = false,
+): List<Model> =
+    installed.filterKeys {
+        it != FLUX2_KLEIN_MODEL.modelId && it != BONSAI_IMAGE_MODEL.modelId
+    }.map { (fileName, _) -> Model(modelId = fileName, displayName = fileName) } +
+        FLUX2_KLEIN_MODEL +
+        (if (bonsaiVerified) listOf(BONSAI_IMAGE_MODEL) else emptyList())
+
+internal enum class LiteRtImageBackend { FLUX2_KLEIN, BONSAI }
+
+internal fun selectLiteRtImageBackend(modelId: String): LiteRtImageBackend = when (modelId) {
+    FLUX2_KLEIN_MODEL.modelId -> LiteRtImageBackend.FLUX2_KLEIN
+    BONSAI_IMAGE_MODEL.modelId -> LiteRtImageBackend.BONSAI
+    else -> throw IllegalArgumentException("No LiteRT image backend for model: $modelId")
+}
 
 /**
  * Outcome of [decideImageForwarding]: whether to hand image bytes to the runtime this turn,
@@ -87,6 +102,7 @@ class LiteRtProvider(
     private val context: Context,
     private val runtime: LiteRtRuntime,
     private val imageRuntime: LiteRtImageGenerationRuntime,
+    private val bonsaiImageRuntime: BonsaiImageRuntime,
     private val prefs: LocalRuntimePreferences,
     private val settingsUpdater: suspend (transform: (List<ProviderSetting>) -> List<ProviderSetting>) -> Unit,
     zeroWorkflowExecutor: ZeroWorkflowExecutor? = null,
@@ -147,7 +163,11 @@ class LiteRtProvider(
     }
 
     override suspend fun listModels(providerSetting: ProviderSetting.LiteRtLocal): List<Model> {
-        return listLiteRtModels(prefs.installedModels(LocalRuntime.LiteRT))
+        return listLiteRtModels(
+            prefs.installedModels(LocalRuntime.LiteRT),
+            bonsaiVerified = me.rerere.locallm.litert.image.bonsai.BonsaiBundle
+                .fromContext(context).isInstalled(),
+        )
     }
 
     override suspend fun generateText(
@@ -277,29 +297,32 @@ class LiteRtProvider(
         //
         // Populate the snapshot before handing the engine the call, clear it in the
         // finally below so concurrent requests cannot see each other's tools.
-        LiteRtToolBridgeRegistry.setForRequest(params.tools)
-        val nativeTools = if (params.tools.isNotEmpty()) listOf(toolProvider) else emptyList()
+        // An opt-in math/reasoning-only model must not inherit the agent's tool
+        // authority or native ToolSet just because the user has enabled tools.
+        val availableTools = if (config.supportsToolCalling) params.tools else emptyList()
+        LiteRtToolBridgeRegistry.setForRequest(availableTools)
+        val nativeTools = if (availableTools.isNotEmpty()) listOf(toolProvider) else emptyList()
         Log.i(
             TAG,
-            "tool bridge: ${params.tools.size} tool(s) registered for this request " +
-                "(${params.tools.joinToString(",") { it.name }.take(200)}…)",
+            "tool bridge: ${availableTools.size} tool(s) registered for this request " +
+                "(${availableTools.joinToString(",") { it.name }.take(200)}…)",
         )
         // For models that still need a per-tool catalogue in the system prompt (small
         // local models that benefit from explicit name + description listing alongside
         // SDK tool registration), build a compact reference block. This is descriptive
         // text only; the model invokes tools through the bridge, NOT by emitting
         // <tool_call> blocks.
-        val toolReference = if (params.tools.isNotEmpty()) {
+        val toolReference = if (availableTools.isNotEmpty()) {
             buildString {
-                append("You have ${params.tools.size} tools available. ")
+                append("You have ${availableTools.size} tools available. ")
                 append("Call runTool(name, argsJson) with one of these names to use them:\n")
-                params.tools.take(60).forEach { tool ->
+                availableTools.take(60).forEach { tool ->
                     val firstLineDesc = tool.description.lineSequence().firstOrNull()
                         ?.trim().orEmpty().take(80)
                     append("- ${tool.name}: $firstLineDesc\n")
                 }
-                if (params.tools.size > 60) {
-                    append("(…and ${params.tools.size - 60} more tools available — ")
+                if (availableTools.size > 60) {
+                    append("(…and ${availableTools.size - 60} more tools available — ")
                     append("call runTool with their names directly when needed.)\n")
                 }
             }
@@ -383,7 +406,7 @@ class LiteRtProvider(
                 // call grammar so Gemma actually invokes runTool(...) via the bridge
                 // instead of producing free-form "I can't do that" text. OFF for plain
                 // chat turns to avoid biasing normal language.
-                constrainedDecoding = params.tools.isNotEmpty(),
+                constrainedDecoding = availableTools.isNotEmpty(),
                 topK = providerSetting.topK ?: config.topK,
                 topP = providerSetting.topP ?: config.topP,
                 temperature = providerSetting.temperature ?: config.temperature,
@@ -416,9 +439,9 @@ class LiteRtProvider(
 
         // ---- Stream + cumulative→delta conversion ----
         //
-        // The SDK's MessageCallback.onMessage emits the CUMULATIVE response so far
-        // (Gallery's `partialResult` is consumed via a REPLACE-the-content path). But
-        // RikkaHub's downstream chunk-handling APPENDS each Text part (see
+        // LiteRT-LM's MessageCallback.onMessage emits a NEW text chunk. LiteRtRuntime
+        // collects those chunks and yields the CUMULATIVE response so far. RikkaHub's
+        // downstream chunk-handling APPENDS each Text part (see
         // UIMessage.appendChunk in ai/ui/Message.kt: incoming Text parts are concatenated
         // onto the previous Text part). Emitting cumulative chunks straight through would
         // duplicate the response geometrically. So we hold the previous cumulative and
@@ -458,13 +481,37 @@ class LiteRtProvider(
             // them why; otherwise it's a silent no-op (text-only model, no attachment).
             emptyList()
         }
-        val turnAudio: List<ByteArray> = if (config.supportsAudio) {
-            lastUser?.parts
-                ?.filterIsInstance<UIMessagePart.Audio>()
-                ?.mapNotNull { it.audioBytes(context) }
-                .orEmpty()
+        val userAudioParts = lastUser?.parts
+            ?.filterIsInstance<UIMessagePart.Audio>()
+            .orEmpty()
+        val turnAudio: List<ByteArray> = if (outcome.audioEnabled) {
+            userAudioParts.mapNotNull { it.audioBytes(context) }
         } else {
             emptyList()
+        }
+        if (userAudioParts.isNotEmpty() && config.supportsAudio && !outcome.audioEnabled) {
+            emit(
+                MessageChunk(
+                    id = streamId,
+                    model = params.model.modelId,
+                    choices = listOf(
+                        UIMessageChoice(
+                            index = 0,
+                            delta = UIMessage(
+                                role = MessageRole.ASSISTANT,
+                                parts = listOf(
+                                    UIMessagePart.Text(
+                                        "[Audio attachment wasn't sent: this model bundle " +
+                                            "does not declare an audio encoder.]\n\n"
+                                    )
+                                ),
+                            ),
+                            message = null,
+                            finishReason = null,
+                        )
+                    ),
+                )
+            )
         }
         if (turnImages.isNotEmpty() || turnAudio.isNotEmpty()) {
             Log.i(
@@ -701,11 +748,17 @@ class LiteRtProvider(
         params: ImageGenerationParams,
     ): Flow<ImageGenerationItem> = flow {
         require(providerSetting is ProviderSetting.LiteRtLocal)
+        val backend = selectLiteRtImageBackend(params.model.modelId)
         repeat(params.numOfImages.coerceAtLeast(1)) {
-            val bitmap = imageRuntime.generate(params.prompt) { }
+            val bitmap = when (backend) {
+                LiteRtImageBackend.FLUX2_KLEIN -> imageRuntime.generate(params.prompt) { }
+                LiteRtImageBackend.BONSAI -> bonsaiImageRuntime.generate(
+                    prompt = params.prompt, seed = java.security.SecureRandom().nextLong(),
+                )
+            }
             val bytes = ByteArrayOutputStream().use { output ->
                 check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
-                    "Failed to encode FLUX.2-klein output"
+                    "Failed to encode LiteRT image output"
                 }
                 output.toByteArray()
             }
@@ -721,6 +774,19 @@ class LiteRtProvider(
      * users on a chat surface.
      */
     private fun translateSdkError(t: Throwable, effectiveMaxNumTokens: Int): Throwable {
+        if (t is LiteRtInsufficientMemoryException) {
+            val needMiB = t.requiredFreeBytes / (1024L * 1024L)
+            val modelMiB = t.modelFileBytes / (1024L * 1024L)
+            val availableMiB = t.availableMemoryBytes / (1024L * 1024L)
+            return RuntimeException(
+                "Not enough free memory to load this local model safely. " +
+                    "The $modelMiB MiB model needs about $needMiB MiB free including runtime " +
+                    "headroom, but Android currently reports $availableMiB MiB available. " +
+                    "Close memory-heavy apps or choose a smaller local model.",
+                t,
+            )
+        }
+
         // Typed exception from the runtime — the structural diagnosis already happened.
         // Vision-unavailable here means BOTH "GPU vision tried and failed" AND "text-only
         // retry also failed", i.e. the model truly cannot load on this device's chip class

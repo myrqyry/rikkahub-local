@@ -1,5 +1,6 @@
 package me.rerere.rikkahub.browser
 
+import me.rerere.rikkahub.ui.icons.MingcuteIcons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,8 +29,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Sparkles
 import me.rerere.rikkahub.R
 
 /**
@@ -66,7 +65,7 @@ fun BrowserAiStripe() {
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Icon(
-                    imageVector = HugeIcons.Sparkles,
+                    imageVector = MingcuteIcons.Sparkles,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.primary,

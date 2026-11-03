@@ -125,14 +125,16 @@ class ComputeGateTest {
     }
 
     @Test
-    fun `explicit gpu preference falls back when the snapshot lacks gpu`() {
+    fun `explicit gpu preference falls back to a real LiteRT-LM backend when gpu is unavailable`() {
         val noGpu = ComputeCapabilities(
             isQualcomm = false,
             qnnLibrarySupported = false,
             gpuDelegateSupported = false,
             nnapiSupported = true,
         )
-        assertEquals("nnapi", gate.resolveAccelerator(execute(AcceleratorPreference.GPU).requirements, noGpu))
+        // LiteRT-LM 0.17.0 has no NNAPI Backend, so advertising NNAPI here would execute
+        // as CPU while reporting the wrong backend. Fall back truthfully to CPU instead.
+        assertEquals("cpu", gate.resolveAccelerator(execute(AcceleratorPreference.GPU).requirements, noGpu))
         // Without a snapshot the request is honoured at face value.
         assertEquals("gpu", gate.resolveAccelerator(execute(AcceleratorPreference.GPU).requirements, null))
     }

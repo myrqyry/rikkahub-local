@@ -498,6 +498,36 @@ class GoogleProviderMessageTest {
     }
 
     @Test
+    fun `Gemini 3 clamps unsupported medium effort to advertised low`() {
+        val params = TextGenerationParams(
+            model = Model(
+                modelId = "gemini-3-pro-preview",
+                abilities = listOf(ModelAbility.REASONING),
+                reasoningEfforts = listOf("low", "high"),
+            ),
+            reasoningLevel = ReasoningLevel.MEDIUM,
+        )
+        val request = invokeBuildCompletionRequestBody(listOf(UIMessage.user("hello")), params)
+        val config = request["generationConfig"]!!.jsonObject["thinkingConfig"]!!.jsonObject
+        assertEquals("LOW", config["thinkingLevel"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `Gemini 3 omits unsupported low effort instead of upshifting to high`() {
+        val params = TextGenerationParams(
+            model = Model(
+                modelId = "gemini-3-pro-preview",
+                abilities = listOf(ModelAbility.REASONING),
+                reasoningEfforts = listOf("high"),
+            ),
+            reasoningLevel = ReasoningLevel.LOW,
+        )
+        val request = invokeBuildCompletionRequestBody(listOf(UIMessage.user("hello")), params)
+        val config = request["generationConfig"]!!.jsonObject["thinkingConfig"]!!.jsonObject
+        assertTrue(!config.containsKey("thinkingLevel"))
+    }
+
+    @Test
     fun `AUTO reasoning level omits thinkingLevel for Gemini 3 series models`() {
         val messages = listOf(UIMessage.user("hello"))
         val params = TextGenerationParams(

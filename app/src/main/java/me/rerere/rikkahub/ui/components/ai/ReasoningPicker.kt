@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
@@ -32,28 +31,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import me.rerere.ai.core.ReasoningLevel
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Idea
-import me.rerere.hugeicons.stroke.Idea01
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.ui.components.ui.ToggleSurface
-import me.rerere.rikkahub.ui.components.ui.icons.ReasoningHigh
-import me.rerere.rikkahub.ui.components.ui.icons.ReasoningLow
-import me.rerere.rikkahub.ui.components.ui.icons.ReasoningMedium
 import kotlin.math.roundToInt
-
-private val levels = ReasoningLevel.entries
-private val levelCount = levels.size
 
 @Composable
 fun ReasoningButton(
     modifier: Modifier = Modifier,
     onlyIcon: Boolean = false,
     reasoningLevel: ReasoningLevel,
+    availableLevels: List<ReasoningLevel> = ReasoningLevel.entries,
     onUpdateReasoningLevel: (ReasoningLevel) -> Unit,
 ) {
     var showPicker by remember { mutableStateOf(false) }
@@ -61,15 +54,18 @@ fun ReasoningButton(
     if (showPicker) {
         ReasoningPicker(
             reasoningLevel = reasoningLevel,
+            availableLevels = availableLevels,
             onDismissRequest = { showPicker = false },
             onUpdateReasoningLevel = onUpdateReasoningLevel
         )
     }
 
+    val accessibleLabel = stringResource(R.string.setting_provider_page_reasoning) +
+        ": " + reasoningLevel.label()
     ToggleSurface(
         checked = reasoningLevel.isEnabled,
         onClick = { showPicker = true },
-        modifier = modifier,
+        modifier = modifier.semantics { contentDescription = accessibleLabel },
     ) {
         Row(
             modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp),
@@ -80,7 +76,7 @@ fun ReasoningButton(
                 modifier = Modifier.size(24.dp),
                 contentAlignment = Alignment.Center
             ) {
-                ReasoningIcon(reasoningLevel)
+                ReasoningGauge(reasoningLevel, modifier = Modifier.size(24.dp))
             }
             if (!onlyIcon) Text(stringResource(R.string.setting_provider_page_reasoning))
         }
@@ -90,13 +86,20 @@ fun ReasoningButton(
 @Composable
 fun ReasoningPicker(
     reasoningLevel: ReasoningLevel,
+    availableLevels: List<ReasoningLevel> = ReasoningLevel.entries,
     onDismissRequest: () -> Unit = {},
     onUpdateReasoningLevel: (ReasoningLevel) -> Unit,
 ) {
-    val currentIndex = levels.indexOf(reasoningLevel).coerceAtLeast(0)
-    var sliderValue by remember { mutableFloatStateOf(currentIndex.toFloat()) }
+    val levels = availableLevels.distinct()
+    if (levels.isEmpty()) return
+    val selectedLevel = reasoningLevel.takeIf { it in levels }
+        ?: levels.firstOrNull { it == ReasoningLevel.AUTO }
+        ?: levels.first()
+    val levelCount = levels.size
+    val currentIndex = levels.indexOf(selectedLevel)
+    var sliderValue by remember(levels) { mutableFloatStateOf(currentIndex.toFloat()) }
 
-    LaunchedEffect(currentIndex) {
+    LaunchedEffect(currentIndex, levels) {
         sliderValue = currentIndex.toFloat()
     }
 
@@ -135,24 +138,16 @@ fun ReasoningPicker(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val iconColor by animateColorAsState(
-                    if (reasoningLevel.isEnabled) MaterialTheme.colorScheme.primary
+                    if (selectedLevel.isEnabled) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurface
                 )
-                Icon(
-                    imageVector = when (reasoningLevel) {
-                        ReasoningLevel.OFF -> HugeIcons.Idea
-                        ReasoningLevel.AUTO -> HugeIcons.Idea01
-                        ReasoningLevel.LOW -> ReasoningLow
-                        ReasoningLevel.MEDIUM -> ReasoningMedium
-                        ReasoningLevel.HIGH -> ReasoningHigh
-                        ReasoningLevel.XHIGH -> ReasoningHigh
-                    },
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp),
+                ReasoningGauge(
+                    level = selectedLevel,
+                    modifier = Modifier.size(36.dp),
                     tint = iconColor,
                 )
                 Text(
-                    text = reasoningLevel.label(),
+                    text = selectedLevel.label(),
                     style = MaterialTheme.typography.titleMedium,
                 )
             }
@@ -161,7 +156,7 @@ fun ReasoningPicker(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Slider(
+                if (levelCount > 1) Slider(
                     value = sliderValue,
                     onValueChange = { sliderValue = it },
                     onValueChangeFinished = {
@@ -198,7 +193,8 @@ fun ReasoningPicker(
                 )
 
                 ReasoningScale(
-                    selectedLevel = reasoningLevel,
+                    selectedLevel = selectedLevel,
+                    levels = levels,
                     onSelect = { level ->
                         sliderValue = levels.indexOf(level).toFloat()
                         onUpdateReasoningLevel(level)
@@ -212,6 +208,7 @@ fun ReasoningPicker(
 @Composable
 private fun ReasoningScale(
     selectedLevel: ReasoningLevel,
+    levels: List<ReasoningLevel>,
     onSelect: (ReasoningLevel) -> Unit,
 ) {
     Row(
@@ -263,18 +260,6 @@ private fun ReasoningScale(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun ReasoningIcon(level: ReasoningLevel) {
-    when (level) {
-        ReasoningLevel.OFF -> Icon(HugeIcons.Idea, null)
-        ReasoningLevel.AUTO -> Icon(HugeIcons.Idea01, null)
-        ReasoningLevel.LOW -> Icon(ReasoningLow, null)
-        ReasoningLevel.MEDIUM -> Icon(ReasoningMedium, null)
-        ReasoningLevel.HIGH -> Icon(ReasoningHigh, null)
-        ReasoningLevel.XHIGH -> Icon(ReasoningHigh, null)
     }
 }
 

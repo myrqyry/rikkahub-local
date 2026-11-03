@@ -1,6 +1,6 @@
 package me.rerere.rikkahub.ui.components.ai.completion
 
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.annotation.DrawableRes
 import androidx.compose.ui.text.TextRange
 
 data class ChatCompletionContext(
@@ -21,7 +21,7 @@ data class ChatCompletionItem(
     val label: String,
     val insertText: String,
     val detail: String? = null,
-    val icon: ImageVector? = null,
+    @DrawableRes val icon: Int? = null,
     val sortScore: Int = 0,
 )
 

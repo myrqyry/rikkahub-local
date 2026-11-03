@@ -293,36 +293,38 @@ internal fun moveOrCopyContent(
         }
     }
 
-    // Open the destination stream (file:// or content://).
-    val dstStream = when {
-        rawDst.startsWith("content://") -> {
-            ContentUriSafetyGuard.check(rawDst)?.let {
-                return fmTextPart(fmErrEnvelope(it.code, it.detail))
+    return srcStream.use { ins ->
+        // Open the destination stream only while the source is owned by use.
+        // Every early return on invalid destination or missing SAF grant must close
+        // that source stream too (upstream rikkahub-agent 0ff79698).
+        val dstStream = when {
+            rawDst.startsWith("content://") -> {
+                ContentUriSafetyGuard.check(rawDst)?.let {
+                    return@use fmTextPart(fmErrEnvelope(it.code, it.detail))
+                }
+                try {
+                    ContentUriResolver.openOutput(context, rawDst)
+                        ?: return@use fmTextPart(ContentUriResolver.notGrantedEnvelope(rawDst))
+                } catch (_: SecurityException) {
+                    return@use fmTextPart(ContentUriResolver.notGrantedEnvelope(rawDst))
+                }
             }
-            try {
-                ContentUriResolver.openOutput(context, rawDst)
-                    ?: return fmTextPart(ContentUriResolver.notGrantedEnvelope(rawDst))
-            } catch (_: SecurityException) {
-                return fmTextPart(ContentUriResolver.notGrantedEnvelope(rawDst))
+            else -> {
+                val expanded = AgentWorkspace.expand(rawDst)
+                PathSafetyGuard.check(expanded)?.let {
+                    return@use fmTextPart(fmErrEnvelope(it.code, it.detail))
+                }
+                val f = java.io.File(expanded)
+                if (f.exists() && !overwrite) {
+                    return@use fmTextPart(fmErrEnvelope("destination_exists", "Destination exists. Pass overwrite=true."))
+                }
+                f.parentFile?.mkdirs()
+                f.outputStream()
             }
         }
-        else -> {
-            val expanded = AgentWorkspace.expand(rawDst)
-            PathSafetyGuard.check(expanded)?.let {
-                return fmTextPart(fmErrEnvelope(it.code, it.detail))
-            }
-            val f = java.io.File(expanded)
-            if (f.exists() && !overwrite) {
-                return fmTextPart(fmErrEnvelope("destination_exists", "Destination exists. Pass overwrite=true."))
-            }
-            f.parentFile?.mkdirs()
-            f.outputStream()
-        }
-    }
 
-    var bytesCopied = 0L
-    try {
-        srcStream.use { ins ->
+        var bytesCopied = 0L
+        try {
             dstStream.use { os ->
                 val buf = ByteArray(8192)
                 var read: Int
@@ -331,23 +333,23 @@ internal fun moveOrCopyContent(
                     bytesCopied += read
                 }
             }
+        } catch (e: Throwable) {
+            return@use fmTextPart(fmErrEnvelope("io_error", e.message ?: "stream copy failed"))
         }
-    } catch (e: Throwable) {
-        return fmTextPart(fmErrEnvelope("io_error", e.message ?: "stream copy failed"))
-    }
 
-    if (deleteSrc) {
-        if (rawSrc.startsWith("content://")) {
-            runCatching { ContentUriResolver.resolve(context, rawSrc)?.delete() }
-        } else {
-            runCatching { java.io.File(AgentWorkspace.expand(rawSrc)).delete() }
+        if (deleteSrc) {
+            if (rawSrc.startsWith("content://")) {
+                runCatching { ContentUriResolver.resolve(context, rawSrc)?.delete() }
+            } else {
+                runCatching { java.io.File(AgentWorkspace.expand(rawSrc)).delete() }
+            }
         }
-    }
 
-    return fmTextPart(buildJsonObject {
-        put("success", true)
-        put("from", rawSrc)
-        put("to", rawDst)
-        put("bytes_copied", bytesCopied)
-    }.toString())
+        fmTextPart(buildJsonObject {
+            put("success", true)
+            put("from", rawSrc)
+            put("to", rawDst)
+            put("bytes_copied", bytesCopied)
+        }.toString())
+    }
 }

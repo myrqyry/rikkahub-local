@@ -62,7 +62,7 @@ class SubAgentCompletionWaitTest {
      * If this test ever flips to "passes by accident" we know someone has changed Flow's
      * .first semantics in a way we should know about.
      */
-    @Test fun `OLD buggy form returns null on both success AND timeout — explains the bug`() = runBlocking {
+    @Test fun `OLD buggy form returns null on both success AND timeout - explains the bug`() = runBlocking {
         // Success path: flow goes to null → first(predicate) returns null
         val flowSuccess = MutableStateFlow<Job?>(null)  // already complete
         val finishedSuccess = withTimeoutOrNull(500L) {

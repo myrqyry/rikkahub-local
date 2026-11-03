@@ -22,10 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.composables.icons.lucide.ExternalLink
-import com.composables.icons.lucide.Lucide
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Link01
+import me.rerere.rikkahub.ui.icons.MingcuteIcons
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.files.SkillMetadata
 import me.rerere.rikkahub.data.model.Lorebook
@@ -198,7 +196,7 @@ private fun ManageButton(onClick: () -> Unit) {
         horizontalArrangement = Arrangement.End,
     ) {
         TextButton(onClick = onClick) {
-            Icon(Lucide.ExternalLink, contentDescription = null, modifier = Modifier.size(16.dp))
+            Icon(MingcuteIcons.Link01, contentDescription = null, modifier = Modifier.size(16.dp))
             Text(
                 text = stringResource(R.string.extension_content_manage),
                 modifier = Modifier.padding(start = 4.dp),

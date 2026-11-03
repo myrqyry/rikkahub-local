@@ -1,0 +1,8 @@
+.gradle/
+**/build/
+local.properties
+*.onnx
+*.apk
+*.wav
+*.bin
+*.txt.tmp

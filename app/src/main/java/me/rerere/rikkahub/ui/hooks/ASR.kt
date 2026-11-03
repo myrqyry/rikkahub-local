@@ -18,6 +18,7 @@ import me.rerere.asr.ASRState
 import me.rerere.asr.providers.DashScopeASRController
 import me.rerere.asr.providers.LocalAudioClassifierController
 import me.rerere.asr.providers.MiMoASRController
+import me.rerere.asr.providers.NemotronGgufASRController
 import me.rerere.asr.providers.OpenAIRealtimeASRController
 import me.rerere.asr.providers.StepASRController
 import me.rerere.asr.providers.VolcengineASRController
@@ -139,6 +140,11 @@ private class CustomAsrStateImpl(
             is ASRProviderSetting.WhisperAsr -> {
                 if (provider.modelPath.isBlank()) return null
                 WhisperASRController(context, provider)
+            }
+
+            is ASRProviderSetting.NemotronGguf -> {
+                if (provider.modelPath.isBlank()) return null
+                NemotronGgufASRController(context, provider)
             }
 
             is ASRProviderSetting.WhisperLiteRT -> {

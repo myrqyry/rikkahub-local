@@ -23,7 +23,9 @@ sealed class TTSProviderSetting {
         val apiKey: String = "",
         val baseUrl: String = "https://api.openai.com/v1",
         val model: String = "gpt-4o-mini-tts",
-        val voice: String = "alloy"
+        val voice: String = "alloy",
+        // Preserve MP3 as the default for previously saved OpenAI providers.
+        val responseFormat: String = "mp3",
     ) : TTSProviderSetting() {
         override fun copyProvider(
             id: Uuid,
@@ -34,6 +36,24 @@ sealed class TTSProviderSetting {
                 name = name,
             )
         }
+    }
+
+    /**
+     * Explicit self-hosted audio.cpp server. The base URL is the address reachable
+     * from THIS Android device, not the desktop's localhost.
+     * The server must be configured separately; this does not start it.
+     */
+    @Serializable
+    @SerialName("audio-cpp")
+    data class AudioCpp(
+        override var id: Uuid = Uuid.random(),
+        override var name: String = "audio.cpp (Self-hosted)",
+        val baseUrl: String = "",
+        val model: String = "",
+        val voice: String = "",
+    ) : TTSProviderSetting() {
+        override fun copyProvider(id: Uuid, name: String): TTSProviderSetting =
+            copy(id = id, name = name)
     }
 
     @Serializable
@@ -398,10 +418,39 @@ sealed class TTSProviderSetting {
         ): TTSProviderSetting = copy(id = id, name = name)
     }
 
+    @Serializable
+    @SerialName("scyllasband-tts")
+    data class ScyllaTts(
+        override var id: Uuid = Uuid.random(),
+        override var name: String = "Scylla's Band (Local)",
+        val modelPath: String = "",
+        val voice: String = "scylla",
+        val language: String = "en_us",
+        val energy: Float = 2f,
+        val tension: Float = 2f,
+        val valence: Float = 2f,
+        val assertiveness: Float = 2f,
+        val seed: Long? = null,
+        // Defaults preserve the behavior of previously saved Scylla providers.
+        val speed: Float = 1f,
+        val steps: Int = 0, // 0 = bundle default.
+        val sampler: String = "default",
+    ) : TTSProviderSetting() {
+        init {
+            require(listOf(energy, tension, valence, assertiveness).all { it.isFinite() && it in 0f..4f })
+            require(speed.isFinite() && speed in 0.5f..1.5f) { "Scylla speed must be within 0.5..1.5" }
+            require(steps in 0..32) { "Scylla flow steps must be within 0..32 (0 = default)" }
+            require(sampler in setOf("default", "euler", "heun")) { "Unknown Scylla sampler: $sampler" }
+        }
+        override fun copyProvider(id: Uuid, name: String): TTSProviderSetting =
+            copy(id = id, name = name)
+    }
+
     companion object {
         val Types by lazy {
             listOf(
                 OpenAI::class,
+                AudioCpp::class,
                 Gemini::class,
                 SystemTTS::class,
                 MiniMax::class,
@@ -417,6 +466,7 @@ sealed class TTSProviderSetting {
                 KittenTts::class,
                 Qwen3Tts::class,
                 MatchaTts::class,
+                ScyllaTts::class,
             )
         }
     }

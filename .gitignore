@@ -17,7 +17,6 @@ local.properties
 /.claude/
 /.superpowers/
 /docs/superpowers/
-SESSION-STATE.md
 **/CLAUDE.md
 
 # Sibling clones of upstream projects used as references during development
@@ -44,15 +43,12 @@ app/google-services.json
 # Planning docs — not for the remote
 /plans/
 app/src/main/jni/litert/litert_cc_sdk/
-app/src/main/jni/litert/litert_cc_sdk.staging-*/
-app/src/main/jni/litert/litert_cc_sdk.old-*/
 
 # OpenCode plugin install artifacts — not project code
 .opencode/
 
 # Proactive agent session state — local memory, not for the remote
 /MEMORY.md
-/SESSION-STATE.md
 /SOUL.md
 /USER.md
 /HEARTBEAT.md
@@ -72,6 +68,8 @@ app/src/main/jni/litert/litert_cc_sdk.old-*/
 .meristem/local/
 # meristem:local-ignore:end
 
-superpowers/
+# Verified Scylla/LiteRT native staging; generated at build, never commit native downloads.
+/speech/src/main/jniLibs/
 
-.superpowers/
+# Local Superpowers planning/workspace artifacts
+superpowers/

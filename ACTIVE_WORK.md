@@ -1,74 +1,1324 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-11-02 — PR #22 post-merge-conflict review fixes
+
+- PR #22 is mergeable against `master` at head `8e06b2512`; Codex review identified two P2 regressions and Kilo reported no issues in the device-execution core.
+- Reproduced Codex's GGUF classification failure with a RED `ModelFileImportTest`: moving a chat model into a not-yet-created `local-models/llama-cpp` directory threw `NoSuchFileException`. `moveWithoutReplacing` now creates and validates the target directory before its existing no-replace move; the regression test is green.
+- Reproduced the search-provider reorder offset with a RED pure test. The page now translates lazy-list indices by the leading web-search toggle row before reordering, so dragging providers no longer shifts/rejects the wrong stored entries.
+- Corrected the merge-introduced indentation in `ModelAssignmentsSection`. Focused ModelFileImport + WebSearchPreference tests and `:app:assembleDebug` passed together (317 tasks, BUILD SUCCESSFUL).
+- GitHub Android CI run 41578907638: unit tests passed; lint failed with 152 `MissingTranslation` errors. The API-35 migration job did not report a test assertion failure; GitHub sent the runner a shutdown signal while native builds were running.
+- The repo's established `locale-tui` workflow was inspected before touching translations. Its configured AI translator cannot currently run on this machine because `OPENAI_API_KEY` is unset, and Arabic is not yet listed in `locale-tui/config.yml` despite `values-ar` existing. Do not hide the 152 new translation errors by refreshing the lint baseline.
+
+
+## 2026-11-02 — Reconcile device-execution profile with master
+
+- Merge target is the repository default `master` (`origin/master@ef22e618d`), not a separate `main` branch.
+- Preserve this branch's newer LiteRT 2.3.0 / LiteRT-LM 0.19.0 runtime and matching official 2.3.0 C SDK staging. The old master-only 2.1.5 bootstrap must not downgrade headers or change the 2.3.0 `LiteRtCreateModelFromFile(environment, filename, model)` ABI.
+- Carry forward master fixes that remain applicable: System-One typed request/result validation and tests, image-gallery resource lookup, model-assignment indentation, Android SDK action v4, and guarded KVM access.
+- Master's 2.1.5 bootstrap/Python resolver was evaluated but not carried into the 2.3 path: a clean Gradle 9.4.1 staging run exposed a configuration-cache serialization failure after the stage task executed. Retain the existing `stage_litert_230.py` task, which SHA-verifies the official 2.3.0 SDK/AAR and is already shared with `:speech`.
+- Keep both generated-native exclusions and Superpowers planning exclusions in `.gitignore`.
+- Verification completed in an isolated clean worktree: the new staging regression test was RED because `is_staged()` accepted an SDK missing `build_config.h`; after pinning the official v2.3.0 GPU+NPU config by SHA-256 and staging/validating it, the test is green. Deleting the generated SDK plus app/speech CMake caches and rerunning `:local-llm:testDebugUnitTest --tests me.rerere.locallm.decision.SystemOneDecisionTest :app:testDebugUnitTest :app:assembleDebug` passed in 4m06s (317 tasks). Existing libomp/deprecation warnings remain. No installed app data or device state was modified.
+
+## 2026-10-29 — Neumorphic renderer edge lighting and selected-state polish
+
+- User requested improving neumorphic styling and supplied an illustrative
+  screenshot and four MIT-licensed CodePen ZIP source examples: Neumorphic
+  Elements, Buttons, CSS Neumorphism Animation and Editable Text.
+- Compared actual source techniques with our locally vendored neumorphic-ui
+  renderer. Existing inset code painted dark/light gradients over entire
+  control surfaces, reducing central contrast. The examples use paired
+  raised highlights and restrained *edge* relief for pressed/inset shapes.
+- Changed static/dynamic inset paint from whole-surface fills to bounded
+  perimeter strokes clipped to exact rounded, pill and circular geometry;
+  avoid drawing a shadow for zero depth/degenerate size. Render rim beneath
+  content to keep text/icons clear; cache the stroke with size/depth.
+- UI Preferences segmented control now distinguishes its selected surface
+  with soft, restrained Material-accent tint and no hard border; tabs expose selected semantics
+  and disabled state prevents clicks. No public APIs or persisted settings
+  changed; the button press animations already implemented were preserved.
+- TDD RED-first geometry and selected-palette tests in the neumorphic module
+  now pass. Full `:neumorphic-ui:testDebugUnitTest`, `:ai:testDebugUnitTest`,
+  `:app:testDebugUnitTest` and `:app:assembleDebug` passed offline on the
+  Linux Mint machine. Physical Pixel screen/rendering remains unverified.
+  No device installation or push.
+- Source analysis, tradeoffs and acceptance cases:
+  docs/ui/neumorphic-lighting-polish-2026-10-29.md.
+
+## 2026-10-29 — Remove web-search settings from chat composer
+
+- User requested removing the search settings/control from the composer after
+  the title-only header, gauge, model selector, and new composer layout changes.
+  The only composer search control was `SearchPickerButton` in the secondary
+  tools row (global web search + provider chooser + built-in search settings).
+- Removed the entire search picker from `ChatInput` and its obsolete
+  `enableSearch`, `onToggleSearch`, `onUpdateSearchService` callback wiring
+  through `ChatPage`. The model selector, capability-aware thinking gauge,
+  microphone, + attachment action, text editor, send/stop and long-press send
+  retain their handlers. Existing **in-current-chat search** stays in the
+  title overflow menu (not global chat search).
+- Kept web search functional and user-controllable by adding the existing
+  persistent `enableWebSearch` flag as a switch under Settings → Search.
+  This is not an automatic reset: saved search-service entries, selected
+  provider, existing web-search enabled state, and model-specific built-in
+  search tools are preserved. Native search tools remain configurable through
+  model settings.
+- TDD: `WebSearchPreferenceTest` was RED until the settings state updater
+  existed; it now checks toggling web search modifies only that saved flag.
+  Focused JVM test + debug build passed; full AI/app JVM suites and debug
+  APK verification are run before checkpoint. No app installation, remote
+  push, settings edit or user-data change.
+- User-facing scope: only composer control placement; the separate
+  three-dot **Search in chat** and Compress History actions remain unchanged.
+
+## 2026-10-28 — Line MD gauge icon integration for thinking effort
+
+- The user supplied four official Line MD Iconify SVG references:
+  gauge-empty, gauge-low, gauge, gauge-full. Inspected original SVG
+  contents (same 24×24 dial geometry; final needle rotations 15/65/115/165°).
+  Upstream Material Line Icons is MIT, © 2020 Vjacheslav Trushkin;
+  full license included at docs/licenses/line-md.txt.
+- Integrated a native Compose Canvas dial, no SVG runtime, CDN, or new
+  dependency. Animate the needle with a single non-looping 420ms tween when
+  the effective effort changes; colors follow existing UI theme.
+- OFF→empty, LOW→low, MEDIUM→gauge, HIGH→full. AUTO has a neutral
+  dial with an A marker and no falsely implied medium setting; XHIGH
+  uses full needle with + marker to distinguish maximum-extra level.
+  Both composer button and picker detail use the same gauge. The
+  compact button now has an accessible spoken reasoning-level label.
+- No inference/model settings are changed: per-model capability-gated
+  available effort values and effective request logic remain authoritative;
+  unsupported models still hide the toggle.
+- RED-first pure mapping tests failed with missing API, passed after
+  implementation. Complete AI/app JVM suites and Android debug build
+  verified separately; no phone installation, push, or API/data mutations.
+- Decision and evidence: docs/ui/reasoning-gauge-line-md.md.
+
+## 2026-10-28 — Chat composer/header simplification from phone screenshots
+
+- User clarified two prior UI mockups and requested actual implementation:
+  bottom primary row plus → text field → send/stop; retain a secondary
+  row under the input with provider icon + selected model name and the
+  existing web-search, thinking (capability-gated), and voice controls.
+  Top header shows the conversation title alone, removing the model/provider
+  subtitle and old top-right New Chat/preview icons.
+- Replaced top-right icons with a three-dot menu that exposes the
+  existing current-conversation search/preview and Compress History.
+  Search is ChatListPreview (not global Search Chats) with snippets and
+  jump-to-message; its menu item becomes "Close chat search" while active.
+  Compress History runs the existing CompressContextDialog and
+  ChatVM.handleCompressContext without passing through attachments.
+- ModelSelector remains clickable and opens the existing model list,
+  now rendering the selected provider logo and model display name in
+  the second composer row. Bounded label width and horizontal scrolling
+  preserve reasoning/search access on narrow screens. Long-press Send and
+  stop-generation behavior are unchanged; primary touch targets are 48dp.
+- Removed only the Extensions and Compress History rows from the
+  attachment picker; camera, images, files, supported video/audio, workspace
+  and MCP tools remain. No extension settings, API keys, chat records or
+  user data were deleted or reset.
+- TDD: ChatChromeActionsTest first failed for the absent action contract and
+  title policy and then passed; full AI/app JVM suites and Android debug build
+  checked. The new chrome layout has not been visually verified with
+  the updated APK installed on the Pixel; no on-device changes this pass.
+- Implementation/acceptance reference:
+  docs/ui/chat-composer-overflow-2026-10-28.md.
+
+## 2026-10-28 — Provider APIs now uses models.dev as its main list
+
+- User-supplied phone screenshot showed the old sheet foregrounding dozens of
+  hardcoded built-in provider defaults, with models.dev hidden behind a separate
+  browse row. Requested replacing that list with models.dev and pinning common
+  providers.
+- Provider APIs now shows a searchable models.dev directory directly, with
+  Popular pinned first (OpenAI, Anthropic, Google, OpenRouter, DeepSeek, xAI,
+  Groq, Mistral and Cerebras), then the remaining catalog providers in
+  alphabetical order without duplication. Public catalog entries and counts
+  remain the source; pinned IDs are only display priority.
+- Selection first opens the actual existing saved provider where one matches,
+  retaining its ID, API key, model assignments and settings. Native OpenAI,
+  Google and Claude adapters are reused, including Google/Gemini name matching.
+  Absent supported providers create disabled, empty-key drafts; unknown
+  adapters remain catalog-only. Verified official Chat Completions-compatible
+  Groq, Mistral and Cerebras endpoints are supported via generic OpenAI adapter
+  without claiming native SDK parity.
+- Long default/saved provider templates remain available via the secondary
+  "Other saved API setups" path; a custom API action also remains. No provider
+  records, keys, installed models or user data migrated or deleted.
+- RED-first tests cover display sorting, search, alias matching, exact reuse,
+  draft safety and unsupported entries. Real 233-provider models.dev snapshot
+  acceptance verifies no missing/duplicate entries and actionable pins;
+  focused app JVM tests and debug APK build passed. Full suite checkpoint
+  separately. The **new** provider-directory UI has not been visually tested
+  on-device; previous Pixel 10 Pro EmbeddingGemma acceptance is independent.
+- Details: docs/integrations/models-dev-provider-directory.md.
+
+## 2026-10-28 — Pixel 10 Pro native EmbeddingGemma 2 acceptance
+
+- Connected yuzu-mint over ADB to Pixel 10 Pro (Android API 37; arm64).
+  Installed the signed debug build in place after taking a verified small
+  private backup of debug app databases/preferences/datastore; kept all
+  existing app data and the separately installed release app.
+- Actual device UI screenshots confirmed chat composer/thinking picker,
+  LiteRT gallery vertical scrolling, visible 270M/440M/740M actions and
+  Knowledge & RAG settings. A transient "Support the Developer" prompt
+  interrupted Settings navigation; not a native inference failure.
+- Existing 270M model was checksum-valid. Downloaded pinned 440M and 740M
+  through the app, independently compared device SHA-256 hashes, no silent
+  selection. Temporarily selected 740M to verify its UI state; **restored
+  original default selection** and confirmed "Use 740M for RAG" again.
+- Fixed stale Android instrumentation test source that no longer compiled
+  after the variant-aware RagEmbeddingSource refactor.
+- Real native instrumented tests **passed**: 270M text (semantic query vs
+  cat/physics), 440M PNG vision (two distinct images + text query), 740M
+  WAV audio (two different synthetic 48 kHz stereo WAVs normalized to
+  16 kHz mono + text query), and disposable PDF page -> native vision
+  vector -> isolated in-memory RAG search. All produced finite normalized
+  768-dimensional vectors where applicable.
+- Reran the **complete EmbeddingGemma2DeviceTest class: OK (6 tests)**.
+  No crashes in these tests. Source images/audio/PDF were generated for
+  the test; no user documents/photos/microphone content or live RAG DB
+  were used. The PDF smoke does not yet exercise SAF MediaRagIngestion,
+  and test-vector differences are not proof of retrieval relevance.
+- Phone's free space now **~1.4 GiB / 99% used** after the two downloads.
+  Preserve both weights until user decides whether to remove one;
+  do not download further large models automatically.
+- Tests, private screenshots, model hashes, setup and outstanding gaps:
+  `docs/integrations/embeddinggemma-2-device-acceptance-2026-10-28.md`.
+
+## 2026-10-28 — Pre-device UI and correctness pass for model picker / multimodal RAG
+
+- Before physical phone testing, audited the newly integrated LiteRT model
+  catalog and Settings → RAG media controls against the actual Compose code.
+  No ADB device or emulator was available; layout issues were discovered by
+  inspection and are **not** claimed visually confirmed on hardware.
+- The LiteRT model catalog was a non-scrollable Column inside a modal sheet,
+  with PP-OCR and three EmbeddingGemma bundles stacked ahead of its gallery.
+  Bounded the catalog at 520dp and made the entire section vertically
+  scrollable so controls remain reachable on shorter screens. Shortened model
+  download/select/remove labels to avoid unnecessary multi-line buttons.
+- Found a real selected-state bug: a selected EmbeddingGemma model whose file
+  was missing or incomplete still displayed as "Selected" without a recovery
+  action. Introduced an explicit, pure state policy covering all six
+  combinations of selection and file status, and rendered missing/incomplete
+  states with a clear warning and way back to the default embedder; missing
+  file permits a fresh download. Expected file length is an *availability*
+  hint; SHA-256 is still verified before selecting/loading.
+- Scoped RAG media search input/results and import status to the selected
+  embedding model ID so a model switch cannot show stale matches/messages
+  from a different vector space; the in-flight operation remains guarded.
+  Corrected the 440M import button: it no longer offers WAV when the selected
+  model lacks an audio encoder.
+- RED-first JVM tests in `EmbeddingGemma2CatalogStateTest` and
+  `MediaRagImportRulesTest` reproduced the wrong state/label cases and
+  passed after the changes. Android app debug APK build passed in focused
+  verification. Full AI/app JVM suites and debug APK build passed offline.
+  Android lint completed but failed on 150 errors and 127 warnings across the
+  larger existing codebase; the first error is suspicious indentation in the
+  untouched `ModelAssignmentsSection.kt`. No errors were reported in the files
+  changed by this pass; `SettingRAGPage.kt` has one autoboxing hint.
+  Report: `app/build/reports/lint-results-debug.html`. Do not conflate this
+  lint backlog with failing JVM tests or a failed APK build.
+  Device UI screenshots/taps and native media inference remain unverified.
+- No user files, app settings, RAG indices, downloaded models, or installed
+  Android packages were changed; the work is local source code only.
+
+## 2026-10-28 — Investigation: EmbeddingGemma 2 SVD-512d and LFM3-VL-2B
+
+- Checked current Hugging Face repository metadata/README, model artifacts and
+  licensing alongside current Android source without downloading any large
+  model weights or changing application code. Findings recorded in
+  `docs/integrations/model-investigation-embeddinggemma-512d-lfm3-vl-2b.md`.
+- The 512d SVD derivative (744M Transformers Safetensors, not LiteRT) changes
+  only the final projection and offers ~33% smaller raw vectors; its own 13-dataset
+  NanoBEIR result shows near-identical ranking to original 768d, whereas prefix
+  512d loses some ranking quality. The SVD model loses the original's Matryoshka
+  behavior at 256d/128d. Prefer testing native 768→512/256 prefix projection plus
+  L2 normalization and separate index spaces before porting new weights.
+- LFM3-VL-2B is a **generative vision-language model**, not an embedder.
+  Official Q4_K_M GGUF + F16 projector totals ~1.48 GB before runtime buffers;
+  128K claimed context and vendor benchmarks are not phone runtime evidence.
+  Latest upstream llama.cpp v0.8.0 (Oct 28) includes LFM3-VL support, but our
+  pinned Llamatik 1.10.1 predates that merge and our projector locator does not
+  recognize Liquid's official mmproj filenames. Actual Android support is NOT
+  established. Better target: verified newer llama.cpp desktop smoke, optional
+  explicit LAN endpoint, then Android runtime compatibility work.
+- LFM uses the custom LFM Open License v1.0 with a $10M annual company-revenue
+  cutoff for free commercial use, unlike Apache 2.0 for the SVD derivative.
+- No model files downloaded; development filesystem reports ~5 GiB remaining.
+  Code, app settings, indexes and installed data unchanged. This is a research
+  checkpoint, not an implementation claim.
+
+## 2026-10-28 — HF follow-up: normalize EmbeddingGemma 2 audio inputs
+
+- Hugging Face confirms the tracked LiteRT EmbeddingGemma 2 bundles still show
+  October 6 as their last update; Google's base model repo changed October 28,
+  without evidence that the Android weights were replaced. No model pins changed.
+- Confirmed Google's model card specifies **16 kHz mono** audio. Previously
+  `InputData.Audio` received any RIFF/WAVE byte stream (including wrong sample
+  rates and channel layouts), and the old test even treated a 16-byte WAV
+  fragment as usable audio.
+- Added a pure on-device WAV normalizer at the actual native-input boundary.
+  It validates the RIFF/chunk structure, accepts PCM16 mono/stereo at 8–96 kHz,
+  downmixes channels, resamples to 16 kHz, and returns proper 16-bit mono WAV
+  bytes. Malformed, floating-point, compressed, unsupported multichannel and
+  partial-frame data fail explicitly rather than being mislabeled. A five-minute
+  duration bound and 64 MiB size limit protect the local encoder.
+- RED-first tests reproduced missing normalization; regression tests cover
+  PCM sample preservation, sample rate conversion, mixing, chunk padding,
+  corrupted headers and unsupported formats. `:ai:testDebugUnitTest`,
+  `:app:testDebugUnitTest`, and `:app:assembleDebug` passed offline on the
+  connected Linux Mint PC. No physical device/native 740M inference proof yet.
+  Existing saved data, model downloads and vector indexes were untouched.
+- Details: docs/integrations/embeddinggemma-2-multimodal.md.
+
+## 2026-10-28 — Native EmbeddingGemma 2 multimodal RAG integration
+
+- Extended local EmbeddingGemma 2 from the existing 270M text-only LiteRT bundle to
+  **three separate revision- and SHA-pinned variants**: the original 270M TEXT,
+  440M TEXT+VISION, and 740M FULL (vision+audio). All use the existing LiteRT-LM
+  0.18.0 Android AAR's actual `EmbeddingEngine`, `InputData.Image/Audio`, and
+  vision/audio backend configuration. Model assets/size/SHA/commits verified
+  against Hugging Face public API; no new model was silently downloaded.
+- Model Manager now offers separate opt-in verified downloads, selection and
+  safe removal with free-space reserve and SHA validation before promotion;
+  270M's existing model ID and text embedding-space ID remain unchanged.
+- Native backend checks the bundle SHA before engine initialization; a
+  mutex-guarded single session closes on model switch, validates finite 768d
+  vectors, and never substitutes cloud embeddings. Text-only config remains the
+  previous known config. Model manager and RAG sources resolve selected variant
+  explicitly. Unique per-variant embedding spaces prevent cross-model search.
+- Added a working **code path** in RAG settings to select a local image, PDF,
+  MP4, or WAV through the Android SAF file picker and index native embeddings.
+  JPEG/PNG are directly image-embedded; PDF is rasterized to bounded page PNGs;
+  MP4 video uses up to 12 bounded frames as image embeddings (not temporal
+  video/audio understanding); 740M uses the actual native `InputData.Audio` on
+  RIFF/WAVE input. RAG search embeds the text query and ranks matching media
+  vectors by cosine similarity. Originals remain local; metadata records source
+  URI/label/page/timestamp, not the original media bytes.
+- Media search filters media **before** result limiting to avoid high-scoring
+  text chunks crowding out visual/audio results. Media operations require a
+  real media backend and the selected model's embedding-space ID. Strict input
+  size/type limits and PDF/video page/frame caps guard native runtime.
+- Tests written RED-first for variants, ID/space isolation, media type safety,
+  actual media interface dispatch, PDF/video bounds, and search limit regression.
+  Full Gradle JVM suites + debug build are verified separately. No Android ADB
+  device and no multimodal model file on development machine: compile/tests do
+  **not** prove native inference succeeded on a physical device.
+- Corrected the RAG index-status calculation: valid vectors from different
+  model spaces may coexist without forcing a false stale/rebuild warning for
+  the selected space; no matching vectors with other spaces present still
+  reports stale. RED-first index regression test reproduced the false warning.
+- Full evidence, remaining limitations and exact acceptance workflow:
+  `docs/integrations/embeddinggemma-2-multimodal.md`.
+
+## 2026-10-28 — Deterministic metadata readiness for new-model imports
+
+- The provider's authenticated `/models` list and the public models.dev catalog
+  load independently in Provider Detail. A model could previously be selected
+  before the catalog completed, persisted with fallback static capability guesses,
+  and never automatically enriched afterward (because saved model overrides are
+  intentionally protected).
+- Added `ModelCatalogLoad` (Loading / Ready, including Ready(null) for offline
+  failure) and a provider-scoped readiness guard. Provider model selection and
+  manual model confirmation wait for a completed catalog attempt, so the import
+  uses exact-provider metadata when available and the static/provider fallback
+  only after an actual catalog failure. The catalog picker already awaits data.
+- Compose's `produceState` can briefly retain the previous provider result when
+  keys change; scoped results now reject a previous provider ID/endpoint so
+  switching providers cannot bypass the gate with mismatched metadata.
+  The authenticated provider model listing is also scoped to the entire
+  provider configuration, so switching providers or credentials cannot briefly
+  show the previous provider's list as selectable new models.
+- Manual model edits remain authoritative: the dialog retains its existing
+  field-change handling, catalog prefill only when unedited, and confirm does
+  not re-enrich over the user's explicit changes. A small spinner indicates the
+  import gate is preparing capability data; no silent cloud provider substitution.
+- RED-first tests for pending/ready/offline paths, exact provider boundaries,
+  preserved provider metadata, stale-provider switching and changed API keys.
+  Full `:ai:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug`
+  passed offline on Linux Mint (with real models.dev snapshot acceptance test).
+  Device UI verification remains unavailable because ADB lists no phone;
+  no persistent installed app data was changed.
+- Details: docs/integrations/models-dev-provider-directory.md.
+
+## 2026-10-28 — Media catalog metadata + Gemini pagination
+
+- Extended imported remote models with **advertised-only** input/output media
+  labels (`text`, `image`, `audio`, `video`, `pdf`) from models.dev; these are
+  distinct from the Android adapter's currently usable text/image modalities.
+  Model settings visibly differentiate catalog claims from working media paths.
+  Audio-only entries are not falsely offered as working chat models. Additive
+  optional serialization leaves previous model settings untouched.
+- Corrected Google's models.list importer to follow `nextPageToken` (initial
+  100-model page is not necessarily exhaustive), with exact token encoding,
+  stable ID de-duplication, a repeated-token/page-count safety guard, and a
+  clear failure on later-page errors instead of silently returning partial lists.
+- RED-first JVM tests for real HTTP request pagination + media parsing passed.
+  Live models.dev JSON contract confirmed Gemini 3.5 Flash advertised PDF,
+  audio, and video while adapter capability flags remained text/image.
+- EmbeddingGemma 2 full is multimodal, but the **installed local artifact is
+  specifically the 270M text-only LiteRT bundle** and the native engine feeds
+  `InputData.Text` only. Do not claim full audio/vision embeddings work on device.
+  Verified actual `app` and `local-llm` Gradle dependencies already use LiteRT-LM
+  **0.18.0**, which shipped multimodal EmbeddingGemma support. Official 440M
+  text+vision and 740M full LiteRT packages exist; the next work is binding
+  verified media inputs and downloads to the existing runtime and proving them
+  on a device, not blindly upgrading from a stale 0.17.0 code comment.
+- Details: docs/integrations/models-dev-provider-directory.md. No user data,
+  API keys, saved models, or phone installation modified. Local commit only.
+
+## 2026-10-28 — Capability-aware chat-composer reasoning picker
+
+- The chat composer previously hid reasoning only when `ModelAbility.REASONING` was
+  absent; the modal always offered OFF/AUTO/LOW/MEDIUM/HIGH/XHIGH regardless of
+  what the currently selected model actually advertised. The selection shown
+  could also disagree with the generated request after switching models.
+- Added a deterministic `Model.composerReasoningLevels(provider)` policy and
+  `effectiveComposerReasoningLevel(saved, provider)`, keyed by the model and
+  its actual provider adapter. Catalog `reasoning_options` are now distinguished
+  as `effort`, `toggle`, or `budget_tokens`; exact supported effort values drive
+  the chooser (including `max` mapped to XHIGH). AUTO uses provider defaults.
+- The composer omits the button for models without reasoning or without more
+  than one meaningful choice. A toggle model gets OFF/AUTO only where a known
+  adapter can actually send OFF. Gemini 3 MINIMAL is not incorrectly labeled OFF,
+  and unknown OpenAI-compatible hosts cannot claim a disable control. Budget-only
+  models remain AUTO-only until a verified budget selector is implemented.
+- Model changes reset the opened picker; they don't mutate saved assistant
+  preferences. Generation uses the same **effective** choice as the composer so
+  stale unsupported settings are not silently emitted. Known OpenAI Chat models
+  advertising explicit `none` now use `reasoning_effort=none` rather than
+  the legacy LOW fallback. Unknown/legacy models retain the existing options.
+- Test-first scenarios cover choice lists, missing metadata, safe OFF gating,
+  model-switch fallback, catalog mapping, and request encoding. An opt-in test
+  against the real models.dev API snapshot covered GPT-5.5 and Gemini-3.5-Flash
+  choices. `:ai:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug`
+  passed offline on desktop; live UI and provider authentication untested (no
+  ADB phone). No user data/settings or API keys modified; local commit only.
+- Details: docs/integrations/models-dev-provider-directory.md.
+
+## 2026-10-28 — Reasoning effort compatibility for auto-configured models
+
+- Found a request-path gap left by catalog integration: imported `reasoningEfforts`
+  were displayed/stored but OpenAI, OpenRouter, Claude, and Gemini 3 requests
+  could still emit an unsupported effort (for example XHIGH on a HIGH-only model).
+- Added `Model.supportedReasoningEffort` and applied it to OpenAI Responses,
+  OpenAI-compatible chat, OpenRouter, Claude adaptive effort, and Gemini 3
+  `thinkingLevel` mapping. Explicit adjustable levels are selected at or below
+  the user's requested level; if no lower advertised option is known, omit the
+  unsupported explicit effort and defer to the provider default. Provider-specific
+  OFF/AUTO behavior and models without effort metadata remain unchanged.
+- RED-first pure and serialized-request tests cover effort fallback, `max` mapping,
+  no upward forced effort, unknown metadata compatibility, and provider payloads;
+  Gemini request regressions reproduced before the fix. Full
+  `:ai:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --offline`
+  passed on Linux Mint (2026-10-28). `git diff --check` passed.
+- No connected ADB phone and no live authenticated provider round-trip; unit tests
+  validate actual request JSON and desktop build, not live service acceptance.
+  Further provider-specific reasoning modes and OFF-unavailable edge cases remain.
+  No existing installed user settings or credentials changed; local commit only.
+- Details: docs/integrations/models-dev-provider-directory.md.
+
+## 2026-10-28 — Automatic model capabilities from models.dev
+
+- Extended the existing public provider directory into a provider-scoped model
+  metadata resolver with automatic configuration when importing provider-discovered
+  models or entering a new model ID; added a searchable catalog model picker.
+  No catalog model is represented as confirmed available to the user's API key.
+- Provider adapter and exact endpoint + model ID must match (native OpenAI,
+  Claude, Gemini, or explicit OpenAI-compatible/Router endpoints). Never infer
+  from a coincidental loopback port or unrelated model name.
+- Auto-populates supported text/image modalities, tool calling, reasoning,
+  structured-output/temperature flags, context/output limits, reasoning effort
+  metadata, and per-token prices; OpenRouter's direct model API overrides
+  catalog claims. Catalog is public metadata, not verified model behavior.
+- Request builders for OpenAI Chat/Responses, Claude and Google now honor
+  explicit temperature-support metadata and cap user-requested maximum output
+  tokens against known model maxima; unknown metadata retains old behavior.
+- Persisted model metadata is schema-additive, optional/defaulted. Existing
+  configured models and explicit user edits are preserved on catalog refresh;
+  model settings are never rewritten just because a catalog was fetched.
+- Tests added RED-first for mapping, precedence, exact provider boundaries,
+  serialization and request defaults. Full ":ai:testDebugUnitTest
+  :app:testDebugUnitTest :app:assembleDebug --offline" passed on desktop.
+  Opt-in real-data acceptance also passed against a fresh 5,922,427-byte
+  models.dev HTTP 200 API snapshot, verifying exact OpenAI/OpenRouter model
+  lookup and imported capabilities, context limits, and pricing.
+  Live phone UI, API-key authorization and actual model generation remain
+  unverified. No phone installation, credentials, settings changes or push.
+- Evidence/limits: docs/integrations/models-dev-provider-directory.md.
+
+## 2026-10-28 — models.dev provider discovery
+
+- Added an opt-in models.dev directory to Models → Add → Provider / API with
+  searchable provider names and indexed model counts; existing providers and
+  custom setup stay available. Only explicitly OpenAI-compatible catalog entries
+  with safe endpoint schemes can prefill a new provider draft; draft remains
+  disabled, API key blank, and models unimported. Other providers are shown as
+  catalog-only until their specific protocol is supported.
+- Live models.dev API from desktop returned HTTP 200, ~5.9 MB and 233 providers.
+  The app fetches on demand, caps at 12 MB, caches public JSON for 24h and
+  clearly signals stale/offline fallback. No provider credentials sent to catalog.
+- Wrote failing parser tests first, then implementation; new cache tests caught
+  a fresh-cache timestamp race and passed after fix. App JVM suite and debug
+  APK build passed. Android UI/phone network/provider authentication untested:
+  ADB currently has no connected phone. No existing settings or phone data changed.
+- Details: docs/integrations/models-dev-provider-directory.md. Local commit only.
+
+## 2026-10-28 — On-device TTS effects foundation (RVC still blocked)
+
+- Added a composable **on-phone PCM16/WAV post-TTS effect path** in `speech`,
+  before `AudioPlayer`, with mono PCM16/WAV decoding/validation, optional
+  sequential processing and WAV/PCM output. The effect API permits sample-rate
+  and frame-count changes for future model-based converters.
+- Added a real opt-in **telephone-band DSP filter**, selected per configured
+  TTS provider in Speech settings and persisted in the existing provider
+  playback profile. Default OFF, with no changes to prior saved profiles.
+- Non-PCM16/WAV formats are **not** decoded: opt-in processing reports the
+  incompatibility and plays the original audio instead of claiming success.
+  Invalid WAV and non-finite effect output are rejected. No remote inference.
+- Tests were written failing first for the processor, serialization and
+  malformed model output. See `speech/src/test/.../AudioEffectsPipelineTest.kt`
+  and `app/src/test/.../TtsPlaybackPreferencesTest.kt`.
+- RVC is **not enabled**. Previous Pixel ONNX synth benchmark ran slower
+  than real time; no full on-device RVC chain with intelligible converted
+  speech has passed. See `docs/rvc-on-device.md`.
+- Phone disconnected in ADB at the time of this change, so **no live phone
+  install, playback or conversion verification** occurred. Existing installed
+  phone data is untouched; no push.
+
+
+## 2026-10-26 — Ollama Speech-ready OpenAI TTS compatibility
+
+- Current desktop Ollama v0.30.10 and alternate v0.35.1 instances all
+  return HTTP 404 at `/v1/audio/speech`. Published Ollama speech API
+  requires v0.40.8+; Phonon packages currently require Apple Silicon.
+  No Ollama upgrade, model pull, daemon configuration or port change.
+- Reused RikkaHub's existing OpenAI-compatible speech provider: optional
+  WAV instead of always MP3, blank API key omits Bearer header, base URL
+  trailing slash normalizes, WAV response validated as RIFF/WAVE, request
+  text no longer logged. Existing saved providers retain MP3 as default.
+- Opt-in MP3/WAV format selector is available in the existing speech
+  settings. Test-first regression initially failed on missing settings
+  field/client injection; focused and full tests passed after the change.
+  `:speech:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug`
+  **PASS**. An opt-in production OpenAI-compatible provider test also
+  generated actual WAV speech through the live audio.cpp/Kokoro endpoint.
+  No real Ollama speech generated, because machine cannot run current
+  Phonon; Android phone playback still not verified.
+- No changes to live audio.cpp v0.9.3 Kokoro engine, installed phone data,
+  other models, or other projects. Integration reference:
+  `docs/integrations/audio-cpp-tts.md`.
+
+## 2026-10-26 — audio.cpp native speech service / RikkaHub opt-in TTS
+
+- Added an opt-in `audio-cpp` TTS provider through the existing RikkaHub
+  speech manager, per-provider settings, and Media3/WAV playback path; no
+  change to existing provider selections or installed phone data.
+- Production adapter sends model, input, WAV response request and optional
+  voice. It validates status and RIFF/WAVE body, caps responses at 32 MiB,
+  and does not silently switch to cloud or another local provider.
+- Official audio.cpp v0.9.3 native runtime independently produced a real
+  Kokoro 82M WAV over HTTP on a local workstation. A **production Kotlin
+  adapter acceptance test** against the same live server passed (not skipped);
+  fake HTTP contract tests and settings serialization also passed.
+- Relevant Android JVM suites and debug APK build passed. Phone install,
+  phone-to-desktop access, and physical phone playback are **not** verified.
+  Other projects were not modified: their consumers need independent checks.
+- Integration contract and limits: `docs/integrations/audio-cpp-tts.md`.
+  Local service/model assets are outside Git and do not require a network
+  listener to be opened for this code checkpoint. No push.
+
+## 2026-10-26 — GGUF header classification bounded; CherryPit specialist trial
+
+- `GgufClassifier.classifyFile` now reads at most 64 KiB, rather than
+  materializing the entire model. Sparse >2 GiB GGUF regression failed first
+  with `OutOfMemoryError`, then passed after the fix. All local-LLM tests,
+  app JVM tests, and `:app:assembleDebug` passed. No phone install.
+- Pulled CherryPit 1.1 WebDev Preview Q4_K_M into desktop Ollama only.
+  One React/TSX counter task failed `tsc` (illegal const assignments), and
+  an explicit correction returned essentially the same invalid code.
+  Existing Qwen3.5 4B generated compilable TSX after fence removal on the
+  same prompt. A single task is not a general benchmark; CherryPit remains
+  **unqualified** for automated delegation or Android Llamatik use.
+- Model test details and raw generations are retained locally under
+  ignored `.meristem/local/model-evals/`; phone models, assistant settings,
+  installed data and network bindings unchanged. No push.
+
+## Current checkpoint — OpenCode 1 ↔ RikkaHub live workspace interaction (2026-10-22)
+
+Added live OpenCode session monitoring on RikkaHub's existing Kotlin Web
+workspace path, without installing OpenCode Manager or modifying the dirty
+desktop OpenCode worktree. The screen can list and resume existing sessions,
+receive scoped `/global/event` SSE changes and reconnect/reconcile from
+authoritative `/session/{id}/message`, `/session/status`, and `/permission`
+reads; it never replays an uncertain prompt. Explicit approval responses are
+limited to Allow once / Reject, with pending-request revalidation at dispatch.
+SSE parsing bounds frames, isolates session and directory, and treats events
+as refresh signals rather than completion proof. No permanent permission
+grant or background notification mechanism was introduced.
+
+Evidence: test-first `OpenCodeLiveBridgeTest` RED then GREEN, including
+OkHttp stream delivery and reconnect-without-POST tests. Existing live
+OpenCode 1.18.31 at desktop loopback `127.0.0.1:4097` answered read-only
+health/session/status/permission endpoints and real SSE handshake HTTP 200,
+text/event-stream, server.connected. Final
+`./gradlew :app:testDebugUnitTest :app:assembleDebug` PASS:
+**1,560 tests / 229 suites, 1 intentional skip, 0 failures**; debug APK
+assembled. Details and limitations:
+`docs/integrations/opencode-live-workspace.md`.
+
+**Tailnet correction (2026-10-22):** The localhost-only 4097 instance is
+not the sole OpenCode service. Another server on **0.0.0.0:4196** responds
+from an independent tailnet peer (`doopa`): health/status/permission
+GETs HTTP 200 and actual SSE HTTP 200 with `server.connected`. The
+tailnet route already exists; prior new-proxy blocker was incorrect.
+Port 4196 is direct tailnet-IP access, not a `tailscale serve` proxy
+mapping. The endpoint returned read data without HTTP auth; review
+ACLs/auth and possible LAN access before relying on remote approvals.
+
+**Not accepted on phone:** Neither the new APK nor its workspace UI was
+tested phone-to-desktop; no permission was actually granted or pending
+approval available. Android background/reconnect remains unverified.
+No phone install, ADB destructive action, config change, port opening,
+push, or OpenCode repo modification. History MCP checkpoint retained.
+
+## Current checkpoint — Native RikkaHub history MCP retrieval (2026-10-22)
+
+Integrated the useful retrieval mechanics of Photalia/rikkahub-history-mcp
+directly into the existing RikkaHub `POST /mcp` native Kotlin service; no
+second Python server and no change to app storage or schema. Added
+`rikka.search_conversations` and `rikka.get_conversation_context` alongside
+existing list/full-get tools. Assistant scoping happens in the FTS SQL before
+ranking/limit; selected-branch IDs are rechecked against the current
+conversation; only user/assistant plain text passes the new bounded tools.
+Maximum 200 candidate hits (flagged if there are more), 24k context characters,
+per-side context window at most 20 nodes. Legacy full-get is retained but
+restricted to the selected assistant.
+
+History tools now require both the authenticated MCP route and Web JWT enabled.
+The separate REST Web API is still accessible in unauthenticated mode if Web
+JWT is disabled: this integration is not a replacement for Web Server auth.
+Historical retrieved content remains untrusted; sending it to a remote model
+crosses the local/cloud boundary.
+
+Evidence: new pure projection tests and native-tool callback JSON tests were
+written failing first, then passed; scoped FTS5 SQL fixture passed on SQLite
+(with standard `snippet` substituted for Android's existing `simple_snippet`
+extension). Final `./gradlew :app:testDebugUnitTest :app:assembleDebug` passed
+**1,554 app tests / 228 suites, one intentionally skipped, zero failures**;
+APK assembled. Full procedure and remaining caveats:
+`docs/references/rikkahub-history-mcp.md`.
+
+**Unverified:** actual phone Web/JWT/MCP round trip, extension behavior on
+Android, large-library query latency, and live deployment/phone UI.
+No install, app settings change, or phone data access. Local checkpoint only;
+no remote push.
+
+## Current checkpoint — REAL local ComfyUI provider acceptance (2026-10-20)
+
+Added opt-in `ComfyUiLiveAcceptanceTest` to exercise the existing, unchanged
+Android app provider implementation against yuzu-mint's real local ComfyUI,
+not an HTTP fixture. Explicit `RIKKAHUB_COMFY_ACCEPTANCE=1` required; it
+checks the server queue is idle and the exact DreamShaper checkpoint is
+installed before submitting one bounded 256×256 / eight-step job. The real
+`ComfyUiProvider.generateImage` returned 102,639 image bytes; JVM ImageIO
+decoded 256×256, 64 sampled distinct colors, SHA-256
+`7647fed86094d5b7ae3f6c7195f8e171e2fe7b522b7d538209bb83298c047eaa`.
+The digest independently matched that job's actual ComfyUI history PNG.
+Private image/receipt live in
+`~/.local/state/meristem/rikkahub-local/comfy-provider-20261020/`.
+
+Normal `./gradlew :app:testDebugUnitTest :app:assembleDebug` passes:
+**1,542 app JVM tests, one deliberately skipped opt-in live test, zero
+failures/errors**, debug APK assembled. This was a desktop/JVM execution of
+the production provider code and ComfyUI server, **not** phone UI or Android
+gallery verification, nor proof of actual WebSocket progress delivery.
+Pixel is USB-connected but currently showing ChatGPT, so no activity
+switch, install, app preference edits or data reset was performed.
+No ComfyUI configuration, user job or network bind change. The image job
+added one generated output on the local ComfyUI server. **No push.**
+See `docs/ui/comfyui-image-provider-2026-10-19.md` for the documented test.
+
+
+## Current checkpoint — ComfyUI WebSocket lifecycle, HTTP fallback (2026-10-19)
+
+From official ComfyUI docs, connected WebSocket before prompt submission;
+per-job execution events and actual KSampler step counts now render on
+the existing Images page. Only matching prompt IDs update progress;
+global status and executed/UI-output events cannot become completion
+signals. Final images remain from history/view, with bounded HTTP
+fallback after dropped WebSocket signals. Binary previews deliberately
+not implemented. Ran real loopback OkHttp upgrade/event test, typed
+parser tests, and read-only live ComfyUI WebSocket HTTP 101 handshake.
+All 1,541 app tests (225 suites) passed and APK assembled. Created
+checksum-verified private Pixel app backup, installed in place (Success);
+no app state clearing, no model inference and no ComfyUI server/network
+setting change. Real phone image gen and progress remain unverified.
+See docs/ui/comfyui-image-provider-2026-10-19.md. No push.
+
+## Current checkpoint — ComfyUI standard txt2img provider (2026-10-19)
+
+Integrated a disabled-by-default ComfyUI provider with a stable image
+model, server/checkpoint selection and standard seven-node txt2img
+workflow into RikkaHub's existing Image Gen / agent tool / gallery path.
+POST /prompt, GET /history, GET /view, checkpoint discovery, timeout,
+strict PNG/JPEG bytes, bounded results and safe queued-only cancel are
+implemented. Generation receipts identify self-hosted ComfyUI, not
+Android. User's real local ComfyUI 0.37.0 is running on desktop
+127.0.0.1:8188; its read-only endpoints confirm all workflow nodes
+and installed checkpoints. Six HTTP-fixture tests passed; full app
+suite 1,535/1,535 passed, debug APK built. Private Pixel backup
+verified and APK installed in place, ADB reverse TCP connection
+established, no diffusion job run and no app preferences altered.
+Pixel's ComfyUI edit page / live phone generation remain UNVERIFIED
+(first lock screen, later unrelated model screen); do not call the
+end-to-end phone path tested yet. No LAN exposure or server config
+changed. No custom graphs, img2img, LoRA, progress WebSocket or
+inpaint; don't expose unsupported settings. Local commit only,
+no push. See docs/ui/comfyui-image-provider-2026-10-19.md.
+
+## Current checkpoint — llama.cpp Qwen3 GGUF CPU entrypoint built (2026-10-19)
+
+Checked upstream `tools/tts/README.md` and built CPU-only `llama-tts`
+from llama.cpp source revision `1b29621` in an isolated /tmp checkout.
+205 build actions succeeded; executable `--help` runs and exposes
+model, audio output, language and speaker-reference options. **No GGUF
+weights downloaded, no speech generated, no GPU or Android runtime
+validated.** RikkaHub repo itself unchanged by this experiment; no
+GGUF provider added. See docs/ui/qwen3-tts-litert-legacy-download-repair-2026-10-19.md.
+
+## Current checkpoint — repaired Qwen3-TTS pinned legacy LiteRT download (2026-10-19)
+
+Verified Hugging Face's original Qwen3-TTS 0.6B three-graph bundle moved
+into legacy/; pinned its source revision and all 10 files' sizes/SHA-256
+for 1.88 GB total. Built checksum-validating resumable downloader with
+no-overwrite, space reserve, asynchronous installed status and manual-path
+verification; preserved the existing LiteRT host graph contract, not
+.litertlm or a GGUF provider. Deterministic HTTP/FS tests cover resume,
+corrupt files, user-file protection and low storage. Full validation:
+1,529 app and 100 speech tests passed; APK built. Saved verified private
+app backup and installed APK on Pixel in place successfully, with no
+model download or app data reset. Pixel then lost ADB; Qwen editor and
+real synthesis remain unverified on-device. GGUF needs a separate
+native-runtime study; do not represent it as installed. No push.
+See docs/ui/qwen3-tts-litert-legacy-download-repair-2026-10-19.md.
+
+## Current checkpoint — per-provider Speech UI installed on Pixel (2026-10-19)
+
+USB ADB connection recovered. Saved verified private app-data backup
+and installed the arm64 debug APK in place. Physical Pixel confirmed
+Speech no longer shows a global switch block; Scylla/NekoSpeak now
+show per-provider Message reading controls. Scylla Cancel discarded
+a temporary change after reopening. NekoSpeak had a pre-existing
+wrong API Key label over its local model chooser; corrected to Model
+file and reverified on Pixel after reinstall. Final 1,524 app tests
+passed and APK built. Existing app data untouched, no audio played,
+phone returned to ChatGPT. No push. See
+docs/ui/rikkahub-tts-per-provider-preferences-2026-10-19.md.
+
+## Current checkpoint — TTS preferences scoped per provider (2026-10-19)
+
+Moved quoted-only, skip-bracketed and auto-play from the oversized
+global Speech block into each provider's editor alongside engine-specific
+settings. Saved by provider instance ID. Manual/auto playback resolve
+the selected profile; legacy global settings remain fallback for
+unchanged providers without data reset. Add/Edit persists both engine
+and playback settings atomically, and provider card selection, reorder
+and deletion avoid stale whole-settings saves. 1,524 app tests passed,
+debug APK built. **Pixel absent from ADB: not installed or audio-tested**;
+existing user data/models untouched. Local-only, no push.
+See docs/ui/rikkahub-tts-per-provider-preferences-2026-10-19.md.
+
+## Current checkpoint — TTS reading switches obeyed (2026-10-19)
+
+Fixed quoted-only and skip-bracket option handling in manual and auto
+speech: empty filtered content no longer falls back to forbidden
+original text. Added shared pure speech filtering, correct quote order,
+contraction-safe parsing, nested brackets, and manual no-content
+feedback. Auto-play now validates the completed conversation, latest
+VM state, last assistant message and duplicate events before speech.
+Switches now persist atomically without whole-settings overwrite.
+1,521 app JVM tests and debug APK build passed. Pixel unavailable
+over ADB, so **not installed or audio-tested on the device**.
+Existing user data untouched. Local checkpoint only, no push.
+See docs/ui/rikkahub-tts-reading-options-2026-10-19.md.
+
+## Current checkpoint — improved utility prompts, editor, compression (2026-10-19)
+
+Revised all five bundled utility prompts; old bundled values upgrade on
+read only when unchanged; customized prompts preserved. Editor uses a
+local draft with explicit Save/Cancel/Reset and atomic per-field updates.
+Title/suggestion outputs normalized; OCR/locale hints corrected.
+Compression now preserves a visible Before compression original,
+includes attachment/tool evidence markers, rejects empty summaries
+and changed source messages, and serializes final archive/replace with
+the conversation mutex. App tests: 1,508 passed; debug APK built.
+**Pixel unavailable over ADB: not installed or device verified.**
+No saved user prompt or conversation data changed. Compression fidelity
+is still unverified. Desktop root had less than 2 GB free, no unrelated
+cleanup. Local commits only; no push.
+See docs/ui/rikkahub-default-prompts-audit-2026-10-19.md.
+
+## Current checkpoint — source review of five default prompts (2026-10-19)
+
+Audited actual default title, suggestion, translation, OCR and context
+compression prompts, Settings → Chat Preferences editor and runtime call
+sites. High-risk: compression instructions omit consequential continuity
+details while the operation replaces older message nodes; prompt editor
+uses async full-settings snapshots per keystroke rather than atomic
+per-field updates. Title/suggestions have unsuitable 10-character limits;
+OCR editor advertises nonexistent {images}, dedicated OCR bypasses the
+prompt; translation is broadly usable. Existing saved prompt strings
+do not update when Kotlin constants change, so customizing or upgrading
+requires a user-preserving migration. Review only—no changes to prompts,
+stored preferences, models or device. See
+docs/ui/rikkahub-default-prompts-audit-2026-10-19.md.
+
+## Current checkpoint — Bonsai now offers app-managed download (2026-10-19)
+
+Corrected the manual-only Bonsai installer UX. Models → Add → Bonsai Image 4B
+now offers **Download 4.3 GB** with explicit confirmation or **Import a
+folder instead**. Downloads use shared SHA-verified, resumable HTTP
+downloader with pinned revision, Bonsai-only staging, progress,
+cancellation, remaining-space check and receipt-before-promotion.
+Interrupted transfers reuse staged data; verified preexisting packages
+can be registered without refetching. Local-runtime 531 tests and app
+1,501 tests passed; APK installed on Pixel after private app-data backup.
+On-device confirmation dialog verified without starting large transfer.
+Pinned graph links returned correct sizes; small tokenizer files fetched
+and SHA-verified on desktop. **No full phone transfer or inference test.**
+Existing FLUX/data preserved, nothing pushed.
+See docs/integrations/bonsai-litert-runtime-2026-10-19.md.
+
+## Current checkpoint — verified Bonsai package import in Models (2026-10-19)
+
+Models → Add now offers an opt-in Bonsai Image package folder import in
+addition to FLUX. The import copies only five pinned files via Android
+SAF into a dedicated staged directory, verifies size and SHA-256 for
+each, writes a complete-package receipt before atomic promotion,
+and registers the model only after verification. An unverified Bonsai
+model is not READY or offered by LiteRT model discovery. Cancellation,
+corruption, existing-package protection, and FLUX preservation are
+JVM-tested; the registry's explicit removal path is scoped to Bonsai.
+Compacted the Add sheet so all six choices fit on Pixel without clipping
+or horizontal scrolling. App tests 1,501 and local-runtime tests 526,
+all passed; APK installed in place after verified private backup, and
+actual Add UI checked on Pixel. **No 4.26 GB weights downloaded; real
+Bonsai image generation is not verified.** Separate Bonsai checkpoint
+from earlier chat overlap fix. No push.
+See docs/integrations/bonsai-litert-runtime-2026-10-19.md.
+
+## Current checkpoint — chat reasoning/answer overlap fixed (2026-10-19)
+
+The Pixel screenshot showed the collapsed "Thought for 5.1 seconds" pill
+overlapping Japanese answer text. Root cause: `MessagePartsBlock()` emits
+multiple sibling composables directly inside a Box, stacking them at the
+same origin. The message-part tree and translation now sit in a Column.
+Opened that exact existing conversation on Pixel after in-place debug
+install and verified UI bounds: Thought ends y=911, Japanese answer
+begins y=955, English translation follows y=1182. App tests/build passed
+(1,501 JVM tests), verified private backup before install. Migrated the
+last two generic reasoning pictograms (model ability tag and export view)
+from `deepthink` drawable to MingCute Idea01; preserved brand/file icons.
+User's in-progress Bonsai source work remains untouched/uncommitted.
+No push. See docs/ui/rikkahub-chat-message-layout-mingcute-2026-10-19.md.
+
+## Current checkpoint — Bonsai Image LiteRT CPU runner, not yet released (2026-10-19)
+
+Ported the pinned upstream Bonsai Image 4B Android tokenizer, host math
+and sequential CPU/XNNPACK three-graph runner into the local-llm module.
+Added SHA-256/size-gated model bundle validation, explicit LiteRT image
+dispatch (Bonsai vs existing FLUX) and Koin wiring. 26 upstream tokenizer
+golden cases passed locally, plus unit tests for host math, bundle gate,
+pinned metadata and provider selection. Kotlin app compiles; model is
+**not exposed in the UI** until a verified multi-file installer exists.
+No 4.26GB weights downloaded, no on-device generation claim, no app
+installation or user-data changes. No push to public repo.
+See docs/integrations/bonsai-litert-runtime-2026-10-19.md.
+
+## Current checkpoint — Models uses a provider-neutral icon (2026-10-19)
+
+Replaced incorrect DeepSeek logo on the Settings home Models shortcut with
+MingCute's generic layered-collection icon; same model-manager destination.
+App tests/build passed, installed in place after checksum-verified local
+app-data backup, and checked the actual Pixel screenshot. Nothing pushed.
+See docs/ui/rikkahub-home-settings-grid-2026-10-19.md.
+
+## Current checkpoint — launcher-style Settings root and Facets naming (2026-10-19)
+
+Corrected the main menu *navigation level*: Models and **Facets** are now
+two separate, direct Settings home icons, not two items hidden inside an
+AI & Models category. The five remaining categories are folder-like
+launchers, and their destinations are shown in compact icon grids, not
+sideways-scrolling chips or large full-card tiles. Preferred user-facing
+term **Facets** refers to separately configured AI identities; internal
+Assistant types remain unchanged. On-device Pixel checks verified direct
+Models and Facets paths, five-destination Experience folder, and system
+back to Settings. 1,501 app JVM tests and APK build passed; protected
+data with verified private backup and in-place install. No push.
+See docs/ui/rikkahub-home-settings-grid-2026-10-19.md.
+
+## Current checkpoint — AI & Models pared down; broken bubble disabled (2026-10-19)
+
+AI & Models now offers only **Models** (existing unified ModelsPage) and
+**Agents & Assistants** (Default assistant's existing editor + individual
+assistant list and per-assistant configuration). Removed redundant
+assistant/quick-prompt launchers from this category. Global title,
+translation, suggestion, OCR and compression prompt editors and the prompt
+library are now linked from Chat Preferences. The floating translate
+bubble launcher and activity manifest declaration are disabled/removed,
+but implementation source preserved; the crash is **not fixed**.
+Current assistant data/models/settings untouched. Android build and 1,501
+app JVM tests passed; APK installed in place after checksum-verified private
+backup. Pixel UI navigation through both agent paths and Default prompts
+checked; disabled activity absent in installed manifest. Repo is public
+with earlier local-only sensitive history; **local commit only, no push**.
+See docs/ui/rikkahub-ai-settings-reorg-2026-10-19.md.
+
+## Current checkpoint — intuitive vertical RikkaHub settings menu (2026-10-19)
+
+Replaced the six horizontally scrolling settings category chips and oversized
+square destination tiles with a six-row category overview and compact
+single-column destination lists. Every category is visible without a sideways
+gesture. Category title/back and Android system back return to overview; global
+search still works inside any category. Fixed broad search keyword expansion
+and partial-word collisions ("rag" no longer matches "storage"), added JVM
+regression. Existing destinations and conditional settings preserved.
+App JVM 1,501/1,501 passed; APK built and installed in place on Pixel after
+verified private database/settings backup. On-device overview screenshot,
+category navigation, back and final search validated. No push. See
+docs/ui/rikkahub-settings-menu-2026-10-19.md.
+
+## Current checkpoint — compact trailing chat dates (2026-10-19)
+
+Pixel sidebar now shows right-aligned `MMM d` last-updated dates for both
+generated titles and first-message previews, not just generated titles.
+Date/time-only fallbacks do not redundantly repeat a date. Long titles
+ellipsis correctly in the remaining width. App JVM suite + APK build passed;
+installed in place on Pixel after verified private database/settings backup.
+Real-device screenshot and UI tree verified. Commit locally, do not push while
+branch contains unpublished private-history commits. See
+docs/ui/rikkahub-project-sidebar-2026-10-18.md.
+
+## Current checkpoint — untitled conversation fallback corrected (2026-10-18)
+
+Clarified that dates were meant only as a last-resort fallback when chat title
+generation fails, not the primary text in the session list. Existing generated
+titles remain unchanged; untitled rows now show a short first-user-message
+preview, then creation date/time only when no usable text is available.
+Preview lookup reads only the first message node and does not save a title,
+so retries and eventual generated titles are unaffected. 1,500 app JVM tests
+passed; APK built and installed in place after verified private database
+and settings backup; tested actual Pixel UI; phone returned to ChatGPT.
+See docs/ui/rikkahub-project-sidebar-2026-10-18.md. No push.
+
+## Current checkpoint — project-filtered compact RikkaHub drawer (2026-10-18)
+
+Replaced the 56dp icon rail and folder chips with a 320dp partial-width
+Compose drawer: assistant avatar/name/greeting at top with a right-anchored
+horizontal swap picker; single projects dropdown; no dated group headers;
+44dp compact session rows; real creation timestamps instead of blank
+“New message” titles; project badges only in All chats; bottom user
+avatar/name and settings. The overflow preserves former rail destinations.
+Projects reuse existing assistant-scoped folders; **All chats** now includes
+both filed and unfiled sessions for the active assistant. This is not a
+new global project schema, does not assign the selected project on new chat,
+and does not yet support per-project custom icons.
+
+Gradle app JVM suite: **1,497 passed, zero failures**, debug APK built.
+After checksum-verified private data/settings backup, the arm64 APK was
+installed in place on Pixel 10 Pro. Verified dark-theme drawer screenshot,
+assistants picker opening, and selection of existing empty “though” project;
+no data cleared or migrated, phone returned to ChatGPT. Source/checks and
+remaining boundaries: docs/ui/rikkahub-project-sidebar-2026-10-18.md.
+No push; this public repo branch still has private unpublished history.
+
+## Current checkpoint — per-project verification and safe public sync (2026-10-17)
+
+- Verified branch `aster/device-execution-profile` with `./gradlew :local-llm:testDebugUnitTest :ai:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug`: **BUILD SUCCESSFUL**. Gradle reused cached/up-to-date outputs for the three JVM suites and APK, so this is a successful up-to-date validation, not a fresh full test rerun. Existing test XML confirms **507 local-LLM + 200 AI + 1,497 app = 2,204** tests, zero failures/errors/skips. `web-ui` `pnpm run typecheck` passed; four V2 preflight Python tests passed and live default read-only probe correctly classified the `:4196` compatibility server as **not native V2** (HTML at `/api/info`). `git diff --check` passed. No ADB device connected; no live phone/session generation or data migration attempted.
+- This repository is **public**. To preserve privacy without rewriting history, only the first **25** of the 29 unpublished commits were pushed to `origin/aster/device-execution-profile`, verified at **`cdcc031a4`** (up through Pixel ML Drift GPU proof). Pre-push hook regex false positives were inspected, then bypassed only for that narrow push. The branch's **four later commits** (`322c8677a`, `31c68957e`, `1c640d25f`, `ff1c862a4`) remain local because their published Git history would include tailnet addresses and machine-specific backup paths in the inference-bridge documentation. **Do not push current HEAD directly** without reviewing privacy across *all intermediate commits*: a new redacted tip would not remove earlier blobs from public history. Do not force-push or rewrite history casually.
+- The phone-to-desktop and desktop-to-Pixel generated-text results remain **historically verified October 15**, not re-executed October 17. Native OpenCode V2 adapter, full CLI agent session, and active hardware/Pixel sidebar light/tablet/reduced-motion review are independently unverified. Keep existing installed data, model files, app package and private auth untouched.
+- Private local verification receipt: `.meristem/local/verification-2026-10-17.md`. Root Loam `PROJECT-INVENTORY.md` records the public sync and holdback.
+
+## Current checkpoint — soft rubbery RikkaHub sidebar (2026-10-16)
+
+Adapted OpenCode's stable icon-rail + session-pane hierarchy to
+RikkaHub native Compose chat drawer: 56dp rail, 320dp sheet, 44dp
+accessibly labeled controls, pressed-in neumorphic animation,
+raised identity surface, recessed selected chat/folder pills,
+quieter history section labels. Existing destinations, assistant
+picker, paging, folder and conversation long-press actions retained.
+Pixel dark-theme screenshot/a11y and three menus inspected on
+real device after verified backup and in-place APK update. Original
+New Chat state restored; installed model intact. 2204 JVM tests
+passed and debug APK built. OpenCode dirty worktree unchanged;
+no push. See docs/ui/rikkahub-soft-drawer-2026-10-16.md.
+Light/tablet/reduced-motion visual checks remain for later.
+
+## Current checkpoint — OpenCode 2 compatibility preparation (2026-10-15)
+
+Reviewed published V2 migration/API/provider contracts and current
+local OpenCode 1/V2 development surfaces. Kept the user's dirty
+OpenCode desktop worktree and live V1 profile untouched. Implemented
+RikkaHub V1-to-V2 HTTP 404 diagnostic: only native JSON ServerInfo
+counts as V2, never HTML SPA fallback; never replay a prompt on API
+mismatch. Focused OpenCodeHttpClient JVM tests pass.
+Read-only scripts/probes/opencode-v2-preflight.py with 4 Python
+regression tests, checks V1 profile and creates a **nonsecret**
+isolated .meristem/opencode-v2-pixel-preview.json for Pixel LiteRT,
+native V2 package/capabilities and external_directory ask policy.
+No actual V2 server/client test yet; this is a safe preparation
+checkpoint, not a completed V2 API bridge. Details and gated
+migration recipe: docs/integrations/opencode-v2-readiness.md.
+
+## Current checkpoint — Phone → desktop Tailscale model inference verified (2026-10-15)
+
+Pixel VPN/MagicDNS now active (tun0). Real Android phone HTTPS GET
+Ollama model catalog and POST completion to desktop returned HTTP 200,
+with Granite 4.1 3B generating cedar. Added only that verified model
+to pre-existing enabled tailscale OpenAI provider after fresh database
+and settings backup; 28 other providers and unrelated settings were
+verified unchanged. An opt-in Android instrumentation test using
+RikkaHub's actual Koin ProviderManager/OpenAI provider generated
+willow with 547ms observed warm time; 1/1 Android JUnit test passed.
+Test APK installed in place only; app relaunched after instrumentation
+and loopback /v1/models gateway restored and reverified; existing
+local models intact. ADB reverse diagnostic and disposable phone
+DEX removed. See docs/integrations/opencode-inference-bridge.md.
+Transport/model inference now verified both directions, but
+automatic routing and full OpenCode agent CLI run remain unverified.
+
+## Current checkpoint — OpenCode / RikkaHub reciprocal inference (2026-10-15)
+
+Implemented guarded OpenAI-compatible local text inference routes on
+RikkaHub Ktor Web API. Deployed APK in place on Pixel 10 Pro after
+settings/database backup; actual LFM2.5 native model streamed orchid
+to desktop in 24s cold, and the real OpenCode model provider SDK
+returned paprika in 1s warm. OpenCode global config now has a
+separate rikka-pixel model provider and CLI model discovery works.
+Full opencode run agent session remains unverified (startup timeout).
+Earlier the Pixel had no VPN route and the tailscale provider
+had no registered models. The newer checkpoint above supersedes
+that status after real phone HTTPS and app-provider tests. 507 local-LLM + 200 AI +
+1495 app tests, debug APK build pass. All limits, commands and
+proof: docs/integrations/opencode-inference-bridge.md.
+Reconnect: scripts/probes/connect-rikka-pixel-inference.sh.
+No upstream merge, push, app-data reset or installed-model changes.
+
+## Current checkpoint — ML Drift native GPU graph verified (2026-10-15)
+
+Source ML Drift commit 6e803da; Bazel8/NDK28 compatibility changes
+isolated to disposable upstream checkout. Verified compiler
+--target=aarch64-linux-android28 and Android AArch64 ELF. Official
+OpenCL add suite on Pixel 10 Pro: 108/162 passed, 54 storage
+layout skips, zero failures. Official actual ML Drift GpuModel
+inference context tests: 2/2 passed, 389ms total for optional
+nodes and subgraphs. Repeated both with guarded ADB runner saved
+in scripts/probes/run-ml-drift-android-tests.sh. Device temp files
+removed; installed RikkaHub app, data, models unchanged.
+Full source/build/measurement evidence and remaining gates in
+.meristem/ml-drift-review-2026-10-15.md. Next meaningful gate:
+in-app JNI/native context followed by a model-specific workload,
+not another selectable but nonfunctional backend. No push.
+
+## Current checkpoint — RWKV model-integrity harvest (2026-10-15)
+
+On branch aster/device-execution-profile, local commits dd9a3e8ee and
+bfb4ec7fe protect user model imports against overwrite/incomplete copy
+and require local lifecycle readiness for model resolution.
+Details: .meristem/rwkv-app-review-2026-10-15.md.
+Full local-LLM 507, AI 200, app 1488 JVM tests and APK build passed.
+No Pixel installation, model data operation, RWKV model download,
+native RWKV integration, merge or push. Next RWKV-specific gate is an
+isolated Tensor G5 G1j Palm CPU feasibility benchmark, not a UI toggle.
+
+## Current checkpoint — selective upstream harvest (2026-10-15)
+
+Branch: aster/device-execution-profile. Three tested local commits
+63d3c6826, 1aef8a3b6, b6bb5e7b6 adapt original RikkaHub's
+cancellation/stream and MCP schema fixes plus RikkaHub Agent's
+per-conversation auxiliary model-job lifecycle. AI 200 + app 1,486
+unit tests passed; debug APK built. No merge, push, app installation
+or user data migration. See .meristem/upstream-harvest-2026-10-15.md.
+Next independent work: settings-store stale-snapshot write prevention
+with isolated race/migration tests and preservation of custom fields.
+Earlier checkpoints below remain as historical evidence.
+
 ## Outcome
 
-Finish verification of the landed device-MCP and constrained-routing substrate,
-then harden the typed System-One boundary before a concrete decision backend is
-allowed to influence routing.
+Harden RikkaHub Local's Android inference selection around a measured execution
+profile: device memory + probed accelerator capabilities -> model suitability ->
+runtime/backend plan. Preserve the existing capability broker, System-One,
+agent-runtime, memory, provider/model, and installed-data boundaries.
 
 ## Current state
 
-**Base:** `master` is at `b54875eb` after `11d3b1fe feat: add device MCP and
-routing substrate`. The repository state observed before this branch was clean and
-synchronized with `origin/master`.
+**Branch:** `aster/device-execution-profile`, branched from
+`aster/provider-model-surface-polish@64c1a34e`.
 
-**This branch:** `aster/system-one-validation-2026-09-28` adds request/result
-validation for the System-One contract and focused regression coverage.
+**Reference:** Brownie's device/model selection was inspected as an external comparison.
+RikkaHub's existing authority, memory, agent-runtime, scheduled-job, and provider
+boundaries were kept. Only the useful execution-profile/model-selection mechanism was
+adapted.
 
-**Submodules:** both repository pins are valid and reachable:
+## Implemented
 
-- `material3/material-color-utilities` -> `6fd88eb3e95ba1d457842e2a2bf847d06b3a018a`
-- `third_party/stable-diffusion.cpp` -> `d2ccecd0f17b2e9dc062e158246d33962fb0dd9d`
-
-The local checkout used for inspection had those submodules uninitialized, which
-explained the local Material 3 unresolved references and missing Stable Diffusion
-CMake source. The GitHub Android workflow performs recursive submodule checkout.
+- Added `DeviceExecutionProfile`: live total/available RAM, Android low-memory state,
+  and measured accelerator capabilities in one snapshot.
+- Added pure/JVM-testable `LiteRtExecutionPlanner` for model admission,
+  recommendation, and backend choice.
+- Refactored `AcceleratorProbe` to expose process-cached capability evidence with an
+  explicit refresh path instead of mixing probing and policy.
+- Revalidate persisted/session accelerator choices against current capabilities.
+- Corrected LiteRT-LM backend truth: SDK 0.17.0 has no NNAPI backend, so LiteRT no longer
+  reports NNAPI while silently executing CPU. Generic/task adapters may still use NNAPI.
+- Runtime model swaps release the old Engine/Conversation before re-reading live memory,
+  avoiding false refusals caused by reclaimable native/KV memory.
+- Runtime now refuses unsafe loads before native engine creation when the model cannot
+  stay within the live free-memory + headroom budget, with a user-readable provider error.
+- "Install default" now chooses between curated recommended catalog artifacts from the
+  current device profile instead of always hardcoding Qwen. Under low-memory pressure it
+  prefers the smaller fitting recommended model.
+- Catalog minimum-RAM bands remain advisory ranking evidence; live available RAM is the
+  hard admission signal.
+- Did not invent adaptive quantization: Q4/Q8 switching remains future work until
+  matching verified artifacts exist.
+- Documented the execution-profile seam in architecture, local module guidance, and
+  Meristem decisions.
 
 ## Locked decisions
 
-- Preserve installed app data, persistent storage, application identity, and
-  existing model/provider lifecycle behavior.
-- Device MCP stays a narrow capability export layered on top of the active
-  assistant's already-enabled local tools.
-- Remote device export remains authenticated, explicitly opted in, and limited by
-  the hard remote-safe allowlist until a dedicated remote grant/approval flow exists.
-- System-One engines remain side-effect free and never own capability authority.
-- Malformed decision output must fail at the typed request/result boundary before
-  callers can route on it.
+- Do not replace RikkaHub's agent runtime, memory proposal boundary, capability broker,
+  System-One ladder, scheduled-jobs subsystem, or existing provider lifecycle.
+- Persisted accelerator choices are evidence of a prior resolved path, not permanent
+  truth.
+- A runtime fallback is degraded execution and must not be reported as proof the
+  preferred backend worked.
+- Preserve installed app data and model files.
 
-## Verification evidence
+## Verification
 
-Observed locally before this branch:
+- `git diff --check` — PASS.
+- Focused execution-planner / compute / memory tests — PASS.
+- `:local-llm:testDebugUnitTest` — PASS: 463 tests, 0 failures, 0 errors, 0 skipped.
+- `:app:compileDebugKotlin` — PASS.
+- `assembleDebug` — PASS, including the configured native builds and APK packaging.
+- `:local-llm:lintDebug` — PASS.
+- ADB reports no connected device, so real-device backend selection/load behavior remains
+  unverified in this workspace.
 
-- `:local-llm:testDebugUnitTest --tests me.rerere.locallm.decision.SystemOneDecisionTest`
-  completed successfully.
-- A broader local debug build could not be treated as source evidence because the
-  two git submodules were not initialized.
-- No adb device or local AVD was available for UI-tree, screenshot, or logcat QA.
+## Follow-up
 
-GitHub CI on this branch is the clean verification path because it performs
-recursive submodule checkout and runs:
+- On the next connected Android device run, verify the selected backend and model-load
+  receipt against the actual runtime outcome.
+- Add verified alternate quantized artifacts to the catalog before enabling adaptive
+  Q4/Q8 selection.
 
-1. full unit tests
-2. lint
-3. debug APK assembly
-4. targeted API-35 migration instrumentation on a disposable emulator
+## Connected Pixel 10 Pro probe — 2026-10-07 (read-only, not native inference qualification)
 
-## Current objective
+- ADB on `yuzu-mint` now sees a physical **Pixel 10 Pro**, Tensor G5, arm64-v8a, Android **17** (API **37**). This supersedes the no-device observation in the prior Verification section without rewriting that historical result.
+- The installed `excp.rikkahub.local.debug` application is version 2.4.1 / code 171, last updated 2026-09-29. The current working branch is newer; the installed APK cannot validate the new `DeviceExecutionProfile` / `LiteRtExecutionPlanner` integration.
+- The debug app still holds existing LiteRT bundles including LFM2.5-1.2B-Instruct INT4, InternVL3-1B, and PaddleOCR-VL-1.6. None were changed, removed, or redownloaded.
+- **Device artifact observation:** installed `LFM2.5-1.2B-Instruct_int4.litertlm` is exactly 736015744 bytes and hashes to SHA-256 `a28b5c59ac204e2e51c1f98d2d6db6982f0e12da59a268fe498edcb33237e906`. The published manifest fetched 2026-10-07 from HF repo revision `a986969f90e60e694169b22e38b60a86e65c0448` describes a CPU-only variant of the *same filename and size*, but lists SHA-256 `96041e6c72b1d2e9b73a122870606bbf18a3819bf14c43c3f2b74685ed62c24d`. This is **not the same verified artifact**; it may be an older conversion, but corruption was not ruled out. Do not project the current manifest's backend claims onto the installed file without identifying its source revision.
+- Device `/data` had about 1,044,696 KiB free, battery 39% at inspection. Existing user app storage is substantial. **No `adb install -r`, cache pruning, data migration, model load, or inference execution** was attempted: with the near-full filesystem and older installed APK, that would introduce unnecessary data/migration and native-cache risks.
+- Host validation on current source: `./gradlew :local-llm:testDebugUnitTest --tests 'me.rerere.locallm.litert.LiteRtExecutionPlannerTest' --console=plain` — **PASS** (exit 0, BUILD SUCCESSFUL in 40s). This validates pure planner tests, not actual Android backend selection or generated output.
 
-1. Validate System-One results against the exact typed request: unique question IDs,
-   exact answer IDs, matching answer types, declared choice membership, and declared
-   score ranges.
-2. Let GitHub CI verify the clean recursive-submodule checkout.
-3. Keep physical-device/UI-flow verification explicitly unclaimed until an adb target
-   is available.
+**Next safe qualification gate:** preserve/verify installed-data backup according to the project's upgrade rules; obtain enough free device storage for an in-place debug update and native/cache headroom without deleting existing user data automatically; reconcile model file provenance against an immutable HF revision/checksum; then exercise a controlled LiteRT-LM load, generation and release with explicit backend/fallback, memory, and first-token/output receipts. Keep native Android and Lil Tart browser evidence separate.
 
-## Remaining runtime verification
+## Connected-device storage recovery — 2026-10-07
 
-The MCP UI/runtime path still needs an adb target for end-to-end validation of:
+- User authorized clearing only the rebuildable InternVL3-1B and PaddleOCR-VL-1.6 LiteRT acceleration caches. Before deletion, verified the debug app process was not running and listed each exact file.
+- Removed five explicitly named generated caches (InternVL XNNPACK; PaddleOCR vision-encoder mldrift program/weight, vision-adapter XNNPACK, and main XNNPACK); did **not** clear app data, caches for LFM2.5, model bundles, configuration, databases, TTS, llama.cpp, or FLUX files.
+- Read-only post-check confirmed all three original `.litertlm` bundles are still present and LFM2.5 acceleration caches remain. `adb shell df -k /data` showed free space increase from **475968 KiB** immediately before cleanup to **3090488 KiB** afterward (~2.49 GiB net observed; concurrent Android storage activity may affect this delta). Five removed files themselves were roughly 2.07 GiB.
+- App remains the September 29 debug install. No replacement APK was installed and no model generation was attempted. Future safe device testing should first ensure adequate space and data backup, then perform an in-place update and capture real backend/output evidence.
 
-`Web Server -> JWT auth -> Expose device tools -> /mcp -> rikka.device.*`
+## Pixel 10 Pro in-place debug update and FLUX removal fix — 2026-10-07
 
-Do not describe that flow as device-verified until UI-tree/logcat/runtime evidence
-has been captured.
+- **App data safeguard:** created a private, host-side, verified tar archive of the existing debug install's databases, preferences, datastore, skills and small state files before update. Did not copy or change large model weights. Backup path/hash are private machine state and intentionally omitted here.
+- **In-place update:** built `:app:assembleDebug` and `:app:assembleDebugAndroidTest` and manually installed both APKs with `adb install -r`. Verified package `excp.rikkahub.local.debug` remained installed, its update timestamp advanced, and pre-existing databases, preferences, and LFM/InternVL/PaddleOCR model bundles remained present. **Never used `connectedDebugAndroidTest`**, because it can uninstall the app.
+- **FLUX delete behavior:** observed `SettingsModelRegistry.remove` previously removed a model registration but never deleted on-disk files. FLUX is a directory package rather than a preference-managed model file; this left roughly 6.6 GiB in the app's canonical `local-models/flux2-klein` folder even after removing its listing. Updated that exact FLUX removal path to delete its bounded package tree before deregistering, with no symlink traversal and errors propagated; the UI's existing delete confirmation remains. Focused `Flux2KleinPackageTest` **12/12 PASS**, including preserving neighboring files, rejecting wrong-path deletion, and refusing directory symlinks.
+- **Unchanged storage:** **No FLUX model files were deleted during this session.** A separate older `flux-klein` directory (~0.86 GiB) under RikkaHub external storage is not included in the new deletion operation. The separately installed Google FLUX demo also has its own model data (~6.3 GiB) and is not touched. These are distinct removal decisions; do not delete them merely because the active app package is removed.
+- **Device CPU inference:** added a manual-only on-device `LiteRtDeviceAcceptanceTest`. Native LiteRT-LM 0.17.0 successfully initialized the existing 736015744-byte LFM2.5 INT4 bundle on **CPU** (first run ~5.2s load), executed generation and released the engine without a crash. The **first weak nonblank-text gate passed but returned only `.`**; it is NOT proof of useful inference. After tightening the semantic gate to require an answer containing `orange`, changing prompt and increasing maxNumTokens to 256, the test **FAILED**: again exactly `.`. Treat generation correctness as unresolved; the model's installed SHA-256 is different from the current upstream manifest's publisher hash, so its exact conversion/revision/SDK compatibility must be investigated before blaming the planner. GPU was not tested.
+- Current evidence separates build pass, focused FLUX unit-test pass, native CPU load/release pass, **semantic-output failure**, and model provenance gap. Do not report a successful end-to-end user inference path on the basis of a nonempty output or successful compilation.
+- **Remaining:** if user chooses to free FLUX storage, use the repaired Models → FLUX.2-klein → Delete confirmation to remove only the app-owned active FLUX package, then measure reclaimed bytes; discuss old RikkaHub `flux-klein` and standalone Google demo copies separately. For LFM, isolate wrong-output cause with revision-matched publisher artifact / independent source-runtime control and equivalent prompting; preserve installed files until a verified replacement is available.
+
+## Built-in RikkaHub provider removal repair — 2026-10-07
+
+- User confirmed deleting RikkaHub's active FLUX package. ADB verified that `/sdcard/Android/data/excp.rikkahub.local.debug/files/local-models/flux2-klein` no longer exists, while an older separate `flux-klein` directory remains. Approximately 10 GiB was free on device after the deletion; no further FLUX files were removed by this work.
+- Investigated the stubborn **RikkaHub** row under Models: built-in OpenAI-compatible provider `RikkaHub` ships a default `Auto` entry. `PreferencesStore` automatically restores missing built-ins unless `deletedBuiltInProviderIds` records user removal. The provider-details Delete implementation did not write this tombstone; additionally, its Delete button was hidden for built-in providers. Manage Sources long-press already tracked deletion correctly, but was undiscoverable.
+- Added a single pure `Settings.withoutProvider` implementation and routed both Settings provider-details and Manage Sources removals through it. Built-in provider deletion now records the ID for persistent exclusion; custom provider deletion does not. Provider-details now exposes the Delete confirmation for built-in providers. No model files are deleted by this provider setting removal.
+- Validation: `:app:assembleDebug` **PASS** (1m28s); `:app:assembleDebugAndroidTest` **PASS** (9s); `ProviderRemovalDeviceTest` manual `adb shell am instrument` **3/3 PASS**, read-only constructed settings, no live settings altered. Host `:app:testDebugUnitTest` remained blocked before execution by Gradle 9.4.1 Kotlin `destinationDirectory` output-state hashing error (`Invalid file path`). A temporary `doNotTrackState` workaround failed with `Changes are not tracked`; keep this as unverified host JVM coverage, do not call it passing.
+- Made a verified private backup of existing app databases/preferences/small state following the FLUX deletion, then `adb install -r` succeeded with the new arm64 debug APK; `excp.rikkahub.local.debug` retained its package and installed LFM2.5 model. Manual test APK installed with `adb install -r`, never ran Gradle `connectedDebugAndroidTest` (unsafe to real app data).
+- **User action remains:** RikkaHub provider still exists in live settings as no automatic provider deletion was performed. In the updated app, open Models, tap the gear beside the **RikkaHub** provider group to open Configuration, tap the now-visible trash/delete control and confirm. This removes the built-in provider and its Auto entry; verify no reappearance after restarting. Do not represent in-memory acceptance tests as proof of this full UI + persistence path until confirmed.
+
+## Downloadable LiteRT-Models gallery — 2026-10-07
+
+- **User goal:** Expose the models listed at `https://github.com/john-rocky/LiteRT-Models` as browsable **download options inside RikkaHub**, not merely reuse conversion recipes. Upstream README table (commit `15c41a55bc68caea11b684c10bfe081cff411c08`) currently has **102** named entries. Snapshot stored in `app/src/main/assets/litert_models_gallery.tsv`. Of these, 83 table links point to Hugging Face, 13 to direct GitHub release artifacts, and 6 to scripts/modules. Some 11 HF entries link only to the upstream organization's root (no specific model repository); these, plus script-only entries, display a source link but correctly do **not** invent a download binary.
+- **In-app UI:** `Models → + Add → LiteRT-Models gallery` opens searchable model/task list, shows the upstream task/performance/device provenance, and resolves selectable downloadable files when a user opens an entry. HF repo listing resolves against a specific current commit SHA via Hub API; records available LFS SHA-256 and byte size. GH release links resolve directly. No weights are bundled with APK or downloaded automatically.
+- **Download:** Reuses existing `ModelInstall.download` streaming, partial/resume, file-magic check and progress; verifies published byte size and LFS SHA-256 when present. Distinct local paths prevent `model.litertlm` filename collisions across publishers. Successful `.litertlm` downloads are registered under local LiteRT-LM chat (actual inference remains unqualified until device generation succeeds); other `.tflite`, `.onnx`, `.bin` etc. assets are saved separately inside app-owned external gallery files and **not** falsely marked as runnable models. Checks available storage against file size + 256 MiB reserve when upstream size is available. Blocks overwrite of existing downloaded file, offers confirmation for removing exactly one non-chat downloaded asset, and keeps chat model removal under existing Models UI.
+- **Validation:** `:app:assembleDebug` PASS and `:app:assembleDebugAndroidTest` PASS after the final code changes. Manually executed read-only Android instrumentation on Pixel 10 Pro **4/4 PASS** (source snapshot 102 unique entries, four chat models, no filename collisions, live Hugging Face commit-pinned model metadata with SHA, actual small `cpga_fp16.tflite` ~94KB download with magic and SHA verification). Temporary downloaded test artifact was deleted automatically, confirmed absent. **Not** a runtime inference validation of the non-chat files; UI browsing and manual end-user download of a large model not exercised. The last newly added remove-confirmation UI path was compiled but not tapped in an interactive UI run.
+- **Preservation:** Installed updated debug APK with `adb install -r` on Pixel 10 Pro; no uninstall/clear/reset. Existing databases, preferences, and LFM2.5 weight file stayed present. FLUX package previously removed by user remains absent; the separate older FLUX directory and Google demo not touched. Latest storage read ~10,182,360 KiB available. Verified a fresh **core** backup of app databases, preferences, datastore before install; earlier full private backup (2026-10-07) also exists. A more extensive backup attempt hit a corrupt tar stream and was *not* treated as a valid backup. No models downloaded or left on phone from this integration.
+- **Follow-up:** The gallery is a dated source snapshot rather than dynamically syncing upstream additions. Support for `CompiledModel` task-specific inference adapters, multi-file package orchestration, per-model license notices/compatibility profiles, gated Hugging Face repos, and complete interactive UI download/delete smoke remain separate work. LFM2.5 returning only `.` remains unresolved and is not changed by this catalog.
+
+## Llamatik 1.10.1 dependency update — 2026-10-07
+
+- Checked `ferranpons/Llamatik` GitHub latest release: v1.10.1, published 2026-08-24; previous RikkaHub `local-llm` pin was 1.10.0. Upstream v1.10.1 fixes repeated embedding requests failing after the first call by clearing stale KV state before decode (PR #171), plus build flag/docs and iOS demo mic permissions. Upstream source-only features must not be assumed to have working integrations simply because release metadata or README mentions them.
+- Updated only `local-llm/build.gradle.kts` dependency to `com.llamatik:library:1.10.1` and corrected the nearby stale comment; no native source fork, session rewrites, GPU changes, or MTP enablement. Gradle resolved `com.llamatik:library-android:1.10.1` as its Android runtime dependency.
+- Existing llama.cpp JVM regression tests: `:local-llm:testDebugUnitTest --tests 'me.rerere.locallm.llamacpp.*'` **PASS 16/16** across prompt, continuation, and projector locator tests. `:app:assembleDebug` **PASS**. Gradle logged the pre-existing duplicate `libomp.so` packaging warning; it is not evidence of a runtime conflict or fatal build. APK build-tools `zipalign -c -P 16 -v 4` **PASS**. `:app:assembleDebugAndroidTest` **PASS** after a read-only JNI loader test was added (first compilation failed because app androidTest cannot directly import the transitive local-llm implementation dependency; switched to runtime class resolution without adding another artifact).
+- **Connected Pixel 10 Pro**: Created and verified a private host-side backup of current databases/shared preferences/datastore. Manually installed both APKs with `adb install -r` (never `connectedDebugAndroidTest`, `pm clear`, or uninstall). Verified same debug package, updated timestamp, databases, preferences, and existing LFM2.5 `.litertlm` still present. Available `/data` after update: 10166504 KiB. No model weights were changed or downloaded.
+- Ran the new `LlamatikNativeLibraryDeviceTest` using manual `adb shell am instrument`: **PASS 1/1**, proving packaged Llamatik JNI initializer loads on the device with the shipping Android native binary. **This does not prove GGUF generation, session continuity, embeddings, or image inference**: no GGUF model was discovered under the current debug app's externally stored model files and no destructive model file search/import/reconfiguration was attempted. The upstream 1.10.1 repeated-embedding fix remains only source-backed, not re-measured on this phone.
+- **Pending separate work**: qualify real GGUF inference with a known-good pinned model; investigate session identity per model vs per conversation and prompt-template fidelity; validate MTP on an actually supported GGUF; GPU offload requires a genuinely GPU-enabled native build, not merely a nonzero `gpuLayers` parameter. Do not turn a maintenance version bump into an unverified rewrite.
+
+## Verified PP-OCRv5 CompiledModel integration — 2026-10-07
+
+- **Goal:** User authorized useful implementation from john-rocky's litert-samples link; discovered his fork `john-rocky/litert-samples` was 470 commits behind official `google-ai-edge/litert-samples` with no unique commits ahead. Used official upstream commit `83add91158301c911f34c7e0a74c3fa5c2ebc7e1`, Apache-2.0. Selected actual model-zoo PP-OCRv5 as the first functional adaptation instead of pretending all 29 model tasks are immediately executable.
+- **Actual inference:** Replaced the old simplified 320px OCR detector/one-box/no-CTC path in `local-llm/.../ocr/PpOcrEngine.kt` with the correct 640px CHW normalized DB detector, connected text regions/unclip, 48x320 cropped/padded recognizer, dictionary of 18k+ characters, and greedy CTC collapse. Ported Google's detector, recognizer, and `CompiledModelRunner` with original Apache-2.0 headers and source provenance into `local-llm/.../ocr/compiled/`. Native buffers and both compiled graphs are closed correctly, GPU attempted first then CPU when GPU execution fails. This is LiteRT `CompiledModel`, not LiteRT-LM.
+- **Downloads & activation:** Added `PpOcrVerifiedPackage` containing the model zoo's revision-pinned Hugging Face **three-file package** (two graph files 10,094,464 + 17,173,552 bytes, dictionary 74,012 bytes) and exact SHA-256. Added `Models → Add → LiteRT-Models gallery` featured "Download verified PP-OCRv5 package" and "Use PP-OCRv5 for OCR" actions. Downloader reuses existing resumable `ModelInstall.download`, verifies size+SHA before committing each file, does not overwrite or delete user files, respects free-space reserve. Deletion checks exact files and refuses while configured with TaskOcrLocal. An explicit activation sets/updates TaskOcrLocal provider and OCR model role through the pure `Settings.withPpOcrSelected` helper, preserving unrelated providers and stable IDs; updated SettingsModelRegistry to recognize the local OCR role and report it as READY only if required files exist. Updated provider help. Local OCR extraction now enforces the same timeout guard instead of allowing unlimited computation.
+- **Real physical-device acceptance:** Built `:app:assembleDebug` and `:app:assembleDebugAndroidTest` **PASS**. `:local-llm:testDebugUnitTest --tests 'me.rerere.locallm.ocr.*'` **PASS 5/5** (files, dictionary, CTC, multiple text regions/noise). Created and installed the manual-only device test APK (never ran Gradle `connectedDebugAndroidTest`). Downloaded official three model files to a private temporary host staging folder, verified exact file lengths/SHA-256, then placed them in the *previously nonexistent* `/sdcard/Android/data/excp.rikkahub.local.debug/files/local-models/litert-ocr/ppocrv5/` folder. Both `PpOcrVerifiedDeviceTest` tests **PASS 2/2** on Pixel 10 Pro, including a bitmap containing `HELLO 123` processed by real graph execution with returned text **exactly `HELLO 123`**; repeated after final app install, **PASS 2/2**, same text. Two read-only `PpOcrSelectionDeviceTest` constructed-settings tests **PASS 2/2** (preserve providers and models, stable IDs on repeats). Temporary fixture bitmap was deleted. Exact GPU residency was **not** captured from delegate log, so do not label this as verified GPU acceleration; CPU fallback remains possible.
+- **App JVM limitation:** Attempting `:app:testDebugUnitTest --tests '...LocalOcrBranchTest'` FAILED **before executing tests** on the known Gradle 9.4.1 Kotlin `destinationDirectory` output hashing issue (`Failed to create MD5 hash for file: Invalid file path`). Don't represent these app JVM tests as passing; the Android read-only acceptance and model-specific host tests provide separate proof. UI manual tap-through of downloader, delete action, and model selector was not performed and should remain unverified until actual interaction.
+- **Data preservation:** Verified host-side tar archive of app databases, shared preferences and datastore before in-place debug update. `adb install -r` kept original package, databases/preferences and existing LFM2.5 LiteRT model; no uninstall, settings reset, or other model deletion. The newly staged PP-OCRv5 model files remain on the Pixel for the user to select via **"Use PP-OCRv5 for OCR"**; **do not silently change live OCR default**. Available phone `/data` ~10 GiB after work. No unrelated runtime bump to LiteRT 2.3.0 or LiteRT-LM 0.18.0; separate incompatible artifacts and device qualification needed.
+- **Next work:** User can select the verified package in the gallery and exercise a real OCR tool invocation through RikkaHub's model registry; if that end-to-end interactive path fails, inspect the resulting settings/provider registration rather than treating successful engine acceptance as full UI-route verification. Further Model Zoo task adapters (TTS, audio, vision) need individual preprocessing, decoding, and semantic on-device tests.
+
+## EmbeddingGemma 2 local RAG integration — 2026-10-07
+
+- **Source**: Google DeepMind EmbeddingGemma 2 announcement 2026-10-06 (text/code, images, audio, video into 768-dimensional vector space; official 270M/440M/740M bundles). The first implemented target is the *text/code 270M* model only. Confirmed publicly published Hugging Face `litert-community/embeddinggemma-2-text-270m-litert-lm` revision `9be6e8b90982095dc05c2bd162e4b954ee4dbac7`, file `embeddinggemma-2-text-270m.litertlm`, exact length **164626432 bytes**, LFS SHA-256 `2d079ee2f6f066b1f368e8d7c819f55214eaef1d0513b312321901f30ab286fb`; downloaded and independently verified on host and again on Pixel.
+- **Runtime boundary**: MediaPipe `tasks-retrieval:1.1.0` is real, but introduced a duplicate *different* `libicing.so` native binary compared with existing ADK/AppSearch runtime. Build with that dependency **FAILED**; this was not suppressed with unsafe packaging pickFirst. Discovered that RikkaHub's **already pinned** LiteRT-LM `0.17.0` ships the actual `EmbeddingEngine` / `EmbeddingEngineConfig` / `EmbeddingOptions` Kotlin API; implemented directly using it instead. Only new Gradle line is a direct compile dependency on the **same** `litertlm-android:0.17.0` already packaged transitively, avoiding new incompatible native libraries and avoiding unqualified runtime upgrades.
+- **Implemented**: `EmbeddingGemma2Model` pinned, size and hash-validated package; `EmbeddingGemma2Backend` uses the *real* `EmbeddingEngine` CPU backend with synchronized reused native session, L2-normalized native 768-dimensional output, rejects nonfinite values, logs failure without pretending success. For RAG, documents use `title: none | text: ...` and queries `task: search result | query: ...`; added `EmbeddingBackend.embedQuery` (legacy default retains old behavior). `RagEmbeddingSource.LocalEmbeddingGemma2` is an explicit settings sentinel, never interpreted as a chat model. `RepositoryModule` selects it only when `Settings.ragEmbeddingModel` exactly matches; RAG `embeddingSpaceId` includes pinned revision, modality/dimension, and prompt scheme. EmbeddingRepository now lazy-hydrates Room vectors before first search and whenever the embedding-space identifier changes, filtering dimensions and corrupt/nonfinite rows. No old vectors are reinterpreted in the new space.
+- **UI**: `Models → Add → LiteRT-Models gallery` now offers explicit **Download EmbeddingGemma 2 (text)**, then **Use EmbeddingGemma 2 for RAG**. The download goes to separate app-owned file storage, uses existing `ModelInstall` progress and atomic staging, checks free space, validates SHA before use, never registers as chat. UI supports opting back into default RAG backend choice and removing the downloaded file only while not selected, with confirmation, exact-path containment, and no symlinks. No automatic model selection/large downloads for other users. Existing indexed documents in other embedding spaces remain stored but require reindexing for this model.
+- **Physical device**: Pixel 10 Pro, debug package installed **in place** via `adb install -r`, no uninstall/reset; private tar backup of databases/prefs/datastore before changes, verified directory entries and SHA `5ff18adb4c98a080b1da52ab705bdd74a871baece9f50190cd0089b62529ac07`; previous 736015744-byte LFM2.5 model still present. Native direct engine calculated actual **768d** normalized finite vectors; observed cosine proxy score **cat=0.888795792148656** vs **unrelated physics=0.5590827561123604** for cat query. `EmbeddingGemma2DeviceTest` **PASS 4/4**: publisher hash, real semantic embeddings, asymmetric prefix, explicit resolver selection. `RagIndexHydrationDeviceTest` **PASS 2/2**: first-search Room fake DAO hydration, switch backend/reload and switch back. Final `:app:assembleDebug :app:assembleDebugAndroidTest` **BUILD SUCCESSFUL**. Tests run manually via `adb shell am instrument`, not `connectedDebugAndroidTest`; no real database modified by tests. Physical model file retained for user. Phone free `/data` after install ~9744804 KiB.
+- **Not verified**: Complete in-app UI button tap-through/download or re-indexing a real user document, general GPU/NPU acceleration, 440M vision/740M audio cross-modal retrieval, full JVM app suite (earlier known Gradle 9.4.1 test output-hash blocker). Do not claim full multimodal RAG support yet. Existing RAG preference remains untouched until explicit user action. Source checkpoint: see focused commit created immediately after this note; **do not push** without separate collaboration need.
+
+## LiteRT-LM 0.18.0 Kotlin API migration — 2026-10-08 (desktop-qualified only)
+
+- Upstream Google `google-ai-edge/LiteRT-LM` `v0.18.0`, published 2026-10-06, provides EmbeddingGemma 2 enhancements and a `ModelInfo` introspection API. Maven `com.google.ai.edge.litertlm:litertlm-android:0.18.0` is published. Kept LiteRT core `2.1.5` unchanged in this main worktree.
+- Updated `local-llm/build.gradle.kts` and `app/build.gradle.kts` from LiteRT-LM `0.17.0` to `0.18.0`. A first compile failed because the `Capabilities` Kotlin class no longer exists. Ported speculative-decoding probing to `ModelInfo.from(modelPath).use { (it as? ModelInfo.Llm)?.hasSpeculativeDecodingSupport() == true }`, preserving the conservative false-on-error behavior. Added manual-only `LiteRtModelInfoDeviceTest` to introspect the user's existing EmbeddingGemma2 and LFM2.5 bundles without initializing engines or modifying preferences.
+- Desktop qualification: `./gradlew :local-llm:testDebugUnitTest --tests me.rerere.locallm.litert.LiteRtExecutionPlannerTest :app:assembleDebug :app:assembleDebugAndroidTest` **BUILD SUCCESSFUL** (log `/tmp/rikkahub-litertlm-0180-fix-build-20261008.log`). Earlier unported attempt failed due to removed `Capabilities`; do not report it as passing. Existing nonfatal duplicate `libomp.so` packaging warning persists.
+- **No phone testing/install**: `adb devices` returned no device because user is at work. Do not imply new APK was installed or ModelInfo smoke was run. Preserve current app data; when handset returns, back up persistent app data first and use `adb install -r` + manually invoked instrumentation, NEVER Gradle `connectedDebugAndroidTest`. New Kotlin introspection may classify legacy .litertlm files as unknown or fail if metadata is missing; report actual outcomes. Re-test original LFM2.5 generation, EmbeddingGemma2 actual semantic vectors, PP-OCR, and clean release before declaring upgrade device-qualified.
+- **Separate lower-layer investigation**: `google-ai-edge/LiteRT` published `v2.3.0` 2026-10-07 (new `litert`, `litert-api`, `litert-gpu` artifacts, separate package namespaces and minSdk 24; RikkaHub minSdk 26). First isolated build from detached worktree `/tmp/rikkahub-litert-core-23-20261008` needed an SDK path, native submodules and ignored `litert_cc_sdk`. Kept core change OUT of main working tree; connected exact-SHA existing submodule folders and prebuilt SDK read-only for compile. The local SDK is still from LiteRT 2.1.5, so even a successful combined 2.3.0 Java/2.1.5 C++ build cannot prove safe native compatibility. Log `/tmp/rikkahub-litert-core-23-build4-20261008.log`. No core 2.3 changes promoted to main or phone; treat as exploratory until fresh matching native SDK and Pixel device tests are verified.
+
+- **Core 2.3.0 follow-up after isolated build finished**: `/tmp/rikkahub-litert-core-23-build4-20261008.log` reports `BUILD SUCCESSFUL in 3m 26s`, including `:app:assembleDebug` and `:local-llm:testDebugUnitTest --tests me.rerere.locallm.ocr.*` (actual JUnit XML: **5 tests, 0 failures, 0 errors**). APK `lib/arm64-v8a/libLiteRt.so` SHA-256 matched **Maven LiteRT 2.3.0**, NOT older ignored C++ SDK; APK contains `liblitert_jni.so` and `libLiteRtClGlAccelerator.so`. Static ELF audit: all **12** native LiteRT function symbols imported by `liblitert_native_bridge.so` were exported by BOTH old and new `libLiteRt.so`. This establishes symbol-name availability, NOT ABI behavioral/layout compatibility, interpreter/CompiledModel runtime correctness, or real GPU/NPU on device. Do NOT promote this build to phone without the device tests and matching C++ SDK review.
+
+## Google AI Edge Gallery review + cancelled native turn hardening — 2026-10-08
+
+- **Upstream**: `google-ai-edge/gallery` 1.0.20 (2026-10-06) now exposes Instant Media Search, Video Moment Finder, and official multimodal EmbeddingGemma 2. Source `Android/src/app/src/main/java/com/google/ai/edge/gallery/services/semanticretrieval/OnDeviceEmbedder.kt` is a relevant reference for MediaPipe `UniversalEmbedder`, model capability reading via `ModelInfo`, modality-specific CPU/GPU/NPU setup, and isolated cache directories for different vision-token budgets and text lengths. The video finder has real frame/audio processing and distinct per-feature vector database; do **not** claim RikkaHub's existing 270M **text-only** EmbeddingGemma 2 adapter implements Gallery's image or video search.
+- Gallery's latest Android commit `c22a6e8c1ca4` (2026-10-08) fixes cancelled-turn benchmark telemetry and post-Stop session handling; crucial finding: native `cancelProcess()` dispatches cancellation to an inference worker, with its terminal callback happening later. RikkaHub's `LiteRtRuntime.streamTurns` previously had an empty `awaitClose` handler and could abandon its Flow while native inference continued without any cancellation request; a late native `onDone` could also mark the KV cache warm after an explicit Stop.
+- **Implemented**: `NativeTurnGate` atomic single-terminal callback state machine, handling success, stop-before-done, late duplicate callbacks, and concurrent Stop/Done; native callbacks on a cancelled turn cannot emit new text or mark the response successful. `streamTurns` now calls native `cancelProcess()` on collector cancellation, preserves the live conversation reference in a single volatile active-turn token, invalidates warm processed signatures / stale performance telemetry on cancellation, and waits up to **5s** for native terminal acknowledgment in `NonCancellable` `finally` cleanup (important: cleanup after `awaitClose` alone cannot run when Flow cancellation throws). Synchronous send failures clear the active turn token and invalidate the cache as well. Late callbacks no longer touch a future turn's cached history. A missing terminal callback after 5s remains unproven safe at native execution level; the code logs warning but device-specific behavior is **not** yet qualified.
+- **Validation on PC**: `./gradlew :local-llm:testDebugUnitTest :app:assembleDebug --console=plain` **BUILD SUCCESSFUL** (`/tmp/gallery-native-turn-suite-20261008.log`). Full `local-llm` JUnit XML totals **472 tests / 62 suites, 0 failed, 0 errors, 0 skipped**, including 4 new `NativeTurnGateTest` cases (1000 repeated concurrent Stop/Done races per test), and existing 17 LiteRtRuntime behavior tests. Additional targeted rebuild with final cancellation barrier placement also passed (`/tmp/gallery-native-turn-verified2-20261008.log`); subsequent change was formatting-only.
+- **No device runtime test or installation**: `adb devices` lists no connected handset while user works. Build success and deterministic gate tests do **not** prove that LiteRT-LM 0.18.0 `cancelProcess` always acknowledges within 5s or that no native worker hangs, nor do they establish GPU/NPU use. Next device qualification: backup installed RikkaHub user data; `adb install -r` only; run a real generation then Stop mid-stream / cancel collector, inspect the callback timing and whether another turn recovers, check telemetry is not credited to the aborted turn, and retest saved EmbeddingGemma 2 model. Do not use `connectedDebugAndroidTest` on live personal installation, do not auto-push. Preserve the independently qualified core LiteRT 2.3.0 branch separate.
+
+## LiteRT-LM bundle-declared capability gating — 2026-10-08
+
+- Inspected Google LiteRT-LM v0.18.0 `ModelInfo.kt` and Google AI Edge Gallery 1.0.20 `services/semanticretrieval/OnDeviceEmbedder.kt`. Bundle metadata describes declared LLM-vs-embedding kind, text/image/audio/video modalities, thinking and tool-calling flags, speculative decoding, context limits, minimum runtime, and permitted text backend list. These are **file declarations** rather than proof of device execution, permissions, or the actual selected backend.
+- Added lazy `LiteRtFileIntrospector` plus pure `LiteRtFileCapabilities.executionPlan` to read bundle metadata on selected chat-engine load. Reject confirmed embedding-only bundles from the chat engine; for confirmed LLMs gate requested vision/audio on the bundle's actual encoder declarations and clamp requested max tokens to a declared positive context maximum. On metadata failure/unknown kind retain curated fallback (not false negative). Previously separated speculative-decoding probe now reuses this single metadata snapshot. Resolved audio state is passed back to the provider; unsupported audio attachments are not forwarded and get a user-visible note. Image forwarding remains gated on post-load vision executor state.
+- Newly registered arbitrary imported filenames are no longer automatically labelled TOOL-capable; previously persisted user selections/abilities remain untouched and existing curated catalog defaults remain. File introspection currently occurs only on engine load, not at arbitrary unverified manual-import parsing; the existing download verification/identity gap in `.meristem/LEARNINGS.md` remains separate.
+- **Host validation**: `./gradlew :local-llm:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --console=plain` reports **BUILD SUCCESSFUL** in `/tmp/rikkahub-modelinfo-integrated-20261008.log`. 7 new pure decision tests and the existing `LiteRtModelMetadataTest` including the conservative unknown-filename negative check passed. Real device model classification, audio/vision gates, NPU/GPU behavior, and UI manual selection remain **unverified** (no Pixel ADB while user is working). No install or push, preserve live settings.
+
+## VibeThinker-3B opt-in reasoning model — 2026-10-08 (desktop only)
+
+- **Source:** Publisher `WeiboAI/VibeThinker-3B` explicitly excludes tool calling / autonomous agents, recommends math, competitive code and answer-verifiable STEM. Third-party Android conversion `litert-community/VibeThinker-3B` is Qwen2 dense 3B, symmetric int4 block 32 with OCTAV, external INT8 embeddings, 4096 KV context. Reasoning output may need >=2048 tokens. The original base model was trained for much longer reasoning trajectories than this 4K quantized runtime offers, so do not overstate its quality.
+- **Live Hugging Face facts verified on 2026-10-08 via `api/models/.../revision/main?blobs=true` AND freshly fetched `litertlm_manifest.json` (schema 0.1.3)**: commit `7790b109a7861b2f6982ccc9877d27faba57a712`, source file `model.litertlm`, 2,059,236,272 bytes, publisher LFS SHA-256 `7885496ccd8f70680474e66e88eccfdc966c1870a39b5fdbea837f897e4742a0`; page/browser indexed data for an older revision still reports a different SHA-256 `ea1838a...`, so never rely on the stale result. Actual 2GB model file has NOT been downloaded and independently hashed on our PC; this is verified publisher metadata, not local binary attestation.
+- **Integration:** Settings → Local · LiteRT curated picker includes optional `VibeThinker-3B (reasoning only)`, not recommended/default. Pins the exact remote revision and hash, maps generic source filename `model.litertlm` into distinct `VibeThinker-3B-int4.litertlm` local identity. Model config requests 3072 output budget within 4096 context, GPU/CPU as advertised candidate only, flags reasoning but **no tools**; `LiteRtProvider` strips native ToolSet registration, compact tool prefix, and constrained decoding for explicitly no-tools config. Existing general chat tool models unchanged. Device planner retains final accelerator/memory admission.
+- **Verified download gate:** Catalog installs now optionally pass `VerifiedModelArtifact` (exact byte count and SHA-256) to existing resumable `ModelInstall`. Reject missing/mismatched Content-Range start/total in 206, reject mismatched Content-Length/total when known, verify final bytes before promotion, refuse overwriting existing installed files. Other preexisting manual/unpinned URL installs remain unverified; the general mutable-main resume integrity gap remains for them and is not falsely marked fixed.
+- **Host checks:** focused `VerifiedModelInstallTest` synthetic HTTP fixtures test positive install, wrong digest, wrong byte length, overwrite refusal, wrong resumed-range and helper validation. `VibeThinkerCatalogTest` checks full source revision and SHA, local filename isolation, explicit reasoning/no-tools, no auto-selection, and existing tools retained. The full Android build and unit-suite acceptance is recorded in the build log generated for this checkpoint; no claims of real on-device inference, GPU delegation, automatic deployment, or download of the 2GB artifact. Pixel absent from ADB while user is working.
+- **Next:** On a device with sufficient free storage and an app-data backup, use the explicit catalog Install action, observe actual 2GB checksum verification, manually select for math-only conversation with no tools, validate correct multi-step answer, 2K+ output budget, stop/cancel/restart, and actual accelerator. Do not run `connectedDebugAndroidTest` or remove/replace app data. Keep LiteRT core 2.3.0 branch separate.
+
+### VibeThinker-3B host verification result (2026-10-08)
+
+- Full combined `./gradlew :local-llm:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest` initially FAILED at the unrelated `MicroAgentEventMeshTest.queueOverflowReportedWhenBoundedCapacityExhausted` (488 cases, one assertion at line 261). This event-mesh test predates the model changes and appears scheduling-sensitive; **cause not independently proven**. Do not erase this observed failure.
+- That exact event-mesh test PASSED when run in isolation together with `:app:assembleDebug` and `:app:assembleDebugAndroidTest` (`/tmp/rikkahub-vibethinker-isolated-flake-build-20261008.log`: BUILD SUCCESSFUL). Then `./gradlew :local-llm:testDebugUnitTest` passed the complete suite in `/tmp/rikkahub-vibethinker-unit-suite-rerun-20261008.log`: JUnit **488 tests / 65 suites / 0 failures / 0 errors / 0 skipped** (including 6 VerifiedModelInstallTest + 3 VibeThinkerCatalogTest). This establishes build and host test coverage, not a live 2GB download or Pixel inference.
+- Latest pinned model metadata was reconfirmed live via Hugging Face API after the build: revision `7790b109a7861b2f6982ccc9877d27faba57a712`, byte length `2059236272`, SHA `7885496ccd8f70680474e66e88eccfdc966c1870a39b5fdbea837f897e4742a0`.
+
+## Upstream RikkaHub / Agent review and focused backports — 2026-10-08
+
+- Source inspection + ordered candidates in `.meristem/upstream-review-2026-10-08.md`.
+- Ported mainline 2026-10-03 OpenAI Responses tool optional-schema fix
+  (`strict: false`); focused request test, full AI JVM unit test and app debug
+  build all passed (`/tmp/rikkahub-upstream-response-strict-full-20261008.log`).
+- Ported Agent 2026-09-24 file-copy source-stream lifetime fix; app debug
+  build passed, but file descriptor regression test is **not run** because
+  `:app:compileDebugUnitTestKotlin` hits Gradle 9.4.1 'Invalid file path'
+  while hashing its output; separate diagnostics in review. Never mark test
+  passed or device-verified.
+- Next upstream merge target: settings-store concurrency+stale snapshot
+  elimination. More consequential than latest MD3 visual refresh, and
+  requires a separate tested migration/worktree due custom persistence keys.
+- No automatic upstream merge; no push or device changes.
+
+## LiteRT-LM 0.18.0 SDK cache-marker consistency — 2026-10-08
+
+- Follow-up to the pinned 0.18.0 Kotlin API upgrade: `LocalRuntimePreferences.LITERTLM_SDK_VERSION` was left at 0.17.0 while both `local-llm` and `app` depend on 0.18.0. Startup `maybeInvalidateOnSdkUpgrade` therefore missed invalidation for persisted 0.17.0 SDK markers. Bumped the marker to 0.18.0 and factored the pure change predicate into `shouldInvalidateSdkVersion`. Removed an obsolete Gradle comment.
+- Added `LocalRuntimePreferencesSdkVersionTest` to cover null/older/current markers and assert that both module Gradle dependencies stay synchronized with the persisted marker (2/2 focused). This is a *host-only* test of migration admission/version consistency, not proof of Android DataStore cleanup or native backend correctness.
+- Verified `./gradlew :local-llm:testDebugUnitTest :app:compileDebugKotlin --console=plain --max-workers=2`: **BUILD SUCCESSFUL in 3m 5s**, full JUnit XML **490 tests / 66 suites / 0 failures / 0 errors / 0 skips**. `git diff --check` passed. Existing unrelated Gradle/Kotlin deprecation warnings remain.
+- **No APK install, phone cache deletion, model changes or push**. On a future in-place 0.18.0 app update from persisted 0.17.0, the existing app-start path is expected to invalidate SDK-coupled decisions and delete only recognized generated XNNPACK/ML Drift cache files, potentially requiring substantial cold compilation/storage. This device behavior, cache cleanup success and genuine GPU inference remain unverified. Preserve app state/backup and inspect available storage before device qualification.
+
+## LiteRT-LM text stream repair and Gemma 4 E4B investigation — 2026-10-12
+
+- User authorized installing the latest local debug app on their USB-connected Pixel 10 Pro. Before updates, created and verified a private host-side backup of the installed debug app's databases, preferences, datastore, skills, and import provenance (8,935,936-byte tar, 178 entries, SHA-256 verification). Private backup location intentionally not committed.
+- Built `:app:assembleDebug :app:assembleDebugAndroidTest` successfully and installed both APKs with `adb install -r`, never uninstall/clear or `connectedDebugAndroidTest`. Existing LFM2.5 bundle (736,015,744 bytes) remained intact; installed package identity unchanged. `LiteRtModelInfoDeviceTest` passed 2/2 against the installed LFM chat and EmbeddingGemma 2 files on SDK 0.18.0.
+- Reproduced a real LiteRT-LM generation-path defect: `LiteRtRuntime.streamTurns` overwrote its output on each `MessageCallback.onMessage`, but LiteRT-LM supplies individual text fragments. Google Gallery and the LiteRT-LM callback docs confirm streaming chunks. The existing LFM CPU acceptance prompt first yielded exactly `ellow` (native engine initialized, generated, and released), rather than a complete response.
+- Fixed the per-turn stream accumulation in `LiteRtRuntime` and retained the provider's cumulative-to-delta conversion. Focused `LiteRtStreamTextAccumulatorTest` passed 3/3; app+androidTest APK builds passed. Reinstalled the fixed arm64 APK in place and reran the SAME LFM device test: result changed from `ellow` to `Yellow`. This is real-device evidence that the missing-first-fragment bug is fixed, NOT proof of semantic correctness: the acceptance test still FAILED because it expected `orange`. The installed LFM file's source-revision/checksum discrepancy remains unresolved. Full in-app chat-UI interaction not requalified.
+- Investigated `vokash3/Huihui-gemma-4-E4B-it-qat-q4_0-unquantized-abliterated-LiteRT-LM`, pinned to revision `589264087504a74d02b6c54c1f71e2e99f14963a`. Verified the complete 4,309,601,504-byte `.litertlm` on Linux against publisher SHA-256 `719ba6042d8ad393b775748e876a4de07d8b40400a772cbce46e894359d441f9`. Linux `litert-lm` 0.14.0 CPU produced `12` for 7+5 and a coherent sentence about photosynthesis (real inference, not mocked).
+- Gemma E4B was NOT transferred or run on the Pixel: Android memory `MemAvailable` was roughly 4.3–5.0 GB, while RikkaHub's immutable 70%-of-available-RAM load admission requires about 6.16 GB for the 4.31 GB bundle; the phone also had only ~6–7 GB free disk before any transfer. No model files or other user data were deleted to force a test. Pixel model/accelerator/vision compatibility is still UNKNOWN. A safe future run needs adequate RAM and disk headroom, pinned file provenance, and semantic output acceptance.
+
+## Pixel 10 Pro reboot: qualified Gemma E4B CPU and Scylla's Band TTS — 2026-10-12
+
+- **Changed device conditions:** Pixel reboot after the earlier failed memory admission raised available RAM to ~8.3–8.5 GB out of 16.3 GB total. Removed only the three Stable Diffusion image-generation checkpoints and three FLUX Klein components in the immediately preceding user-authorized cleanup (~7.49 GiB filesystem-accounted freed). Chat, GGUF, other TTS, RAG/OCR files untouched. The earlier "NOT transferred or run" checkpoint above is accurate **at that earlier time**; this section supersedes that status with later verified device results.
+- **Gemma artifact:** Staged verified Huihui E4B bundle to app-owned external path `/sdcard/Android/data/excp.rikkahub.local.debug/files/local-models/litert/huihui-gemma4-e4b-abliterated.litertlm` (4,309,601,504 bytes). Pixel itself reported SHA-256 `719ba6042d8ad393b775748e876a4de07d8b40400a772cbce46e894359d441f9`, matching pinned HF revision `589264087504a74d02b6c54c1f71e2e99f14963a`. Existing RikkaHub package version 2.4.1 and user settings were **not** replaced or modified in this stage.
+- **New reproducible manual Android acceptance:** `app/src/androidTest/java/me/rerere/rikkahub/data/ai/LiteRtGemmaE4BDeviceTest.kt`. Built `:app:assembleDebugAndroidTest` successfully and installed only the test APK using `adb install -r`; ran `adb shell am instrument -w -e class me.rerere.rikkahub.data.ai.LiteRtGemmaE4BDeviceTest excp.rikkahub.local.debug.test/androidx.test.runner.AndroidJUnitRunner`. DO NOT run Gradle `connectedDebugAndroidTest`: it may uninstall the app and destroy user data.
+- **Real LiteRT-LM 0.18.0 CPU generation:** First physical Pixel acceptance **PASS 1/1**, prompt about seven plus five returned exact `12` after 22.843s cold load and 26.638s total including model release; native `StreamTelemetry` recorded prefill/decode. Expanded same test to exercise warm continuation: **PASS 1/1**, first turn returned `12`, then second turn in the same live native Conversation returned exact `Photosynthesis` in response to question about how plants turn sunlight into food. Re-run model load was 2.386s (compiled cache reused), full two-turn acceptance 8.293s. Logs `/tmp/rikkahub-gemma-e4b-pixel-acceptance-20261012.log` and `/tmp/rikkahub-gemma-e4b-two-turn-20261012.log`.
+- **Gemma limitations:** This is native runtime acceptance, not end-to-end app UI provider registration or interactive chat; the staged file is **not registered** in RikkaHub's model settings/catalog. CPU and text confirmed. GPU, vision, long-context, safety/quality, and real chat UI integration unknown. The CPU run generated a **2,341,103,296-byte** XNNPACK cache next to the model. Both model and cache remain; phone had ~8.9 GiB free storage after tests, with ~8.2GB available RAM. Do not mistake the cache for duplicated weights or silently delete it.
+- **Scylla's Band v2 isolated build:** Inspected upstream `lowkeytea/scyllasband` checkout commit `2aeafb99a8bad018db29af6024e575d65c651731` under `/tmp/scyllasband-review-20261012`. Downloaded and validated pinned `spybyscript/scyllasband` release LiteRT bundle (~164MB) via publisher downloader. Staged upstream LiteRT **2.2.0** Android .so files into git-ignored sample paths. Changed only the **temporary sample checkout's** NDK pin from 29.0.13113456 to locally available 28.2.13676358 and set its temporary `local.properties`; original RikkaHub code and dependencies unchanged. Sample `:app:assembleDebug :app:assembleDebugAndroidTest :scyllasband-android:testDebugUnitTest` **BUILD SUCCESSFUL**. Installed the distinct `org.scyllasband.demo` app and test package on Pixel (no RikkaHub reinstall or data modifications).
+- **Real Scylla on-device synthesis:** Added independent instrumentation smoke test in temporary sample `examples/android/app/src/androidTest/java/org/scyllasband/demo/ScyllasBandPhysicalDeviceTest.kt`. `adb shell am instrument -w -e class org.scyllasband.demo.ScyllasBandPhysicalDeviceTest org.scyllasband.demo.test/androidx.test.runner.AndroidJUnitRunner`: **PASS 1/1**. LiteRT CPU initialized with 10 voices at 24kHz and generated 146,432 actual finite PCM samples (~6.10sec), 126,802 non-silent at threshold 0.0001, peak 0.36948812, synthesis took 2,391ms. This verifies generated waveform, not subjective listening quality, Android background playback, or RikkaHub TTS integration. Sample device log `/tmp/scyllasband-pixel-real-pcm-20261012.log`. The demo remains installed as its own package.
+- **Next decisions:** Scylla has a native C++/JNI/Kotlin streaming CPU implementation with cancellation and voice/delivery parameters that fit RikkaHub's TTS provider interface, but **requires separate integration and native library compatibility checks**: Scylla sample stages LiteRT 2.2.0 while RikkaHub currently packages other LiteRT native versions. Do not copy conflicting `libLiteRt.so` blindly. Gemma could be registered explicitly in the model UI in future without changing current default. Both results are real physical-device proofs within their stated boundaries, not verification of integrated UI end-to-end.
+
+## Scylla's Band integration in RikkaHub — 2026-10-12
+
+- User agreed to implement Scylla as a local expressive TTS provider after a standalone Scylla v2 CPU inference PASS on their Pixel 10 Pro. RikkaHub speech module now vendors the upstream Apache-2.0 C++/JNI/Kotlin adapter with provenance in speech/src/main/scyllasband/UPSTREAM.md (upstream commit 2aeafb99a8bad018db29af6024e575d65c651731), including original LICENSE and pinned LiteRT C headers.
+- **Native compatibility boundary established experimentally:** Scylla with RikkaHub's shared LiteRT 2.1.5 FAILED at native G2P warmup (status 500) in an isolated APK. Scylla with LiteRT 2.2.0 and a distinct ELF SONAME libScyllaLiteRt.so PASSED in that same demo while libLiteRt.so 2.1.5 was packaged alongside it (146,432 PCM samples; 1.29s synthesis). :speech now stages the verified 2.2.0 Google binary under the separate SONAME using patchelf, links the vendor C++ engine to it through CMake, and retains the existing app's LiteRT 2.1.5 library unchanged. arm64 and x86_64 binaries only, regenerated locally rather than committed. CI adds only needed patchelf/NDK 28.2.13676358 setup; CI not yet executed remotely.
+- **Provider + UI:** New serializable ScyllaTts setting, native ScyllaTTSProvider routed through existing TTSManager and TTSController, session lifecycle/cancellation, streaming 24kHz mono signed PCM16, last-chunk signaling, built-in voice selector (ten voices), supported per-voice English dialect / six languages, four expressive delivery sliders and optional noise seed. Model isn't bundled in APK. Installer uses the existing resumable local-model pipeline, supports nested model paths and folder import, and verifies SHA-256 of all 16 pinned Hugging Face files at revision 0c44c02f1cad9c108ba44c520a5925495fdf7e67. Existing user default provider is unchanged.
+- **Installed physical-device acceptance:** Verified independent pre-install backup in ~/.local/share/meristem/private-backups/rikkahub-local/20261012-233301-pre-scylla-integration; installed APK and test APK using adb install -r (no uninstall/clear). Scylla model was staged into a new app-owned external folder; no existing model files removed. Actual RikkaHub TTSManager device test PASS: 119,296 PCM samples over 2 chunks, peak 0.49066, non-silent 93,191 samples. Final upgraded physical test PASS (1/1, 5.925s): first Scylla en_us speech and second new session with Ink en_gb voice, 165,888 PCM bytes; onSessionEnd and engine-switch path exercised. Not a mocked or prerecorded waveform.
+- **Regression and build:** :speech:assembleDebug, :app:compileDebugKotlin, :app:assembleDebug, :app:assembleDebugAndroidTest all BUILD SUCCESSFUL after native integration, and speech module JVM test suite 95/95 PASS (28 suites). Focused Scylla catalog/serialization 3/3 PASS. Physical Gemma 4 E4B LiteRT-LM 0.18 two-turn test after Scylla integration PASS: 12 and Photosynthesis (old LiteRT library preserved). Full :app:testDebugUnitTest task blocked during :app:compileDebugUnitTestKotlin output hashing by Gradle 9.4.1 FileNotFoundException: Invalid file path, even without configuration cache. Historical existing unit XML is NOT evidence of a fresh app unit run. No app JVM suite pass claimed.
+- **Open validation boundaries:** Download/import controls and visual Settings UI have compiled but haven't been tapped through on-device; Android background playback or notification interruption behavior isn't verified; no subjective listening evaluation. No global LiteRT upgrade. Full app JVM suite requires a separate Gradle output-state investigation. CI new patchelf/NDK setup not remotely run. Standalone Scylla demo remains installed as a separate user-visible package; do not uninstall it or its data without user consent.
+- **Follow-up usability polish:** When choosing the Scylla provider, the Settings form now detects an existing complete model bundle in either app-owned external or internal storage and selects its path automatically. On the Pixel the complete external test bundle already exists, so no second 164MB download is necessary. A full native/app APK rebuild PASS, and updated app installed in place. This auto-discovery path was compiler-verified but not manually clicked through in Compose UI.
+
+## LiteRT CompiledModel runtime consolidated on 2.3.0 — 2026-10-13
+
+- **Why:** User explicitly requested full upgrade after Scylla 2.2.0 had to be isolated from RikkaHub's 2.1.5 core. Official LiteRT 2.3.0 Android resolves AGP 9 manifest namespace conflict from 2.2.0; separate GPU Maven dependency now required.
+- **Updated build pins:** app, local-llm, speech now all request `com.google.ai.edge.litert:litert:2.3.0`; app also requests `com.google.ai.edge.litert:litert-gpu:2.3.0`. Independent LiteRT-LM remains `0.18.0` (Gemma/E4B/EmbeddingGemma). Legacy TensorFlow Lite Interpreter `2.16.1` remains separate, not silently migrated.
+- **Native C ABI:** Official `v2.3.0/litert_cc_sdk.zip` published and verified SHA-256 `44ebb188ae1a510f233639fa499928fdaaba46436a153a2dbfbb9d87d59728d2`. Exact core from Google Maven LiteRT 2.3.0 AAR SHA-256 `9508c6e9142646f0f2bc1fe68b3925fb470ee7ddd29114540339a04a8ab189dc`; arm64 native SHA-256 `e5b7e3413a8b428b1a1b669f368cf613058868bc7b63e10d0b9c2e6ba55c97d8`, x86_64 `702e378bc626da1e6e0dadf4ff2520c94be48dc89147db8a5cb4139d2213be66`. Google's separately hosted 2.3.0 object was **not identical** to the Maven binary; chose the exact Maven binary for every consumer to avoid an ABI/runtime mixture. Added deterministic checksummed stage script `scripts/stage_litert_230.py` for ignored native SDK with Gradle dependencies for app/speech CMake and packaging. Old SDK binaries safely copied to temporary backup on host before staging.
+- **C bridge migration:** `LiteRtCreateModelFromFile` now requires `LiteRtEnvironment` as first parameter in v2.3.0; patched `app/src/main/jni/litert/bridge.cpp`. No claims the bridge's pre-existing placeholder-like input/output handling has become functional by this signature change; that is a separate issue.
+- **Native consolidation:** Scylla CMake now links to the same `libLiteRt.so` and 2.3.0 C headers used by app. Removed separate Scylla 2.2.0 staging script and its generated `libScyllaLiteRt.so` ABI binaries. Verified final arm64 APK contains one `libLiteRt.so` with exact Maven SHA, `libLiteRtClGlAccelerator.so`, and Scylla native engine linked by ELF DT_NEEDED to `libLiteRt.so`. No `libScyllaLiteRt.so` remains in package. Native arm64 and x86_64 app and speech builds passed with AGP 9.2.1 / Gradle 9.4.1.
+- **Protection:** Before installing, SHA-verified fresh backup of live Pixel databases, prefs and datastore at `~/.local/share/meristem/private-backups/rikkahub-local/20261013-003220-pre-litert-230/`; also pulled recoverable previous installed APK into `/tmp/rikka-pre-litert230-recovery.apk` (~176MB). Only `adb install -r` used; package version 2.4.1 and existing models/settings retained. Rebooted Pixel has ample RAM relative to earlier threshold.
+- **Actual Pixel 10 Pro Android acceptance after new APK:** `ScyllaTtsProviderDeviceTest` **PASS 1/1** in ~5.996s, two native voices and PCM streaming across session restart (sample log shows 119,296 samples first; 165,888 PCM bytes Ink second). `PpOcrVerifiedDeviceTest` **PASS 2/2** in ~4.476s: verified model contents, real CompiledModel GPU-first detector+recognizer output `HELLO 123`. No GPU fallback warning observed, but exact hardware dispatch was not separately profiled. `EmbeddingGemma2DeviceTest` **PASS 4/4** in ~1.807s including semantic embeddings and search relevance; note EmbeddingGemma uses separate LiteRT-LM, not the core CompiledModel API. `LiteRtGemmaE4BDeviceTest` **PASS 1/1** in ~10.774s: CPU native engine, first result `12`, second turn `Photosynthesis`. No model loss observed.
+- **JVM tests:** `:speech:testDebugUnitTest` PASS **95/95**; `:local-llm:testDebugUnitTest` PASS **493/493** on repeat. First full local-llm JVM run reported 1 failure in unrelated `MicroAgentOrchestratorTest.cancellationDuringExecutionPublishesOrchestrationCancelledAndLateVerificationCannotReplaceTerminal`; the isolated test PASS and full rerun PASS, consistent with timing-sensitive/flaky test behavior. `:app:testDebugUnitTest` still blocked *before tests execute* by pre-existing Gradle 9.4.1 Kotlin output tracking `Failed to create MD5 hash for file: Invalid file path`; same blocker observed before this upgrade. Do not claim app JVM tests passed.
+- **Remaining verification:** CI for this commit not run until push; UI screens and all optional ASR/Matcha/Qwen3 graph variants not independently rerun after 2.3 migration. Stage task requires network only on first/invalid native SDK staging. Do not equate the subset of device tests with all inference backends. No global app cache/data reset or destructive operations.
+
+## App JVM Gradle output-hashing failure fixed — 2026-10-13
+
+- **Reproduced unchanged app test failure:** `./gradlew :app:compileDebugUnitTestKotlin --stacktrace --info` (under workstation's inherited POSIX locale, `LANG` empty) threw `Cannot access output property 'destinationDirectory'` with `Failed to create MD5 hash for file: Invalid file path`, inside Gradle's `DefaultFileHasher` and `DirectorySnapshotter`, before JVM tests could execute.
+- **Root cause verified, not merely inferred:** The Java launcher uses `sun.jnu.encoding=ANSI_X3.4-1968` when launched under the POSIX locale, despite `file.encoding=UTF-8`. `:app:compileDebugUnitTestKotlin` output contained **10 UTF-8 class filenames** incorporating U+2014 EM DASH from two suspend/runBlocking Kotlin backtick test method names. Standalone Java directory walk + FileInputStream under POSIX read 572/582 files and failed to reopen exactly those ten paths (substituting `???`); under `LANG=C.UTF-8 LC_ALL=C.UTF-8`, the same Java walk read all 582 files. With the UTF-8 environment and a fresh daemon, the **unmodified complete app unit suite PASS 1,458/1,458**. This establishes an encoding boundary, not corrupt artifacts, unreliable assertions, or a LiteRT regression.
+- **Source fix (two Kotlin test identifiers only):** Replaced the em dash in backtick test method names with ASCII hyphen in `app/src/test/java/me/rerere/rikkahub/service/CronJobWorkerLlmAwaitTest.kt` and `app/src/test/java/me/rerere/rikkahub/subagent/SubAgentCompletionWaitTest.kt`. The test bodies and assertions are unchanged. Other backtick methods containing punctuation weren't touched because they do not generate non-ASCII `.class` filenames in this compiled output.
+- **Safe output remediation:** Relocated, rather than deleted, the ten stale generated `.class` files out of `app/build/intermediates/built_in_kotlinc/debugUnitTest/compileDebugUnitTestKotlin/classes/` to `/tmp/rikka-app-unit-utf8-classfiles-preserved-20261013/`. They are disposable generated build outputs; no user data, test sources, Gradle caches, or other files were reset. Kotlin regenerated its normal `.class` files with ASCII names.
+- **Final proof with original POSIX environment, no workaround:** Plain `./gradlew :app:testDebugUnitTest --console=plain --max-workers=2` now **BUILD SUCCESSFUL** in ~16s. Fresh XML: **208 suites, 1,458 tests, 0 failed, 0 errors, 0 skipped**. Both renamed tests appear and pass. Standalone Java FileInputStream scan under POSIX now reads **585/585** output class files successfully with **zero** non-ASCII class filenames. `Task.doNotTrackState()` and build-cache disabling were not used, and no global Java/Gradle/locale configuration was modified.
+- **Scope:** Fix is specific to the app JVM test artifact filenames, not the app's native inference code. The earlier `:speech:testDebugUnitTest` (95/95) and `:local-llm:testDebugUnitTest` (493/493 final run), the 2.3.0 physical Pixel acceptance, and the existing live RikkaHub install remain unchanged. No APK reinstall is needed for this test-only fix. CI execution of this new commit remains to be checked after push.
+
+## Scylla synthesis-control improvements borrowed from Wyoming — 2026-10-13
+
+- User intent: **borrow only techniques better than our native implementation**; explicitly do NOT run a Wyoming service or integrate ONNX/Home Assistant into RikkaHub. Reviewed `allenbenz/scyllasbandv2-wyoming` revision `ad96c5e59741c3b6cf668d525e62cb1958bb457e` and compared actual code paths. Source/provenance and rejected transplant rationale are in `speech/src/main/scyllasband/UPSTREAM.md`.
+- Integrated real Scylla C API settings not previously exposed on Android: `speed` (0.5–1.5, 1 default), `steps` (0..32, 0 = bundle default, slider caps at 16), and `sampler` (`default|euler|heun`, default for existing settings). Wired JSON-serializable setting -> Kotlin provider -> native Kotlin API -> JNI -> `ScyllasBandRequest.speed/steps/sampler`. UI provides speed slider, integer steps slider and sampler dropdown plus reset. Invalid/nonfinite settings rejected. Backward-compatible JSON default case and invalid-controls tests added; no native model graph modification.
+- **Explicitly rejected** Wyoming's 200-ms PCM packet segmentation because RikkaHub currently fully collects synthesis chunks before playback; it would not make TTS start earlier. Also rejected Wyoming ONNX service, v1-only emotion/prefix conditioning, and unsupported native whisper flag. Full live playback would need a separate request and validation, not a chunk splitting cosmetic change.
+- **Build proof:** `:speech:testDebugUnitTest` PASS 97/97, including new serialization/validation tests; `:app:testDebugUnitTest` PASS 1,458/1,458 on default workstation locale; `:app:assembleDebug` and `:app:assembleDebugAndroidTest` both BUILD SUCCESSFUL. Native ABI module shares LiteRT 2.3.0 unchanged.
+- **Pixel in-place verification:** Before installing the updated APK, backed up databases/preferences/datastore and previous APK with SHA-256 receipt in `~/.local/share/meristem/private-backups/rikkahub-local/20261013-012109-pre-scylla-controls/`. Used only `adb install -r` for app and test APK. Manual full native `ScyllaTtsProviderDeviceTest` PASS 1/1 in 7.601s, all with real PCM: neutral Scylla, Ink en_gb Euler/4 steps 1.2x (135,168 bytes), same text/voice/seed Euler/4 steps 1.0x (165,888 bytes), and Heun/4 steps 1.0x (165,888 bytes). Each has correct terminal-chunk marker. This isolates the speaking-rate variable, verifies alternate sampler execution, and verifies audio exists; subjective quality and user-facing Compose UI interactions remain untested. Existing providers' stored defaults and other model files were not changed.
+
+## PocketTune-inspired GGUF auto-tuner — 2026-10-13
+
+- **Intent and source:** User requested selective adoption from `ayanbag/PocketTune` (public GitHub, main branch, commit `d61bb48dc749b35f9e4ca2a16edb785abad31a5e`). Borrowed its central *detect → sweep → measure → explicitly apply* mechanism, **not** the React Native app, llama.rn, its downloaded models, or benchmark speedup claims from older Pixel/MediaTek devices.
+- **Actual RikkaHub boundary:** Existing GGUF runtime is `com.llamatik:library:1.10.1`, not llama.rn. The bridge provides thread count, flash-attention and sessions, but **no native `bench()` or reliable token counter**, so implemented an honest fixed-prompt, deterministic low-temperature on-device sweep, with **time-to-first-output in ms and emitted Unicode characters/second** (never mislabeled token/s). Two independent real generations per candidate; 96-token generation cap, 1024 context, 256 batch, CPU-only, constant mmap/attention settings. Baseline is original `availableProcessors()` count. Sweep measures candidate core counts `[total,2,4,6,total/2]` (bounded and deduplicated). 65% normalized character throughput plus 35% first-output-latency score; rejects short/failed or non-finite measurements.
+- **Native correctness and concurrency:** `local-llm/src/main/java/me/rerere/locallm/llamacpp/GgufTuning.kt` adds one global `GgufNativeGate` mutex shared by chat, vision, embeddings, and benchmark. Gate invalidates/cleans the current GGUF session cache before native tuning. Every measured candidate does `LlamaBridge.shutdown()`, sets explicit native parameters, initializes fresh GGUF weights and session, runs real streaming inference, and closes the session; runtime shutdown in finally. Thread changes require full model reload according to upstream Llamatik contract. Replaced unconditional global `nativeCancelGenerate()` in callbackFlow `awaitClose` with owned-session cancellation to avoid racing a subsequent benchmark. Text path reloads when applied thread config changes; retained old defaults unless selected model has explicitly applied tuning.
+- **Persistence:** Separate private DataStore `gguf_tuning_v1`, keyed by registered model ID and protected by a SHA-256 fingerprint of canonical path, file length/mtime, device ABI, Android build fingerprint, and Llamatik+benchmark version. Records contain baseline, all measured samples, winner, timestamp and explicit `applied` flag. Saved runs never auto-apply. Apply and Revert only change selected GGUF model record, and changing model/runtime invalidates stale records. No global provider default, other backend, or user-model registration modified.
+- **UI:** GGUF provider configuration now has `GGUF performance tuning`: select an already installed model, run quick sweep, compare baseline/winner plus per-thread evidence, Apply or Revert, see actionable errors and battery/heat cautions. No automatic downloads or background scheduling. The entire component compiles; **manual screen interaction has not yet been exercised**.
+- **Safety:** Native sweep refuses to start while another GGUF operation holds the gate, and stops before a new candidate if battery <25% or battery temperature >=41 °C. No claim about GPU performance, KV quantization, flash-attention variants, general power efficiency, or device-agnostic speedup: these were not tested.
+- **Build and JVM tests:** `:app:assembleDebug`, `:app:assembleDebugAndroidTest`, `:app:testDebugUnitTest` **PASS 1458/1458**, `:local-llm:testDebugUnitTest` **PASS 496/496** (3 focused policy tests added). No unrelated production modules altered.
+- **Real hardware test:** Publisher SHA-256 verified `bartowski/SmolLM2-135M-Instruct-GGUF` pinned revision `09816acd5d99df7be770d85ea30822623dab342c`, file `SmolLM2-135M-Instruct-Q4_K_M.gguf`, 105,454,432 bytes, SHA-256 `2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d`. Staged separately under the app-owned **test-only** path `files/gguf-tuner-smoke.gguf`, not registered as a user model. Backed up and SHA-verified actual Pixel user databases/preferences/datastore and previous APK to `~/.local/share/meristem/private-backups/rikkahub-local/20261013-110953-pre-gguf-tuner/` before `adb install -r` (never uninstall/clear). Final `GgufTuningDeviceTest` on Pixel 10 Pro Tensor G5 **PASS 1/1**, ~13.071s, real 8-run native sweep, all outputs 450 Unicode characters. Final per-candidate averages: 8-thread baseline first 172.96ms / 223.62 chars/s; 2-thread 157.44ms / 429.47 chars/s; **4-thread winner** 152.99ms / **628.25 chars/s**; 6-thread 147.35ms / 328.13 chars/s. First preliminary device test likewise found 4-thread winner (613.74 chars/s vs 8-thread 230.08 chars/s); these are *per-fixture* rates, not advertised tokenizer tok/s or guaranteed gains for other models. Test persisted, read, explicitly applied, reverted, and deleted only a unique test-owned tuning key; `APPLY_REVERT_PERSISTENCE_OK` in device log. Fixture was verified by SHA and removed from the device afterward; **existing user models and provider defaults intact**. Previous native test failed JUnit initialization due Kotlin non-void test signature; explicitly fixed; not misreported as native failure.
+- **Open boundaries:** Phone does **not** currently have a registered GGUF chat model, so actual user-facing selection, conversation with an applied per-model config, and model-specific performance gains for a user's eventual GGUF remain unverified. Composite UI compiled but not clicked. The benchmark makes no raw `llama-bench` token-per-second claim; native model reload and full session correctness were qualified on the small test fixture. Build verification is local; GitHub CI after commit/push not yet confirmed.

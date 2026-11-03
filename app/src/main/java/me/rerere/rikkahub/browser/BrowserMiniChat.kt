@@ -1,5 +1,6 @@
 package me.rerere.rikkahub.browser
 
+import me.rerere.rikkahub.ui.icons.MingcuteIcons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -54,9 +55,6 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import me.rerere.ai.core.MessageRole
 import me.rerere.ai.ui.UIMessagePart
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Cancel01
-import me.rerere.hugeicons.stroke.Sparkles
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.service.ChatService
 import org.koin.compose.koinInject
@@ -144,7 +142,7 @@ fun BrowserMiniChat(
                     modifier = Modifier.size(56.dp),
                 ) {
                     Icon(
-                        imageVector = HugeIcons.Sparkles,
+                        imageVector = MingcuteIcons.Sparkles,
                         contentDescription = stringResource(R.string.browser_mini_chat_open),
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
@@ -200,7 +198,7 @@ private fun BrowserMiniChatExpandedCard(
             // Header row: "Ask the AI" + collapse.
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = HugeIcons.Sparkles,
+                    imageVector = MingcuteIcons.Sparkles,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.primary,
@@ -214,7 +212,7 @@ private fun BrowserMiniChatExpandedCard(
                 )
                 IconButton(onClick = onCollapse) {
                     Icon(
-                        imageVector = HugeIcons.Cancel01,
+                        imageVector = MingcuteIcons.Cancel01,
                         contentDescription = stringResource(R.string.browser_mini_chat_close),
                         modifier = Modifier.size(18.dp),
                     )
@@ -311,7 +309,7 @@ private fun BrowserMiniChatExpandedCard(
                     ),
                 ) {
                     Icon(
-                        imageVector = HugeIcons.Sparkles,
+                        imageVector = MingcuteIcons.Sparkles,
                         contentDescription = stringResource(R.string.browser_mini_chat_send),
                         modifier = Modifier.size(18.dp),
                     )

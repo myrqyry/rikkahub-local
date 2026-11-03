@@ -139,7 +139,4 @@ object AgentRunDefaults {
 
     /** `metadata_json` size bound — prevents unbounded growth from a runaway writer. */
     const val METADATA_MAX_BYTES = 4 * 1024
-
-    /** A run still `in flight` and untouched for longer than this on app start is stranded. */
-    const val STRANDED_THRESHOLD_MS = 30L * 60_000L
 }

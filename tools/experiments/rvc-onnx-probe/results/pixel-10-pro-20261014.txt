@@ -1,0 +1,27 @@
+1792038215208 OPEN Nova_HD.onnx 434ms inputs=[feats, p_len, pitch, pitchf, sid] outputs=[audio]
+1792038216792 RUN NovaHD_synth_96frames 0 1570ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[46080])
+1792038218204 RUN NovaHD_synth_96frames 1 1410ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[46080])
+1792038219603 RUN NovaHD_synth_96frames 2 1398ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[46080])
+1792038241654 OPEN rmvpe_q8.onnx 651ms inputs=[input] outputs=[output]
+1792038242268 RUN RMVPE_q8_128frames 0 608ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[1, 128, 360])
+1792038242765 RUN RMVPE_q8_128frames 1 496ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[1, 128, 360])
+1792038243259 RUN RMVPE_q8_128frames 2 493ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[1, 128, 360])
+1792038258977 OPEN contentvec_768l12_q8.onnx 378ms inputs=[input_values, attention_mask] outputs=[hidden_states]
+1792038259814 RUN ContentVec_q8_2s 0 816ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[1, 99, 768])
+1792038260445 RUN ContentVec_q8_2s 1 630ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[1, 99, 768])
+1792038261038 RUN ContentVec_q8_2s 2 592ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[1, 99, 768])
+1792038328079 AVAILABLE_PROVIDERS [CPU, NNAPI, XNNPACK, WEBGPU]
+1792038328572 OPEN xnnpack Nova_HD.onnx 491ms inputs=[feats, p_len, pitch, pitchf, sid] outputs=[audio]
+1792038330210 RUN NovaHD_xnnpack_96frames 0 1624ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[46080])
+1792038331627 RUN NovaHD_xnnpack_96frames 1 1416ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[46080])
+1792038333030 RUN NovaHD_xnnpack_96frames 2 1403ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[46080])
+1792038355129 AVAILABLE_PROVIDERS [CPU, NNAPI, XNNPACK, WEBGPU]
+1792038355663 OPEN nnapi Nova_HD.onnx 533ms inputs=[feats, p_len, pitch, pitchf, sid] outputs=[audio]
+1792038357187 RUN NovaHD_nnapi_96frames 0 1510ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[46080])
+1792038358622 RUN NovaHD_nnapi_96frames 1 1434ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[46080])
+1792038360022 RUN NovaHD_nnapi_96frames 2 1399ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[46080])
+1792038411385 AVAILABLE_PROVIDERS [CPU, NNAPI, XNNPACK, WEBGPU]
+1792038411905 OPEN webgpu Nova_HD.onnx 496ms inputs=[feats, p_len, pitch, pitchf, sid] outputs=[audio]
+1792038422619 RUN NovaHD_webgpu_96frames 0 10695ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[46080])
+1792038427409 RUN NovaHD_webgpu_96frames 1 4785ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[46080])
+1792038432138 RUN NovaHD_webgpu_96frames 2 4724ms output=TensorInfo(javaType=FLOAT,onnxType=ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,shape=[46080])

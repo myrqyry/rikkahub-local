@@ -42,9 +42,9 @@ The stable agentic architecture, authority boundary, typed plans, receipts, modu
 seams, and subsystem status are owned by
 `docs/references/architecture.md`, which is the canonical architecture statement.
 The root `README.md` owns the public project overview and feature/status description.
-The root `AGENTS.md` owns collaboration rules and standard workflows. Existing
-`docs/superpowers/` plans/specs remain historical or task-specific design records;
-they are not copied here.
+The root `AGENTS.md` owns collaboration rules and standard workflows. Historical
+task-specific plans/specs were removed from the working tree; Git history retains them
+when archaeology is needed.
 
 ## Known-good workflows
 

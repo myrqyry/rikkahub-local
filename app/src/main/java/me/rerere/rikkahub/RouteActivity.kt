@@ -117,7 +117,6 @@ import me.rerere.rikkahub.ui.pages.setting.SettingAboutPage
 import me.rerere.rikkahub.ui.pages.setting.SettingAccessibilityPage
 import me.rerere.rikkahub.ui.pages.setting.SettingNotificationsPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPermissionsPage
-import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesThemePage
 import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesNotificationPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesGeneralPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesUIPage
@@ -130,6 +129,7 @@ import me.rerere.rikkahub.ui.pages.models.ModelsPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPage
 import me.rerere.rikkahub.ui.pages.setting.SettingProviderDetailPage
 import me.rerere.rikkahub.ui.pages.setting.SettingAgentPage
+import me.rerere.rikkahub.ui.pages.setting.SettingChatPromptsPage
 import me.rerere.rikkahub.ui.pages.setting.SettingSearchDetailPage
 import me.rerere.rikkahub.ui.pages.setting.SettingSearchPage
 
@@ -492,8 +492,9 @@ class RouteActivity : ComponentActivity() {
                                 SettingThemePage()
                             }
 
+                            // Legacy route alias: saved navigation stacks still open the same Appearance screen.
                             entry<Screen.SettingPreferencesTheme> {
-                                SettingPreferencesThemePage()
+                                SettingThemePage()
                             }
 
                             entry<Screen.SettingPreferencesNotification> {
@@ -519,6 +520,10 @@ class RouteActivity : ComponentActivity() {
 
                             entry<Screen.SettingAgent> {
                                 SettingAgentPage()
+                            }
+
+                            entry<Screen.SettingChatPrompts> {
+                                SettingChatPromptsPage()
                             }
 
                             entry<Screen.SettingDefaultModels> {
@@ -817,6 +822,9 @@ sealed interface Screen : NavKey {
 
     @Serializable
     data object SettingAgent : Screen
+
+    @Serializable
+    data object SettingChatPrompts : Screen
 
     @Serializable
     data object SettingAbout : Screen

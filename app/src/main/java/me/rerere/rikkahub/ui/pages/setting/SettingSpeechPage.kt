@@ -1,15 +1,6 @@
 package me.rerere.rikkahub.ui.pages.setting
 
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Tick01
-import me.rerere.hugeicons.stroke.StopCircle
-import me.rerere.hugeicons.stroke.DragDropHorizontal
-import me.rerere.hugeicons.stroke.PencilEdit01
-import me.rerere.hugeicons.stroke.Add01
-import me.rerere.hugeicons.stroke.Mic01
-import me.rerere.hugeicons.stroke.Tools
-import me.rerere.hugeicons.stroke.Delete01
-import me.rerere.hugeicons.stroke.VolumeHigh
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -64,9 +55,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.rerere.rikkahub.R
 import me.rerere.asr.ASRProviderSetting
-import me.rerere.rikkahub.data.datastore.DEFAULT_SYSTEM_TTS_ID
-import me.rerere.rikkahub.data.datastore.DisplaySetting
+import me.rerere.rikkahub.data.datastore.TtsPlaybackPreferences
+import me.rerere.rikkahub.data.datastore.playbackFor
+import me.rerere.rikkahub.data.datastore.inheritedTtsPlayback
 import me.rerere.rikkahub.data.datastore.Settings
+import me.rerere.rikkahub.data.datastore.DEFAULT_SYSTEM_TTS_ID
+import kotlin.uuid.Uuid
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.AutoAIIcon
 import me.rerere.rikkahub.ui.components.ui.CardGroup
@@ -88,13 +82,8 @@ fun SettingSpeechPage(vm: SettingVM = koinViewModel()) {
     var editingTTSProvider by remember { mutableStateOf<TTSProviderSetting?>(null) }
     var editingASRProvider by remember { mutableStateOf<ASRProviderSetting?>(null) }
     var selectedPage by remember { mutableIntStateOf(0) }
-    var ttsDisplaySetting by remember(settings) { mutableStateOf(settings.displaySetting) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
-    fun updateTTSDisplay(setting: DisplaySetting) {
-        ttsDisplaySetting = setting
-        vm.updateSettings(settings.copy(displaySetting = setting))
-    }
 
     Scaffold(
         topBar = {
@@ -107,13 +96,10 @@ fun SettingSpeechPage(vm: SettingVM = koinViewModel()) {
                 },
                 actions = {
                     if (selectedPage == 0) {
-                        AddTTSProviderButton {
-                            vm.updateSettings(
-                                settings.copy(
-                                    ttsProviders = listOf(it) + settings.ttsProviders
-                                )
-                            )
-                        }
+                        AddTTSProviderButton(
+                            inheritedPlayback = settings.displaySetting.inheritedTtsPlayback(),
+                            onAdd = vm::addTtsProvider,
+                        )
                     } else {
                         AddASRProviderButton {
                             vm.updateSettings(
@@ -153,9 +139,9 @@ fun SettingSpeechPage(vm: SettingVM = koinViewModel()) {
         when (selectedPage) {
             0 -> TTSProviderList(
                 settings = settings,
-                ttsDisplaySetting = ttsDisplaySetting,
-                onUpdateDisplaySetting = ::updateTTSDisplay,
-                onUpdateSettings = vm::updateSettings,
+                onSelect = vm::selectTtsProvider,
+                onRemove = vm::removeTtsProvider,
+                onReorder = vm::reorderTtsProviders,
                 onEdit = { editingTTSProvider = it },
                 modifier = Modifier.padding(innerPadding)
             )
@@ -173,6 +159,9 @@ fun SettingSpeechPage(vm: SettingVM = koinViewModel()) {
     editingTTSProvider?.let { provider ->
         val bottomSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
         var currentProvider by remember(provider) { mutableStateOf(provider) }
+        var currentPlayback by remember(provider.id) {
+            mutableStateOf(settings.displaySetting.playbackFor(provider.id))
+        }
 
         ModalBottomSheet(
             onDismissRequest = {
@@ -197,9 +186,9 @@ fun SettingSpeechPage(vm: SettingVM = koinViewModel()) {
 
                 TTSProviderConfigure(
                     setting = currentProvider,
-                    onValueChange = { newState ->
-                        currentProvider = newState
-                    },
+                    onValueChange = { currentProvider = it },
+                    playback = currentPlayback,
+                    onPlaybackChange = { currentPlayback = it },
                     modifier = Modifier.weight(1f)
                 )
 
@@ -218,10 +207,7 @@ fun SettingSpeechPage(vm: SettingVM = koinViewModel()) {
 
                     TextButton(
                         onClick = {
-                            val newProviders = settings.ttsProviders.map {
-                                if (it.id == provider.id) currentProvider else it
-                            }
-                            vm.updateSettings(settings.copy(ttsProviders = newProviders))
+                            vm.updateTtsProvider(provider.id, currentProvider, currentPlayback)
                             editingTTSProvider = null
                         },
                         modifier = Modifier.weight(1f)
@@ -300,9 +286,9 @@ fun SettingSpeechPage(vm: SettingVM = koinViewModel()) {
 @Composable
 private fun TTSProviderList(
     settings: Settings,
-    ttsDisplaySetting: DisplaySetting,
-    onUpdateDisplaySetting: (DisplaySetting) -> Unit,
-    onUpdateSettings: (Settings) -> Unit,
+    onSelect: (Uuid) -> Unit,
+    onRemove: (Uuid) -> Unit,
+    onReorder: (List<Uuid>) -> Unit,
     onEdit: (TTSProviderSetting) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -311,7 +297,7 @@ private fun TTSProviderList(
         val newProviders = settings.ttsProviders.toMutableList().apply {
             add(to.index, removeAt(from.index))
         }
-        onUpdateSettings(settings.copy(ttsProviders = newProviders))
+        onReorder(newProviders.map { it.id })
     }
 
     LazyColumn(
@@ -322,50 +308,6 @@ private fun TTSProviderList(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         state = lazyListState
     ) {
-        item(key = "tts_prefs") {
-            CardGroup(
-                modifier = Modifier.padding(horizontal = 8.dp),
-                title = { Text(stringResource(R.string.setting_page_tts_settings)) },
-            ) {
-                item(
-                    headlineContent = { Text(stringResource(R.string.setting_display_page_tts_only_read_quoted_title)) },
-                    supportingContent = { Text(stringResource(R.string.setting_display_page_tts_only_read_quoted_desc)) },
-                    trailingContent = {
-                        Switch(
-                            checked = ttsDisplaySetting.ttsOnlyReadQuoted,
-                            onCheckedChange = {
-                                onUpdateDisplaySetting(ttsDisplaySetting.copy(ttsOnlyReadQuoted = it))
-                            }
-                        )
-                    },
-                )
-                item(
-                    headlineContent = { Text(stringResource(R.string.setting_display_page_tts_read_outside_brackets_title)) },
-                    supportingContent = { Text(stringResource(R.string.setting_display_page_tts_read_outside_brackets_desc)) },
-                    trailingContent = {
-                        Switch(
-                            checked = ttsDisplaySetting.ttsOnlyReadOutsideBrackets,
-                            onCheckedChange = {
-                                onUpdateDisplaySetting(ttsDisplaySetting.copy(ttsOnlyReadOutsideBrackets = it))
-                            }
-                        )
-                    },
-                )
-                item(
-                    headlineContent = { Text(stringResource(R.string.setting_display_page_auto_play_tts_title)) },
-                    supportingContent = { Text(stringResource(R.string.setting_display_page_auto_play_tts_desc)) },
-                    trailingContent = {
-                        Switch(
-                            checked = ttsDisplaySetting.autoPlayTTSAfterGeneration,
-                            onCheckedChange = {
-                                onUpdateDisplaySetting(ttsDisplaySetting.copy(autoPlayTTSAfterGeneration = it))
-                            }
-                        )
-                    },
-                )
-            }
-        }
-
         items(settings.ttsProviders, key = { it.id }) { provider ->
             ReorderableItem(
                 state = reorderableState,
@@ -398,21 +340,13 @@ private fun TTSProviderList(
                     },
                     isSelected = settings.selectedTTSProviderId == provider.id,
                     onSelect = {
-                        onUpdateSettings(settings.copy(selectedTTSProviderId = provider.id))
+                        onSelect(provider.id)
                     },
                     onEdit = {
                         onEdit(provider)
                     },
                     onDelete = {
-                        val newProviders = settings.ttsProviders - provider
-                        val newSelectedId =
-                            if (settings.selectedTTSProviderId == provider.id) DEFAULT_SYSTEM_TTS_ID else settings.selectedTTSProviderId
-                        onUpdateSettings(
-                            settings.copy(
-                                ttsProviders = newProviders,
-                                selectedTTSProviderId = newSelectedId
-                            )
-                        )
+                        onRemove(provider.id)
                     }
                 )
             }
@@ -502,13 +436,18 @@ private fun ASRProviderList(
 }
 
 @Composable
-private fun AddTTSProviderButton(onAdd: (TTSProviderSetting) -> Unit) {
+private fun AddTTSProviderButton(
+    inheritedPlayback: TtsPlaybackPreferences,
+    onAdd: (TTSProviderSetting, TtsPlaybackPreferences) -> Unit,
+) {
     var showBottomSheet by remember { mutableStateOf(false) }
     var currentProvider: TTSProviderSetting by remember { mutableStateOf(TTSProviderSetting.SystemTTS()) }
+    var currentPlayback by remember { mutableStateOf(inheritedPlayback) }
 
     IconButton(
         onClick = {
             currentProvider = TTSProviderSetting.SystemTTS()
+            currentPlayback = inheritedPlayback
             showBottomSheet = true
         }
     ) {
@@ -540,9 +479,9 @@ private fun AddTTSProviderButton(onAdd: (TTSProviderSetting) -> Unit) {
 
                 TTSProviderConfigure(
                     setting = currentProvider,
-                    onValueChange = { newState ->
-                        currentProvider = newState
-                    },
+                    onValueChange = { currentProvider = it },
+                    playback = currentPlayback,
+                    onPlaybackChange = { currentPlayback = it },
                     modifier = Modifier.weight(1f)
                 )
 
@@ -561,7 +500,7 @@ private fun AddTTSProviderButton(onAdd: (TTSProviderSetting) -> Unit) {
 
                     TextButton(
                         onClick = {
-                            onAdd(currentProvider)
+                            onAdd(currentProvider, currentPlayback)
                             showBottomSheet = false
                         },
                         modifier = Modifier.weight(1f)
@@ -594,6 +533,14 @@ private fun AddASRProviderButton(onAdd: (ASRProviderSetting) -> Unit) {
                 text = { Text("Whisper (Local)") },
                 onClick = {
                     currentProvider = ASRProviderSetting.WhisperAsr()
+                    showTypeMenu = false
+                    showBottomSheet = true
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Nemotron 3.5 (Local GGUF · Experimental)") },
+                onClick = {
+                    currentProvider = ASRProviderSetting.NemotronGguf()
                     showTypeMenu = false
                     showBottomSheet = true
                 }
@@ -762,6 +709,7 @@ private fun TTSProviderItem(
                     Text(
                         text = when (provider) {
                             is TTSProviderSetting.OpenAI -> stringResource(R.string.setting_tts_page_provider_openai)
+                            is TTSProviderSetting.AudioCpp -> "audio.cpp (Self-hosted)"
                             is TTSProviderSetting.Gemini -> stringResource(R.string.setting_tts_page_provider_gemini)
                             is TTSProviderSetting.MiniMax -> "MiniMax"
                             is TTSProviderSetting.SystemTTS -> stringResource(R.string.setting_tts_page_provider_system)
@@ -777,6 +725,7 @@ private fun TTSProviderItem(
                             is TTSProviderSetting.KittenTts -> "Kitten TTS"
                             is TTSProviderSetting.Qwen3Tts -> "Qwen3 TTS"
                             is TTSProviderSetting.MatchaTts -> "Matcha TTS"
+                            is TTSProviderSetting.ScyllaTts -> "Scylla's Band"
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -920,6 +869,7 @@ private fun ASRProviderItem(
                             is ASRProviderSetting.Step -> "Step"
                             is ASRProviderSetting.WhisperAsr -> "Whisper (Local)"
                             is ASRProviderSetting.WhisperLiteRT -> "Whisper LiteRT"
+                            is ASRProviderSetting.NemotronGguf -> "Nemotron 3.5 (GGUF)"
                             is ASRProviderSetting.LocalAudioClassifier -> "Local Audio Classifier"
                         },
                         style = MaterialTheme.typography.bodySmall,

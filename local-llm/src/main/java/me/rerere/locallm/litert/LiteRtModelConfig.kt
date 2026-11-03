@@ -15,6 +15,8 @@ data class LiteRtModelConfig(
     val supportsImage: Boolean = false,
     val supportsAudio: Boolean = false,
     val supportsThinking: Boolean = false,
+    /** Catalog/route claim, not native ModelInfo or hardware proof. */
+    val supportsToolCalling: Boolean = true,
     val supportsSpeculativeDecoding: Boolean = false,
     val minDeviceMemoryGb: Int = 6,
     val sizeBytes: Long,
@@ -27,6 +29,10 @@ object LiteRtModelDefaults {
         FunctionGemmaMobileActionsProfile.runtimeConfigFor(modelFile)
             ?: BUILT_IN.firstOrNull { it.modelFile == modelFile }
             ?: FALLBACK
+
+    fun isCurated(modelFile: String): Boolean =
+        FunctionGemmaMobileActionsProfile.runtimeConfigFor(modelFile) != null ||
+            BUILT_IN.any { it.modelFile == modelFile }
 
     private val FALLBACK = LiteRtModelConfig(
         modelFile = "<unknown>",
@@ -193,6 +199,37 @@ object LiteRtModelDefaults {
             supportsSpeculativeDecoding = false,
             minDeviceMemoryGb = 6,
             sizeBytes = 736015744L,
+        ),
+        // Spark-X2.6: published bundle has no native function-call template; 4096 KV cache.
+        LiteRtModelConfig(
+            modelFile = "Spark-X2.6-1.7B_int4-mlp.litertlm",
+            maxTokens = 3072,
+            maxContextLength = 4096,
+            preferredAccelerators = listOf("gpu", "cpu"),
+            supportsThinking = true,
+            supportsToolCalling = false,
+            minDeviceMemoryGb = 8,
+            sizeBytes = 1705807792L,
+        ),
+        // VibeThinker 3B — math/code reasoning specialty, NOT tool-function tuned.
+        // Source: litert-community/VibeThinker-3B @ 7790b109 (2026-10-07),
+        // only the block-32 int4 build; ~2.06 GB, 4096 KV context.
+        // Keep output room >=2048; 3072 here leaves a small context buffer.
+        LiteRtModelConfig(
+            modelFile = "VibeThinker-3B-int4.litertlm",
+            topK = 64,
+            topP = 0.95,
+            temperature = 1.0,
+            maxTokens = 3072,
+            maxContextLength = 4096,
+            preferredAccelerators = listOf("gpu", "cpu"),
+            supportsImage = false,
+            supportsAudio = false,
+            supportsThinking = true,
+            supportsToolCalling = false,
+            supportsSpeculativeDecoding = false,
+            minDeviceMemoryGb = 8,
+            sizeBytes = 2059236272L,
         ),
         // MiniCPM5-2B — tool-calling LLM with an optional thinking channel.
         LiteRtModelConfig(

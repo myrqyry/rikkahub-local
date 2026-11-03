@@ -197,8 +197,11 @@ class AgentRunRepositoryTest {
         val alreadyDone = repo.open(AgentRunKind.Cron, domainId = "job-2:1")
         repo.markTerminal(alreadyDone, AgentRunStatus.succeeded)
 
-        val flipped = repo.markAllProcessLost(listOf(running, alreadyDone))
-        assertEquals("only the still-running row should flip", 1, flipped)
+        val flipped = repo.markAllProcessLost(
+            listOf(running, alreadyDone),
+            beforeMs = System.currentTimeMillis() + 1_000L,
+        )
+        assertEquals("only the still-running row should flip", listOf(running), flipped.map { it.id })
         assertEquals(AgentRunStatus.process_lost.name, repo.getById(running)!!.status)
         assertEquals(
             "an already-terminal row must not be overwritten",

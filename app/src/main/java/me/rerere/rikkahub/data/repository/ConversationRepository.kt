@@ -7,10 +7,12 @@ import androidx.paging.PagingData
 import androidx.paging.PagingSource
 import androidx.paging.map
 import androidx.room.withTransaction
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import me.rerere.ai.ui.UIMessage
+import me.rerere.ai.core.MessageRole
 import me.rerere.rikkahub.data.db.AppDatabase
 import me.rerere.rikkahub.data.db.fts.MessageFtsManager
 import me.rerere.rikkahub.data.db.fts.MessageSearchSort
@@ -47,6 +49,14 @@ class ConversationRepository(
             val nodes = loadMessageNodes(entity.id)
             conversationEntityToConversation(entity, nodes)
         }
+    }
+
+    /** UI-only fallback; leave stored titles blank so automatic generation can retry. */
+    suspend fun getUntitledConversationPreview(conversationId: Uuid): String? {
+        val firstNodeJson = messageNodeDAO.getFirstNodeMessages(conversationId.toString()) ?: return null
+        return runCatching {
+            titlePreviewFromMessages(JsonInstant.decodeFromString(firstNodeJson))
+        }.getOrNull()
     }
 
     fun getConversationsOfAssistant(assistantId: Uuid): Flow<List<Conversation>> {
@@ -327,6 +337,13 @@ class ConversationRepository(
         filesManager.deleteChatFiles(fullConversation.files)
     }
 
+    /** The MCP search must scope by assistant inside SQL, before relevance limiting. */
+    suspend fun searchMessagesForAssistant(
+        keyword: String,
+        assistantId: Uuid,
+        maxCandidates: Int,
+    ) = messageFtsManager.searchForAssistant(keyword, assistantId.toString(), maxCandidates)
+
     suspend fun searchMessages(
         keyword: String,
         sort: MessageSearchSort = MessageSearchSort.RELEVANCE,
@@ -469,6 +486,10 @@ class ConversationRepository(
                     e.printStackTrace()
                     offset += pageSize
                     continue
+                } catch (e: CancellationException) {
+                    // A cancelled Room query must exit the transaction, never advance the
+                    // paging offset and retry indefinitely.
+                    throw e
                 } catch (e: IllegalStateException) {
                     e.printStackTrace()
                     offset += pageSize
@@ -524,3 +545,15 @@ data class ConversationPageResult(
     val items: List<Conversation>,
     val nextOffset: Int?,
 )
+
+/**
+ * Temporary list label for a chat whose generated title is unavailable.
+ * This never writes into Conversation.title, allowing the title model to retry.
+ */
+internal fun titlePreviewFromMessages(messages: List<UIMessage>): String? =
+    messages.firstOrNull { it.role == MessageRole.USER }
+        ?.toText()
+        ?.replace(Regex("\\s+"), " ")
+        ?.trim()
+        ?.take(90)
+        ?.takeIf { it.isNotBlank() }

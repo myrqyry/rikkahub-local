@@ -401,6 +401,7 @@ val dataSourceModule = module {
                     context = get(),
                     runtime = get(),
                     imageRuntime = get(),
+                    bonsaiImageRuntime = get(),
                     prefs = get(),
                     settingsUpdater = { transform ->
                         settingsStore.update { old -> old.copy(providers = transform(old.providers)) }
@@ -428,6 +429,7 @@ val dataSourceModule = module {
                     json = json,
                 )
             )
+            pm.registerProvider("comfyui", me.rerere.rikkahub.data.ai.ComfyUiProvider(get()))
             pm.registerProvider(
                 "stable_diffusion",
                 me.rerere.rikkahub.data.ai.StableDiffusionProvider(context = get()),

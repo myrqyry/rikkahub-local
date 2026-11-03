@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -43,9 +44,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlin.uuid.Uuid
 import me.rerere.ai.provider.ProviderSetting
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.ArrowLeft01
-import me.rerere.hugeicons.stroke.ArrowRight01
+import me.rerere.rikkahub.data.modelregistry.ProviderDirectoryAction
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.ui.context.LocalNavController
@@ -59,7 +59,9 @@ import org.koin.androidx.compose.koinViewModel
 enum class AddModelsMode {
     ROOT,
     PROVIDER,
+    SAVED_PROVIDERS,
     HUGGING_FACE,
+    LITERT_MODELS,
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,12 +80,17 @@ fun AddToModelsSheet(
     val fluxFolderPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { uri -> uri?.let { viewModel.importFluxPackageFromTree(it) } }
+    val bonsaiFolderPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri -> uri?.let { viewModel.importBonsaiPackageFromTree(it) } }
     val editState = useEditState<ProviderSetting> { provider ->
         viewModel.addProvider(provider)
     }
     val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
+    val bonsaiDownloading by viewModel.bonsaiDownloading.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     var mode by remember { mutableStateOf(AddModelsMode.ROOT) }
+    var showBonsaiDownloadDialog by remember { mutableStateOf(false) }
 
     val remoteProviders = remember(settings.providers) {
         settings.providers.filterNot(::isLocalProvider)
@@ -129,6 +136,11 @@ fun AddToModelsSheet(
                                 onClick = { mode = AddModelsMode.HUGGING_FACE },
                             )
                             AddChoiceRow(
+                                title = "LiteRT-Models gallery",
+                                subtitle = "Browse 102 community models, then choose actual downloadable files",
+                                onClick = { mode = AddModelsMode.LITERT_MODELS },
+                            )
+                            AddChoiceRow(
                                 title = stringResource(R.string.models_add_local_file),
                                 subtitle = stringResource(R.string.models_add_local_file_desc),
                                 onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
@@ -138,6 +150,11 @@ fun AddToModelsSheet(
                                 subtitle = stringResource(R.string.model_manager_flux_catalog_subtitle),
                                 onClick = { fluxFolderPickerLauncher.launch(null) },
                             )
+                            AddChoiceRow(
+                                title = stringResource(R.string.model_manager_bonsai_download),
+                                subtitle = stringResource(R.string.model_manager_bonsai_download_desc),
+                                onClick = { showBonsaiDownloadDialog = true },
+                            )
                         }
 
                         AddModelsMode.PROVIDER -> {
@@ -145,30 +162,60 @@ fun AddToModelsSheet(
                                 title = stringResource(R.string.models_add_provider_list),
                                 onBack = { mode = AddModelsMode.ROOT },
                             )
-                            LazyColumn {
-                                item {
-                                    AddChoiceRow(
-                                        title = stringResource(R.string.models_add_custom_openai),
-                                        subtitle = stringResource(R.string.models_add_provider_api_desc),
-                                        onClick = {
-                                            editState.open(
-                                                ProviderSetting.OpenAI(
-                                                    id = Uuid.random(),
-                                                    name = "Custom API",
-                                                    baseUrl = "",
-                                                    apiKey = "",
-                                                    enabled = true,
-                                                    builtIn = false,
-                                                )
+                            ModelsDevProviderDirectoryChooser(
+                                configuredProviders = remoteProviders,
+                                onChoose = { action ->
+                                    when (action) {
+                                        is ProviderDirectoryAction.OpenExisting -> {
+                                            onDismiss()
+                                            navController.navigate(
+                                                Screen.SettingProviderDetail(action.provider.id.toString())
                                             )
-                                        },
+                                        }
+                                        is ProviderDirectoryAction.CreateDraft ->
+                                            editState.open(action.provider)
+                                        ProviderDirectoryAction.Unsupported -> Unit
+                                    }
+                                },
+                            )
+                            AddChoiceRow(
+                                title = "Custom API endpoint",
+                                subtitle = "Add an OpenAI-compatible endpoint manually",
+                                onClick = {
+                                    editState.open(
+                                        ProviderSetting.OpenAI(
+                                            id = Uuid.random(),
+                                            name = "Custom API",
+                                            baseUrl = "",
+                                            apiKey = "",
+                                            enabled = false,
+                                            builtIn = false,
+                                        )
                                     )
-                                }
+                                },
+                            )
+                            AddChoiceRow(
+                                title = "Other saved API setups",
+                                subtitle = "Existing and built-in configurations remain available",
+                                onClick = { mode = AddModelsMode.SAVED_PROVIDERS },
+                            )
+                        }
+
+                        AddModelsMode.SAVED_PROVIDERS -> {
+                            SheetSubpageHeader(
+                                title = "Saved API setups",
+                                onBack = { mode = AddModelsMode.PROVIDER },
+                            )
+                            LazyColumn(modifier = Modifier.heightIn(max = 520.dp)) {
                                 items(remoteProviders, key = { it.id }) { provider ->
                                     AddChoiceRow(
                                         title = provider.name,
-                                        subtitle = provider.models.takeIf { it.isNotEmpty() }?.let {
-                                            "${it.size} model${if (it.size == 1) "" else "s"}"
+                                        subtitle = when {
+                                            provider.models.isNotEmpty() ->
+                                                "${provider.models.size} models"
+                                            provider.enabled -> "Enabled"
+                                            provider.builtIn -> "Built-in setup"
+                                            else -> "Custom setup"
                                         },
                                         onClick = {
                                             onDismiss()
@@ -179,6 +226,17 @@ fun AddToModelsSheet(
                                     )
                                 }
                             }
+                        }
+
+                        AddModelsMode.LITERT_MODELS -> {
+                            SheetSubpageHeader(
+                                title = "LiteRT-Models gallery",
+                                onBack = { mode = AddModelsMode.ROOT },
+                            )
+                            LiteRtModelsCatalogSheet(
+                                viewModel = viewModel,
+                                downloadInProgress = downloadProgress != null,
+                            )
                         }
 
                         AddModelsMode.HUGGING_FACE -> {
@@ -195,8 +253,43 @@ fun AddToModelsSheet(
                 }
             }
 
-            DownloadStatus(downloadProgress, errorMessage)
+            DownloadStatus(
+                downloadProgress, errorMessage,
+                onCancel = if (bonsaiDownloading) viewModel::cancelBonsaiDownload else null,
+            )
         }
+    }
+
+    if (showBonsaiDownloadDialog) {
+        AlertDialog(
+            onDismissRequest = { showBonsaiDownloadDialog = false },
+            title = { Text(stringResource(R.string.model_manager_bonsai_download)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.model_manager_bonsai_download_confirm))
+                    TextButton(
+                        onClick = {
+                            showBonsaiDownloadDialog = false
+                            bonsaiFolderPickerLauncher.launch(null)
+                        },
+                    ) { Text(stringResource(R.string.model_manager_bonsai_import_instead)) }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = downloadProgress == null,
+                    onClick = {
+                        showBonsaiDownloadDialog = false
+                        viewModel.downloadBonsaiPackage()
+                    },
+                ) { Text(stringResource(R.string.model_manager_bonsai_download_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBonsaiDownloadDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
     }
 
     if (editState.isEditing) {
@@ -242,7 +335,8 @@ private fun AddChoiceRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 16.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -331,6 +425,7 @@ private fun HuggingFaceImport(
 private fun DownloadStatus(
     downloadProgress: Progress?,
     errorMessage: String?,
+    onCancel: (() -> Unit)? = null,
 ) {
     downloadProgress?.let { progress ->
         Column(
@@ -345,10 +440,21 @@ private fun DownloadStatus(
             } else {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
-            Text(
-                text = stringResource(R.string.local_llm_download_progress, progress.percent),
-                style = MaterialTheme.typography.labelSmall,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = stringResource(R.string.local_llm_download_progress, progress.percent),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+                if (onCancel != null) {
+                    TextButton(onClick = onCancel) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            }
         }
     }
 

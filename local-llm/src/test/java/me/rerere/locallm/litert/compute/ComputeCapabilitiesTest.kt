@@ -5,7 +5,7 @@ import org.junit.Test
 
 class ComputeCapabilitiesTest {
 
-    // -- pickLiteRt: QNN (Qualcomm) → GPU → NNAPI → CPU --
+    // -- pickLiteRt: QNN (Qualcomm) → GPU → CPU --
 
     @Test fun `LiteRT picks QNN when Qualcomm and QNN library is loadable`() {
         val caps = ComputeCapabilities(
@@ -37,14 +37,14 @@ class ComputeCapabilitiesTest {
         assertEquals("GPU", pickLiteRt(caps))
     }
 
-    @Test fun `LiteRT falls back to NNAPI when GPU delegate is unavailable`() {
+    @Test fun `LiteRT does not claim NNAPI because LiteRT-LM exposes no NNAPI backend`() {
         val caps = ComputeCapabilities(
             isQualcomm = false,
             qnnLibrarySupported = false,
             gpuDelegateSupported = false,
             nnapiSupported = true,
         )
-        assertEquals("NNAPI", pickLiteRt(caps))
+        assertEquals("CPU", pickLiteRt(caps))
     }
 
     @Test fun `LiteRT falls back to CPU when nothing else works`() {

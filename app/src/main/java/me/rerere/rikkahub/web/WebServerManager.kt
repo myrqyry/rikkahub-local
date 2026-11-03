@@ -13,6 +13,7 @@ import kotlinx.coroutines.sync.withLock
 import me.rerere.rikkahub.AppScope
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.ai.mcp.McpManager
+import me.rerere.ai.provider.ProviderManager
 import me.rerere.rikkahub.data.ai.tools.LocalTools
 import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.data.repository.ConversationRepository
@@ -46,6 +47,7 @@ class WebServerManager(
     private val filesManager: FilesManager,
     private val mcpManager: McpManager,
     private val localTools: LocalTools,
+    private val providerManager: ProviderManager,
 ) {
     private var server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
     private val nsdRegistrar = NsdServiceRegistrar(context)
@@ -151,6 +153,7 @@ class WebServerManager(
                     filesManager,
                     mcpManager,
                     localTools,
+                    providerManager,
                 )
             }.start(wait = false)
 

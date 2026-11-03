@@ -6,17 +6,30 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Scylla links the same LiteRT 2.3.0 native runtime as app and CompiledModel.
+
+
 android {
     namespace = "me.rerere.speech"
+    ndkVersion = "28.2.13676358"
     compileSdk = 37
 
     defaultConfig {
         minSdk = 26
+        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
+        externalNativeBuild {
+            cmake {
+
+            }
+        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }
 
+    externalNativeBuild {
+        cmake { path = file("src/main/cpp/CMakeLists.txt") }
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -70,7 +83,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.onnxruntime.android)
-    implementation("com.google.ai.edge.litert:litert:2.1.5")
+    implementation("com.google.ai.edge.litert:litert:2.3.0")
 
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
@@ -82,4 +95,12 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+}
+
+// The shared SDK is staged by :app; no second LiteRT binary is packaged.
+tasks.configureEach {
+    if (name.startsWith("configureCMake") || name.contains("JniLibFolders") ||
+        name.contains("NativeLibs")) {
+        dependsOn(":app:stageLiteRtSdk")
+    }
 }

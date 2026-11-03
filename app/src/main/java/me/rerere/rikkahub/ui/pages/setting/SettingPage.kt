@@ -1,15 +1,24 @@
 package me.rerere.rikkahub.ui.pages.setting
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -17,6 +26,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -32,51 +43,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.AiMagic
-import me.rerere.hugeicons.stroke.Alert01
-import me.rerere.hugeicons.stroke.Book03
-import me.rerere.hugeicons.stroke.Bookshelf01
-import me.rerere.hugeicons.stroke.Brain02
-import me.rerere.hugeicons.stroke.Cancel01
-import me.rerere.hugeicons.stroke.Clock02
-import me.rerere.hugeicons.stroke.Code
-import me.rerere.hugeicons.stroke.Connect
-import me.rerere.hugeicons.stroke.Console
-import me.rerere.hugeicons.stroke.Cpu
-import me.rerere.hugeicons.stroke.ChatGpt
-import me.rerere.hugeicons.stroke.Database02
-import me.rerere.hugeicons.stroke.Deepseek
-import me.rerere.hugeicons.stroke.Developer
-import me.rerere.hugeicons.stroke.Download01
-import me.rerere.hugeicons.stroke.Earth
-import me.rerere.hugeicons.stroke.Folder01
-import me.rerere.hugeicons.stroke.GlobalSearch
-import me.rerere.hugeicons.stroke.Image02
-import me.rerere.hugeicons.stroke.LookTop
-import me.rerere.hugeicons.stroke.McpServer
-import me.rerere.hugeicons.stroke.Megaphone01
-import me.rerere.hugeicons.stroke.MessageNotification01
-import me.rerere.hugeicons.stroke.Package
-import me.rerere.hugeicons.stroke.Search01
-import me.rerere.hugeicons.stroke.ServerStack01
-import me.rerere.hugeicons.stroke.Settings03
-import me.rerere.hugeicons.stroke.Shield01
-import me.rerere.hugeicons.stroke.SmartPhone01
-import me.rerere.hugeicons.stroke.Sun01
-import me.rerere.hugeicons.stroke.Telegram
-import me.rerere.hugeicons.stroke.Tick01
-import me.rerere.hugeicons.stroke.Translate
-import me.rerere.hugeicons.stroke.WavingHand01
-import me.rerere.hugeicons.stroke.Wrench01
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.datastore.isNotConfigured
@@ -86,7 +65,6 @@ import me.rerere.rikkahub.ui.components.ui.CardGroup
 import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.context.Navigator
 import me.rerere.rikkahub.ui.theme.CustomColors
-import me.rerere.rikkahub.ui.bubble.TranslateBubble
 import me.rerere.rikkahub.utils.plus
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -108,13 +86,21 @@ internal data class SettingsHomeSection(
     val items: List<SettingsHomeItem>,
 )
 
+/** One launch target, just like an app or folder on a phone home screen. */
+private data class SettingsLauncher(
+    val id: String,
+    val title: String,
+    val icon: ImageVector,
+    val isFolder: Boolean,
+    val onClick: () -> Unit,
+)
+
 private val SettingsContentMaxWidth = 800.dp
 
 @Composable
 fun SettingPage(vm: SettingVM = koinViewModel()) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var activeSectionId by rememberSaveable { mutableStateOf<String?>(null) }
     val navController = LocalNavController.current
-    val context = LocalContext.current
     val settings by vm.settings.collectAsStateWithLifecycle()
     val filesManager: FilesManager = koinInject()
     val storageState by produceState(-1 to 0L, filesManager) {
@@ -149,54 +135,27 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
         )
     }
 
-    val sections = listOf(
-        SettingsHomeSection(
-            id = "aiModels",
-            title = stringResource(R.string.setting_home_group_ai_models),
-            keywords = listOf("ai", "model", "provider", "assistant", "prompt"),
-            items = listOf(
-                SettingsHomeItem(
-                    id = "models",
-                    title = stringResource(R.string.setting_home_models),
-                    description = stringResource(R.string.setting_home_models_desc),
-                    icon = HugeIcons.Deepseek,
-                    keywords = listOf("model", "provider", "default", "download", "local", "cloud", "litert", "endpoint", "api"),
-                    onClick = { navController.navigate(Screen.Models()) },
-                ),
-                SettingsHomeItem(
-                    id = "agentSettings",
-                    title = stringResource(R.string.setting_page_agent),
-                    description = stringResource(R.string.setting_page_agent_desc),
-                    icon = HugeIcons.LookTop,
-                    keywords = listOf("agent", "prompt", "system prompt", "reasoning", "thinking"),
-                    onClick = { navController.navigate(Screen.SettingAgent) },
-                ),
-                SettingsHomeItem(
-                    id = "assistants",
-                    title = stringResource(R.string.setting_page_assistant),
-                    description = stringResource(R.string.setting_page_assistant_desc),
-                    icon = HugeIcons.LookTop,
-                    keywords = listOf("agent", "persona", "prompt"),
-                    onClick = { navController.navigate(Screen.Assistant) },
-                ),
-                SettingsHomeItem(
-                    id = "promptLibrary",
-                    title = stringResource(R.string.setting_home_prompt_library),
-                    description = stringResource(R.string.setting_home_prompt_library_desc),
-                    icon = HugeIcons.Book03,
-                    keywords = listOf("prompt", "quick message", "template", "instruction"),
-                    onClick = { navController.navigate(Screen.Prompts) },
-                ),
-                SettingsHomeItem(
-                    id = "translateBubble",
-                    title = stringResource(R.string.setting_page_translate_bubble),
-                    description = stringResource(R.string.setting_page_translate_bubble_desc),
-                    icon = HugeIcons.Translate,
-                    keywords = listOf("translate", "bubble", "overlay", "agent"),
-                    onClick = { TranslateBubble.show(context) },
-                ),
-            ),
+    // These are first-level Settings destinations, not a category to open.
+    // Keep them visible immediately on the Settings home screen.
+    val primaryDestinations = listOf(
+        SettingsHomeItem(
+            id = "models",
+            title = stringResource(R.string.setting_home_models),
+            description = stringResource(R.string.setting_home_models_desc),
+            icon = HugeIcons.Layers,
+            keywords = listOf("model", "provider", "default", "download", "local", "cloud", "litert", "endpoint", "api"),
+            onClick = { navController.navigate(Screen.Models()) },
         ),
+        SettingsHomeItem(
+            id = "agentSettings",
+            title = stringResource(R.string.settings_agents_assistants),
+            description = stringResource(R.string.settings_agents_assistants_desc),
+            icon = HugeIcons.LookTop,
+            keywords = listOf("agent", "assistant", "persona", "system prompt", "override", "default"),
+            onClick = { navController.navigate(Screen.SettingAgent) },
+        ),
+    )
+    val sections = listOf(
         SettingsHomeSection(
             id = "experience",
             title = stringResource(R.string.setting_home_group_experience),
@@ -207,7 +166,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     title = stringResource(R.string.setting_page_chat_preferences),
                     description = stringResource(R.string.setting_page_preferences_general_desc),
                     icon = HugeIcons.Settings03,
-                    keywords = listOf("behavior", "conversation", "generation", "general"),
+                    keywords = listOf("behavior", "conversation", "generation", "general", "default prompts", "prompt library", "quick messages"),
                     onClick = { navController.navigate(Screen.SettingPreferencesGeneral) },
                 ),
                 SettingsHomeItem(
@@ -224,7 +183,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     description = stringResource(R.string.setting_page_appearance_desc),
                     icon = HugeIcons.Image02,
                     keywords = listOf("theme", "color mode", "dark mode", "light mode", "dynamic color", "amoled", "palette"),
-                    onClick = { navController.navigate(Screen.SettingPreferencesTheme) },
+                    onClick = { navController.navigate(Screen.SettingTheme) },
                 ),
                 SettingsHomeItem(
                     id = "speech",
@@ -472,82 +431,222 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
         ),
     )
     val filteredSections = filterSettingsSections(sections, searchQuery)
+    val matchingPrimaryDestinations = primaryDestinations.filter { it.matches(searchQuery) }
+    val launchers = primaryDestinations.map { destination ->
+        SettingsLauncher(destination.id, destination.title, destination.icon, false) {
+            destination.onClick?.invoke()
+        }
+    } + sections.map { section ->
+        val icon = when (section.id) {
+            "experience" -> HugeIcons.Sun01
+            "knowledgeTools" -> HugeIcons.BookOpen01
+            "automation" -> HugeIcons.Cpu
+            "privacySafety" -> HugeIcons.Shield01
+            "dataMaintenance" -> HugeIcons.Folder01
+            else -> HugeIcons.Settings03
+        }
+        SettingsLauncher(section.id, section.title, icon, true) {
+            activeSectionId = section.id
+        }
+    }
+
+    // One screen of visible categories. A tap opens its destinations; searching
+    // always searches all categories, including while inside a section.
+    val activeSection = sections.firstOrNull { it.id == activeSectionId }
+    val searching = searchQuery.isNotBlank()
+    BackHandler(enabled = searchExpanded || activeSectionId != null) {
+        if (searchExpanded) {
+            searchQuery = ""
+            searchExpanded = false
+        } else {
+            activeSectionId = null
+        }
+    }
 
     Scaffold(
         topBar = {
-            LargeFlexibleTopAppBar(
-                title = { Text(stringResource(R.string.settings)) },
-                navigationIcon = { BackButton() },
-                scrollBehavior = scrollBehavior,
+            TopAppBar(
+                title = { Text(if (activeSection != null && !searchExpanded) activeSection.title else stringResource(R.string.settings)) },
+                navigationIcon = {
+                    when {
+                        searchExpanded -> IconButton(onClick = { searchQuery = ""; searchExpanded = false }) {
+                            Icon(HugeIcons.ArrowLeft01, contentDescription = stringResource(R.string.settings))
+                        }
+                        activeSection != null -> IconButton(onClick = { activeSectionId = null }) {
+                            Icon(HugeIcons.ArrowLeft01, contentDescription = stringResource(R.string.settings))
+                        }
+                        else -> BackButton()
+                    }
+                },
                 colors = CustomColors.topBarColors,
                 actions = {
-                    IconButton(
-                        onClick = {
-                            if (searchExpanded && searchQuery.isNotBlank()) {
-                                searchQuery = ""
-                            } else {
-                                searchExpanded = !searchExpanded
-                            }
-                        },
-                    ) {
+                    IconButton(onClick = {
+                        if (searchExpanded) {
+                            searchQuery = ""
+                            searchExpanded = false
+                        } else {
+                            searchExpanded = true
+                        }
+                    }) {
                         Icon(
-                            imageVector = if (searchExpanded && searchQuery.isNotBlank()) {
-                                HugeIcons.Cancel01
-                            } else {
-                                HugeIcons.Search01
-                            },
+                            if (searchExpanded) HugeIcons.Cancel01 else HugeIcons.Search01,
                             contentDescription = stringResource(R.string.setting_home_search_placeholder),
                         )
                     }
                 },
             )
         },
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = CustomColors.topBarColors.containerColor,
     ) { innerPadding ->
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.TopCenter,
-        ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             LazyColumn(
-                // Cap the reading width and centre it on large screens (tablet,
-                // foldable, freeform). Below the cap this is a no-op, so phones
-                // are unchanged. 800.dp matches the chat input/content cap.
-                modifier = Modifier
-                    .widthIn(max = SettingsContentMaxWidth)
-                    .fillMaxSize(),
-                contentPadding = innerPadding + PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.widthIn(max = SettingsContentMaxWidth).fillMaxSize(),
+                contentPadding = innerPadding + PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
                 if (searchExpanded) {
                     item("settingsSearch") {
-                        SettingsSearchField(
-                            query = searchQuery,
-                            onQueryChange = { searchQuery = it },
-                        )
+                        SettingsSearchField(query = searchQuery, onQueryChange = { searchQuery = it })
                     }
                 }
-
-                if (settings.isNotConfigured() && searchQuery.isBlank()) {
-                    item("providerWarning") {
-                        ProviderConfigWarningCard(navController)
-                    }
+                if (settings.isNotConfigured() && !searching && activeSection == null) {
+                    item("providerWarning") { ProviderConfigWarningCard(navController) }
                 }
-
-                if (filteredSections.isEmpty()) {
-                    item("noResults") {
-                        SettingsNoResultsCard()
-                    }
-                } else {
-                    filteredSections.forEach { section ->
-                        item(section.id) {
-                            SettingsSectionCard(section)
+                when {
+                    searching -> {
+                        if (filteredSections.isEmpty() && matchingPrimaryDestinations.isEmpty()) {
+                            item("noResults") { SettingsNoResultsCard() }
+                        } else {
+                            if (matchingPrimaryDestinations.isNotEmpty()) {
+                                item("primary-search") {
+                                    SettingsLauncherGrid(matchingPrimaryDestinations.map { item ->
+                                        SettingsLauncher(item.id, item.title, item.icon, false) { item.onClick?.invoke() }
+                                    })
+                                }
+                            }
+                            filteredSections.forEach { section ->
+                                item("search-heading-${section.id}") {
+                                    SettingsSectionHeading(section.title)
+                                }
+                                item("search-results-${section.id}") {
+                                    SettingsLauncherGrid(section.items.map { item ->
+                                        SettingsLauncher(item.id, item.title, item.icon, false) { item.onClick?.invoke() }
+                                    })
+                                }
+                            }
                         }
+                    }
+                    activeSection != null -> {
+                        item("active-destinations-${activeSection.id}") {
+                            SettingsLauncherGrid(activeSection.items.map { item ->
+                                SettingsLauncher(item.id, item.title, item.icon, false) { item.onClick?.invoke() }
+                            })
+                        }
+                    }
+                    else -> {
+                        item("settings-home-launchers") { SettingsLauncherGrid(launchers) }
                     }
                 }
             }
         }
     }
+}
+
+/** No sideways scrolling or intermediate category strip: a small icon grid
+ * on both the Settings home and each folder-like category.
+ */
+@Composable
+private fun SettingsLauncherGrid(items: List<SettingsLauncher>) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val columns = when {
+            maxWidth < 340.dp -> 2
+            maxWidth >= 600.dp -> 4
+            else -> 3
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items.chunked(columns).forEach { chunk ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    chunk.forEach { shortcut ->
+                        Box(modifier = Modifier.weight(1f)) {
+                            SettingsLauncherTile(shortcut)
+                        }
+                    }
+                    repeat(columns - chunk.size) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsLauncherTile(shortcut: SettingsLauncher) {
+    // Launcher-style tap targets: compact icons + labels, not giant padded cards.
+    Surface(
+        onClick = shortcut.onClick,
+        modifier = Modifier.fillMaxWidth(),
+        color = androidx.compose.ui.graphics.Color.Transparent,
+        shape = RoundedCornerShape(14.dp),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 98.dp)
+                .padding(horizontal = 3.dp, vertical = 5.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Box(
+                modifier = Modifier.size(50.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    shape = RoundedCornerShape(15.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            shortcut.icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(29.dp),
+                            tint = if (shortcut.isFolder)
+                                MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                if (shortcut.isFolder) {
+                    Icon(
+                        HugeIcons.Folder01,
+                        contentDescription = null,
+                        modifier = Modifier.align(Alignment.BottomEnd).size(15.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+            Text(
+                text = shortcut.title,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsSectionHeading(title: String) {
+    Text(
+        title,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 5.dp, top = 12.dp, bottom = 8.dp),
+    )
 }
 
 @Composable
@@ -579,29 +678,6 @@ private fun SettingsSearchField(
 }
 
 @Composable
-private fun SettingsSectionCard(section: SettingsHomeSection) {
-    CardGroup(
-        title = { Text(section.title) },
-    ) {
-        section.items.forEach { item ->
-            item(
-                onClick = item.onClick,
-                leadingContent = {
-                    Icon(
-                        item.icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-                supportingContent = { Text(item.description) },
-                trailingContent = item.trailingContent,
-                headlineContent = { Text(item.title) },
-            )
-        }
-    }
-}
-
-@Composable
 private fun SettingsNoResultsCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -619,6 +695,20 @@ private fun SettingsNoResultsCard() {
     }
 }
 
+/**
+ * Match at word starts, not arbitrary substrings: "rag" should never hit "storage".
+ * Accept whole multi-word prefixes so "notification acc" finds "Notification access".
+ */
+internal fun String.matchesSettingsQuery(query: String): Boolean {
+    val separators = Regex("[^\\p{L}\\p{N}]+")
+    val words = lowercase().split(separators).filter { it.isNotEmpty() }
+    val terms = query.trim().lowercase().split(separators).filter { it.isNotEmpty() }
+    if (terms.isEmpty() || terms.size > words.size) return false
+    return words.windowed(terms.size).any { window ->
+        window.indices.all { i -> window[i].startsWith(terms[i]) }
+    }
+}
+
 internal fun filterSettingsSections(
     sections: List<SettingsHomeSection>,
     query: String,
@@ -627,22 +717,20 @@ internal fun filterSettingsSections(
     if (normalizedQuery.isEmpty()) return sections
 
     return sections.mapNotNull { section ->
-        val sectionMatches = section.title.contains(normalizedQuery, ignoreCase = true) ||
-            section.keywords.any { it.contains(normalizedQuery, ignoreCase = true) }
-        val matchingItems = if (sectionMatches) {
-            section.items
-        } else {
-            section.items.filter { it.matches(normalizedQuery) }
-        }
+        // Only the visible category title expands an entire section.
+        // Matching a section's broad search keyword should not dump every item.
+        val sectionMatches = section.title.matchesSettingsQuery(normalizedQuery)
+        val matchingItems = if (sectionMatches) section.items
+        else section.items.filter { it.matches(normalizedQuery) }
         if (matchingItems.isEmpty()) null
         else section.copy(items = matchingItems)
     }
 }
 
 internal fun SettingsHomeItem.matches(query: String): Boolean {
-    return title.contains(query, ignoreCase = true) ||
-        description.contains(query, ignoreCase = true) ||
-        keywords.any { it.contains(query, ignoreCase = true) }
+    return title.matchesSettingsQuery(query) ||
+        description.matchesSettingsQuery(query) ||
+        keywords.any { it.matchesSettingsQuery(query) }
 }
 
 @Composable

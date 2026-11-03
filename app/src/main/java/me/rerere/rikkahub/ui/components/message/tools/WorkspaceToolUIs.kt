@@ -33,11 +33,7 @@ import me.rerere.ai.ui.metadataAs
 import me.rerere.common.http.jsonObjectOrNull
 import me.rerere.highlight.HighlightText
 import androidx.compose.ui.res.stringResource
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.ComputerTerminal01
-import me.rerere.hugeicons.stroke.FileAdd
-import me.rerere.hugeicons.stroke.FileEdit
-import me.rerere.hugeicons.stroke.FileView
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.ui.components.richtext.DiffAddedColor
 import me.rerere.rikkahub.ui.components.richtext.DiffRemovedColor
@@ -56,6 +52,7 @@ object EditFileToolUI : ToolUIRenderer {
 
     override val toolName: String = "workspace_edit_file"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.FileEdit
 
     @Composable
@@ -159,6 +156,7 @@ object EditFileToolUI : ToolUIRenderer {
 object ReadFileToolUI : ToolUIRenderer {
     override val toolName: String = "workspace_read_file"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.FileView
 
     @Composable
@@ -200,6 +198,7 @@ object ReadFileToolUI : ToolUIRenderer {
 object WriteFileToolUI : ToolUIRenderer {
     override val toolName: String = "workspace_write_file"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.FileAdd
 
     @Composable
@@ -294,6 +293,7 @@ object ShellToolUI : ToolUIRenderer {
 
     override val toolName: String = "workspace_shell"
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.ComputerTerminal01
 
     @Composable

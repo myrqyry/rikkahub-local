@@ -36,14 +36,20 @@ val LocalDarkMode = compositionLocalOf { false }
 
 private val AMOLED_DARK_BACKGROUND = Color(0xFF000000)
 
-private val ExpressiveShapes = Shapes(
-    extraSmall = RoundedCornerShape(4.dp),
-    small = RoundedCornerShape(8.dp),
-    medium = RoundedCornerShape(12.dp),
-    large = RoundedCornerShape(20.dp),
-    extraLarge = RoundedCornerShape(32.dp),
-    extraExtraLarge = RoundedCornerShape(48.dp),
+// Selected only for the Meristem theme; other themes keep their own expressive shapes.
+// Deliberately restrained shared geometry for both Material You and Meristem.
+// The former expressive defaults produced oversized pill/sheet corners across screens.
+private val WorkspaceShapes = Shapes(
+    extraSmall = RoundedCornerShape(6.dp),
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(14.dp),
+    large = RoundedCornerShape(18.dp),
+    extraLarge = RoundedCornerShape(24.dp),
+    extraExtraLarge = RoundedCornerShape(30.dp),
 )
+
+const val MERISTEM_THEME_ID = "meristem"
+const val MATERIAL_YOU_FALLBACK_COLOR: Long = 0xFF8199AD
 
 @Serializable
 enum class ColorMode {
@@ -66,24 +72,38 @@ fun RikkahubTheme(
     }
     val amoledDarkMode by rememberAmoledDarkMode()
 
+    val context = LocalContext.current
+    val wallpaperScheme = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    } else {
+        CustomTheme(primaryColorArgb = MATERIAL_YOU_FALLBACK_COLOR).generateColorScheme(darkTheme)
+    }
     val colorScheme = when {
-        settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            settings.materialYouSourceColor?.let { sourceColor ->
-                CustomTheme(primaryColorArgb = sourceColor).generateColorScheme(darkTheme)
-            } ?: run {
-                val context = LocalContext.current
-                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-            }
-        }
-        else -> {
-            findThemeFamily(settings.themeId)?.colorScheme(
-                variationId = settings.themeVariation,
-                accentId = settings.themeAccent,
-                dark = darkTheme,
-            ) ?: findThemeById(settings.themeId, settings.customThemes)
+        settings.dynamicColor -> personalPalette(
+            dark = darkTheme,
+            wallpaper = wallpaperScheme,
+            backgroundSeed = settings.materialYouSourceColor,
+            accentOverride = settings.personalThemeAccentColor,
+        )
+        // Retain existing user-defined/downloaded themes exactly as saved.
+        settings.themeId != MERISTEM_THEME_ID -> {
+            findThemeById(settings.themeId, settings.customThemes)
                 ?.getColorScheme(dark = darkTheme)
-                ?: findPresetTheme(settings.themeId).getColorScheme(dark = darkTheme)
+                ?: personalPalette(
+                    darkTheme, wallpaperScheme, settings.materialYouSourceColor,
+                    settings.personalThemeAccentColor,
+                )
         }
+        // Previously selected Meristem stays readable without rewriting prefs;
+        // the Appearance page can bring it into the single personal theme.
+        else -> findThemeFamily(settings.themeId)?.colorScheme(
+            variationId = settings.themeVariation,
+            accentId = settings.themeAccent,
+            dark = darkTheme,
+        ) ?: personalPalette(
+            darkTheme, wallpaperScheme, settings.materialYouSourceColor,
+            settings.personalThemeAccentColor,
+        )
     }
     val colorSchemeConverted = remember(darkTheme, amoledDarkMode, colorScheme) {
         if (darkTheme && amoledDarkMode) {
@@ -119,7 +139,7 @@ fun RikkahubTheme(
             typography = Typography,
             content = content,
             motionScheme = MotionScheme.expressive(),
-            shapes = ExpressiveShapes
+            shapes = WorkspaceShapes
         )
     }
 }

@@ -23,6 +23,22 @@ class EmbeddingSpaceTest {
     }
 
     @Test
+    fun multipleCompleteEmbeddingSpacesDoNotMakeTheSelectedSpaceLookStale() = runBlocking {
+        val dao = SpaceVectorDao()
+        val vision = FixedBackend("embeddinggemma:vision", floatArrayOf(1f, 0f))
+        val full = FixedBackend("embeddinggemma:full", floatArrayOf(1f, 0f))
+        EmbeddingRepository({ vision }, dao, Json {}).indexDocument("vision-photo", "photo", metadata())
+        EmbeddingRepository({ full }, dao, Json {}).indexDocument("full-audio", "audio", metadata())
+
+        val visionStatus = EmbeddingRepository({ vision }, dao, Json {}).indexStatus()
+        val fullStatus = EmbeddingRepository({ full }, dao, Json {}).indexStatus()
+        assertEquals(1, visionStatus.documentCount)
+        assertEquals(1, fullStatus.documentCount)
+        assertTrue(!visionStatus.stale)
+        assertTrue(!fullStatus.stale)
+    }
+
+    @Test
     fun matchingVectorsRemainSearchableAfterReload() = runBlocking {
         val dao = SpaceVectorDao()
         val backend = FixedBackend("local-qwen:revision-1", floatArrayOf(1f, 0f))

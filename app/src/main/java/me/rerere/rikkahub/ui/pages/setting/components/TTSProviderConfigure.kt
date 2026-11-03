@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -20,14 +21,19 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -38,6 +44,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.rerere.locallm.ModelInstall
 import me.rerere.rikkahub.R
+import me.rerere.rikkahub.data.datastore.TtsPlaybackPreferences
 import me.rerere.rikkahub.ui.components.ui.FormItem
 import me.rerere.rikkahub.ui.components.ui.OutlinedNumberInput
 import me.rerere.rikkahub.ui.context.LocalToaster
@@ -49,17 +56,23 @@ import me.rerere.tts.matcha.MatchaTtsCatalog
 import me.rerere.tts.pocket.PocketTtsBundle
 import me.rerere.tts.pocket.PocketTtsCatalog
 import me.rerere.tts.provider.TTSProviderSetting
+import me.rerere.tts.effects.VoiceEffectPreset
 import me.rerere.tts.qwen3.Qwen3TtsCatalog
+import me.rerere.tts.scylla.ScyllaTtsCatalog
 import okhttp3.OkHttpClient
 import org.koin.compose.koinInject
 import java.io.File
+import kotlin.math.roundToInt
 
 @Composable
 fun TTSProviderConfigure(
     setting: TTSProviderSetting,
     modifier: Modifier = Modifier,
-    onValueChange: (TTSProviderSetting) -> Unit
+    onValueChange: (TTSProviderSetting) -> Unit,
+    playback: TtsPlaybackPreferences,
+    onPlaybackChange: (TtsPlaybackPreferences) -> Unit,
 ) {
+    val context = LocalContext.current
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier.verticalScroll(rememberScrollState())
@@ -70,19 +83,23 @@ fun TTSProviderConfigure(
             val types = TTSProviderSetting.Types
             val local = types.filter {
                 it == TTSProviderSetting.SystemTTS::class ||
+                    it == TTSProviderSetting.AudioCpp::class ||
                     it == TTSProviderSetting.NekoSpeakTts::class ||
                     it == TTSProviderSetting.PocketTts::class ||
                     it == TTSProviderSetting.KittenTts::class ||
                     it == TTSProviderSetting.Qwen3Tts::class ||
-                    it == TTSProviderSetting.MatchaTts::class
+                    it == TTSProviderSetting.MatchaTts::class ||
+                    it == TTSProviderSetting.ScyllaTts::class
             }
             val cloud = types.filter {
                 it != TTSProviderSetting.SystemTTS::class &&
+                    it != TTSProviderSetting.AudioCpp::class &&
                     it != TTSProviderSetting.NekoSpeakTts::class &&
                     it != TTSProviderSetting.PocketTts::class &&
                     it != TTSProviderSetting.KittenTts::class &&
                     it != TTSProviderSetting.Qwen3Tts::class &&
-                    it != TTSProviderSetting.MatchaTts::class
+                    it != TTSProviderSetting.MatchaTts::class &&
+                    it != TTSProviderSetting.ScyllaTts::class
             }
             local + cloud
         }
@@ -98,6 +115,7 @@ fun TTSProviderConfigure(
                 OutlinedTextField(
                     value = when (setting) {
                         is TTSProviderSetting.OpenAI -> "OpenAI"
+                        is TTSProviderSetting.AudioCpp -> "audio.cpp (Self-hosted)"
                         is TTSProviderSetting.Gemini -> "Gemini"
                         is TTSProviderSetting.SystemTTS -> "System TTS (Local)"
                         is TTSProviderSetting.MiniMax -> "MiniMax"
@@ -113,6 +131,7 @@ fun TTSProviderConfigure(
                         is TTSProviderSetting.KittenTts -> "Kitten TTS (Local)"
                         is TTSProviderSetting.Qwen3Tts -> "Qwen3 TTS (Local)"
                         is TTSProviderSetting.MatchaTts -> "Matcha TTS (Local)"
+                        is TTSProviderSetting.ScyllaTts -> "Scylla's Band (Local)"
                     },
                     onValueChange = {},
                     readOnly = true,
@@ -133,6 +152,7 @@ fun TTSProviderConfigure(
                                 Text(
                                     when (providerClass) {
                                         TTSProviderSetting.OpenAI::class -> "OpenAI"
+                                        TTSProviderSetting.AudioCpp::class -> "audio.cpp (Self-hosted)"
                                         TTSProviderSetting.Gemini::class -> "Gemini"
                                         TTSProviderSetting.SystemTTS::class -> "System TTS (Local)"
                                         TTSProviderSetting.MiniMax::class -> "MiniMax"
@@ -148,6 +168,7 @@ fun TTSProviderConfigure(
                                         TTSProviderSetting.KittenTts::class -> "Kitten TTS (Local)"
                                         TTSProviderSetting.Qwen3Tts::class -> "Qwen3 TTS (Local)"
                                         TTSProviderSetting.MatchaTts::class -> "Matcha TTS (Local)"
+                                        TTSProviderSetting.ScyllaTts::class -> "Scylla's Band (Local)"
                                         else -> providerClass.simpleName ?: "Unknown"
                                     }
                                 )
@@ -158,6 +179,11 @@ fun TTSProviderConfigure(
                                     TTSProviderSetting.OpenAI::class -> TTSProviderSetting.OpenAI(
                                         id = setting.id,
                                         name = "OpenAI TTS"
+                                    )
+
+                                    TTSProviderSetting.AudioCpp::class -> TTSProviderSetting.AudioCpp(
+                                        id = setting.id,
+                                        name = "audio.cpp (Self-hosted)"
                                     )
 
                                     TTSProviderSetting.Gemini::class -> TTSProviderSetting.Gemini(
@@ -234,6 +260,12 @@ fun TTSProviderConfigure(
                                         name = "Matcha TTS (Local)"
                                     )
 
+                                    TTSProviderSetting.ScyllaTts::class -> TTSProviderSetting.ScyllaTts(
+                                        id = setting.id,
+                                        name = "Scylla's Band (Local)",
+                                        modelPath = existingScyllaModelPath(context),
+                                    )
+
                                     else -> setting
                                 }
                                 onValueChange(newSetting)
@@ -259,9 +291,55 @@ fun TTSProviderConfigure(
             )
         }
 
+        // Message-level behavior belongs to this configured provider, not
+        // to the synthesizer API. All providers can use these three filters.
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = stringResource(R.string.tts_provider_reading_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Text(
+                text = stringResource(R.string.tts_provider_reading_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TtsPlaybackSwitch(
+                title = stringResource(R.string.tts_provider_quoted_title),
+                checked = playback.quotedOnly,
+                onChange = { onPlaybackChange(playback.copy(quotedOnly = it)) },
+            )
+            TtsPlaybackSwitch(
+                title = stringResource(R.string.tts_provider_brackets_title),
+                checked = playback.skipBracketed,
+                onChange = { onPlaybackChange(playback.copy(skipBracketed = it)) },
+            )
+            TtsPlaybackSwitch(
+                title = stringResource(R.string.tts_provider_autoplay_title),
+                checked = playback.autoPlay,
+                onChange = { onPlaybackChange(playback.copy(autoPlay = it)) },
+            )
+        }
+
+        // Audio transforms are performed locally after the provider returns PCM16/WAV.
+        // RVC is deliberately not offered until real on-device conversion qualifies.
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(stringResource(R.string.tts_provider_voice_effects_title), style = MaterialTheme.typography.titleSmall)
+            Text(
+                stringResource(R.string.tts_provider_voice_effects_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TtsPlaybackSwitch(
+                title = stringResource(R.string.tts_provider_telephone_effect),
+                checked = playback.voiceEffect == VoiceEffectPreset.TELEPHONE,
+                onChange = { onPlaybackChange(playback.copy(voiceEffect = if (it) VoiceEffectPreset.TELEPHONE else VoiceEffectPreset.OFF)) },
+            )
+        }
+
         // Provider-specific fields
         when (setting) {
             is TTSProviderSetting.OpenAI -> OpenAITTSConfiguration(setting, onValueChange)
+            is TTSProviderSetting.AudioCpp -> AudioCppTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.Gemini -> GeminiTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.MiniMax -> MiniMaxTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.SystemTTS -> SystemTTSConfiguration(setting, onValueChange)
@@ -277,7 +355,79 @@ fun TTSProviderConfigure(
             is TTSProviderSetting.KittenTts -> KittenTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.Qwen3Tts -> Qwen3TTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.MatchaTts -> MatchaTTSConfiguration(setting, onValueChange)
+            is TTSProviderSetting.ScyllaTts -> ScyllaTTSConfiguration(setting, onValueChange)
         }
+    }
+}
+
+@Composable
+private fun TtsPlaybackSwitch(
+    title: String,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = title,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+@Composable
+private fun AudioCppTTSConfiguration(
+    setting: TTSProviderSetting.AudioCpp,
+    onValueChange: (TTSProviderSetting) -> Unit,
+) {
+    Text(
+        "Self-hosted audio.cpp server (not on-device). Use an address reachable from your phone, " +
+            "such as your desktop's tailnet IP. The server must be running and have a TTS model loaded. " +
+            "No cloud or other TTS fallback is used.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    FormItem(
+        label = { Text("Server URL") },
+        description = { Text("Server origin only, e.g. http://YOUR-DESKTOP:8080 (no /v1 suffix).") },
+    ) {
+        OutlinedTextField(
+            value = setting.baseUrl,
+            onValueChange = { onValueChange(setting.copy(baseUrl = it)) },
+            placeholder = { Text("http://your-desktop:8080") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+    }
+    FormItem(
+        label = { Text("Server model ID") },
+        description = { Text("Use the ID shown by audio.cpp GET /v1/models; not the GGUF filename.") },
+    ) {
+        OutlinedTextField(
+            value = setting.model,
+            onValueChange = { onValueChange(setting.copy(model = it)) },
+            placeholder = { Text("kokoro") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+    }
+    FormItem(
+        label = { Text("Voice (optional)") },
+        description = { Text("Voice preset ID configured on that server; blank uses its default.") },
+    ) {
+        OutlinedTextField(
+            value = setting.voice,
+            onValueChange = { onValueChange(setting.copy(voice = it)) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
     }
 }
 
@@ -369,6 +519,39 @@ private fun OpenAITTSConfiguration(
                             voiceExpanded = false
                             onValueChange(setting.copy(voice = voice))
                         }
+                    )
+                }
+            }
+        }
+    }
+
+    var formatExpanded by remember { mutableStateOf(false) }
+    FormItem(
+        label = { Text("Response format") },
+        description = { Text("MP3 for OpenAI (default); WAV for compatible local servers including Ollama Speech.") },
+    ) {
+        ExposedDropdownMenuBox(
+            expanded = formatExpanded,
+            onExpandedChange = { formatExpanded = !formatExpanded },
+        ) {
+            OutlinedTextField(
+                value = setting.responseFormat.uppercase(),
+                onValueChange = {},
+                readOnly = true,
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = formatExpanded) },
+            )
+            ExposedDropdownMenu(
+                expanded = formatExpanded,
+                onDismissRequest = { formatExpanded = false },
+            ) {
+                listOf("mp3", "wav").forEach { format ->
+                    DropdownMenuItem(
+                        text = { Text(format.uppercase()) },
+                        onClick = {
+                            formatExpanded = false
+                            onValueChange(setting.copy(responseFormat = format))
+                        },
                     )
                 }
             }
@@ -1677,7 +1860,7 @@ private fun NekoSpeakTTSConfiguration(
 
     // Model Path
     FormItem(
-        label = { Text(stringResource(R.string.setting_tts_page_api_key)) },
+        label = { Text(stringResource(R.string.local_tts_model_file_label)) },
         description = { Text("Model file path") }
     ) {
         Row(
@@ -1831,7 +2014,7 @@ private fun PocketTTSConfiguration(
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
-                if (installed) {
+                if (installed == true) {
                     Text(
                         text = stringResource(R.string.local_tts_installed),
                         style = MaterialTheme.typography.labelMedium,
@@ -2310,6 +2493,7 @@ private fun Qwen3TTSConfiguration(
     var downloading by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
+    var downloadRevision by remember { mutableStateOf(0) }
 
     FormItem(
         label = { Text(stringResource(R.string.local_tts_model_dir_label)) },
@@ -2329,9 +2513,19 @@ private fun Qwen3TTSConfiguration(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             val entry = Qwen3TtsCatalog.ENTRIES.first()
-            val installed = LocalTtsModelManager
-                .missingFiles(File(setting.modelPath), entry.requiredFiles)
-                .isEmpty() && setting.modelPath.isNotBlank()
+            // SHA over nearly 1.9 GB must never run on the Compose UI thread.
+            // Null = verifying. Do not show a bogus "Installed" badge while
+            // files are incomplete, corrupt, or being checked.
+            val installed by produceState<Boolean?>(
+                initialValue = null,
+                setting.modelPath,
+                downloadRevision,
+            ) {
+                value = if (setting.modelPath.isBlank()) false else
+                    withContext(Dispatchers.IO) {
+                        entry.isVerified(File(setting.modelPath))
+                    }
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -2342,7 +2536,7 @@ private fun Qwen3TTSConfiguration(
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
-                if (installed) {
+                if (installed == true) {
                     Text(
                         text = stringResource(R.string.local_tts_installed),
                         style = MaterialTheme.typography.labelMedium,
@@ -2355,11 +2549,12 @@ private fun Qwen3TTSConfiguration(
                                 downloading = true
                                 error = null
                                 runCatching {
-                                    LocalTtsModelManager.downloadBundle(
-                                        context, httpClient, "qwen3-tts", entry.downloadPairs(),
+                                    Qwen3TtsDownload.install(
+                                        context, httpClient, entry,
                                         onProgress = { progress = it },
                                     )
                                 }.onSuccess { dest ->
+                                    downloadRevision++
                                     onValueChange(setting.copy(modelPath = dest.absolutePath, hfLink = entry.sourceUrl))
                                     toaster.show(
                                         doneTemplate.format(dest.absolutePath),
@@ -2375,66 +2570,23 @@ private fun Qwen3TTSConfiguration(
                                 downloading = false
                             }
                         },
-                        enabled = !downloading,
-                    ) { Text(stringResource(R.string.local_tts_install)) }
+                        enabled = !downloading && installed != null,
+                    ) { Text(
+                        if (installed == null)
+                            stringResource(R.string.local_tts_verifying)
+                        else stringResource(R.string.local_tts_install)
+                    ) }
                 }
                 OutlinedButton(onClick = { openModelSourceUrl(context, entry.sourceUrl) }) {
                     Text(stringResource(R.string.local_tts_source))
                 }
             }
 
-            var manualUrl by remember { mutableStateOf(setting.hfLink) }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedTextField(
-                    value = manualUrl,
-                    onValueChange = { manualUrl = it },
-                    label = { Text(stringResource(R.string.local_tts_paste_link)) },
-                    placeholder = { Text(stringResource(R.string.local_tts_paste_link_hint)) },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                )
-                OutlinedButton(
-                    onClick = {
-                        val url = manualUrl.trim()
-                        if (url.isBlank()) return@OutlinedButton
-                        scope.launch {
-                            downloading = true
-                            error = null
-                            runCatching {
-                                val normalized = ModelInstall.normalizeHuggingFaceUrl(url)
-                                if (!ModelInstall.isValidDownloadUrl(normalized)) {
-                                    throw IllegalArgumentException("Invalid HuggingFace URL")
-                                }
-                                val pairs = entry.requiredFiles.mapNotNull { file ->
-                                    val remote = entry.remoteForLocal(file) ?: return@mapNotNull null
-                                    normalized.trimEnd('/') + "/resolve/main/" + remote to file
-                                }
-                                LocalTtsModelManager.downloadBundle(
-                                    context, httpClient, "qwen3-tts", pairs,
-                                    onProgress = { progress = it },
-                                )
-                            }.onSuccess { dest ->
-                                onValueChange(setting.copy(modelPath = dest.absolutePath, hfLink = manualUrl))
-                                toaster.show(
-                                    doneTemplate.format(dest.absolutePath),
-                                    type = ToastType.Success,
-                                )
-                            }.onFailure { e ->
-                                error = e.message ?: "Download failed"
-                                toaster.show(
-                                    errorTemplate.format(error!!),
-                                    type = ToastType.Error,
-                                )
-                            }
-                            downloading = false
-                        }
-                    },
-                    enabled = manualUrl.isNotBlank() && !downloading,
-                ) { Text(stringResource(R.string.local_tts_download_paste)) }
-            }
+            Text(
+                text = stringResource(R.string.local_tts_pinned_source_only),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 
@@ -2690,4 +2842,262 @@ private suspend fun copyModelToAppDir(context: Context, uri: Uri, subDir: String
         } ?: return@withContext null
         target
     } catch (_: Exception) { null }
+}
+
+@Composable
+private fun ScyllaTTSConfiguration(
+    setting: TTSProviderSetting.ScyllaTts,
+    onValueChange: (TTSProviderSetting) -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val httpClient = koinInjectOkHttp()
+    val toaster = LocalToaster.current
+    var downloading by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf(0) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val installed = setting.modelPath.isNotBlank() &&
+        LocalTtsModelManager.missingFiles(
+            File(setting.modelPath), ScyllaTtsCatalog.requiredFiles,
+        ).isEmpty()
+
+    val folderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            runCatching {
+                val dir = LocalTtsModelManager.importBundleFromTree(
+                    context, "scyllasband", uri, ScyllaTtsCatalog.requiredFiles,
+                )
+                val invalid = withContext(Dispatchers.IO) { ScyllaTtsCatalog.verify(dir) }
+                check(invalid.isEmpty()) { "Invalid Scylla files: ${invalid.take(3).joinToString()}" }
+                dir
+            }.onSuccess {
+                onValueChange(setting.copy(modelPath = it.absolutePath))
+            }.onFailure {
+                error = it.message
+                toaster.show(error ?: "Scylla import failed", type = ToastType.Error)
+            }
+        }
+    }
+
+    FormItem(
+        label = { Text("Scylla's Band v2 — local LiteRT") },
+        description = { Text("Offline, ten voices, 24 kHz speech. Model bundle ~164 MB.") },
+    ) {
+        OutlinedTextField(
+            value = setting.modelPath,
+            onValueChange = { onValueChange(setting.copy(modelPath = it)) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Model bundle directory") },
+            singleLine = true,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                enabled = !downloading,
+                onClick = {
+                    scope.launch {
+                        downloading = true
+                        error = null
+                        try {
+                            val dir = LocalTtsModelManager.downloadBundle(
+                                context, httpClient, "scyllasband",
+                                ScyllaTtsCatalog.downloadPairs(),
+                                onProgress = { progress = it },
+                            )
+                            val invalid = withContext(Dispatchers.IO) { ScyllaTtsCatalog.verify(dir) }
+                            check(invalid.isEmpty()) {
+                                "Scylla bundle checksum failed: ${invalid.take(3).joinToString()}"
+                            }
+                            onValueChange(setting.copy(modelPath = dir.absolutePath))
+                            toaster.show("Scylla's Band installed", type = ToastType.Success)
+                        } catch (cause: Throwable) {
+                            error = cause.message ?: "Scylla download failed"
+                            toaster.show(error!!, type = ToastType.Error)
+                        } finally {
+                            downloading = false
+                        }
+                    }
+                },
+            ) { Text(if (installed) "Verify / redownload" else "Download model") }
+            OutlinedButton(onClick = { folderPicker.launch(null) }) { Text("Import folder") }
+            OutlinedButton(onClick = { openModelSourceUrl(context, ScyllaTtsCatalog.sourceUrl) }) {
+                Text("Source")
+            }
+        }
+        if (installed) Text("Bundle files present", color = MaterialTheme.colorScheme.primary)
+        if (downloading) {
+            LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth())
+            Text("Downloading: $progress% of current file")
+        }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    }
+
+    var voiceMenuOpen by remember { mutableStateOf(false) }
+    FormItem(
+        label = { Text("Voice") },
+        description = { Text("Choose from the ten embedded speaker identities.") },
+    ) {
+        ExposedDropdownMenuBox(
+            expanded = voiceMenuOpen,
+            onExpandedChange = { voiceMenuOpen = !voiceMenuOpen },
+        ) {
+            OutlinedTextField(
+                value = setting.voice.replaceFirstChar { it.uppercase() },
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(voiceMenuOpen) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+            )
+            ExposedDropdownMenu(expanded = voiceMenuOpen, onDismissRequest = { voiceMenuOpen = false }) {
+                ScyllaTtsCatalog.voiceIds.forEach { voice ->
+                    DropdownMenuItem(
+                        text = { Text(voice.replaceFirstChar { it.uppercase() }) },
+                        onClick = {
+                            voiceMenuOpen = false
+                            val language = setting.language.takeIf {
+                                it in ScyllaTtsCatalog.supportedLanguages(voice)
+                            } ?: ScyllaTtsCatalog.defaultLanguage(voice)
+                            onValueChange(setting.copy(voice = voice, language = language))
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    var languageMenuOpen by remember { mutableStateOf(false) }
+    FormItem(label = { Text("Language / accent") }) {
+        ExposedDropdownMenuBox(
+            expanded = languageMenuOpen,
+            onExpandedChange = { languageMenuOpen = !languageMenuOpen },
+        ) {
+            OutlinedTextField(
+                value = setting.language,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(languageMenuOpen) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+            )
+            ExposedDropdownMenu(expanded = languageMenuOpen, onDismissRequest = { languageMenuOpen = false }) {
+                ScyllaTtsCatalog.supportedLanguages(setting.voice).forEach { language ->
+                    DropdownMenuItem(text = { Text(language) }, onClick = {
+                        languageMenuOpen = false
+                        onValueChange(setting.copy(language = language))
+                    })
+                }
+            }
+        }
+    }
+
+    FormItem(
+        label = { Text("Delivery") },
+        description = { Text("Four independently adjustable emotional delivery axes. 2 is neutral.") },
+    ) {
+        ScyllaDeliverySlider("Energy", setting.energy, 1.4f..2.3f) {
+            onValueChange(setting.copy(energy = it))
+        }
+        ScyllaDeliverySlider("Tension", setting.tension, 1f..2.4f) {
+            onValueChange(setting.copy(tension = it))
+        }
+        ScyllaDeliverySlider("Valence", setting.valence, 1.4f..2.2f) {
+            onValueChange(setting.copy(valence = it))
+        }
+        ScyllaDeliverySlider("Assertiveness", setting.assertiveness, 1.8f..2.4f) {
+            onValueChange(setting.copy(assertiveness = it))
+        }
+        OutlinedButton(onClick = {
+            onValueChange(setting.copy(energy = 2f, tension = 2f, valence = 2f, assertiveness = 2f))
+        }) { Text("Reset to neutral") }
+    }
+    FormItem(
+        label = { Text("Voice generation") },
+        description = { Text("Adapted from the Wyoming Scylla server: speech pace and generation quality, not audio playback speed.") },
+    ) {
+        ScyllaDeliverySlider("Speaking speed", setting.speed, 0.5f..1.5f) {
+            onValueChange(setting.copy(speed = it))
+        }
+        Text("Flow steps: ${if (setting.steps == 0) "Bundle default" else setting.steps.toString()}")
+        Slider(
+            value = setting.steps.toFloat(),
+            onValueChange = { onValueChange(setting.copy(steps = it.roundToInt().coerceIn(0, 16))) },
+            valueRange = 0f..16f,
+            steps = 15,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        var samplerMenuOpen by remember { mutableStateOf(false) }
+        ExposedDropdownMenuBox(
+            expanded = samplerMenuOpen,
+            onExpandedChange = { samplerMenuOpen = !samplerMenuOpen },
+        ) {
+            OutlinedTextField(
+                value = when (setting.sampler) {
+                    "euler" -> "Euler (fewer graph evaluations)"
+                    "heun" -> "Heun (more graph evaluations)"
+                    else -> "Bundle default"
+                },
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Sampler") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(samplerMenuOpen) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+            )
+            ExposedDropdownMenu(expanded = samplerMenuOpen, onDismissRequest = { samplerMenuOpen = false }) {
+                listOf(
+                    "default" to "Bundle default",
+                    "euler" to "Euler (fewer evaluations)",
+                    "heun" to "Heun (more evaluations)",
+                ).forEach { (sampler, label) ->
+                    DropdownMenuItem(text = { Text(label) }, onClick = {
+                        samplerMenuOpen = false
+                        onValueChange(setting.copy(sampler = sampler))
+                    })
+                }
+            }
+        }
+        OutlinedButton(onClick = {
+            onValueChange(setting.copy(speed = 1f, steps = 0, sampler = "default"))
+        }) { Text("Use model defaults") }
+    }
+    FormItem(label = { Text("Noise seed") }, description = { Text("Optional repeatability; blank is random.") }) {
+        OutlinedTextField(
+            value = setting.seed?.toString().orEmpty(),
+            onValueChange = {
+                onValueChange(setting.copy(seed = it.trim().takeIf(String::isNotBlank)?.toLongOrNull()))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Seed") },
+            singleLine = true,
+        )
+    }
+}
+
+@Composable
+private fun ScyllaDeliverySlider(
+    name: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onChange: (Float) -> Unit,
+) {
+    Text("$name: ${"%.1f".format(value)}")
+    Slider(
+        value = value.coerceIn(range.start, range.endInclusive),
+        onValueChange = { onChange((it * 10f).roundToInt() / 10f) },
+        valueRange = range,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+
+// Resolve already-installed bundles before suggesting another download.
+// The runtime still performs full SHA-256 validation before loading.
+private fun existingScyllaModelPath(context: Context): String {
+    val candidates = listOfNotNull(
+        context.getExternalFilesDir(null)?.let { File(it, "local-models/tts-scyllasband") },
+        File(context.filesDir, "local-models/tts-scyllasband"),
+    )
+    return candidates.firstOrNull { directory ->
+        ScyllaTtsCatalog.requiredFiles.all { File(directory, it).isFile }
+    }?.absolutePath.orEmpty()
 }

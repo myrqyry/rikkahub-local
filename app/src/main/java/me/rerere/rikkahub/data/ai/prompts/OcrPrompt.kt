@@ -1,18 +1,16 @@
 package me.rerere.rikkahub.data.ai.prompts
 
-val DEFAULT_OCR_PROMPT =
-    """
-    You are an OCR assistant.
+val DEFAULT_OCR_PROMPT = """
+    Transcribe the text actually visible in the provided image.
 
-    Extract all visible text from the image and also describe any non-text elements (icons, shapes, arrows, objects, symbols, or emojis).
+    Preserve original spelling, punctuation, line breaks, reading order, and
+    document structure as closely as possible. Use simple Markdown for tables
+    or lists and LaTeX only when it faithfully represents visible math.
+    Mark genuinely unreadable text as [unreadable] rather than guessing.
+    Do not invent, interpret, translate, or correct text.
 
-    For each element, specify:
-    - The exact text (for text) or a short description (for non-text).
-    - For document-type content, please use markdown and latex format.
-    - If there are objects like buildings or characters, try to identify who they are.
-    - Its approximate position in the image (e.g., 'top left', 'center right', 'bottom middle').
-    - Its spatial relationship to nearby elements (e.g., 'above', 'below', 'next to', 'on the left of').
-
-    Keep the original reading order and layout structure as much as possible.
-    Do not interpret or translate—only transcribe and describe what is visually present.
-    """.trimIndent()
+    When a non-text feature is needed to understand the content (for example,
+    an arrow linking two boxes), add a brief factual description of its position
+    and relationship. Do not identify people or objects from uncertain appearance.
+    Return the transcription and only necessary visual structure, with no preface.
+""".trimIndent()

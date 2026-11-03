@@ -144,19 +144,21 @@ class AgentRunRepository(private val dao: AgentRunDao) {
         runCatching { dao.countByStatusSince(status.name, sinceMs) }.getOrDefault(0)
 
     /**
-     * Flip every supplied row to [AgentRunStatus.process_lost] under the lock. Used by
-     * [AgentRunBootRecovery]; returns the count actually flipped (rows that turned terminal
-     * between the scan and the flip are skipped).
+     * Mark prior-process in-flight rows lost under the write lock. Recheck [beforeMs]
+     * after the initial sweep: a new owner may have updated a row between scan and write.
+     * Return only rows actually transitioned so recovery reports cannot name a live run.
      */
-    suspend fun markAllProcessLost(ids: List<String>): Int {
-        if (ids.isEmpty()) return 0
-        var flipped = 0
+    suspend fun markAllProcessLost(ids: List<String>, beforeMs: Long): List<AgentRun> {
+        if (ids.isEmpty()) return emptyList()
+        val flipped = mutableListOf<AgentRun>()
         runCatching {
             writeMutex.withLock {
                 val now = System.currentTimeMillis()
                 for (id in ids) {
                     val existing = dao.getById(id) ?: continue
-                    if (AgentRunStatus.fromName(existing.status).isTerminal) continue
+                    if (AgentRunStatus.fromName(existing.status) !in AgentRunStatus.IN_FLIGHT ||
+                        existing.updatedAtMs >= beforeMs
+                    ) continue
                     dao.update(
                         existing.copy(
                             status = AgentRunStatus.process_lost.name,
@@ -165,7 +167,7 @@ class AgentRunRepository(private val dao: AgentRunDao) {
                             lastError = existing.lastError ?: "process killed mid-run",
                         )
                     )
-                    flipped++
+                    flipped.add(existing)
                 }
             }
         }.onFailure { logSafe { Log.w(TAG, "markAllProcessLost failed", it) } }

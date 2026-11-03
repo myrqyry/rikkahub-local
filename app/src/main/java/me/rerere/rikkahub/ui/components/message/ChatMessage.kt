@@ -73,11 +73,7 @@ import me.rerere.ai.ui.UIMessage
 import me.rerere.ai.ui.UIMessageAnnotation
 import me.rerere.ai.ui.UIMessagePart
 import me.rerere.ai.ui.isEmptyUIMessage
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.File02
-import me.rerere.hugeicons.stroke.MusicNote03
-import me.rerere.hugeicons.stroke.Translate
-import me.rerere.hugeicons.stroke.Video01
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.model.Assistant
@@ -177,25 +173,30 @@ fun ChatMessage(
                 )
         ) {
             ProvideTextStyle(textStyle) {
-                MessagePartsBlock(
-                    assistant = assistant,
-                    role = message.role,
-                    parts = message.parts,
-                    annotations = message.annotations,
-                    loading = loading,
-                    model = model,
-                    onToolApproval = onToolApproval,
-                    onToolAnswer = onToolAnswer,
-                    onUserMessageClick = if (message.role == MessageRole.USER) onEdit else null,
-                    onSubmit = onSubmit,
-                    onNavigate = onNavigate,
-                )
-
-                message.translation?.let { translation ->
-                    CollapsibleTranslationText(
-                        content = translation,
-                        onClickCitation = {}
+                // MessagePartsBlock emits multiple sibling composables (thinking,
+                // answer, tools). A Box stacks them at the same origin, so keep
+                // the parts and translation in a vertical layout.
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    MessagePartsBlock(
+                        assistant = assistant,
+                        role = message.role,
+                        parts = message.parts,
+                        annotations = message.annotations,
+                        loading = loading,
+                        model = model,
+                        onToolApproval = onToolApproval,
+                        onToolAnswer = onToolAnswer,
+                        onUserMessageClick = if (message.role == MessageRole.USER) onEdit else null,
+                        onSubmit = onSubmit,
+                        onNavigate = onNavigate,
                     )
+
+                    message.translation?.let { translation ->
+                        CollapsibleTranslationText(
+                            content = translation,
+                            onClickCitation = {}
+                        )
+                    }
                 }
             }
             DropdownMenu(

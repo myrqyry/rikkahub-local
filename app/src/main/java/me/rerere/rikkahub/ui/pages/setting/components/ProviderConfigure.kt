@@ -3,6 +3,7 @@ package me.rerere.rikkahub.ui.pages.setting.components
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
@@ -26,6 +27,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -58,15 +61,18 @@ import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.HorizontalDivider
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.OpenRouterRouting
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Cancel01
-import me.rerere.hugeicons.stroke.Delete01
-import me.rerere.hugeicons.stroke.Edit01
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dokar.sonner.ToastType
 import me.rerere.ai.provider.ClaudePromptCacheTtl
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.locallm.LocalRuntime
+import me.rerere.locallm.LocalRuntimePreferences
+import me.rerere.locallm.llamacpp.GgufAutoTuner
+import me.rerere.locallm.llamacpp.GgufTuningPolicy
+import me.rerere.locallm.llamacpp.GgufTuningStore
+import java.io.File
+import kotlinx.coroutines.launch
 import me.rerere.locallm.SdCatalog
 import me.rerere.locallm.SdCatalogEntry
 import me.rerere.locallm.litert.LiteRtCatalog
@@ -76,14 +82,11 @@ import me.rerere.locallm.task.TaskLibraryCatalog
 import me.rerere.locallm.task.TaskLibraryCatalogEntry
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.DEFAULT_PROVIDERS
-import me.rerere.hugeicons.stroke.View
-import me.rerere.hugeicons.stroke.ViewOff
 import me.rerere.rikkahub.ui.context.LocalToaster
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.ai.StableDiffusionBridge
 import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.pages.setting.locallm.SettingLocalLlmViewModel
-import me.rerere.hugeicons.stroke.ArrowRight01
 import androidx.compose.foundation.shape.RoundedCornerShape
 import me.rerere.rikkahub.ui.theme.JetbrainsMono
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -148,6 +151,7 @@ fun ProviderConfigure(
             is ProviderSetting.StableDiffusion -> {
                 ProviderConfigureStableDiffusion(provider, onEdit)
             }
+            is ProviderSetting.ComfyUi -> ComfyUiProviderConfigure(provider, onEdit)
 
             is ProviderSetting.TaskOcrLocal -> {
                 ProviderConfigureTaskOcr(provider, onEdit)
@@ -171,6 +175,7 @@ fun ProviderSetting.convertTo(type: KClass<out ProviderSetting>): ProviderSettin
         is ProviderSetting.LiteRtLocal -> "" // on-device, no API key
         is ProviderSetting.Codex -> "" // OAuth, no API key
         is ProviderSetting.Grok -> "" // OAuth, no API key
+        is ProviderSetting.ComfyUi -> "" // ComfyUI has no API key in this integration
         is ProviderSetting.StableDiffusion -> "" // on-device, no API key
         is ProviderSetting.TaskOcrLocal -> "" // on-device, no API key
         is ProviderSetting.LlamaCppLocal -> "" // on-device, no API key
@@ -183,6 +188,7 @@ fun ProviderSetting.convertTo(type: KClass<out ProviderSetting>): ProviderSettin
         is ProviderSetting.LiteRtLocal -> "" // on-device, no base URL
         is ProviderSetting.Codex -> "" // OAuth, no base URL
         is ProviderSetting.Grok -> "" // OAuth, no base URL
+        is ProviderSetting.ComfyUi -> this.baseUrl
         is ProviderSetting.StableDiffusion -> "" // on-device, no base URL
         is ProviderSetting.TaskOcrLocal -> "" // on-device, no base URL
         is ProviderSetting.LlamaCppLocal -> "" // on-device, no base URL
@@ -242,7 +248,8 @@ internal fun ProviderSetting.defaultBaseUrlForReset(): String {
             is ProviderSetting.LiteRtLocal -> return "" // on-device, no base URL
             is ProviderSetting.Codex -> return "" // OAuth, no base URL
             is ProviderSetting.Grok -> return "" // OAuth, no base URL
-            is ProviderSetting.StableDiffusion -> return "" // on-device, no base URL
+            is ProviderSetting.ComfyUi -> return this.baseUrl
+        is ProviderSetting.StableDiffusion -> return "" // on-device, no base URL
             is ProviderSetting.TaskOcrLocal -> return "" // on-device, no base URL
             is ProviderSetting.LlamaCppLocal -> return "" // on-device, no base URL
         }
@@ -255,6 +262,7 @@ internal fun ProviderSetting.defaultBaseUrlForReset(): String {
         is ProviderSetting.LiteRtLocal -> ""
         is ProviderSetting.Codex -> ""
         is ProviderSetting.Grok -> ""
+        is ProviderSetting.ComfyUi -> ProviderSetting.ComfyUi().baseUrl
         is ProviderSetting.StableDiffusion -> ""
         is ProviderSetting.TaskOcrLocal -> ""
         is ProviderSetting.LlamaCppLocal -> ""
@@ -271,6 +279,7 @@ internal fun ProviderSetting.resetBaseUrlToDefault(): ProviderSetting {
         is ProviderSetting.LiteRtLocal -> this // no base URL to reset
         is ProviderSetting.Codex -> this // no base URL to reset
         is ProviderSetting.Grok -> this // no base URL to reset
+        is ProviderSetting.ComfyUi -> this.copy(baseUrl = defaultBaseUrl)
         is ProviderSetting.StableDiffusion -> this // no base URL to reset
         is ProviderSetting.TaskOcrLocal -> this // no base URL to reset
         is ProviderSetting.LlamaCppLocal -> this // no base URL to reset
@@ -286,6 +295,7 @@ internal fun ProviderSetting.isUsingDefaultBaseUrl(): Boolean {
         is ProviderSetting.LiteRtLocal -> return true // no base URL concept
         is ProviderSetting.Codex -> return true // no base URL concept
         is ProviderSetting.Grok -> return true // no base URL concept
+        is ProviderSetting.ComfyUi -> this.baseUrl
         is ProviderSetting.StableDiffusion -> return true // no base URL concept
         is ProviderSetting.TaskOcrLocal -> return true // no base URL concept
         is ProviderSetting.LlamaCppLocal -> return true // no base URL concept
@@ -863,8 +873,7 @@ private fun ColumnScope.ProviderConfigureAICore(
     )
 
     // Release-stage radio. PREVIEW pulls a higher-quality but more flappy build of Gemini
-    // Nano; STABLE is the default. Spec details in
-    // docs/superpowers/specs/2026-05-04-aicore-provider-design.md.
+    // Nano; STABLE is the default.
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.setting_provider_aicore_release_stage), modifier = Modifier.weight(1f))
         SingleChoiceSegmentedButtonRow {
@@ -927,9 +936,10 @@ private fun ColumnScope.ProviderConfigureTaskOcr(
     )
 
     Text(
-        text = "On-device PP-OCRv5 text recognition. Copy both model URLs from " +
-            "Local Task Library models below, import the files via the LiteRT import picker, " +
-            "then paste their paths here. No images leave the device.",
+        text = "Use Models → Add → LiteRT-Models gallery → Download verified PP-OCRv5 package, " +
+            "then choose Use for OCR. The installer verifies both graphs and the CTC dictionary. " +
+            "Advanced: custom paths can still be set above; all three files must share one folder. " +
+            "No images leave the device.",
         style = MaterialTheme.typography.labelSmall,
         modifier = Modifier.fillMaxWidth(),
     )
@@ -966,6 +976,8 @@ private fun ColumnScope.ProviderConfigureLlamaCpp(
         style = MaterialTheme.typography.labelSmall,
         modifier = Modifier.fillMaxWidth(),
     )
+
+    GgufTuningPanel()
 }
 
 @Composable
@@ -1189,7 +1201,7 @@ private fun ColumnScope.ProviderConfigureLiteRT(
             } else {
                 null
             },
-            onInstall = { vm.startManualDownload(entry.resolveUrl()) },
+            onInstall = { vm.startCatalogDownload(entry) },
             onOpenSource = { openModelSourceUrl(catalogContext, entry.sourceUrl) },
         )
     }
@@ -1400,7 +1412,7 @@ private fun SdCatalogEntryCard(
 }
 
 @Composable
-private fun IntParamField(
+internal fun IntParamField(
     label: String,
     value: Int?,
     allowNegative: Boolean = false,
@@ -1430,7 +1442,7 @@ private fun IntParamField(
 }
 
 @Composable
-private fun DoubleParamField(
+internal fun DoubleParamField(
     label: String,
     value: Double?,
     modifier: Modifier = Modifier,
@@ -1754,4 +1766,152 @@ private fun InstalledModelRow(
             },
         )
     }
+}
+
+/**
+ * Optional measurement loop. Applying a result changes only the selected model's
+ * GGUF generation settings, and never modifies another runtime or the default provider.
+ */
+@Composable
+private fun GgufTuningPanel() {
+    val context = LocalContext.current
+    val prefs = remember(context) { LocalRuntimePreferences(context.applicationContext) }
+    val store = remember(context) { GgufTuningStore(context.applicationContext) }
+    val models by prefs.installedModelsFlow(LocalRuntime.LlamaCpp)
+        .collectAsStateWithLifecycle(initialValue = emptyMap())
+    val records by store.records().collectAsStateWithLifecycle(initialValue = emptyMap())
+    val scope = rememberCoroutineScope()
+    var selectedId by remember { mutableStateOf<String?>(null) }
+    var selectorOpen by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf("") }
+    var failure by remember { mutableStateOf<String?>(null) }
+    val modelId = selectedId?.takeIf { it in models } ?: models.keys.sorted().firstOrNull()
+    val file = modelId?.let { models[it] }?.let(::File)
+    val saved = if (modelId != null && file?.isFile == true) {
+        records[modelId]?.takeIf { record ->
+            runCatching { record.fingerprint == GgufTuningPolicy.fingerprint(file) }
+                .getOrDefault(false)
+        }
+    } else null
+
+    HorizontalDivider()
+    Text("GGUF performance tuning", style = MaterialTheme.typography.titleSmall)
+    Text(
+        "Optional device benchmark: compares thread counts using real generated output. " +
+            "Results are measured characters/second and first-output latency, not tokenizer " +
+            "tokens/second. Your current settings stay active until you tap Apply.",
+        style = MaterialTheme.typography.bodySmall,
+    )
+    if (modelId == null) {
+        Text("Install a GGUF chat model first. No tuning model will be downloaded automatically.",
+            style = MaterialTheme.typography.bodySmall)
+        return
+    }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(
+            onClick = { selectorOpen = true },
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Model: $modelId", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        DropdownMenu(
+            expanded = selectorOpen,
+            onDismissRequest = { selectorOpen = false },
+        ) {
+            models.keys.sorted().forEach { id ->
+                DropdownMenuItem(text = { Text(id) }, onClick = {
+                    selectedId = id
+                    selectorOpen = false
+                    failure = null
+                    progress = ""
+                })
+            }
+        }
+    }
+    if (file?.isFile != true) {
+        Text("The registered model file is missing. Reinstall it before tuning.",
+            color = MaterialTheme.colorScheme.error)
+        return
+    }
+    saved?.let { record ->
+        val baseline = record.baseline
+        val winning = record.winner
+        Text(
+            "Baseline: ${baseline.config.threads} threads · " +
+                "${"%.1f".format(baseline.codepointsPerSecond)} chars/s · " +
+                "${"%.0f".format(baseline.firstOutputMs)} ms to first output",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            "Measured winner: ${winning.config.threads} threads · " +
+                "${"%.1f".format(winning.codepointsPerSecond)} chars/s · " +
+                "${"%.0f".format(winning.firstOutputMs)} ms to first output" +
+                if (record.applied) " · Applied" else " · Not applied",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        record.samples.sortedBy { it.config.threads }.forEach { sample ->
+            Text(
+                "${sample.config.threads} threads · " +
+                    "${"%.1f".format(sample.codepointsPerSecond)} chars/s · " +
+                    "${"%.0f".format(sample.firstOutputMs)} ms first output",
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+    }
+    if (modelId in records && saved == null) {
+        Text("An earlier tuning result is stale because the model, runtime, or device changed.",
+            style = MaterialTheme.typography.bodySmall)
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(enabled = !busy, onClick = {
+            val chosenId = modelId
+            val chosenFile = file
+            busy = true
+            progress = "Preparing native GGUF sweep"
+            failure = null
+            scope.launch {
+                try {
+                    val result = GgufAutoTuner(context.applicationContext).sweep(chosenFile) { done, total ->
+                        scope.launch { progress = "Measured $done/$total runs" }
+                    }
+                    store.saveMeasurement(chosenId, result)
+                    progress = "Measurements saved; apply explicitly to use them."
+                } catch (cause: Exception) {
+                    failure = cause.message ?: "Native GGUF tuning failed"
+                    progress = ""
+                } finally {
+                    busy = false
+                }
+            }
+        }) { Text(if (busy) "Measuring..." else "Run quick sweep") }
+
+        if (saved != null) {
+            OutlinedButton(enabled = !busy && !saved.applied, onClick = {
+                busy = true
+                scope.launch {
+                    try { store.setApplied(modelId, file, true) }
+                    catch (cause: Exception) { failure = cause.message }
+                    finally { busy = false }
+                }
+            }) { Text("Apply") }
+            OutlinedButton(enabled = !busy && saved.applied, onClick = {
+                busy = true
+                scope.launch {
+                    try { store.setApplied(modelId, file, false) }
+                    catch (cause: Exception) { failure = cause.message }
+                    finally { busy = false }
+                }
+            }) { Text("Revert") }
+        }
+    }
+    if (progress.isNotBlank()) Text(progress, style = MaterialTheme.typography.bodySmall)
+    failure?.let {
+        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+    }
+    Text(
+        "Native runs can heat the phone and take time; tuning stops on low battery or high " +
+            "temperature. One model at a time. Chat settings are unchanged until Apply.",
+        style = MaterialTheme.typography.labelSmall,
+    )
 }

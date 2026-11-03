@@ -25,8 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.decodeFromJsonElement
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Image03
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.ai.tools.image.StoredImageArtifact
@@ -68,6 +67,7 @@ class ImageToolCardRenderer(
     override val toolName: String,
 ) : ToolUIRenderer {
 
+    @Composable
     override fun icon(context: ToolUIContext): ImageVector = HugeIcons.Image03
 
     override fun hasSummary(context: ToolUIContext): Boolean = false

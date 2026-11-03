@@ -35,6 +35,12 @@ import me.rerere.rikkahub.data.ai.prompts.DEFAULT_OCR_PROMPT
 import me.rerere.rikkahub.data.ai.prompts.DEFAULT_SUGGESTION_PROMPT
 import me.rerere.rikkahub.data.ai.prompts.DEFAULT_TITLE_PROMPT
 import me.rerere.rikkahub.data.ai.prompts.DEFAULT_TRANSLATION_PROMPT
+import me.rerere.rikkahub.data.ai.prompts.LEGACY_TITLE_PROMPT
+import me.rerere.rikkahub.data.ai.prompts.LEGACY_TRANSLATION_PROMPT
+import me.rerere.rikkahub.data.ai.prompts.LEGACY_SUGGESTION_PROMPT
+import me.rerere.rikkahub.data.ai.prompts.LEGACY_OCR_PROMPT
+import me.rerere.rikkahub.data.ai.prompts.LEGACY_COMPRESS_PROMPT
+import me.rerere.rikkahub.data.ai.prompts.migrateUtilityPrompt
 import me.rerere.rikkahub.data.ai.prompts.LEARNING_MODE_PROMPT
 import me.rerere.asr.ASRProviderSetting
 import me.rerere.rikkahub.data.datastore.migration.PreferenceStoreV1Migration
@@ -118,6 +124,8 @@ class SettingsStore(
         val THEME_VARIATION = stringPreferencesKey("theme_variation")
         val THEME_ACCENT = stringPreferencesKey("theme_accent")
         val MATERIAL_YOU_SOURCE_COLOR = longPreferencesKey("material_you_source_color")
+        val PERSONAL_THEME_ACCENT_COLOR = longPreferencesKey("personal_theme_accent_color")
+        val PERSONAL_LAST_BACKGROUND_COLOR = longPreferencesKey("personal_last_background_color")
         val CUSTOM_THEMES = stringPreferencesKey("custom_themes")
         val DISPLAY_SETTING = stringPreferencesKey("display_setting")
         val DEVELOPER_MODE = booleanPreferencesKey("developer_mode")
@@ -234,14 +242,14 @@ class SettingsStore(
                 enableSuggestion = preferences[ENABLE_SUGGESTION] != false,
                 suggestionModelId = preferences[SUGGESTION_MODEL]?.let { Uuid.parse(it) },
                 imageGenerationModelId = preferences[IMAGE_GENERATION_MODEL]?.let { Uuid.parse(it) } ?: Uuid.random(),
-                titlePrompt = preferences[TITLE_PROMPT] ?: DEFAULT_TITLE_PROMPT,
-                translatePrompt = preferences[TRANSLATION_PROMPT] ?: DEFAULT_TRANSLATION_PROMPT,
+                titlePrompt = migrateUtilityPrompt(preferences[TITLE_PROMPT], LEGACY_TITLE_PROMPT, DEFAULT_TITLE_PROMPT),
+                translatePrompt = migrateUtilityPrompt(preferences[TRANSLATION_PROMPT], LEGACY_TRANSLATION_PROMPT, DEFAULT_TRANSLATION_PROMPT),
                 translateThinkingBudget = preferences[TRANSLATE_THINKING_BUDGET] ?: 0,
-                suggestionPrompt = preferences[SUGGESTION_PROMPT] ?: DEFAULT_SUGGESTION_PROMPT,
+                suggestionPrompt = migrateUtilityPrompt(preferences[SUGGESTION_PROMPT], LEGACY_SUGGESTION_PROMPT, DEFAULT_SUGGESTION_PROMPT),
                 ocrModelId = preferences[OCR_MODEL]?.let { Uuid.parse(it) } ?: Uuid.random(),
-                ocrPrompt = preferences[OCR_PROMPT] ?: DEFAULT_OCR_PROMPT,
+                ocrPrompt = migrateUtilityPrompt(preferences[OCR_PROMPT], LEGACY_OCR_PROMPT, DEFAULT_OCR_PROMPT),
                 compressModelId = preferences[COMPRESS_MODEL]?.let { Uuid.parse(it) } ?: DEFAULT_AUTO_MODEL_ID,
-                compressPrompt = preferences[COMPRESS_PROMPT] ?: DEFAULT_COMPRESS_PROMPT,
+                compressPrompt = migrateUtilityPrompt(preferences[COMPRESS_PROMPT], LEGACY_COMPRESS_PROMPT, DEFAULT_COMPRESS_PROMPT),
                 disabledModelCapabilities = preferences[DISABLED_MODEL_CAPABILITIES]?.let { raw ->
                     runCatching { JsonInstant.decodeFromString<Map<String, Set<ModelCapability>>>(raw) }
                         .getOrDefault(emptyMap())
@@ -267,10 +275,13 @@ class SettingsStore(
                     } ?: emptySet(),
                 assistants = JsonInstant.decodeFromString(preferences[ASSISTANTS] ?: "[]"),
                 dynamicColor = preferences[DYNAMIC_COLOR] != false,
-                themeId = preferences[THEME_ID] ?: PresetThemes[0].id,
+                themeId = preferences[THEME_ID] ?: "meristem",
                 themeVariation = preferences[THEME_VARIATION] ?: "default",
                 themeAccent = preferences[THEME_ACCENT] ?: "default",
                 materialYouSourceColor = preferences[MATERIAL_YOU_SOURCE_COLOR],
+                personalThemeAccentColor = preferences[PERSONAL_THEME_ACCENT_COLOR],
+                personalLastBackgroundColor = preferences[PERSONAL_LAST_BACKGROUND_COLOR]
+                    ?: preferences[MATERIAL_YOU_SOURCE_COLOR],
                 customThemes = preferences[CUSTOM_THEMES]?.let {
                     JsonInstant.decodeFromString(it)
                 } ?: emptyList(),
@@ -456,6 +467,10 @@ class SettingsStore(
                             models = provider.models.distinctBy { model -> model.id }
                         )
 
+                        is ProviderSetting.ComfyUi -> provider.copy(
+                            models = provider.models.distinctBy { model -> model.id }
+                        )
+
                         is ProviderSetting.TaskOcrLocal -> provider.copy(
                             models = provider.models.distinctBy { model -> model.id }
                         )
@@ -516,6 +531,12 @@ class SettingsStore(
             settings.materialYouSourceColor?.let {
                 preferences[MATERIAL_YOU_SOURCE_COLOR] = it
             } ?: preferences.remove(MATERIAL_YOU_SOURCE_COLOR)
+            settings.personalThemeAccentColor?.let {
+                preferences[PERSONAL_THEME_ACCENT_COLOR] = it
+            } ?: preferences.remove(PERSONAL_THEME_ACCENT_COLOR)
+            settings.personalLastBackgroundColor?.let {
+                preferences[PERSONAL_LAST_BACKGROUND_COLOR] = it
+            } ?: preferences.remove(PERSONAL_LAST_BACKGROUND_COLOR)
             preferences[CUSTOM_THEMES] = JsonInstant.encodeToString(settings.customThemes)
             preferences[DEVELOPER_MODE] = settings.developerMode
             preferences[DISPLAY_SETTING] = JsonInstant.encodeToString(settings.displaySetting)
@@ -684,10 +705,12 @@ class SettingsStore(
 @Serializable
 data class Settings(
     val dynamicColor: Boolean = true,
-    val themeId: String = PresetThemes[0].id,
+    val themeId: String = "meristem",
     val themeVariation: String = "default",
     val themeAccent: String = "default",
     val materialYouSourceColor: Long? = null,
+    val personalThemeAccentColor: Long? = null,
+    val personalLastBackgroundColor: Long? = null,
     val customThemes: List<CustomTheme> = emptyList(),
     val developerMode: Boolean = false,
     val displaySetting: DisplaySetting = DisplaySetting(),
@@ -813,6 +836,9 @@ data class DisplaySetting(
     val ttsOnlyReadQuoted: Boolean = false,
     val ttsOnlyReadOutsideBrackets: Boolean = false,
     val autoPlayTTSAfterGeneration: Boolean = false,
+    /** Provider ID → reading and auto-play preferences. Legacy flags above remain
+     *  read-only fallbacks so upgrades preserve existing choices. */
+    val ttsPlaybackProfiles: Map<String, TtsPlaybackPreferences> = emptyMap(),
     val pasteLongTextAsFile: Boolean = false,
     val pasteLongTextThreshold: Int = 1000,
     val sendOnEnter: Boolean = false,

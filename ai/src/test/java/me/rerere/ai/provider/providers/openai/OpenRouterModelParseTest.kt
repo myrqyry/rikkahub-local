@@ -36,6 +36,7 @@ class OpenRouterModelParseTest {
         assertTrue(ModelAbility.TOOL in m.abilities)
         assertTrue(ModelAbility.REASONING in m.abilities)
         assertEquals(1048576, m.contextLength)
+        assertEquals("provider:openrouter", m.metadataSource)
         assertEquals(0.0000003, m.pricePromptPerToken!!, 1e-12)
     }
 

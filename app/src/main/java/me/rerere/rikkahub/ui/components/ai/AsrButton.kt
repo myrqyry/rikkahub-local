@@ -45,8 +45,7 @@ import androidx.compose.ui.unit.dp
 import me.rerere.asr.ASRState
 import me.rerere.rikkahub.R
 import me.rerere.asr.ASRStatus
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Voice
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 
 private enum class AsrDisplayState {
     Idle, Connecting, Active

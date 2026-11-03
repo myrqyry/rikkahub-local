@@ -19,12 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.annotation.VisibleForTesting
 import kotlinx.datetime.toJavaLocalDateTime
 import me.rerere.ai.ui.UIMessage
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.Clock02
-import me.rerere.hugeicons.stroke.CoinsDollar
-import me.rerere.hugeicons.stroke.Download04
-import me.rerere.hugeicons.stroke.Upload02
-import me.rerere.hugeicons.stroke.Zap
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.ui.context.LocalSettings
 import me.rerere.rikkahub.utils.formatNumber
 import me.rerere.rikkahub.utils.toFixed

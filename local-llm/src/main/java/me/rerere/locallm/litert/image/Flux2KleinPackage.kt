@@ -2,6 +2,12 @@ package me.rerere.locallm.litert.image
 
 import android.content.Context
 import java.io.File
+import java.nio.file.FileVisitResult
+import java.nio.file.Files
+import java.nio.file.LinkOption
+import java.nio.file.Path
+import java.nio.file.SimpleFileVisitor
+import java.nio.file.attribute.BasicFileAttributes
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelType
 import me.rerere.ai.provider.Modality
@@ -110,6 +116,41 @@ class Flux2KleinPackage(
         File(tokenizerDir, name).takeIf { it.isFile } ?: File(root, name)
 
     fun validate(): Flux2KleinPackageValidation = Flux2KleinPackageValidator.validate(this)
+
+    /**
+     * Remove only this app-owned FLUX package directory. The normal registry entry is
+     * metadata; unregistering it alone does not free the graphs/tokenizer from disk.
+     *
+     * Scope deletion to a real local-models/flux2-klein path. walkFileTree does not follow
+     * symlinks by default, so an unexpected link cannot erase an external model directory.
+     * Fail loudly: the registry must not report success if the bytes remain.
+     */
+    fun deleteInstalledFiles() {
+        val location = root.toPath().toAbsolutePath().normalize()
+        require(location.fileName?.toString() == "flux2-klein" &&
+            location.parent?.fileName?.toString() == "local-models") {
+            "Refusing to delete outside a FLUX package folder"
+        }
+        if (!Files.exists(location, LinkOption.NOFOLLOW_LINKS)) return
+        require(Files.isDirectory(location, LinkOption.NOFOLLOW_LINKS)) {
+            "FLUX package path is not a directory"
+        }
+        require(location.toRealPath() == location) {
+            "Refusing to delete a FLUX package reached through a symbolic link"
+        }
+        Files.walkFileTree(location, object : SimpleFileVisitor<Path>() {
+            override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
+                Files.delete(file)
+                return FileVisitResult.CONTINUE
+            }
+
+            override fun postVisitDirectory(dir: Path, error: java.io.IOException?): FileVisitResult {
+                if (error != null) throw error
+                Files.delete(dir)
+                return FileVisitResult.CONTINUE
+            }
+        })
+    }
 }
 
 object Flux2KleinPackageValidator {

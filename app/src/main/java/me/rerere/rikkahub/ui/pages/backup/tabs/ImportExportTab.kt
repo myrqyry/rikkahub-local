@@ -1,8 +1,6 @@
 package me.rerere.rikkahub.ui.pages.backup.tabs
 
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.File01
-import me.rerere.hugeicons.stroke.FileImport
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement

@@ -50,7 +50,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -66,16 +65,7 @@ import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelAbility
 import me.rerere.ai.provider.ModelType
 import me.rerere.ai.provider.ProviderSetting
-import me.rerere.hugeicons.HugeIcons
-import me.rerere.hugeicons.stroke.ArrowRight01
-import me.rerere.hugeicons.stroke.Brain02
-import me.rerere.hugeicons.stroke.Cancel01
-import me.rerere.hugeicons.stroke.DragDropHorizontal
-import me.rerere.hugeicons.stroke.Favourite
-import me.rerere.hugeicons.stroke.Image03
-import me.rerere.hugeicons.stroke.Search01
-import me.rerere.hugeicons.stroke.Text
-import me.rerere.hugeicons.stroke.Tools
+import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.datastore.SettingsStore
@@ -173,6 +163,7 @@ fun ModelSelector(
     modifier: Modifier = Modifier,
     onlyIcon: Boolean = false,
     allowClear: Boolean = false,
+    logoName: String? = null,
     onSelect: (Model) -> Unit
 ) {
     val state = rememberModelListState(
@@ -194,9 +185,10 @@ fun ModelSelector(
             ) {
                 model?.modelId?.let {
                     AutoAIIcon(
-                        it, Modifier
+                        name = logoName ?: it,
+                        modifier = Modifier
                             .padding(end = 4.dp)
-                            .size(36.dp),
+                            .size(if (logoName != null) 24.dp else 36.dp),
                         color = Color.Transparent
                     )
                 }
@@ -835,7 +827,7 @@ fun ModelAbilityTag(model: Model) {
                     type = TagType.INFO
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.deepthink),
+                        imageVector = HugeIcons.Idea01,
                         contentDescription = null,
                         modifier = Modifier.size(LocalTextStyle.current.lineHeight.toDp()),
                     )
