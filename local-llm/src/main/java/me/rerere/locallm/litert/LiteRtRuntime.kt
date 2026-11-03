@@ -123,7 +123,7 @@ class LiteRtInsufficientMemoryException(
 )
 
 /**
- * Wraps Google's LiteRT-LM runtime (currently litertlm-android:0.18.0)
+ * Wraps Google's LiteRT-LM runtime (currently litertlm-android:0.19.0)
  * for on-device inference of `.litertlm` model files.
  *
  * # Why this rewrite (vs. the simpler v22A original)

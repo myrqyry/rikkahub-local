@@ -196,7 +196,7 @@ class LocalRuntimePreferences(private val context: Context) {
          *  the dep without bumping this constant will leave stale CPU/vision-unavailable
          *  decisions live; bumping this constant without bumping the dep is harmless
          *  (just causes a one-time unnecessary re-probe). */
-        const val LITERTLM_SDK_VERSION: String = "0.18.0"
+        const val LITERTLM_SDK_VERSION: String = "0.19.0"
 
         /** One-shot migration decision; keep in sync with the pinned runtime artifact. */
         internal fun shouldInvalidateSdkVersion(storedVersion: String?): Boolean =

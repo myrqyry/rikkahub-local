@@ -57,7 +57,7 @@ dependencies {
     // Updated to 0.18.0 (2026-10-08): Capabilities was removed in favor of
     // ModelInfo.Llm; app and local-llm must resolve exactly the same revision.
     // Compilation qualified; runtime/Pixel verification still pending.
-    implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.19.0")
     // CompiledModel / Accelerator.NPU Kotlin API for on-device JIT task inference.
     // LiteRT 2.3.0 fixes the AGP 9 namespace conflict from 2.2.0.
     // LiteRT-LM 0.18.0 is an independent engine and remains pinned separately.

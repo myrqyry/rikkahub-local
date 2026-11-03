@@ -200,6 +200,17 @@ object LiteRtModelDefaults {
             minDeviceMemoryGb = 6,
             sizeBytes = 736015744L,
         ),
+        // Spark-X2.6: published bundle has no native function-call template; 4096 KV cache.
+        LiteRtModelConfig(
+            modelFile = "Spark-X2.6-1.7B_int4-mlp.litertlm",
+            maxTokens = 3072,
+            maxContextLength = 4096,
+            preferredAccelerators = listOf("gpu", "cpu"),
+            supportsThinking = true,
+            supportsToolCalling = false,
+            minDeviceMemoryGb = 8,
+            sizeBytes = 1705807792L,
+        ),
         // VibeThinker 3B — math/code reasoning specialty, NOT tool-function tuned.
         // Source: litert-community/VibeThinker-3B @ 7790b109 (2026-10-07),
         // only the block-32 int4 build; ~2.06 GB, 4096 KV context.

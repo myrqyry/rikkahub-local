@@ -114,6 +114,18 @@ object LiteRtCatalog {
             tags = listOf("tool-calling", "thinking"),
         ),
         LiteRtCatalogEntry(
+            displayName = "Spark-X2.6-1.7B (experimental reasoning)",
+            modelId = "litert-community/Spark-X2.6-1.7B",
+            modelFile = "Spark-X2.6-1.7B_int4-mlp.litertlm",
+            sourceRevision = "bc1ef142dcbeacddd597ebc738245207d8793755",
+            sha256 = "0911f7ebc4ef98ae5dadcbd5a35214ca1aaf63dffd58bcf5128032c3ab859cd5",
+            description = "Experimental local text reasoner, 4K context, no tool calling. GPU preferred; publisher tested LiteRT-LM 0.19.0 (device compatibility unverified). GPU cache needs extra storage.",
+            sizeBytes = 1705807792L,
+            minDeviceMemoryGb = 8,
+            recommended = false,
+            tags = listOf("thinking", "no-tools", "experimental"),
+        ),
+        LiteRtCatalogEntry(
             displayName = "VibeThinker-3B (reasoning only)",
             modelId = "litert-community/VibeThinker-3B",
             modelFile = "VibeThinker-3B-int4.litertlm",
