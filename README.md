@@ -6,7 +6,9 @@
 
 **A local-first Android AI workspace for models, assistants, skills, tools, automation, and multimodal creation.**
 
-RikkaHub Local is an independently developed fork of [RikkaHub Agent](https://github.com/ExTV/rikkahub-agent), which itself builds on [RikkaHub](https://github.com/rikkahub/rikkahub). It extends that foundation into a capability-aware, local-first agent runtime. It can use cloud or on-device models, operate Android and connected tools with explicit permission, import reusable skills and plugins, process documents and media, and automate work without hiding what it is doing.
+RikkaHub Local is an independently developed fork of [RikkaHub Agent](https://github.com/ExTV/rikkahub-agent), which itself builds on [RikkaHub](https://github.com/rikkahub/rikkahub). It extends that foundation into a capability-aware, local-first agent runtime for Android. It can use cloud or on-device models, operate Android and connected tools with explicit permission, import reusable skills and plugins, process documents and media, and automate work without hiding what it is doing.
+
+The current local runtime stack pins **LiteRT 2.3.0**, **LiteRT-LM 0.19.0**, and **Llamatik 1.10.1**, with separate local speech, OCR, embedding, and image-generation paths instead of pretending one runtime covers every model type.
 
 <p>
   <img src="https://img.shields.io/badge/status-active%20development-orange?style=flat-square" alt="Active development" />
@@ -84,6 +86,21 @@ Use the original RikkaHub provider ecosystem alongside local Android runtimes.
 
 The unified Models page assigns models to roles (chat, vision, OCR, image generation, image editing, embeddings), filters inventory by capability, groups by provider, and supports deep links from feature screens. Per-assistant model-role overrides (including separate speech provider overrides) let one assistant use a different image or vision model than the chat default, and cloud attachment and image-processing privacy toggles gate which content may reach cloud models.
 
+The Provider/API picker is backed primarily by the public [models.dev](https://models.dev/) directory for discovery and metadata, while provider adapters and authenticated `/models` responses remain the authority for what the app can actually call. Catalog presence is never treated as proof that an endpoint or feature is supported.
+
+#### Current local inference snapshot
+
+| Capability | Current path | Verification boundary |
+|---|---|---|
+| Local chat / reasoning | LiteRT-LM 0.19.0 on LiteRT 2.3.0, plus Llamatik/llama.cpp GGUF | LFM2.5 local inference has been exercised on the Pixel. Spark X2.6 and VibeThinker are explicit experimental catalog entries and are **not** advertised as device-qualified defaults. |
+| OCR | PP-OCRv5 detector + recognizer with pinned model package | Real Pixel 10 Pro instrumentation returned the expected `HELLO 123` text. Exact GPU residency was not proven, so CPU fallback remains part of the supported path. |
+| Embeddings / RAG | EmbeddingGemma 2 270M text, 440M text+vision, 740M multimodal | Native Pixel inference is verified for text, image, audio, and an isolated PDF-page retrieval smoke. Persistent user-file ingestion, ranking quality, multi-page/video retrieval, and the full SAF flow still need broader acceptance. |
+| Local ASR | Whisper paths plus experimental Nemotron 3.5 streaming GGUF through pinned `transcribe.cpp` | Nemotron Q5_K_M CPU inference, JNI load/feed/finalize, and English/Spanish transcription are verified on the Pixel. The installed app's complete microphone-to-chat flow still needs an end-to-end acceptance pass. |
+| Local TTS | Pocket TTS, Kitten TTS, and Qwen3 TTS providers | Integrated as separate speech providers with model-specific runtime handling. Treat model download/runtime success separately from voice-quality or device-thermal qualification. |
+| Local image generation | `stable-diffusion.cpp` bridge and model management | Still experimental; catalog/install support is not proof that every checkpoint or device can generate successfully. |
+
+Detailed acceptance notes live under `docs/integrations/` and `speech/NEMOTRON-GGUF.md`. Those files intentionally distinguish build success, isolated inference, physical-device acceptance, and still-unverified product paths.
+
 ### Assistants and prompt library
 
 Assistants combine model choices, instructions, knowledge, tools, permissions, and behavior.
@@ -158,6 +175,8 @@ RikkaHub Local can turn local and attached content into model context.
 Use cloud or local speech components independently from the active chat model.
 
 - Whisper-based speech recognition with configurable local sampling options
+- Experimental **Nemotron 3.5 streaming GGUF ASR** through pinned `transcribe.cpp`, with a native Android JNI bridge, explicit CPU backend, revision-pinned Q5_K_M weights, and no silent cloud fallback
+- Live ASR transcript replacement in the multiline chat composer so revisable streaming hypotheses update the active transcription suffix instead of duplicating text
 - Local Pocket TTS, Kitten TTS, and Qwen3 TTS integrations
 - Cloud TTS providers and expanded provider-specific voice selections
 - Voice-note and audio handling through chat and remote integrations
@@ -277,18 +296,18 @@ The repository is functional but experimental. Large parts of the agent system a
 
 ### Completed foundations
 
-- Settings reorganized around user intent
+- Settings reorganized around user intent, with compact capability-aware model and reasoning controls
 - First-class Skills, Plugins, MCP, Termux, Prompt Library, and other focused destinations
-- Hardened skill and plugin imports
-- Shared artifact candidate, review, provenance, and installation flow
-- GitHub multi-file skill imports
-- Unified Prompt Library entry point
-- Local LiteRT chat and vision model catalog support
-- On-device llama.cpp chat provider backed by Llamatik with GGUF streaming and cancellation
+- Hardened skill/plugin imports with staged review, provenance, pinned hashes, and atomic activation
+- GitHub multi-file skill imports and shared artifact candidate handling
+- Unified Models page backed by `ModelRegistry`, plus a models.dev-first Provider/API directory
+- Local LiteRT-LM 0.19.0 / LiteRT 2.3.0 runtime, on-device llama.cpp through Llamatik 1.10.1, and explicit local/cloud routing boundaries
+- Real PP-OCRv5 local OCR path with a pinned three-file package and physical Pixel acceptance
+- Native EmbeddingGemma 2 text/vision/audio embeddings with Pixel acceptance across the 270M, 440M, and 740M variants
+- Experimental Nemotron 3.5 GGUF streaming ASR with pinned `transcribe.cpp`, Android JNI, and real Pixel English/Spanish inference evidence
+- Local Pocket TTS, Kitten TTS, and Qwen3 TTS providers alongside cloud speech integrations
 - Experimental Stable Diffusion model management and native bridge
-- Local and cloud speech integrations
 - Expanded document parsing, including XLSX and CSV
-- Unified Models page backed by `ModelRegistry` with capability tabs, search, provider grouping, and role assignments
 - Per-assistant model-role and speech overrides with cloud attachment/image-processing privacy controls
 - Chat-native multimodal tools (`analyze_image`, `extract_text_from_image`, `generate_image`, `edit_image`) with inline result cards
 - Catalog adapters routed through the safe-import pipeline with pinned-hash gating
@@ -296,8 +315,11 @@ The repository is functional but experimental. Large parts of the agent system a
 
 ### In progress / next
 
-- More catalog source adapters, including ClawHub, LobeHub, and Hugging Face flows
-- Continued runtime validation and acceleration work for local image generation
+- Finish installed-app acceptance for Nemotron's complete microphone → streaming transcript → chat path, including longer thermal/latency runs
+- Broaden EmbeddingGemma 2 media-RAG acceptance from isolated native tests to real SAF import, persistent indexing, competing-result ranking, multi-page PDFs, and optional video/audio retrieval
+- Qualify experimental LiteRT reasoning models such as Spark X2.6 and VibeThinker on actual hardware before recommending them
+- Continue runtime validation and acceleration work for local image generation instead of treating model presence as runtime proof
+- More catalog source adapters, including ClawHub, LobeHub, and additional Hugging Face flows
 - Documentation and screenshots that catch up with the implementation before it mutates again
 
 ---
@@ -366,7 +388,7 @@ A fuller development verification pass used by recent changes is:
 | Architectures | `arm64-v8a`, `x86_64`, universal APK |
 | Java/Kotlin target | JVM 17 |
 | UI | Jetpack Compose / Material 3 |
-| Native components | LiteRT, Llamatik (llama.cpp), local speech libraries, `stable-diffusion.cpp` |
+| Native components | LiteRT 2.3.0, LiteRT-LM 0.19.0, Llamatik 1.10.1 (llama.cpp), ONNX Runtime speech paths, pinned `transcribe.cpp` for Nemotron ASR, `stable-diffusion.cpp` |
 | Model storage | Downloaded or user-imported; weights are not bundled |
 | Release channel | None yet; build from source |
 
