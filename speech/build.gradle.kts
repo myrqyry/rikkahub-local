@@ -84,6 +84,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.onnxruntime.android)
     implementation("com.google.ai.edge.litert:litert:2.3.0")
+    implementation("com.google.mediapipe:tasks-audio:1.2.2")
 
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)

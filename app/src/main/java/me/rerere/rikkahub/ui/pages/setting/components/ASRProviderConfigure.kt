@@ -40,6 +40,7 @@ import kotlinx.coroutines.withContext
 import me.rerere.asr.ASRProviderSetting
 import me.rerere.asr.WhisperLiteRTModelCatalog
 import me.rerere.asr.NemotronGgufModel
+import me.rerere.asr.ParakeetMediaPipeModel
 import me.rerere.asr.WhisperLiteRTModelEntry
 import me.rerere.asr.describeWhisperLiteRTModelError
 import me.rerere.asr.resolveWhisperLiteRTModel
@@ -74,6 +75,7 @@ fun ASRProviderConfigure(
                     is ASRProviderSetting.WhisperAsr -> "Whisper (Local)"
                     is ASRProviderSetting.WhisperLiteRT -> "Whisper LiteRT"
                     is ASRProviderSetting.NemotronGguf -> "Nemotron 3.5 (GGUF)"
+                    is ASRProviderSetting.ParakeetMediaPipe -> "Parakeet (MediaPipe)"
                     is ASRProviderSetting.LocalAudioClassifier -> "Local Audio Classifier"
                 },
                 onValueChange = {},
@@ -103,6 +105,7 @@ fun ASRProviderConfigure(
             is ASRProviderSetting.WhisperAsr -> WhisperASRConfiguration(setting, onValueChange)
             is ASRProviderSetting.WhisperLiteRT -> WhisperLiteRTConfiguration(setting, onValueChange)
             is ASRProviderSetting.NemotronGguf -> NemotronGgufConfiguration(setting, onValueChange)
+            is ASRProviderSetting.ParakeetMediaPipe -> ParakeetMediaPipeConfiguration(setting, onValueChange)
             is ASRProviderSetting.LocalAudioClassifier -> LocalAudioClassifierConfiguration(setting, onValueChange)
         }
     }
@@ -965,6 +968,69 @@ private fun LocalAudioClassifierConfiguration(
         text = "On-device sound classification with TFLite Task Library. Copy the model URL from Local Task Library models in Settings → Providers, import the file via the LiteRT import picker, then set the path here. Audio never leaves the device.",
         style = MaterialTheme.typography.labelSmall,
         modifier = Modifier.fillMaxWidth()
+    )
+}
+
+@Composable
+private fun ParakeetMediaPipeConfiguration(
+    setting: ASRProviderSetting.ParakeetMediaPipe,
+    onValueChange: (ASRProviderSetting) -> Unit,
+) {
+    val context = LocalContext.current
+    val client = koinInject<OkHttpClient>()
+    val scope = rememberCoroutineScope()
+    var downloading by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf(0) }
+    var downloadError by remember { mutableStateOf<String?>(null) }
+
+    FormItem(
+        label = { Text("Parakeet TDT 0.6B v3 · MediaPipe") },
+        description = {
+            Text("614.6 MB INT8 LiteRT-LM · local CPU speech recognition. " +
+                "Explicit download only; no cloud fallback. Requires ~256 MB extra free-space reserve.")
+        },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = setting.modelPath,
+                onValueChange = { onValueChange(setting.copy(modelPath = it)) },
+                label = { Text("Local .litertlm model path") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+            Button(enabled = !downloading, onClick = {
+                downloading = true
+                progress = 0
+                downloadError = null
+                scope.launch {
+                    runCatching {
+                        LocalAsrModelManager.downloadParakeet(context, client) { progress = it }
+                    }.onSuccess { model ->
+                        onValueChange(setting.copy(modelPath = model.absolutePath))
+                    }.onFailure { cause ->
+                        downloadError = cause.message ?: "Parakeet download failed"
+                    }
+                    downloading = false
+                }
+            }) { Text("Download verified model") }
+            if (downloading) {
+                LinearProgressIndicator(
+                    progress = { progress / 100f },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            downloadError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            if (setting.modelPath.isNotBlank() && !File(setting.modelPath).isFile) {
+                Text("Selected model file not found", color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+    Text(
+        "NVIDIA Parakeet model weights: CC BY 4.0. " +
+            "Microphone PCM and transcripts remain on-device. " +
+            "Experimental: physical-device speed, accuracy, and RAM use still require qualification.",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
 

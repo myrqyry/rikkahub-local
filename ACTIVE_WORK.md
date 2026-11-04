@@ -1,6 +1,13 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-11-04 — Add opt-in MediaPipe Parakeet on-device ASR
+- Introduced distinct `ParakeetMediaPipe` ASR provider, in-app Speech configuration, pinned SHA-verified 614.6 MB LiteRT-LM Parakeet model download using existing `ModelInstall`, and an explicit 256 MiB download free-space reserve. Existing local and cloud providers and saved app state remain unchanged; no model download or app installation on the phone.
+- Implemented native `AudioTranscriber` from the resolved Google Maven 1.2.2 AAR with dedicated model and capture coroutines, 16-kHz mono PCM AudioRecord, bounded audio queue (fail explicit rather than silently discard), interim/final transcript accumulator and `finishStream` drain on stop. AAR Java signatures were checked against downloaded classes.
+- RED-first `ParakeetMediaPipeTest` initially failed from missing provider/model/accumulator, then passed. Focused speech test and app Kotlin compile passed. Full `:speech:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug` passed (317 tasks) after a first parallel packageDebug failure; isolated `:app:packageDebug --stacktrace` immediately passed, and the combined command passed on retry. Underlying cause of the first package failure remains unknown. APK includes arm64/x86_64 MediaPipe JNI libs; existing duplicate `libomp.so` merge warnings remain.
+- **Unverified:** actual model loading and speech inference on Pixel, RAM, latency, and cross-runtime ABI behavior; no user data/phone state touched. Acceptance and artifact pins: `docs/integrations/mediapipe-parakeet-asr-2026-11-04.md`.
+
+
 ## 2026-11-02 — PR #22 post-merge-conflict review fixes
 
 - PR #22 is mergeable against `master` at head `8e06b2512`; Codex review identified two P2 regressions and Kilo reported no issues in the device-execution core.

@@ -546,6 +546,14 @@ private fun AddASRProviderButton(onAdd: (ASRProviderSetting) -> Unit) {
                 }
             )
             DropdownMenuItem(
+                text = { Text("Parakeet (MediaPipe · Local)") },
+                onClick = {
+                    currentProvider = ASRProviderSetting.ParakeetMediaPipe()
+                    showTypeMenu = false
+                    showBottomSheet = true
+                }
+            )
+            DropdownMenuItem(
                 text = { Text("Whisper LiteRT") },
                 onClick = {
                     currentProvider = ASRProviderSetting.WhisperLiteRT()
@@ -870,6 +878,7 @@ private fun ASRProviderItem(
                             is ASRProviderSetting.WhisperAsr -> "Whisper (Local)"
                             is ASRProviderSetting.WhisperLiteRT -> "Whisper LiteRT"
                             is ASRProviderSetting.NemotronGguf -> "Nemotron 3.5 (GGUF)"
+                            is ASRProviderSetting.ParakeetMediaPipe -> "Parakeet (MediaPipe)"
                             is ASRProviderSetting.LocalAudioClassifier -> "Local Audio Classifier"
                         },
                         style = MaterialTheme.typography.bodySmall,

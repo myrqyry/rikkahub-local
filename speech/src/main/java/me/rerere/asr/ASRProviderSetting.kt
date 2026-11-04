@@ -226,6 +226,17 @@ sealed class ASRProviderSetting {
     }
 
     @Serializable
+    @SerialName("parakeet_mediapipe")
+    data class ParakeetMediaPipe(
+        override val id: Uuid = Uuid.random(),
+        override val name: String = "Parakeet (MediaPipe · Local)",
+        val modelPath: String = "",
+    ) : ASRProviderSetting() {
+        override fun copyProvider(id: Uuid, name: String): ASRProviderSetting =
+            copy(id = id, name = name)
+    }
+
+    @Serializable
     @SerialName("whisper")
     data class WhisperAsr(
         override val id: Uuid = Uuid.random(),
@@ -257,6 +268,7 @@ sealed class ASRProviderSetting {
                 WhisperAsr::class,
                 WhisperLiteRT::class,
                 NemotronGguf::class,
+                ParakeetMediaPipe::class,
                 LocalAudioClassifier::class,
             )
         }
