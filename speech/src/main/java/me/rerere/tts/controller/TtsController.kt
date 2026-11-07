@@ -267,6 +267,20 @@ class TtsController(
                     // 预取下一窗口
                     prefetchFrom(chunk.index + 1)
 
+                    // Pocket emits incremental PCM frames; consume them as they arrive
+                    // rather than waiting for TtsSynthesizer to collect a full utterance.
+                    if (provider is TTSProviderSetting.PocketTts && voiceEffect == VoiceEffectPreset.OFF) {
+                        try {
+                            audio.playPcmStream(ttsManager.generateSpeech(provider, me.rerere.tts.model.TTSRequest(chunk.text)))
+                        } catch (e: Exception) {
+                            if (e is CancellationException) throw e
+                            Log.e(TAG, "Streaming playback error", e)
+                            _error.update { e.message ?: "Streaming playback error" }
+                        }
+                        processedCount++
+                        continue
+                    }
+
                     val response = try {
                         awaitOrCreate(chunk, provider)
                     } catch (e: Exception) {

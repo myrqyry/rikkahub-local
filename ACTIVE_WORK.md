@@ -1,6 +1,13 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-11-06 — Pocket TTS true incremental PCM playback
+- Diagnosed actual latency barrier: Pocket emits 80 ms PCM frames, but `TtsSynthesizer` coalesced them before ExoPlayer playback.
+- Added `PcmStreamPump` and first-frame-start `AudioTrack.MODE_STREAM` output, selected only for Pocket with voice effects OFF. Existing buffered paths and saved settings are unchanged. Pause/resume/speed/stop target active output; seeking unbuffered live PCM remains unavailable.
+- RED-first regression tests cover early delivery, format/rate/alignment validation and cancellation. Speech/app JVM suites and debug APK succeeded.
+- No Pixel install or model downloads; actual first-sound latency, Bluetooth, background playback and hardware audio remain unverified. MediaPipe TTS provider and LLM-token streaming are follow-ups.
+- Detail: `docs/integrations/pocket-tts-pcm-streaming-2026-11-06.md`.
+
 ## 2026-11-04 — Add opt-in MediaPipe Parakeet on-device ASR
 - Introduced distinct `ParakeetMediaPipe` ASR provider, in-app Speech configuration, pinned SHA-verified 614.6 MB LiteRT-LM Parakeet model download using existing `ModelInstall`, and an explicit 256 MiB download free-space reserve. Existing local and cloud providers and saved app state remain unchanged; no model download or app installation on the phone.
 - Implemented native `AudioTranscriber` from the resolved Google Maven 1.2.2 AAR with dedicated model and capture coroutines, 16-kHz mono PCM AudioRecord, bounded audio queue (fail explicit rather than silently discard), interim/final transcript accumulator and `finishStream` drain on stop. AAR Java signatures were checked against downloaded classes.

@@ -1,6 +1,9 @@
 package me.rerere.tts.controller
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFormat as AndroidAudioFormat
+import android.media.AudioTrack
 import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
@@ -13,10 +16,16 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.Flow
+import me.rerere.tts.model.AudioChunk
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,16 +48,105 @@ class AudioPlayer(context: Context) {
     val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
 
     private var positionJob: Job? = null
+    @Volatile private var streamTrack: AudioTrack? = null
+    @Volatile private var streamPaused = false
 
-    fun pause() = player.pause()
-    fun resume() = player.play()
-    fun stop() = player.stop()
+    fun pause() {
+        streamPaused = true
+        streamTrack?.pause() ?: player.pause()
+        if (streamTrack != null) _playbackState.update { it.copy(status = PlaybackStatus.Paused) }
+    }
+    fun resume() {
+        streamPaused = false
+        streamTrack?.play() ?: player.play()
+        if (streamTrack != null) _playbackState.update { it.copy(status = PlaybackStatus.Playing) }
+    }
+    fun stop() {
+        streamPaused = false
+        streamTrack?.let { runCatching { it.pause(); it.flush() } }
+        player.stop()
+    }
     fun clear() = player.clearMediaItems()
-    fun release() = player.release()
-    fun seekBy(ms: Long) = player.seekTo(player.currentPosition + ms)
+    fun release() {
+        streamTrack?.let { runCatching { it.release() } }
+        streamTrack = null
+        player.release()
+        scope.cancel()
+    }
+    fun seekBy(ms: Long) {
+        if (streamTrack == null) player.seekTo(player.currentPosition + ms)
+        // Live PCM has no seekable source; never seek the inactive ExoPlayer.
+    }
     fun setSpeed(speed: Float) {
         player.playbackParameters = PlaybackParameters(speed)
+        streamTrack?.let { it.playbackRate = (it.sampleRate * speed).toInt().coerceAtLeast(1) }
         _playbackState.update { it.copy(speed = speed) }
+    }
+
+    /** Start audible output when the first PCM frame arrives, not when synthesis completes. */
+    suspend fun playPcmStream(chunks: Flow<AudioChunk>) = withContext(Dispatchers.IO) {
+        var track: AudioTrack? = null
+        var writtenFrames = 0L
+        try {
+            PcmStreamPump.consume(chunks) { bytes, hz ->
+                if (track == null) {
+                    val minimum = AudioTrack.getMinBufferSize(
+                        hz, AndroidAudioFormat.CHANNEL_OUT_MONO, AndroidAudioFormat.ENCODING_PCM_16BIT
+                    )
+                    require(minimum > 0) { "AudioTrack unsupported PCM rate: $hz" }
+                    track = AudioTrack.Builder()
+                        .setAudioAttributes(AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
+                        .setAudioFormat(AndroidAudioFormat.Builder()
+                            .setEncoding(AndroidAudioFormat.ENCODING_PCM_16BIT)
+                            .setSampleRate(hz)
+                            .setChannelMask(AndroidAudioFormat.CHANNEL_OUT_MONO).build())
+                        .setBufferSizeInBytes(maxOf(minimum, 8192))
+                        .setTransferMode(AudioTrack.MODE_STREAM)
+                        .build()
+                    require(track!!.state == AudioTrack.STATE_INITIALIZED) { "AudioTrack initialization failed" }
+                    streamTrack = track
+                    _playbackState.update { it.copy(status = PlaybackStatus.Buffering, positionMs = 0, durationMs = 0) }
+                    if (!streamPaused) track!!.play()
+                }
+                var offset = 0
+                while (offset < bytes.size) {
+                    if (!currentCoroutineContext().isActive) return@consume
+                    if (streamPaused) { delay(15); continue }
+                    val count = track!!.write(bytes, offset, bytes.size - offset, AudioTrack.WRITE_NON_BLOCKING)
+                    require(count >= 0) { "AudioTrack write failed: $count" }
+                    if (count == 0) delay(8) else {
+                        offset += count
+                        writtenFrames += count / 2
+                        _playbackState.update { it.copy(
+                            status = PlaybackStatus.Playing,
+                            positionMs = (track!!.playbackHeadPosition.toLong() * 1000) / hz,
+                            durationMs = writtenFrames * 1000 / hz
+                        ) }
+                    }
+                }
+            }
+            track?.let { output ->
+                // A finished producer is not a finished playback queue.
+                // Pause is not a stalled stream. Do not time out a long user pause.
+                var lastHead = output.playbackHeadPosition.toLong()
+                var idleMs = 0L
+                while (currentCoroutineContext().isActive &&
+                    output.playbackHeadPosition.toLong() < writtenFrames) {
+                    delay(20)
+                    val head = output.playbackHeadPosition.toLong()
+                    if (!streamPaused) idleMs = if (head > lastHead) 0 else idleMs + 20
+                    if (idleMs >= 10000L) error("PCM playback stalled")
+                    lastHead = head
+                }
+            }
+            _playbackState.update { it.copy(status = PlaybackStatus.Ended) }
+        } finally {
+            if (streamTrack === track) streamTrack = null
+            track?.let { runCatching { it.stop(); it.release() } }
+            streamPaused = false
+        }
     }
 
     @OptIn(UnstableApi::class)
