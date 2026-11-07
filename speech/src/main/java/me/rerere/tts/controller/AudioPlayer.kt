@@ -107,6 +107,10 @@ class AudioPlayer(context: Context) {
                         .build()
                     require(track!!.state == AudioTrack.STATE_INITIALIZED) { "AudioTrack initialization failed" }
                     streamTrack = track
+                    val requestedSpeed = _playbackState.value.speed
+                    if (requestedSpeed != 1.0f) {
+                        track!!.playbackRate = (hz * requestedSpeed).toInt().coerceAtLeast(1)
+                    }
                     _playbackState.update { it.copy(status = PlaybackStatus.Buffering, positionMs = 0, durationMs = 0) }
                     if (!streamPaused) track!!.play()
                 }
