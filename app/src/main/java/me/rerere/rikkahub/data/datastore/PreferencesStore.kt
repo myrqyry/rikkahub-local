@@ -303,9 +303,15 @@ class SettingsStore(
                 s3Config = preferences[S3_CONFIG]?.let {
                     JsonInstant.decodeFromString(it)
                 } ?: S3Config(),
-                ttsProviders = preferences[TTS_PROVIDERS]?.let {
-                    JsonInstant.decodeFromString(it)
-                } ?: emptyList(),
+                // Only a truly fresh profile receives optional bundled providers.
+                // Once saved, an absent AiHubMix entry represents a deliberate removal.
+                ttsProviders = restoreTtsDefaults(
+                    persisted = preferences[TTS_PROVIDERS]?.let {
+                        JsonInstant.decodeFromString<List<TTSProviderSetting>>(it)
+                    },
+                    firstRunDefaults = DEFAULT_TTS_PROVIDERS,
+                    requiredSystem = DEFAULT_TTS_PROVIDERS.first() as TTSProviderSetting.SystemTTS,
+                ),
                 selectedTTSProviderId = preferences[SELECTED_TTS_PROVIDER]?.let { Uuid.parse(it) }
                     ?: DEFAULT_SYSTEM_TTS_ID,
                 asrProviders = preferences[ASR_PROVIDERS]?.let {
@@ -412,17 +418,10 @@ class SettingsStore(
                 }.toMutableList()
             }
             val newAutoEnabled = it.autoEnabledDefaultSkills + DEFAULT_AUTO_ENABLED_SKILLS
-            val ttsProviders = it.ttsProviders.ifEmpty { DEFAULT_TTS_PROVIDERS }.toMutableList()
-            DEFAULT_TTS_PROVIDERS.forEach { defaultTTSProvider ->
-                if (ttsProviders.none { provider -> provider.id == defaultTTSProvider.id }) {
-                    ttsProviders.add(defaultTTSProvider.copyProvider())
-                }
-            }
             it.copy(
                 providers = providers,
                 assistants = assistants,
                 autoEnabledDefaultSkills = newAutoEnabled,
-                ttsProviders = ttsProviders,
             )
         }
         .map { settings ->
