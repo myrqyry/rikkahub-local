@@ -7,4 +7,7 @@
     <string name="local_llm_benchmark_running">Тестируется %1$s · %2$d/3</string>
     <string name="local_llm_benchmark_result">%1$d запуска · Первый запуск (по часам) %2$s · Медиана следующих запусков %3$s\nМедиана первого токена %4$s · Ввод %5$s · Вывод %6$s</string>
     <string name="local_llm_benchmark_failed">Ошибка тестирования: %1$s</string>
+    <string name="local_llm_benchmark_gpu_opt_in">Тест GPU отключён. Включите «Попробовать ускорение GPU» выше. На некоторых устройствах нативный GPU может вызывать сбой.</string>
+    <string name="local_llm_benchmark_gpu_unsupported">Тест GPU недоступен: совместимый делегат GPU не найден.</string>
+    <string name="local_llm_benchmark_gpu_delegate_failed">Делегат GPU не смог скомпилировать модель на этом устройстве. Попробуйте CPU; автоматического перехода не было.</string>
 </resources>

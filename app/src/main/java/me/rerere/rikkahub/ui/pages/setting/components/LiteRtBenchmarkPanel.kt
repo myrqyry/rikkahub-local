@@ -29,10 +29,13 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import me.rerere.locallm.AcceleratorProbe
 import me.rerere.locallm.LocalRuntime
 import me.rerere.locallm.LocalRuntimePreferences
 import me.rerere.locallm.litert.LiteRtBenchmarkSummary
 import me.rerere.locallm.litert.LiteRtRuntime
+import me.rerere.locallm.litert.canBenchmarkGpu
+import me.rerere.locallm.litert.isGpuDelegateCompilationFailure
 import me.rerere.rikkahub.R
 import org.koin.compose.koinInject
 
@@ -46,10 +49,17 @@ internal fun LiteRtBenchmarkPanel() {
     val prefs = remember(context) { LocalRuntimePreferences(context.applicationContext) }
     val models by prefs.installedModelsFlow(LocalRuntime.LiteRT)
         .collectAsStateWithLifecycle(initialValue = emptyMap())
+    val forceCpu by prefs.forceCpuFlow(LocalRuntime.LiteRT)
+        .collectAsStateWithLifecycle(initialValue = true)
+    val gpuDelegateSupported = remember(context) {
+        AcceleratorProbe.probeLiteRtCapabilities(context).gpuDelegateSupported
+    }
+    val gpuAllowed = canBenchmarkGpu(forceCpu, gpuDelegateSupported)
     val runtime: LiteRtRuntime = koinInject()
     val scope = rememberCoroutineScope()
 
     var accelerator by remember { mutableStateOf("cpu") }
+    val effectiveAccelerator = if (gpuAllowed) accelerator else "cpu"
     var runningModel by remember { mutableStateOf<String?>(null) }
     var completedRuns by remember { mutableStateOf(0) }
     var resultModel by remember { mutableStateOf<String?>(null) }
@@ -75,12 +85,22 @@ internal fun LiteRtBenchmarkPanel() {
             listOf("cpu", "gpu").forEachIndexed { index, value ->
                 SegmentedButton(
                     shape = SegmentedButtonDefaults.itemShape(index, 2),
-                    selected = accelerator == value,
-                    enabled = runningModel == null,
-                    onClick = { accelerator = value },
+                    selected = effectiveAccelerator == value,
+                    enabled = runningModel == null && (value == "cpu" || gpuAllowed),
+                    onClick = { if (value == "cpu" || gpuAllowed) accelerator = value },
                     label = { Text(value.uppercase(Locale.ROOT)) },
                 )
             }
+        }
+        if (!gpuAllowed) {
+            Text(
+                stringResource(
+                    if (forceCpu) R.string.local_llm_benchmark_gpu_opt_in
+                    else R.string.local_llm_benchmark_gpu_unsupported,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         if (candidates.isEmpty()) {
@@ -112,14 +132,19 @@ internal fun LiteRtBenchmarkPanel() {
                             try {
                                 result = runtime.runNativeBenchmark(
                                     modelPath = path,
-                                    accelerator = accelerator,
+                                    accelerator = effectiveAccelerator,
                                 ) { done ->
                                     withContext(Dispatchers.Main.immediate) {
                                         completedRuns = done
                                     }
                                 }
                             } catch (e: Exception) {
-                                error = e.message ?: e.javaClass.simpleName
+                                error = if (isGpuDelegateCompilationFailure(effectiveAccelerator, e.message)) {
+                                    context.getString(R.string.local_llm_benchmark_gpu_delegate_failed)
+                                } else {
+                                    e.message?.lineSequence()?.firstOrNull()?.take(220)
+                                        ?: e.javaClass.simpleName
+                                }
                             } finally {
                                 runningModel = null
                             }

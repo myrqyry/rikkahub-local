@@ -7,4 +7,7 @@
     <string name="local_llm_benchmark_running">Benchmarking %1$s · %2$d/3 runs</string>
     <string name="local_llm_benchmark_result">%1$d runs · First run (wall) %2$s · Later runs (median) %3$s\nFirst token (median) %4$s · Prefill (median) %5$s · Decode (median) %6$s</string>
     <string name="local_llm_benchmark_failed">Benchmark failed: %1$s</string>
+    <string name="local_llm_benchmark_gpu_opt_in">GPU benchmark disabled: enable Try GPU acceleration above to opt in. Some devices can crash in the native GPU backend.</string>
+    <string name="local_llm_benchmark_gpu_unsupported">GPU benchmark unavailable: no compatible GPU delegate detected.</string>
+    <string name="local_llm_benchmark_gpu_delegate_failed">The GPU delegate could not compile this model on this device. Try CPU; no fallback was used.</string>
 </resources>

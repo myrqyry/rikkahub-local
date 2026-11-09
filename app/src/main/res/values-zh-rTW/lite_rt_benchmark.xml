@@ -7,4 +7,7 @@
     <string name="local_llm_benchmark_running">正在測試 %1$s · %2$d/3 次</string>
     <string name="local_llm_benchmark_result">%1$d 次 · 首次執行耗時 %2$s · 後續執行中位數 %3$s\n首 token 中位數 %4$s · 預填充中位數 %5$s · 解碼中位數 %6$s</string>
     <string name="local_llm_benchmark_failed">效能測試失敗：%1$s</string>
+    <string name="local_llm_benchmark_gpu_opt_in">GPU 測試已停用：請先在上方啟用「嘗試 GPU 加速」。部分裝置的原生 GPU 後端可能當機。</string>
+    <string name="local_llm_benchmark_gpu_unsupported">GPU 測試無法使用：未偵測到相容的 GPU 委派。</string>
+    <string name="local_llm_benchmark_gpu_delegate_failed">GPU 委派無法在此裝置上編譯該模型。請嘗試 CPU；未自動切換。</string>
 </resources>

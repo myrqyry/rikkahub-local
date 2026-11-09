@@ -7,4 +7,7 @@
     <string name="local_llm_benchmark_running">جارٍ اختبار %1$s · %2$d من 3</string>
     <string name="local_llm_benchmark_result">%1$d تشغيلات · مدة التشغيل الأول %2$s · وسيط التشغيلات التالية %3$s\nوسيط أول رمز %4$s · وسيط المعالجة الأولية %5$s · وسيط التوليد %6$s</string>
     <string name="local_llm_benchmark_failed">فشل الاختبار: %1$s</string>
+    <string name="local_llm_benchmark_gpu_opt_in">اختبار GPU معطّل: فعّل تجربة تسريع GPU أعلاه للاشتراك. قد يتعطل التطبيق على بعض الأجهزة بسبب مشغل GPU الأصلي.</string>
+    <string name="local_llm_benchmark_gpu_unsupported">اختبار GPU غير متاح: لم يتم اكتشاف مشغل GPU متوافق.</string>
+    <string name="local_llm_benchmark_gpu_delegate_failed">تعذّر على مشغل GPU ترجمة هذا النموذج على الجهاز. جرّب CPU؛ لم يتم التحويل تلقائيًا.</string>
 </resources>

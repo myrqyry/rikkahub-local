@@ -7,4 +7,7 @@
     <string name="local_llm_benchmark_running">%1$s 측정 중 · %2$d/3회</string>
     <string name="local_llm_benchmark_result">%1$d회 · 첫 실행 시간 %2$s · 이후 실행 중앙값 %3$s\n첫 토큰 중앙값 %4$s · 프리필 중앙값 %5$s · 디코드 중앙값 %6$s</string>
     <string name="local_llm_benchmark_failed">벤치마크 실패: %1$s</string>
+    <string name="local_llm_benchmark_gpu_opt_in">GPU 벤치마크가 꺼져 있습니다. 위의 GPU 가속 시도를 켜야 사용할 수 있습니다. 일부 기기에서는 네이티브 GPU 실행 중 앱이 종료될 수 있습니다.</string>
+    <string name="local_llm_benchmark_gpu_unsupported">GPU 벤치마크를 사용할 수 없습니다. 호환되는 GPU 델리게이트가 감지되지 않았습니다.</string>
+    <string name="local_llm_benchmark_gpu_delegate_failed">이 기기에서 GPU 델리게이트가 모델을 컴파일하지 못했습니다. CPU를 사용하세요. 자동 전환은 하지 않았습니다.</string>
 </resources>

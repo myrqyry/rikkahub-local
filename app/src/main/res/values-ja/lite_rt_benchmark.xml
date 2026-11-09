@@ -7,4 +7,7 @@
     <string name="local_llm_benchmark_running">%1$s を測定中 · %2$d/3 回</string>
     <string name="local_llm_benchmark_result">%1$d 回 · 初回実行時間 %2$s · 2回目以降の中央値 %3$s\n初回トークン中央値 %4$s · 入力速度中央値 %5$s · 出力速度中央値 %6$s</string>
     <string name="local_llm_benchmark_failed">ベンチマーク失敗: %1$s</string>
+    <string name="local_llm_benchmark_gpu_opt_in">GPU 測定は無効です。上の「GPU アクセラレーションを試す」をオンにしてください。端末によってはネイティブ GPU 処理でクラッシュする場合があります。</string>
+    <string name="local_llm_benchmark_gpu_unsupported">GPU 測定は利用できません。互換性のある GPU デリゲートが検出されませんでした。</string>
+    <string name="local_llm_benchmark_gpu_delegate_failed">GPU デリゲートはこの端末でモデルをコンパイルできませんでした。CPU をお試しください。自動切り替えはしていません。</string>
 </resources>
