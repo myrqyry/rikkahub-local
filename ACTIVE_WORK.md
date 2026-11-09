@@ -1,6 +1,13 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-11-08 — Promote Appearance and Speech from Experience to Settings home
+- Settings home now puts **Appearance** and **Speech Services** beside Models and Facets as direct launcher tiles. Their canonical `Screen.SettingTheme` and `Screen.SettingSpeech` routes and existing settings pages remain unchanged.
+- A deterministic `promoteSettingsDestinations` function relocates the existing item definitions once, preserving launch callbacks and search keywords without duplicate destinations in the Experience submenu. The remaining Experience entries are Chat Preferences, UI Preferences, and Response notifications.
+- RED-first `SettingPageTest` reproduced missing relocation; GREEN tests check order, no duplicate IDs, preserved search, and Experience exclusion. Full offline `:ai:testDebugUnitTest :app:testDebugUnitTest :local-llm:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest` with `--max-workers=2` passed (354 tasks).
+- **Physical Pixel 10 Pro:** After SHA-verified DB/preferences/DataStore backup and `adb install -r` (no data clear/uninstall), the main Settings UI tree and screenshot showed both top-level tiles. Experience showed exactly the three remaining entries. Tapping Appearance opened the theme editor; tapping Speech Services opened the existing Text to Speech / Speech Recognition screen. Existing local model remained intact; no settings or media were changed.
+- Preserve as a local Git checkpoint; no push or publication.
+
 ## 2026-11-08 — Facets settings opens list directly; default identified by badge
 - Replaced Settings → Facets → {Default Facet, Your Facets} with one tap from Settings → Facets straight to the existing `Screen.Assistant` list. Existing `Screen.SettingAgent` saved navigation route remains compatible and renders the same list rather than the removed menu.
 - The actual built-in default facet (`DEFAULT_ASSISTANT_ID`) is now identified by a compact **Default** badge beside its name; status is based on stable identity, not display name or current chat selection. Other facets are not marked. An unnamed nondefault preset no longer misleadingly displays `Default Facet` in the list: blank names have the neutral `Unnamed Facet` fallback (no stored names changed).

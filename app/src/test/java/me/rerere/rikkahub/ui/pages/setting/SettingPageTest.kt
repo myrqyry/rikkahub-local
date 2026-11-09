@@ -17,6 +17,54 @@ private val testIcon = ImageVector.Builder(
 class SettingPageTest {
 
     @Test
+    fun `appearance and speech promote to top-level without duplicates in Experience`() {
+        val appearance = SettingsHomeItem("appearance", "Appearance", "Color themes", testIcon)
+        val speech = SettingsHomeItem("speech", "Speech Services", "TTS and ASR", testIcon)
+        val intro = SettingsHomeItem("models", "Models", "Providers", testIcon)
+        val facets = SettingsHomeItem("agentSettings", "Facets", "Personalities", testIcon)
+        val chat = SettingsHomeItem("chatBehavior", "Chat", "Preferences", testIcon)
+        val notifications = SettingsHomeItem("responseNotifications", "Notifications", "Alerts", testIcon)
+        val sections = listOf(
+            SettingsHomeSection(
+                id = "experience",
+                title = "Experience",
+                items = listOf(chat, appearance, speech, notifications),
+            ),
+            SettingsHomeSection(
+                id = "knowledgeTools",
+                title = "Knowledge & Tools",
+                items = listOf(SettingsHomeItem("search", "Search", "Search settings", testIcon)),
+            ),
+        )
+
+        val relocated = promoteSettingsDestinations(
+            primary = listOf(intro, facets),
+            sections = sections,
+            ids = listOf("appearance", "speech"),
+        )
+
+        assertEquals(
+            listOf("models", "agentSettings", "appearance", "speech"),
+            relocated.primary.map { it.id },
+        )
+        assertEquals(
+            listOf("chatBehavior", "responseNotifications"),
+            relocated.sections.single { it.id == "experience" }.items.map { it.id },
+        )
+        assertEquals(
+            1,
+            (relocated.primary + relocated.sections.flatMap { it.items }).count { it.id == "appearance" },
+        )
+        assertEquals(
+            1,
+            (relocated.primary + relocated.sections.flatMap { it.items }).count { it.id == "speech" },
+        )
+        assertEquals(listOf("speech"),
+            relocated.primary.filter { it.matches("tts") }.map { it.id })
+        assertTrue(filterSettingsSections(relocated.sections, "speech").isEmpty())
+    }
+
+    @Test
     fun `filter keeps matching item and removes empty sections`() {
         val sections = listOf(
             SettingsHomeSection(

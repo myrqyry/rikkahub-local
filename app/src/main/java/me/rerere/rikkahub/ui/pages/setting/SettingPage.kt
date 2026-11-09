@@ -87,6 +87,34 @@ internal data class SettingsHomeSection(
     val items: List<SettingsHomeItem>,
 )
 
+internal data class SettingsHomeDestinationLayout(
+    val primary: List<SettingsHomeItem>,
+    val sections: List<SettingsHomeSection>,
+)
+
+/**
+ * Promote existing destinations to the Settings home without duplicating their
+ * routes or search entries in a category. Keep explicit order for the home grid.
+ */
+internal fun promoteSettingsDestinations(
+    primary: List<SettingsHomeItem>,
+    sections: List<SettingsHomeSection>,
+    ids: List<String>,
+): SettingsHomeDestinationLayout {
+    require(ids.distinct().size == ids.size) { "Duplicate promoted destination" }
+    val candidates = sections.flatMap { it.items }
+    val promoted = ids.map { id ->
+        require(primary.none { it.id == id }) { "Destination already on Settings home: $id" }
+        candidates.single { it.id == id }
+    }
+    return SettingsHomeDestinationLayout(
+        primary = primary + promoted,
+        sections = sections.map { section ->
+            section.copy(items = section.items.filterNot { it.id in ids })
+        },
+    )
+}
+
 /** One launch target, just like an app or folder on a phone home screen. */
 private data class SettingsLauncher(
     val id: String,
@@ -138,7 +166,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
 
     // These are first-level Settings destinations, not a category to open.
     // Keep them visible immediately on the Settings home screen.
-    val primaryDestinations = listOf(
+    val homeDestinations = listOf(
         SettingsHomeItem(
             id = "models",
             title = stringResource(R.string.setting_home_models),
@@ -156,7 +184,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
             onClick = { navController.navigate(facetSettingsDestination()) },
         ),
     )
-    val sections = listOf(
+    val nestedSections = listOf(
         SettingsHomeSection(
             id = "experience",
             title = stringResource(R.string.setting_home_group_experience),
@@ -431,6 +459,14 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
             },
         ),
     )
+    // Appearance and Speech are first-class launchers, not buried in Experience.
+    val layout = promoteSettingsDestinations(
+        primary = homeDestinations,
+        sections = nestedSections,
+        ids = listOf("appearance", "speech"),
+    )
+    val primaryDestinations = layout.primary
+    val sections = layout.sections
     val filteredSections = filterSettingsSections(sections, searchQuery)
     val matchingPrimaryDestinations = primaryDestinations.filter { it.matches(searchQuery) }
     val launchers = primaryDestinations.map { destination ->
