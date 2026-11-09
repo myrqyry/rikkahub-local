@@ -880,8 +880,8 @@ class DoctorChecks(
                             id = "net.litert_perf",
                             category = DoctorCategory.Network,
                             label = "LiteRT performance",
-                            detail = "Last-known per-model rates (character-based estimate, " +
-                                "~10% accurate for English text):\n$detail",
+                            detail = "Last-known per-model rates (character-based estimates, not " +
+                                "native token measurements):\n$detail",
                             severity = Severity.INFO,
                             fix = FixAction.OpenAppRoute(
                                 "Open Local LiteRT",

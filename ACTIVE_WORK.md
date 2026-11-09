@@ -1,6 +1,16 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-11-08 — Google AI Edge Gallery native LiteRT benchmark
+- Added opt-in CPU/GPU native LiteRT-LM benchmark to Local · LiteRT provider settings using the pinned 0.19.0 SDK's `benchmark(...)` API; three sequential native runs at 256 prefill / 64 decode tokens. Normal chat never runs benchmark profiling.
+- Runs under `LiteRtRuntime`'s existing mutex; closes a warm chat model first, uses a dedicated removable app-cache directory, and reports explicit accelerator failures rather than silently switching providers. No app settings, installed model files, or user data are rewritten.
+- RED-first JVM tests validate first-run vs later-run median, real native token metrics, and missing/invalid measurement handling. Existing character-derived chat telemetry is now labeled estimated, not native tok/s.
+- Device acceptance on Pixel 10 Pro: installed the debug APK/test APK in place after SHA-verified private DB/preferences backup. Existing LFM2.5 1.2B CPU fixture completed three separate 64-prefill/16-decode single-run native smoke tests. Latest corrected test: independently measured 21,774.9 ms SDK call vs 21,925 ms surrounding wall clock; prefill 13.26 tok/s, decode 25.08 tok/s; instrumentation OK (1 test).
+- **Important finding:** LiteRT-LM `BenchmarkInfo.initTimeInSecond` exceeded independently measured whole-run time on the device, so the UI instead shows monotonic first-run and later-run *full durations*, not misleading SDK initialization numbers.
+- Final complete `:local-llm:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest` passed offline with `--max-workers=2` after the timing correction and panel placement polish. The initial all-at-once run had one unrelated micro-agent cancellation test failure that passed in isolation and on the final suite rerun.
+- **Pending:** device tap-through/UI rendering, three-run 256/64 physical benchmark, GPU measurements, durable result comparisons/exports, other-runtime concurrency checks. No release app or user files touched, no push.
+- Evidence and acceptance: `docs/integrations/gallery-litert-native-benchmark-2026-11-08.md`.
+
 ## 2026-11-06 — Pocket TTS true incremental PCM playback
 - Diagnosed actual latency barrier: Pocket emits 80 ms PCM frames, but `TtsSynthesizer` coalesced them before ExoPlayer playback.
 - Added `PcmStreamPump` and first-frame-start `AudioTrack.MODE_STREAM` output, selected only for Pocket with voice effects OFF. Existing buffered paths and saved settings are unchanged. Pause/resume/speed/stop target active output; seeking unbuffered live PCM remains unavailable.

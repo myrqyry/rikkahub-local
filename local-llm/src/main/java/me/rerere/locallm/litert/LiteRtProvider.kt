@@ -602,11 +602,10 @@ class LiteRtProvider(
             LiteRtToolBridgeRegistry.clear()
         }
 
-        // ---- Persist tok/s telemetry --------------------------------------------------
-        // After a clean stream the runtime stamps lastTelemetry with prefill / decode
-        // timings and character counts. Persist it per-model so the Settings page can
-        // render "Last gen: 12.4 tok/s prefill, 2.7 tok/s decode" without re-running
-        // inference. Best-effort: a write failure must never break the user's reply.
+        // ---- Persist approximate tok/s telemetry -------------------------------------
+        // Ordinary chat records timings and character counts, NOT native token counts.
+        // Preserve these historical estimates but label them clearly in Settings/Doctor.
+        // Best-effort: a write failure must never break the user's reply.
         runtime.lastTelemetry?.let { tele ->
             // Only persist samples with non-trivial timings — a zero-decode case would
             // be the SDK emitting no tokens, which is already a bug we want to see

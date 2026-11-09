@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="local_llm_benchmark_title">LiteRT 네이티브 벤치마크</string>
+    <string name="local_llm_benchmark_description">모델당 3회 · 프리필 256토큰 / 디코드 64토큰. 측정 중 로드된 LiteRT 채팅 모델이 해제됩니다. 네트워크는 사용하지 않습니다.</string>
+    <string name="local_llm_benchmark_no_models">측정하려면 .litertlm 채팅 모델을 설치하세요.</string>
+    <string name="local_llm_benchmark_run">벤치마크</string>
+    <string name="local_llm_benchmark_running">%1$s 측정 중 · %2$d/3회</string>
+    <string name="local_llm_benchmark_result">%1$d회 · 첫 실행 시간 %2$s · 이후 실행 중앙값 %3$s\n첫 토큰 중앙값 %4$s · 프리필 중앙값 %5$s · 디코드 중앙값 %6$s</string>
+    <string name="local_llm_benchmark_failed">벤치마크 실패: %1$s</string>
+</resources>

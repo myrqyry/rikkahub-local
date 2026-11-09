@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="local_llm_benchmark_title">اختبار أداء LiteRT الأصلي</string>
+    <string name="local_llm_benchmark_description">3 تشغيلات لكل نموذج · 256 رمزًا للمعالجة الأولية / 64 رمزًا للتوليد. يفرغ الاختبار نموذج المحادثة المحمّل. دون اتصال بالشبكة.</string>
+    <string name="local_llm_benchmark_no_models">ثبّت نموذج محادثة .litertlm لاختبار أدائه.</string>
+    <string name="local_llm_benchmark_run">اختبار الأداء</string>
+    <string name="local_llm_benchmark_running">جارٍ اختبار %1$s · %2$d من 3</string>
+    <string name="local_llm_benchmark_result">%1$d تشغيلات · مدة التشغيل الأول %2$s · وسيط التشغيلات التالية %3$s\nوسيط أول رمز %4$s · وسيط المعالجة الأولية %5$s · وسيط التوليد %6$s</string>
+    <string name="local_llm_benchmark_failed">فشل الاختبار: %1$s</string>
+</resources>

@@ -93,7 +93,7 @@ class LocalRuntimePreferences(private val context: Context) {
      * a fresh probe. Then writes [currentSdkVersion] back. Idempotent — second call in
      * the same app session is a no-op. Safe to call from app startup.
      */
-    /** Per-modelId last-known telemetry sample: prefill tok/s and decode tok/s. Stored as
+    /** Per-modelId last-known estimated telemetry: character-derived tok/s. Stored as
      *  a JSON map: { modelId -> "prefillTps|decodeTps|specDecodingEngaged|sampledAtMs" }. */
     private fun perfTelemetryKey(runtime: LocalRuntime) =
         stringPreferencesKey("perf_telemetry_${runtime.displayName}")

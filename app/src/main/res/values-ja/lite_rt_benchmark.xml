@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="local_llm_benchmark_title">LiteRT ネイティブベンチマーク</string>
+    <string name="local_llm_benchmark_description">モデルごとに3回実行 · 入力256トークン / 出力64トークン。測定中は読み込み済みのLiteRTチャットモデルを解放します。通信はしません。</string>
+    <string name="local_llm_benchmark_no_models">ベンチマークには .litertlm チャットモデルをインストールしてください。</string>
+    <string name="local_llm_benchmark_run">測定する</string>
+    <string name="local_llm_benchmark_running">%1$s を測定中 · %2$d/3 回</string>
+    <string name="local_llm_benchmark_result">%1$d 回 · 初回実行時間 %2$s · 2回目以降の中央値 %3$s\n初回トークン中央値 %4$s · 入力速度中央値 %5$s · 出力速度中央値 %6$s</string>
+    <string name="local_llm_benchmark_failed">ベンチマーク失敗: %1$s</string>
+</resources>

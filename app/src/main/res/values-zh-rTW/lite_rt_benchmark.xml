@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="local_llm_benchmark_title">LiteRT 原生效能測試</string>
+    <string name="local_llm_benchmark_description">每個模型執行 3 次 · 預填充 256 個 token / 解碼 64 個 token。測試會釋放已載入的 LiteRT 聊天模型，不使用網路。</string>
+    <string name="local_llm_benchmark_no_models">請先安裝 .litertlm 聊天模型以進行測試。</string>
+    <string name="local_llm_benchmark_run">效能測試</string>
+    <string name="local_llm_benchmark_running">正在測試 %1$s · %2$d/3 次</string>
+    <string name="local_llm_benchmark_result">%1$d 次 · 首次執行耗時 %2$s · 後續執行中位數 %3$s\n首 token 中位數 %4$s · 預填充中位數 %5$s · 解碼中位數 %6$s</string>
+    <string name="local_llm_benchmark_failed">效能測試失敗：%1$s</string>
+</resources>

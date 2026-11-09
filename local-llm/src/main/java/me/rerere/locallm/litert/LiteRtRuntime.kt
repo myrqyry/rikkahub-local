@@ -18,6 +18,7 @@ import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.ToolProvider
+import com.google.ai.edge.litertlm.benchmark
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -189,9 +190,9 @@ class LiteRtRuntime(private val context: Context) {
     /**
      * Per-stream timing + token counts. `prefillTps` = input tokens / time from
      * `sendMessageAsync` to first `onMessage`; `decodeTps` = output tokens / time from
-     * first onMessage to onDone. Token counts are character-based estimates (cumulative
-     * String.length divided by ~4 chars/token) because the SDK does not surface a per-call
-     * tokenizer counter — accurate within ~10% for English text, less for CJK.
+     * first onMessage to onDone. Normal chat uses character-derived estimates
+     * (String.length divided by four), NOT real SDK token counts. The explicitly
+     * requested native benchmark uses the SDK's own counts instead.
      */
     data class StreamTelemetry(
         val prefillMs: Long,
@@ -1066,6 +1067,76 @@ class LiteRtRuntime(private val context: Context) {
             try { active.conversation.cancelProcess() }
             catch (e: Exception) {
                 android.util.Log.w("LiteRtRuntime", "Failed to stop native generation", e)
+            }
+        }
+    }
+
+    /**
+     * Explicit native LiteRT benchmark. It uses SDK token counts and observed monotonic
+     * run durations, never character estimates or the non-wall-clock SDK init metric.
+     *
+     * The runtime mutex prevents a concurrent chat stream or model load through this
+     * runtime. Any warm chat engine is released before the benchmark allocates its own
+     * engine, and will be initialized normally at the next chat request.
+     */
+    @OptIn(ExperimentalApi::class)
+    suspend fun runNativeBenchmark(
+        modelPath: String,
+        accelerator: String,
+        prefillTokens: Int = 256,
+        decodeTokens: Int = 64,
+        runs: Int = 3,
+        onProgress: suspend (Int) -> Unit = {},
+    ): LiteRtBenchmarkSummary {
+        require(runs in 1..5) { "Benchmark runs must be between 1 and 5" }
+        require(prefillTokens in 16..4096 && decodeTokens in 1..1024) {
+            "Invalid benchmark token budget"
+        }
+        require(accelerator == "cpu" || accelerator == "gpu") {
+            "Select a supported benchmark accelerator (CPU or GPU)"
+        }
+        val modelFile = File(modelPath)
+        require(modelFile.isFile && modelFile.extension.equals("litertlm", ignoreCase = true)) {
+            "Choose an installed .litertlm model file"
+        }
+        return mutex.withLock {
+            idleTeardownJob?.cancel()
+            idleTeardownJob = null
+            try { loaded?.conversation?.close() } catch (_: Throwable) {}
+            try { loaded?.engine?.close() } catch (_: Throwable) {}
+            loaded = null
+            lastTelemetry = null
+
+            withContext(Dispatchers.IO) {
+                // Owned temporary cache only; never clear an installed model or shared cache.
+                val benchmarkCache = File(context.cacheDir, "litert_benchmark_${System.nanoTime()}")
+                check(benchmarkCache.mkdir()) { "Could not allocate benchmark cache directory" }
+                try {
+                    val backend = if (accelerator == "gpu") Backend.GPU() else Backend.CPU()
+                    val samples = mutableListOf<LiteRtBenchmarkSample>()
+                    repeat(runs) { index ->
+                        val startedNs = System.nanoTime()
+                        val result = benchmark(
+                            modelPath = modelFile.absolutePath,
+                            backend = backend,
+                            prefillTokens = prefillTokens,
+                            decodeTokens = decodeTokens,
+                            cacheDir = benchmarkCache.absolutePath,
+                        )
+                        samples += LiteRtBenchmarkSample(
+                            runDurationMs = (System.nanoTime() - startedNs) / 1_000_000.0,
+                            firstTokenMs = result.timeToFirstTokenInSecond * 1_000.0,
+                            prefillTokenCount = result.lastPrefillTokenCount,
+                            decodeTokenCount = result.lastDecodeTokenCount,
+                            prefillTokensPerSecond = result.lastPrefillTokensPerSecond,
+                            decodeTokensPerSecond = result.lastDecodeTokensPerSecond,
+                        )
+                        onProgress(index + 1)
+                    }
+                    LiteRtBenchmarkSummary.from(samples)
+                } finally {
+                    benchmarkCache.deleteRecursively()
+                }
             }
         }
     }

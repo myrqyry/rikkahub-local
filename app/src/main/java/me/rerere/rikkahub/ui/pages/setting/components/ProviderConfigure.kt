@@ -1168,6 +1168,8 @@ private fun ColumnScope.ProviderConfigureLiteRT(
         }
     }
 
+    LiteRtBenchmarkPanel()
+
     // Curated one-tap catalog. Install downloads the .litertlm straight into app storage and
     // registers it on this provider; installed/downloading state comes from the shared VM so
     // the cards reflect real disk + provider state.

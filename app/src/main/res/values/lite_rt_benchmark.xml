@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="local_llm_benchmark_title">Native LiteRT benchmark</string>
+    <string name="local_llm_benchmark_description">3 runs per model · 256 prefill / 64 decode tokens. Testing unloads the warm LiteRT chat model. No network request.</string>
+    <string name="local_llm_benchmark_no_models">Install a .litertlm chat model to benchmark it.</string>
+    <string name="local_llm_benchmark_run">Benchmark</string>
+    <string name="local_llm_benchmark_running">Benchmarking %1$s · %2$d/3 runs</string>
+    <string name="local_llm_benchmark_result">%1$d runs · First run (wall) %2$s · Later runs (median) %3$s\nFirst token (median) %4$s · Prefill (median) %5$s · Decode (median) %6$s</string>
+    <string name="local_llm_benchmark_failed">Benchmark failed: %1$s</string>
+</resources>

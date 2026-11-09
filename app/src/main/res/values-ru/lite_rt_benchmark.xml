@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="local_llm_benchmark_title">Нативный тест LiteRT</string>
+    <string name="local_llm_benchmark_description">3 запуска на модель · 256 токенов ввода / 64 токена вывода. Тест выгружает активную модель чата LiteRT. Без сети.</string>
+    <string name="local_llm_benchmark_no_models">Установите модель чата .litertlm для тестирования.</string>
+    <string name="local_llm_benchmark_run">Тестировать</string>
+    <string name="local_llm_benchmark_running">Тестируется %1$s · %2$d/3</string>
+    <string name="local_llm_benchmark_result">%1$d запуска · Первый запуск (по часам) %2$s · Медиана следующих запусков %3$s\nМедиана первого токена %4$s · Ввод %5$s · Вывод %6$s</string>
+    <string name="local_llm_benchmark_failed">Ошибка тестирования: %1$s</string>
+</resources>
