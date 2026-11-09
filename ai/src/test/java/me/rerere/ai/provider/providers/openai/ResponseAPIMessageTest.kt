@@ -455,6 +455,48 @@ class ResponseAPIMessageTest {
         assertFalse("units must remain optional", schema["required"]!!.jsonArray.any { it.jsonPrimitive.content == "units" })
     }
 
+    @Test
+    fun `image results remain inline with each function call output in a parallel batch`() {
+        val screenshot = UIMessagePart.Tool(
+            toolCallId = "r1",
+            toolName = "take_screenshot",
+            input = "{}",
+            output = listOf(
+                UIMessagePart.Text("A"),
+                UIMessagePart.Image("data:image/png;base64,AA=="),
+            ),
+        )
+        val photo = UIMessagePart.Tool(
+            toolCallId = "r2",
+            toolName = "take_photo",
+            input = "{}",
+            output = listOf(
+                UIMessagePart.Text("B"),
+                UIMessagePart.Image("data:image/jpeg;base64,AQ=="),
+            ),
+        )
+        val result = invokeBuildMessages(listOf(
+            UIMessage.user("Inspect both"),
+            UIMessage(role = MessageRole.ASSISTANT, parts = listOf(screenshot, photo)),
+        ))
+        val types = result.map { it.jsonObject["type"]?.jsonPrimitive?.content }
+        assertEquals(
+            listOf(null, "function_call", "function_call_output", "function_call", "function_call_output"),
+            types,
+        )
+        val outputs = result.filter {
+            it.jsonObject["type"]?.jsonPrimitive?.content == "function_call_output"
+        }
+        assertEquals(listOf("r1", "r2"),
+            outputs.map { it.jsonObject["call_id"]!!.jsonPrimitive.content })
+        val imageParts = outputs.map { part ->
+            part.jsonObject["output"]!!.jsonArray.single {
+                it.jsonObject["type"]?.jsonPrimitive?.content == "input_image"
+            }.jsonObject["image_url"]!!.jsonPrimitive.content
+        }
+        assertEquals(listOf("data:image/png;base64,AA==", "data:image/jpeg;base64,AQ=="), imageParts)
+    }
+
     // ==================== Helper Functions ====================
 
     private fun createExecutedTool(

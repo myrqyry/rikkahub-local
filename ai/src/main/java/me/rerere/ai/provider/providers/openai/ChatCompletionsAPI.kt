@@ -623,7 +623,10 @@ class ChatCompletionsAPI(
                     contentBuffer.clear()
                     reasoningPart = null // 清空，下一个 group 可能有新的 reasoning
 
-                    // 紧跟 tool 结果消息
+                    // Keep ALL role:tool outputs immediately after the parallel calls.
+                    // Some providers reject an intervening user message with "no tool output
+                    // found for tool call". ChatCompletions tool content must be a string.
+                    val liftedImages = mutableListOf<Pair<UIMessagePart.Tool, UIMessagePart.Image>>()
                     group.tools.forEach { tool ->
                         add(buildJsonObject {
                             put("role", "tool")
@@ -631,36 +634,36 @@ class ChatCompletionsAPI(
                             put("tool_call_id", tool.toolCallId)
                             put("content", tool.toToolResultContent(supportInputModalities))
                         })
-                        // Image lift: ChatCompletions tool messages are text-only, so any
-                        // UIMessagePart.Image returned by the tool would be invisible to a
-                        // vision-capable model otherwise. Emit a follow-up user message that
-                        // carries those images so the model actually sees them on its next
-                        // turn (e.g. take_screenshot, take_photo, etc.).
-                        val toolImages = tool.output.filterIsInstance<UIMessagePart.Image>()
-                        if (toolImages.isNotEmpty()) {
-                            add(buildJsonObject {
-                                put("role", "user")
-                                putJsonArray("content") {
+                        if (Modality.IMAGE in supportInputModalities) {
+                            tool.output.filterIsInstance<UIMessagePart.Image>().forEach { image ->
+                                liftedImages.add(tool to image)
+                            }
+                        }
+                    }
+                    // Lift multimodal output once, after every tool result in this batch.
+                    if (liftedImages.isNotEmpty()) {
+                        add(buildJsonObject {
+                            put("role", "user")
+                            putJsonArray("content") {
+                                liftedImages.forEach { (tool, image) ->
                                     add(buildJsonObject {
                                         put("type", "text")
-                                        put("text", "[Tool ${tool.toolName} produced the image(s) below.]")
+                                        put("text", "[Tool ${tool.toolName} produced the image below.]")
                                     })
-                                    toolImages.forEach { part ->
-                                        add(buildJsonObject {
-                                            part.encodeBase64().onSuccess { encodedImage ->
-                                                put("type", "image_url")
-                                                put("image_url", buildJsonObject {
-                                                    put("url", encodedImage.base64)
-                                                })
-                                            }.onFailure {
-                                                put("type", "text")
-                                                put("text", "(image encode failed: ${it.message})")
-                                            }
-                                        })
-                                    }
+                                    add(buildJsonObject {
+                                        image.encodeBase64().onSuccess { encodedImage ->
+                                            put("type", "image_url")
+                                            put("image_url", buildJsonObject {
+                                                put("url", encodedImage.base64)
+                                            })
+                                        }.onFailure {
+                                            put("type", "text")
+                                            put("text", "(image encode failed: ${it.message})")
+                                        }
+                                    })
                                 }
-                            })
-                        }
+                            }
+                        })
                     }
                 }
             }
@@ -819,50 +822,21 @@ class ChatCompletionsAPI(
     }
 
     private fun UIMessagePart.Tool.toToolResultContent(supportInputModalities: List<Modality>): JsonElement {
-        // 只考虑文字和图片;只有模型支持图片输入时,图片才作为多模态内容回传,否则以文本占位,避免发给不支持的模型报错
+        // ChatCompletions role:tool content is always a plain string. Tool images
+        // travel in ONE follow-up user message after every result in the same batch,
+        // and are omitted entirely for a text-only model.
         val supportsImageInput = Modality.IMAGE in supportInputModalities
-        val hasImageToSend = output.any { it is UIMessagePart.Image && supportsImageInput }
-        return if (!hasImageToSend) {
-            JsonPrimitive(output.mapNotNull { part ->
-                when (part) {
-                    is UIMessagePart.Text -> part.text
-                    is UIMessagePart.Image -> "[Image output omitted: current model does not support image input]"
-                    else -> null
+        return JsonPrimitive(output.mapNotNull { part ->
+            when (part) {
+                is UIMessagePart.Text -> part.text
+                is UIMessagePart.Image -> if (supportsImageInput) {
+                    "[Image output attached in the following user message]"
+                } else {
+                    "[Image output omitted: current model does not support image input]"
                 }
-            }.joinToString("\n"))
-        } else {
-            buildJsonArray {
-                output.forEach { part ->
-                    when (part) {
-                        is UIMessagePart.Text -> {
-                            if (part.text.isNotBlank()) {
-                                add(buildJsonObject {
-                                    put("type", "text")
-                                    put("text", part.text)
-                                })
-                            }
-                        }
-
-                        is UIMessagePart.Image -> {
-                            add(buildJsonObject {
-                                part.encodeBase64().onSuccess { encodedImage ->
-                                    put("type", "image_url")
-                                    put("image_url", buildJsonObject {
-                                        put("url", encodedImage.base64)
-                                    })
-                                }.onFailure {
-                                    Log.w(TAG, "encode tool result image failed: ${part.url}", it)
-                                    put("type", "text")
-                                    put("text", "Error: Failed to encode image to base64")
-                                }
-                            })
-                        }
-
-                        else -> {}
-                    }
-                }
+                else -> null
             }
-        }
+        }.joinToString("\n"))
     }
 
     private fun parseMessage(jsonObject: JsonObject): UIMessage {

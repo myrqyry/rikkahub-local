@@ -1,6 +1,15 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-11-08 — ExTV/rikkahub-agent tool-flow reliability harvest
+- Compared the actual fork checkout to upstream `ExTV/rikkahub-agent` `master` at `a88f5854b`, chose three small high-priority fixes instead of a broad merge; prior LiteRT work remains intact.
+- Mixed tool approvals now resume untouched, unstarted `Auto` siblings alongside user `Approved`/`Denied`/`Answered` calls in original order; `Pending`, completed, or already-started calls never get directly replayed by the selector. Derived from upstream `1c2ca2dcb`/`1913333a6`.
+- Found an additional local flaw: `Auto` tool execution-start receipts were **not** immediately persisted and `isInterruptedAttempt` only recognized `Approved`. Both now recognize `Auto`/`Approved` and an unknown-outcome envelope prevents silent retry of a side effect after process death.
+- User stop/cancellation now propagates out of the tool execution `runCatching.onFailure` rather than minting `tool_failed` and continuing sibling execution (upstream `0658ab587`).
+- OpenAI ChatCompletions serialization now emits contiguous string-valued tool results followed by one multimodal user message for image-capable models, none for text-only. Responses API keeps `input_image` in each function output without an extra injected user message. Derived from upstream `f088df5a1`.
+- **Verification:** RED-first app/AI tests reproduced missing helper, `Auto` replay predicate, and three malformed JSON output cases. Focused tests green. Full `:ai:testDebugUnitTest :app:testDebugUnitTest :local-llm:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest` offline validation passed (354 tasks). No external provider calls, side-effecting device tests or APK installation performed; real process death/user-facing provider flows remain separate acceptance checks.
+- Source lineage, test details, and remaining limits: `docs/integrations/rikkahub-agent-tool-flow-harvest-2026-11-08.md`. Local commit checkpoint; no push.
+
 ## 2026-11-08 — Google AI Edge Gallery native LiteRT benchmark
 - Added opt-in CPU/GPU native LiteRT-LM benchmark to Local · LiteRT provider settings using the pinned 0.19.0 SDK's `benchmark(...)` API; three sequential native runs at 256 prefill / 64 decode tokens. Normal chat never runs benchmark profiling.
 - Runs under `LiteRtRuntime`'s existing mutex; closes a warm chat model first, uses a dedicated removable app-cache directory, and reports explicit accelerator failures rather than silently switching providers. No app settings, installed model files, or user data are rewritten.

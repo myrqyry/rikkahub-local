@@ -35,6 +35,7 @@ class ChatCompletionsAPIMessageTest {
     private fun invokeBuildMessages(
         messages: List<UIMessage>,
         includeHistoryReasoning: Boolean = true,
+        supportInputModalities: List<Modality> = listOf(Modality.TEXT, Modality.IMAGE),
     ): JsonArray {
         val method = ChatCompletionsAPI::class.java.getDeclaredMethod(
             "buildMessages",
@@ -49,7 +50,7 @@ class ChatCompletionsAPIMessageTest {
             messages,
             includeHistoryReasoning,
             false,
-            listOf(Modality.TEXT, Modality.IMAGE)
+            supportInputModalities
         ) as JsonArray
     }
 
@@ -383,6 +384,63 @@ class ChatCompletionsAPIMessageTest {
         assertEquals("assistant", result[1].jsonObject["role"]?.jsonPrimitive?.content)
         assertEquals("thinking", result[1].jsonObject["reasoning_content"]?.jsonPrimitive?.content)
         assertEquals("", result[1].jsonObject["content"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `parallel image tool results stay contiguous and content stays plain text`() {
+        val screenshot = UIMessagePart.Tool(
+            toolCallId = "image_1",
+            toolName = "take_screenshot",
+            input = "{}",
+            output = listOf(
+                UIMessagePart.Text("Screen A"),
+                UIMessagePart.Image("data:image/png;base64,AA=="),
+            ),
+        )
+        val photo = UIMessagePart.Tool(
+            toolCallId = "image_2",
+            toolName = "take_photo",
+            input = "{}",
+            output = listOf(
+                UIMessagePart.Text("Screen B"),
+                UIMessagePart.Image("data:image/jpeg;base64,AQ=="),
+            ),
+        )
+        val result = invokeBuildMessages(listOf(
+            UIMessage.user("Inspect both"),
+            UIMessage(role = MessageRole.ASSISTANT, parts = listOf(screenshot, photo)),
+        ))
+        val roles = result.map { it.jsonObject["role"]?.jsonPrimitive?.content }
+        assertEquals(listOf("user", "assistant", "tool", "tool", "user"), roles)
+
+        val toolResults = result.drop(2).take(2).map { it.jsonObject }
+        assertEquals(listOf("image_1", "image_2"),
+            toolResults.map { it["tool_call_id"]?.jsonPrimitive?.content })
+        assertTrue(toolResults.all { it["content"] is JsonPrimitive })
+        assertTrue(toolResults[0]["content"]!!.jsonPrimitive.content.contains("Screen A"))
+        assertTrue(toolResults[1]["content"]!!.jsonPrimitive.content.contains("Screen B"))
+
+        val images = result.last().jsonObject["content"]!!.jsonArray
+            .filter { it.jsonObject["type"]?.jsonPrimitive?.content == "image_url" }
+            .map { it.jsonObject["image_url"]!!.jsonObject["url"]!!.jsonPrimitive.content }
+        assertEquals(listOf("data:image/png;base64,AA==", "data:image/jpeg;base64,AQ=="), images)
+    }
+
+    @Test
+    fun `text-only model must not receive lifted tool images`() {
+        val tool = UIMessagePart.Tool(
+            toolCallId = "image",
+            toolName = "take_screenshot",
+            input = "{}",
+            output = listOf(UIMessagePart.Image("data:image/png;base64,AA==")),
+        )
+        val result = invokeBuildMessages(
+            listOf(UIMessage(role = MessageRole.ASSISTANT, parts = listOf(tool))),
+            supportInputModalities = listOf(Modality.TEXT),
+        )
+        assertEquals(listOf("assistant", "tool"),
+            result.map { it.jsonObject["role"]!!.jsonPrimitive.content })
+        assertTrue(result.last().jsonObject["content"]!!.jsonPrimitive.content.contains("omitted"))
     }
 
     // ==================== Helper Functions ====================
