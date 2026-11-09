@@ -573,9 +573,11 @@ class GenerationHandler(
 
                 toolsToProcess = updatedTools
             } else {
-                // Resuming after user interaction - use the resumable tools directly.
-                Log.i(TAG, "generateText: resuming with ${pendingTools.size} resumable tools")
-                toolsToProcess = messages.last().getTools().filter { it.canResumeExecution }
+                // A mixed batch may have Auto siblings that never ran because another
+                // sibling needed approval. Resume those as well, but never replay calls
+                // whose execution-start receipt is already persisted.
+                toolsToProcess = resumableToolsIncludingUnexecutedAuto(messages.last().getTools())
+                Log.i(TAG, "generateText: resuming with ${toolsToProcess.size} safe tools")
             }
 
             // Handle tools (execute approved tools, handle denied tools)
@@ -829,6 +831,10 @@ class GenerationHandler(
                                 ),
                             )
                         }.onFailure {
+                            // runCatching captures CancellationException too. Re-throw it so
+                            // user Stop propagates instead of minting a fake tool_failed result
+                            // and potentially executing subsequent sibling tools.
+                            propagateToolCancellation(it)
                             // Stack trace stays in logcat for debugging; the JSON envelope
                             // sent BACK to the LLM gets just the exception's message and a
                             // short class hint. Stuffing the full multi-frame R8-obfuscated

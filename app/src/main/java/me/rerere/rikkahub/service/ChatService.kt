@@ -67,6 +67,7 @@ import me.rerere.rikkahub.data.ai.prompts.generatedConversationTitle
 import me.rerere.rikkahub.data.ai.prompts.generatedReplySuggestions
 import me.rerere.rikkahub.data.ai.GenerationChunk
 import me.rerere.rikkahub.data.ai.GenerationHandler
+import me.rerere.rikkahub.data.ai.shouldPersistToolStartReceipt
 import me.rerere.rikkahub.data.ai.mcp.McpManager
 import me.rerere.rikkahub.data.ai.tools.LocalTools
 import me.rerere.rikkahub.data.ai.tools.createSearchTools
@@ -1047,17 +1048,11 @@ class ChatService(
                         // Persist immediately when a tool transitions to "execution
                         // started but no output yet" — this writes the executionStartedAt
                         // breadcrumb to disk so a process kill mid-execute leaves a clear
-                        // signal for the next replay (see GenerationHandler.kt's replay
-                        // safety pass: Approved + executionStartedAt + empty → Denied
-                        // interrupted_unknown_outcome). Without this, the marker stays in
-                        // memory only and replay can't distinguish "freshly approved,
-                        // never tried" from "interrupted mid-execute" → silent re-run.
-                        val needsImmediatePersist = chunk.messages.lastOrNull()?.parts?.any { p ->
-                            p is UIMessagePart.Tool &&
-                                p.executionStartedAt != null &&
-                                p.output.isEmpty() &&
-                                p.approvalState is ToolApprovalState.Approved
-                        } ?: false
+                        // signal for the next replay. Auto AND Approved tools can
+                        // cause side effects; started calls of either kind must persist
+                        // before execution proceeds or a process kill can replay them.
+                        val needsImmediatePersist = chunk.messages.lastOrNull()
+                            ?.getTools()?.let(::shouldPersistToolStartReceipt) ?: false
                         if (needsImmediatePersist) {
                             saveConversation(conversationId, updatedConversation)
                         }
