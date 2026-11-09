@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="speech_provider_fallback">代替</string>
+    <string name="speech_empty_tts">音声合成プロバイダーがありません。+ から追加できます。</string>
+    <string name="speech_empty_asr">音声認識プロバイダーがありません。+ から追加できます。</string>
+    <string name="speech_delete_provider_title">音声プロバイダーを削除しますか？</string>
+    <string name="speech_delete_provider_message">%1$s を音声プロバイダーから削除しますか？</string>
+</resources>

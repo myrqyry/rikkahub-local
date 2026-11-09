@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="speech_provider_fallback">بديل</string>
+    <string name="speech_empty_tts">لا توجد خدمات تحويل النص إلى كلام بعد. استخدم + لإضافة واحدة.</string>
+    <string name="speech_empty_asr">لا توجد خدمات للتعرف على الكلام بعد. استخدم + لإضافة واحدة.</string>
+    <string name="speech_delete_provider_title">إزالة موفر الكلام؟</string>
+    <string name="speech_delete_provider_message">هل تريد إزالة %1$s من موفري الكلام؟</string>
+</resources>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="speech_provider_fallback">回退</string>
+    <string name="speech_empty_tts">尚未添加文本转语音提供方。点击 + 添加。</string>
+    <string name="speech_empty_asr">尚未添加语音识别提供方。点击 + 添加。</string>
+    <string name="speech_delete_provider_title">移除语音提供方？</string>
+    <string name="speech_delete_provider_message">要从语音提供方中移除 %1$s 吗？</string>
+</resources>

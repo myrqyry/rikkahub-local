@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="speech_provider_fallback">Резервный</string>
+    <string name="speech_empty_tts">Провайдеров озвучивания пока нет. Добавьте через +.</string>
+    <string name="speech_empty_asr">Провайдеров распознавания речи пока нет. Добавьте через +.</string>
+    <string name="speech_delete_provider_title">Удалить речевой провайдер?</string>
+    <string name="speech_delete_provider_message">Удалить %1$s из речевых провайдеров?</string>
+</resources>

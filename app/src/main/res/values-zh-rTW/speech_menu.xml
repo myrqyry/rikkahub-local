@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="speech_provider_fallback">備援</string>
+    <string name="speech_empty_tts">尚未新增文字轉語音提供者。點選 + 新增。</string>
+    <string name="speech_empty_asr">尚未新增語音辨識提供者。點選 + 新增。</string>
+    <string name="speech_delete_provider_title">移除語音提供者？</string>
+    <string name="speech_delete_provider_message">要從語音提供者中移除 %1$s 嗎？</string>
+</resources>

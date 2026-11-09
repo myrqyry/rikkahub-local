@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="speech_provider_fallback">Fallback</string>
+    <string name="speech_empty_tts">No text-to-speech providers yet. Use + to add one.</string>
+    <string name="speech_empty_asr">No speech recognition providers yet. Use + to add one.</string>
+    <string name="speech_delete_provider_title">Remove speech provider?</string>
+    <string name="speech_delete_provider_message">Remove %1$s from your speech providers?</string>
+</resources>

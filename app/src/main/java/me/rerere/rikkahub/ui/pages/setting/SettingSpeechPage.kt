@@ -1,12 +1,12 @@
 package me.rerere.rikkahub.ui.pages.setting
 
 import me.rerere.rikkahub.ui.icons.MingcuteIcons as HugeIcons
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -23,18 +24,15 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeFlexibleTopAppBar
-import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
@@ -43,12 +41,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -59,11 +58,9 @@ import me.rerere.rikkahub.data.datastore.TtsPlaybackPreferences
 import me.rerere.rikkahub.data.datastore.playbackFor
 import me.rerere.rikkahub.data.datastore.inheritedTtsPlayback
 import me.rerere.rikkahub.data.datastore.Settings
-import me.rerere.rikkahub.data.datastore.DEFAULT_SYSTEM_TTS_ID
 import kotlin.uuid.Uuid
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.AutoAIIcon
-import me.rerere.rikkahub.ui.components.ui.CardGroup
 import me.rerere.rikkahub.ui.components.ui.Tag
 import me.rerere.rikkahub.ui.components.ui.TagType
 import me.rerere.rikkahub.ui.context.LocalTTSState
@@ -81,16 +78,12 @@ fun SettingSpeechPage(vm: SettingVM = koinViewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     var editingTTSProvider by remember { mutableStateOf<TTSProviderSetting?>(null) }
     var editingASRProvider by remember { mutableStateOf<ASRProviderSetting?>(null) }
-    var selectedPage by remember { mutableIntStateOf(0) }
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-
+    var selectedPage by rememberSaveable { mutableIntStateOf(0) }
 
     Scaffold(
         topBar = {
-            LargeFlexibleTopAppBar(
-                title = {
-                    Text(text = stringResource(R.string.speech_page_title))
-                },
+            TopAppBar(
+                title = { Text(stringResource(R.string.speech_page_title)) },
                 navigationIcon = {
                     BackButton()
                 },
@@ -111,47 +104,46 @@ fun SettingSpeechPage(vm: SettingVM = koinViewModel()) {
                         }
                     }
                 },
-                scrollBehavior = scrollBehavior,
                 colors = CustomColors.topBarColors
             )
         },
-        bottomBar = {
-            NavigationBar(
-                containerColor = CustomColors.cardColorsOnSurfaceContainer.containerColor
-            ) {
-                NavigationBarItem(
-                    selected = selectedPage == 0,
-                    onClick = { selectedPage = 0 },
-                    icon = { Icon(HugeIcons.VolumeHigh, contentDescription = null) },
-                    label = { Text(stringResource(R.string.speech_tab_tts)) }
-                )
-                NavigationBarItem(
-                    selected = selectedPage == 1,
-                    onClick = { selectedPage = 1 },
-                    icon = { Icon(HugeIcons.Mic01, contentDescription = null) },
-                    label = { Text(stringResource(R.string.speech_tab_asr)) }
-                )
-            }
-        },
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = CustomColors.topBarColors.containerColor,
     ) { innerPadding ->
-        when (selectedPage) {
-            0 -> TTSProviderList(
-                settings = settings,
-                onSelect = vm::selectTtsProvider,
-                onRemove = vm::removeTtsProvider,
-                onReorder = vm::reorderTtsProviders,
-                onEdit = { editingTTSProvider = it },
-                modifier = Modifier.padding(innerPadding)
-            )
-
-            1 -> ASRProviderList(
-                settings = settings,
-                onUpdateSettings = vm::updateSettings,
-                onEdit = { editingASRProvider = it },
-                modifier = Modifier.padding(innerPadding)
-            )
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                SegmentedButton(
+                    selected = selectedPage == 0,
+                    onClick = { selectedPage = 0 },
+                    shape = SegmentedButtonDefaults.itemShape(0, 2),
+                ) {
+                    Text(stringResource(R.string.speech_tab_tts), maxLines = 1)
+                }
+                SegmentedButton(
+                    selected = selectedPage == 1,
+                    onClick = { selectedPage = 1 },
+                    shape = SegmentedButtonDefaults.itemShape(1, 2),
+                ) {
+                    Text(stringResource(R.string.speech_tab_asr), maxLines = 1)
+                }
+            }
+            when (selectedPage) {
+                0 -> TTSProviderList(
+                    settings = settings,
+                    onSelect = vm::selectTtsProvider,
+                    onRemove = vm::removeTtsProvider,
+                    onReorder = vm::reorderTtsProviders,
+                    onEdit = { editingTTSProvider = it },
+                    modifier = Modifier.weight(1f),
+                )
+                1 -> ASRProviderList(
+                    settings = settings,
+                    onUpdateSettings = vm::updateSettings,
+                    onEdit = { editingASRProvider = it },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 
@@ -293,6 +285,9 @@ private fun TTSProviderList(
     modifier: Modifier = Modifier
 ) {
     val lazyListState = rememberLazyListState()
+    val selection = resolveSpeechProviderSelection(
+        settings.selectedTTSProviderId, settings.ttsProviders.map { it.id },
+    )
     val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
         val newProviders = settings.ttsProviders.toMutableList().apply {
             add(to.index, removeAt(from.index))
@@ -308,6 +303,15 @@ private fun TTSProviderList(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         state = lazyListState
     ) {
+        if (settings.ttsProviders.isEmpty()) {
+            item("empty-tts") {
+                Text(
+                    text = stringResource(R.string.speech_empty_tts),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         items(settings.ttsProviders, key = { it.id }) { provider ->
             ReorderableItem(
                 state = reorderableState,
@@ -338,7 +342,8 @@ private fun TTSProviderList(
                             )
                         }
                     },
-                    isSelected = settings.selectedTTSProviderId == provider.id,
+                    isSelected = selection.effectiveId == provider.id,
+                    isFallback = selection.isFallback && selection.effectiveId == provider.id,
                     onSelect = {
                         onSelect(provider.id)
                     },
@@ -362,6 +367,9 @@ private fun ASRProviderList(
     modifier: Modifier = Modifier
 ) {
     val lazyListState = rememberLazyListState()
+    val selection = resolveSpeechProviderSelection(
+        settings.selectedASRProviderId, settings.asrProviders.map { it.id },
+    )
     val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
         val newProviders = settings.asrProviders.toMutableList().apply {
             add(to.index, removeAt(from.index))
@@ -377,6 +385,15 @@ private fun ASRProviderList(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         state = lazyListState
     ) {
+        if (settings.asrProviders.isEmpty()) {
+            item("empty-asr") {
+                Text(
+                    text = stringResource(R.string.speech_empty_asr),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         items(settings.asrProviders, key = { it.id }) { provider ->
             ReorderableItem(
                 state = reorderableState,
@@ -407,7 +424,8 @@ private fun ASRProviderList(
                             )
                         }
                     },
-                    isSelected = settings.selectedASRProviderId == provider.id,
+                    isSelected = selection.effectiveId == provider.id,
+                    isFallback = selection.isFallback && selection.effectiveId == provider.id,
                     onSelect = {
                         onUpdateSettings(settings.copy(selectedASRProviderId = provider.id))
                     },
@@ -668,156 +686,53 @@ private fun TTSProviderItem(
     provider: TTSProviderSetting,
     modifier: Modifier = Modifier,
     isSelected: Boolean = false,
+    isFallback: Boolean = false,
     dragHandle: @Composable () -> Unit,
     onSelect: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
 ) {
-    var showDropdownMenu by remember { mutableStateOf(false) }
     val tts = LocalTTSState.current
     val isSpeaking by tts.isSpeaking.collectAsState()
     val isAvailable by tts.isAvailable.collectAsState()
+    val testText = stringResource(R.string.setting_tts_page_test_text)
 
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                CustomColors.listItemColors.containerColor
-            }
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                AutoAIIcon(
-                    name = provider.name.ifEmpty { stringResource(R.string.setting_tts_page_default_name) },
-                    modifier = Modifier.size(32.dp)
-                )
-
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = provider.name.ifEmpty { stringResource(R.string.setting_tts_page_default_name) },
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        }
-                    )
-
-                    Text(
-                        text = when (provider) {
-                            is TTSProviderSetting.OpenAI -> stringResource(R.string.setting_tts_page_provider_openai)
-                            is TTSProviderSetting.AudioCpp -> "audio.cpp (Self-hosted)"
-                            is TTSProviderSetting.Gemini -> stringResource(R.string.setting_tts_page_provider_gemini)
-                            is TTSProviderSetting.MiniMax -> "MiniMax"
-                            is TTSProviderSetting.SystemTTS -> stringResource(R.string.setting_tts_page_provider_system)
-                            is TTSProviderSetting.Qwen -> "Qwen"
-                            is TTSProviderSetting.Groq -> "Groq"
-                            is TTSProviderSetting.XAI -> "xAI"
-                            is TTSProviderSetting.MiMo -> "MiMo"
-                            is TTSProviderSetting.Step -> "Step"
-                            is TTSProviderSetting.ElevenLabs -> "ElevenLabs"
-                            is TTSProviderSetting.FishAudio -> "Fish Audio"
-                            is TTSProviderSetting.NekoSpeakTts -> "NekoSpeak"
-                            is TTSProviderSetting.PocketTts -> "Pocket TTS"
-                            is TTSProviderSetting.KittenTts -> "Kitten TTS"
-                            is TTSProviderSetting.Qwen3Tts -> "Qwen3 TTS"
-                            is TTSProviderSetting.MatchaTts -> "Matcha TTS"
-                            is TTSProviderSetting.ScyllaTts -> "Scylla's Band"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                RadioButton(
-                    selected = isSelected,
-                    onClick = onSelect
-                )
-
-                dragHandle()
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 状态标签
-                if (isSelected) {
-                    Tag(type = TagType.SUCCESS) {
-                        Text(stringResource(R.string.setting_tts_page_selected))
-                    }
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                // TTS测试播放按钮
-                if (isSelected && isAvailable) {
-                    val testText = stringResource(R.string.setting_tts_page_test_text)
-                    IconButton(
-                        onClick = {
-                            if (!isSpeaking) {
-                                tts.speak(testText)
-                            } else {
-                                tts.stop()
-                            }
-                        }
-                    ) {
-                        Icon(
-                            imageVector = if (isSpeaking) HugeIcons.StopCircle else HugeIcons.VolumeHigh,
-                            contentDescription = if (isSpeaking) stringResource(R.string.stop) else stringResource(R.string.test_tts),
-                            tint = if (isSpeaking) MaterialTheme.colorScheme.error else LocalContentColor.current
-                        )
-                    }
-                }
-
-                IconButton(
-                    onClick = { showDropdownMenu = true }
-                ) {
-                    Icon(
-                        imageVector = HugeIcons.Tools,
-                        contentDescription = stringResource(R.string.setting_tts_page_more_options_content_description)
-                    )
-                    DropdownMenu(
-                        expanded = showDropdownMenu,
-                        onDismissRequest = { showDropdownMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.edit)) },
-                            onClick = {
-                                showDropdownMenu = false
-                                onEdit()
-                            },
-                            leadingIcon = {
-                                Icon(HugeIcons.PencilEdit01, contentDescription = null)
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.delete)) },
-                            onClick = {
-                                showDropdownMenu = false
-                                onDelete()
-                            },
-                            leadingIcon = {
-                                Icon(HugeIcons.Delete01, contentDescription = null)
-                            },
-                            enabled = provider.id != DEFAULT_SYSTEM_TTS_ID
-                        )
-                    }
-                }
-            }
-        }
+    val providerType = when (provider) {
+        is TTSProviderSetting.OpenAI -> stringResource(R.string.setting_tts_page_provider_openai)
+        is TTSProviderSetting.AudioCpp -> "audio.cpp (Self-hosted)"
+        is TTSProviderSetting.Gemini -> stringResource(R.string.setting_tts_page_provider_gemini)
+        is TTSProviderSetting.MiniMax -> "MiniMax"
+        is TTSProviderSetting.SystemTTS -> stringResource(R.string.setting_tts_page_provider_system)
+        is TTSProviderSetting.Qwen -> "Qwen"
+        is TTSProviderSetting.Groq -> "Groq"
+        is TTSProviderSetting.XAI -> "xAI"
+        is TTSProviderSetting.MiMo -> "MiMo"
+        is TTSProviderSetting.Step -> "Step"
+        is TTSProviderSetting.ElevenLabs -> "ElevenLabs"
+        is TTSProviderSetting.FishAudio -> "Fish Audio"
+        is TTSProviderSetting.NekoSpeakTts -> "NekoSpeak"
+        is TTSProviderSetting.PocketTts -> "Pocket TTS"
+        is TTSProviderSetting.KittenTts -> "Kitten TTS"
+        is TTSProviderSetting.Qwen3Tts -> "Qwen3 TTS"
+        is TTSProviderSetting.MatchaTts -> "Matcha TTS"
+        is TTSProviderSetting.ScyllaTts -> "Scylla's Band"
     }
+    SpeechProviderCard(
+        name = provider.name.ifEmpty { stringResource(R.string.setting_tts_page_default_name) },
+        providerType = providerType,
+        isSelected = isSelected,
+        isFallback = isFallback,
+        canDelete = canRemoveTtsSpeechProvider(provider.id),
+        modifier = modifier,
+        dragHandle = dragHandle,
+        onSelect = onSelect,
+        onEdit = onEdit,
+        onDelete = onDelete,
+        testIsSpeaking = isSpeaking,
+        onTest = if (isSelected && isAvailable) {
+            { if (isSpeaking) tts.stop() else tts.speak(testText) }
+        } else null,
+    )
 }
 
 @Composable
@@ -825,121 +740,164 @@ private fun ASRProviderItem(
     provider: ASRProviderSetting,
     modifier: Modifier = Modifier,
     isSelected: Boolean = false,
+    isFallback: Boolean = false,
     dragHandle: @Composable () -> Unit,
     onSelect: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
 ) {
-    var showDropdownMenu by remember { mutableStateOf(false) }
+    val providerType = when (provider) {
+        is ASRProviderSetting.OpenAIRealtime -> "OpenAI Realtime"
+        is ASRProviderSetting.DashScope -> "DashScope"
+        is ASRProviderSetting.Volcengine -> "Volcengine"
+        is ASRProviderSetting.MiMo -> "MiMo"
+        is ASRProviderSetting.Step -> "Step"
+        is ASRProviderSetting.WhisperAsr -> "Whisper (Local)"
+        is ASRProviderSetting.WhisperLiteRT -> "Whisper LiteRT"
+        is ASRProviderSetting.NemotronGguf -> "Nemotron 3.5 (GGUF)"
+        is ASRProviderSetting.ParakeetMediaPipe -> "Parakeet (MediaPipe)"
+        is ASRProviderSetting.LocalAudioClassifier -> "Local Audio Classifier"
+    }
+    SpeechProviderCard(
+        name = provider.name.ifEmpty { stringResource(R.string.setting_asr_page_default_name) },
+        providerType = providerType,
+        isSelected = isSelected,
+        isFallback = isFallback,
+        canDelete = true,
+        modifier = modifier,
+        dragHandle = dragHandle,
+        onSelect = onSelect,
+        onEdit = onEdit,
+        onDelete = onDelete,
+    )
+}
 
+/** Compact shared provider row: the entire card selects; trailing icons edit and reorder. */
+@Composable
+private fun SpeechProviderCard(
+    name: String,
+    providerType: String,
+    isSelected: Boolean,
+    isFallback: Boolean,
+    canDelete: Boolean,
+    modifier: Modifier,
+    dragHandle: @Composable () -> Unit,
+    onSelect: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onTest: (() -> Unit)? = null,
+    testIsSpeaking: Boolean = false,
+) {
+    var showActions by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                CustomColors.listItemColors.containerColor
-            }
-        )
+        onClick = onSelect,
+        border = if (isSelected) {
+            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.65f))
+        } else null,
+        colors = CardDefaults.cardColors(containerColor = CustomColors.listItemColors.containerColor),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            AutoAIIcon(name = name, modifier = Modifier.size(32.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                AutoAIIcon(
-                    name = provider.name.ifEmpty { stringResource(R.string.setting_asr_page_default_name) },
-                    modifier = Modifier.size(32.dp)
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = provider.name.ifEmpty { stringResource(R.string.setting_asr_page_default_name) },
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        }
-                    )
-
-                    Text(
-                        text = when (provider) {
-                            is ASRProviderSetting.OpenAIRealtime -> "OpenAI Realtime"
-                            is ASRProviderSetting.DashScope -> "DashScope"
-                            is ASRProviderSetting.Volcengine -> "Volcengine"
-                            is ASRProviderSetting.MiMo -> "MiMo"
-                            is ASRProviderSetting.Step -> "Step"
-                            is ASRProviderSetting.WhisperAsr -> "Whisper (Local)"
-                            is ASRProviderSetting.WhisperLiteRT -> "Whisper LiteRT"
-                            is ASRProviderSetting.NemotronGguf -> "Nemotron 3.5 (GGUF)"
-                            is ASRProviderSetting.ParakeetMediaPipe -> "Parakeet (MediaPipe)"
-                            is ASRProviderSetting.LocalAudioClassifier -> "Local Audio Classifier"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                RadioButton(
-                    selected = isSelected,
-                    onClick = onSelect
+                Text(
+                    text = providerType,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-
-                dragHandle()
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
                 if (isSelected) {
-                    Tag(type = TagType.SUCCESS) {
-                        Text(stringResource(R.string.setting_tts_page_selected))
-                    }
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                IconButton(
-                    onClick = { showDropdownMenu = true }
-                ) {
-                    Icon(
-                        imageVector = HugeIcons.Tools,
-                        contentDescription = stringResource(R.string.setting_tts_page_more_options_content_description)
-                    )
-                    DropdownMenu(
-                        expanded = showDropdownMenu,
-                        onDismissRequest = { showDropdownMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.edit)) },
-                            onClick = {
-                                showDropdownMenu = false
-                                onEdit()
-                            },
-                            leadingIcon = {
-                                Icon(HugeIcons.PencilEdit01, contentDescription = null)
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.delete)) },
-                            onClick = {
-                                showDropdownMenu = false
-                                onDelete()
-                            },
-                            leadingIcon = {
-                                Icon(HugeIcons.Delete01, contentDescription = null)
-                            }
-                        )
+                    Tag(type = TagType.DEFAULT) {
+                        Text(stringResource(
+                            if (isFallback) R.string.speech_provider_fallback
+                            else R.string.setting_tts_page_selected,
+                        ))
                     }
                 }
             }
+
+            if (onTest != null) {
+                IconButton(onClick = onTest) {
+                    Icon(
+                        imageVector = if (testIsSpeaking) HugeIcons.StopCircle else HugeIcons.VolumeHigh,
+                        contentDescription = stringResource(
+                            if (testIsSpeaking) R.string.stop else R.string.test_tts,
+                        ),
+                        tint = if (testIsSpeaking) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Box {
+                IconButton(onClick = { showActions = true }) {
+                    Icon(
+                        imageVector = HugeIcons.MoreVertical,
+                        contentDescription = stringResource(R.string.setting_tts_page_more_options_content_description),
+                    )
+                }
+                DropdownMenu(
+                    expanded = showActions,
+                    onDismissRequest = { showActions = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.edit)) },
+                        onClick = {
+                            showActions = false
+                            onEdit()
+                        },
+                        leadingIcon = { Icon(HugeIcons.PencilEdit01, contentDescription = null) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.delete)) },
+                        enabled = canDelete,
+                        onClick = {
+                            showActions = false
+                            showDeleteDialog = true
+                        },
+                        leadingIcon = { Icon(HugeIcons.Delete01, contentDescription = null) },
+                    )
+                }
+            }
+            dragHandle()
         }
+    }
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text(stringResource(R.string.speech_delete_provider_title)) },
+            text = { Text(stringResource(R.string.speech_delete_provider_message, name)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    onDelete()
+                }) {
+                    Text(
+                        stringResource(R.string.delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
     }
 }
