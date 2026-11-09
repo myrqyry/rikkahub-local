@@ -61,6 +61,7 @@ import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.datastore.isNotConfigured
 import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.ui.components.nav.BackButton
+import me.rerere.rikkahub.ui.pages.assistant.facetSettingsDestination
 import me.rerere.rikkahub.ui.components.ui.CardGroup
 import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.context.Navigator
@@ -152,7 +153,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
             description = stringResource(R.string.settings_agents_assistants_desc),
             icon = HugeIcons.LookTop,
             keywords = listOf("agent", "assistant", "persona", "system prompt", "override", "default"),
-            onClick = { navController.navigate(Screen.SettingAgent) },
+            onClick = { navController.navigate(facetSettingsDestination()) },
         ),
     )
     val sections = listOf(

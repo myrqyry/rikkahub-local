@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="assistant_page_default_badge">預設</string>
+    <string name="assistant_page_unnamed_facet">未命名身分</string>
+</resources>

@@ -1,6 +1,14 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-11-08 — Facets settings opens list directly; default identified by badge
+- Replaced Settings → Facets → {Default Facet, Your Facets} with one tap from Settings → Facets straight to the existing `Screen.Assistant` list. Existing `Screen.SettingAgent` saved navigation route remains compatible and renders the same list rather than the removed menu.
+- The actual built-in default facet (`DEFAULT_ASSISTANT_ID`) is now identified by a compact **Default** badge beside its name; status is based on stable identity, not display name or current chat selection. Other facets are not marked. An unnamed nondefault preset no longer misleadingly displays `Default Facet` in the list: blank names have the neutral `Unnamed Facet` fallback (no stored names changed).
+- Seven localized badge/unnamed labels added, reusing existing `Tag` design rather than inventing a new style.
+- RED-first `FacetNavigationTest` covers direct destination, fixed-ID default, false positive for a facet merely named Default, and neutral blank-name fallback. Focused tests passed; complete `:ai:testDebugUnitTest :app:testDebugUnitTest :local-llm:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest` offline passed with `--max-workers=2` (354 tasks).
+- **Physical Pixel 10 Pro acceptance:** from Settings, tapped the Facets tile and landed in the facet list immediately. Screenshot/UI tree confirmed renamed `meristem` carries the Default badge, another unnamed built-in facet reads `Unnamed Facet` without any badge, and Translator is unchanged; no intermediate/default-option menu. Rebuilt debug APK installed in place with `adb install -r` after SHA-verified DB/preferences/DataStore backup; installed LFM2.5 model still present.
+- No app data clear, uninstall, stored facet names/settings migration, model changes, remote publication, or push. Legacy `Screen.SettingAgent` route still renders the list for persisted navigation stacks.
+
 ## 2026-11-08 — ExTV/rikkahub-agent tool-flow reliability harvest
 - Compared the actual fork checkout to upstream `ExTV/rikkahub-agent` `master` at `a88f5854b`, chose three small high-priority fixes instead of a broad merge; prior LiteRT work remains intact.
 - Mixed tool approvals now resume untouched, unstarted `Auto` siblings alongside user `Approved`/`Denied`/`Answered` calls in original order; `Pending`, completed, or already-started calls never get directly replayed by the selector. Derived from upstream `1c2ca2dcb`/`1913333a6`.

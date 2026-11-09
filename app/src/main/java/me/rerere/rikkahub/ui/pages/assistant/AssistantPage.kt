@@ -387,6 +387,10 @@ private fun AssistantItem(
     onEdit: () -> Unit,
     onShowActions: () -> Unit,
 ) {
+    val displayName = facetListDisplayName(
+        assistant,
+        stringResource(R.string.assistant_page_unnamed_facet),
+    )
     Card(
         modifier = modifier.fillMaxWidth(),
         onClick = onEdit,
@@ -402,7 +406,7 @@ private fun AssistantItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             UIAvatar(
-                name = assistant.name.ifBlank { stringResource(R.string.assistant_page_default_assistant) },
+                name = displayName,
                 value = assistant.avatar,
                 modifier = Modifier
                     .size(48.dp)
@@ -414,12 +418,23 @@ private fun AssistantItem(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
 
-                Text(
-                    text = assistant.name.ifBlank { stringResource(R.string.assistant_page_default_assistant) },
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = displayName,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (isDefaultFacet(assistant)) {
+                        Tag(type = TagType.DEFAULT) {
+                            Text(stringResource(R.string.assistant_page_default_badge))
+                        }
+                    }
+                }
 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
