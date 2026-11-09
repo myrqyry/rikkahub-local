@@ -306,9 +306,7 @@ class SettingsStore(
                 // Only a truly fresh profile receives optional bundled providers.
                 // Once saved, an absent AiHubMix entry represents a deliberate removal.
                 ttsProviders = restoreTtsDefaults(
-                    persisted = preferences[TTS_PROVIDERS]?.let {
-                        JsonInstant.decodeFromString<List<TTSProviderSetting>>(it)
-                    },
+                    persisted = preferences[TTS_PROVIDERS]?.let(::decodeTtsProvidersTolerant),
                     firstRunDefaults = DEFAULT_TTS_PROVIDERS,
                     requiredSystem = DEFAULT_TTS_PROVIDERS.first() as TTSProviderSetting.SystemTTS,
                 ),

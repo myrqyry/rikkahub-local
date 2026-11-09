@@ -10,7 +10,6 @@ import me.rerere.tts.provider.providers.GeminiTTSProvider
 import me.rerere.tts.provider.providers.GroqTTSProvider
 import me.rerere.tts.provider.providers.MiMoTTSProvider
 import me.rerere.tts.provider.providers.MiniMaxTTSProvider
-import me.rerere.tts.provider.providers.NekoSpeakTTSProvider
 import me.rerere.tts.provider.providers.AudioCppTTSProvider
 import me.rerere.tts.provider.providers.OpenAITTSProvider
 import me.rerere.tts.provider.providers.KittenTTSProvider
@@ -36,7 +35,6 @@ class TTSManager(private val context: Context) {
     private val stepProvider = StepTTSProvider()
     private val elevenLabsProvider = ElevenLabsTTSProvider()
     private val fishAudioProvider = FishAudioTTSProvider()
-    private val nekoSpeakProvider = NekoSpeakTTSProvider()
     private val pocketTTSProvider = PocketTTSProvider()
     private val kittenTTSProvider = KittenTTSProvider()
     private val qwen3TTSProvider = Qwen3TtsProvider()
@@ -60,7 +58,6 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.ElevenLabs -> elevenLabsProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.FishAudio -> fishAudioProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.Step -> stepProvider.generateSpeech(context, providerSetting, request)
-            is TTSProviderSetting.NekoSpeakTts -> nekoSpeakProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.PocketTts -> pocketTTSProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.generateSpeech(context, providerSetting, request)
@@ -87,7 +84,6 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.ElevenLabs -> elevenLabsProvider.promptGuidance
             is TTSProviderSetting.FishAudio -> fishAudioProvider.promptGuidance
             is TTSProviderSetting.Step -> stepProvider.promptGuidance
-            is TTSProviderSetting.NekoSpeakTts -> nekoSpeakProvider.promptGuidance
             is TTSProviderSetting.PocketTts -> pocketTTSProvider.promptGuidance
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.promptGuidance
             is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.promptGuidance
@@ -113,7 +109,6 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.ElevenLabs -> elevenLabsProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.FishAudio -> fishAudioProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.Step -> stepProvider.onSessionStart(providerSetting)
-            is TTSProviderSetting.NekoSpeakTts -> nekoSpeakProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.PocketTts -> pocketTTSProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.onSessionStart(providerSetting)
@@ -136,7 +131,6 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.ElevenLabs -> elevenLabsProvider.onSessionEnd()
             is TTSProviderSetting.FishAudio -> fishAudioProvider.onSessionEnd()
             is TTSProviderSetting.Step -> stepProvider.onSessionEnd()
-            is TTSProviderSetting.NekoSpeakTts -> nekoSpeakProvider.onSessionEnd()
             is TTSProviderSetting.PocketTts -> pocketTTSProvider.onSessionEnd()
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.onSessionEnd()
             is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.onSessionEnd()

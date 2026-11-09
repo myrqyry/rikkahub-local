@@ -56,7 +56,6 @@ import me.rerere.tts.matcha.MatchaTtsCatalog
 import me.rerere.tts.pocket.PocketTtsBundle
 import me.rerere.tts.pocket.PocketTtsCatalog
 import me.rerere.tts.provider.TTSProviderSetting
-import me.rerere.tts.provider.providers.NekoSpeakTTSProvider
 import me.rerere.tts.effects.VoiceEffectPreset
 import me.rerere.tts.qwen3.Qwen3TtsCatalog
 import me.rerere.tts.scylla.ScyllaTtsCatalog
@@ -85,7 +84,6 @@ fun TTSProviderConfigure(
             val local = types.filter {
                 it == TTSProviderSetting.SystemTTS::class ||
                     it == TTSProviderSetting.AudioCpp::class ||
-                    it == TTSProviderSetting.NekoSpeakTts::class ||
                     it == TTSProviderSetting.PocketTts::class ||
                     it == TTSProviderSetting.KittenTts::class ||
                     it == TTSProviderSetting.Qwen3Tts::class ||
@@ -95,7 +93,6 @@ fun TTSProviderConfigure(
             val cloud = types.filter {
                 it != TTSProviderSetting.SystemTTS::class &&
                     it != TTSProviderSetting.AudioCpp::class &&
-                    it != TTSProviderSetting.NekoSpeakTts::class &&
                     it != TTSProviderSetting.PocketTts::class &&
                     it != TTSProviderSetting.KittenTts::class &&
                     it != TTSProviderSetting.Qwen3Tts::class &&
@@ -127,7 +124,6 @@ fun TTSProviderConfigure(
                         is TTSProviderSetting.Step -> "Step"
                         is TTSProviderSetting.ElevenLabs -> "ElevenLabs"
                         is TTSProviderSetting.FishAudio -> "Fish Audio"
-                        is TTSProviderSetting.NekoSpeakTts -> "NekoSpeak (Local)"
                         is TTSProviderSetting.PocketTts -> "Pocket TTS (Local)"
                         is TTSProviderSetting.KittenTts -> "Kitten TTS (Local)"
                         is TTSProviderSetting.Qwen3Tts -> "Qwen3 TTS (Local)"
@@ -164,7 +160,6 @@ fun TTSProviderConfigure(
                                         TTSProviderSetting.ElevenLabs::class -> "ElevenLabs"
                                         TTSProviderSetting.FishAudio::class -> "Fish Audio"
                                         TTSProviderSetting.Step::class -> "Step"
-                                        TTSProviderSetting.NekoSpeakTts::class -> "NekoSpeak (Local)"
                                         TTSProviderSetting.PocketTts::class -> "Pocket TTS (Local)"
                                         TTSProviderSetting.KittenTts::class -> "Kitten TTS (Local)"
                                         TTSProviderSetting.Qwen3Tts::class -> "Qwen3 TTS (Local)"
@@ -234,11 +229,6 @@ fun TTSProviderConfigure(
                                     TTSProviderSetting.Step::class -> TTSProviderSetting.Step(
                                         id = setting.id,
                                         name = "Step TTS"
-                                    )
-
-                                    TTSProviderSetting.NekoSpeakTts::class -> TTSProviderSetting.NekoSpeakTts(
-                                        id = setting.id,
-                                        name = "NekoSpeak TTS"
                                     )
 
                                     TTSProviderSetting.PocketTts::class -> TTSProviderSetting.PocketTts(
@@ -351,7 +341,6 @@ fun TTSProviderConfigure(
             is TTSProviderSetting.ElevenLabs -> ElevenLabsTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.FishAudio -> FishAudioTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.Step -> StepTTSConfiguration(setting, onValueChange)
-            is TTSProviderSetting.NekoSpeakTts -> NekoSpeakTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.PocketTts -> PocketTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.KittenTts -> KittenTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.Qwen3Tts -> Qwen3TTSConfiguration(setting, onValueChange)
@@ -1836,106 +1825,6 @@ private fun StepTTSConfiguration(
             placeholder = { Text("e.g. gentle tone, slower pace") },
             minLines = 2,
             maxLines = 4,
-        )
-    }
-}
-
-@Composable
-private fun NekoSpeakTTSConfiguration(
-    setting: TTSProviderSetting.NekoSpeakTts,
-    onValueChange: (TTSProviderSetting) -> Unit
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val nativeUnavailable = remember { !NekoSpeakTTSProvider.isNativeBackendAvailable() }
-    if (nativeUnavailable) {
-        Text(
-            text = stringResource(R.string.speech_nekospeak_unavailable),
-            color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.bodySmall,
-        )
-    }
-    val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        uri ?: return@rememberLauncherForActivityResult
-        scope.launch {
-            val dest = copyModelToAppDir(context, uri, "neko-speak")
-            if (dest != null) {
-                onValueChange(setting.copy(modelPath = dest.absolutePath))
-            }
-        }
-    }
-
-    // Model Path
-    FormItem(
-        label = { Text(stringResource(R.string.local_tts_model_file_label)) },
-        description = { Text("Model file path") }
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            OutlinedTextField(
-                value = setting.modelPath,
-                onValueChange = { newPath ->
-                    onValueChange(setting.copy(modelPath = newPath))
-                },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("/data/local/tmp/tts_model.ort") },
-            )
-            Button(onClick = { filePickerLauncher.launch(arrayOf("*/*")) }) {
-                Text("Browse")
-            }
-        }
-    }
-
-    // Voice
-    FormItem(
-        label = { Text("Voice") },
-        description = { Text("Voice/timbre to use") }
-    ) {
-        OutlinedTextField(
-            value = setting.voice,
-            onValueChange = { newVoice ->
-                onValueChange(setting.copy(voice = newVoice))
-            },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("default") },
-        )
-    }
-
-    // Speed
-    FormItem(
-        label = { Text(stringResource(R.string.setting_tts_page_speech_rate)) },
-        description = { Text(stringResource(R.string.setting_tts_page_speech_rate_description)) }
-    ) {
-        OutlinedNumberInput(
-            value = setting.speed,
-            onValueChange = { newSpeed ->
-                if (newSpeed in 0.1f..3.0f) {
-                    onValueChange(setting.copy(speed = newSpeed))
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            label = "Speed"
-        )
-    }
-
-    // Pitch
-    FormItem(
-        label = { Text(stringResource(R.string.setting_tts_page_pitch)) },
-        description = { Text(stringResource(R.string.setting_tts_page_pitch_description)) }
-    ) {
-        OutlinedNumberInput(
-            value = setting.pitch,
-            onValueChange = { newPitch ->
-                if (newPitch in 0.1f..2.0f) {
-                    onValueChange(setting.copy(pitch = newPitch))
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            label = "Pitch"
         )
     }
 }

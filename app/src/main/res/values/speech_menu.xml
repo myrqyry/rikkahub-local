@@ -5,5 +5,4 @@
     <string name="speech_empty_asr">No speech recognition providers yet. Use + to add one.</string>
     <string name="speech_delete_provider_title">Remove speech provider?</string>
     <string name="speech_delete_provider_message">Remove %1$s from your speech providers?</string>
-    <string name="speech_nekospeak_unavailable">NekoSpeak unavailable: native engine missing.</string>
 </resources>

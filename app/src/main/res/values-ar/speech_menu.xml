@@ -5,5 +5,4 @@
     <string name="speech_empty_asr">لا توجد خدمات للتعرف على الكلام بعد. استخدم + لإضافة واحدة.</string>
     <string name="speech_delete_provider_title">إزالة موفر الكلام؟</string>
     <string name="speech_delete_provider_message">هل تريد إزالة %1$s من موفري الكلام؟</string>
-    <string name="speech_nekospeak_unavailable">NekoSpeak غير متاح: المحرك الأصلي مفقود.</string>
 </resources>

@@ -5,5 +5,4 @@
     <string name="speech_empty_asr">尚未添加语音识别提供方。点击 + 添加。</string>
     <string name="speech_delete_provider_title">移除语音提供方？</string>
     <string name="speech_delete_provider_message">要从语音提供方中移除 %1$s 吗？</string>
-    <string name="speech_nekospeak_unavailable">NekoSpeak 不可用：缺少原生引擎。</string>
 </resources>

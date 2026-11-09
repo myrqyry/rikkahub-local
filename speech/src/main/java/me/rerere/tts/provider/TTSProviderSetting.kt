@@ -304,27 +304,6 @@ sealed class TTSProviderSetting {
     }
 
     @Serializable
-    @SerialName("nekospeak")
-    data class NekoSpeakTts(
-        override var id: Uuid = Uuid.random(),
-        override var name: String = "NekoSpeak TTS",
-        val modelPath: String = "",
-        val voice: String = "default",
-        val speed: Float = 1.0f,
-        val pitch: Float = 1.0f,
-    ) : TTSProviderSetting() {
-        override fun copyProvider(
-            id: Uuid,
-            name: String,
-        ): TTSProviderSetting {
-            return this.copy(
-                id = id,
-                name = name,
-            )
-        }
-    }
-
-    @Serializable
     @SerialName("pocket-tts")
     data class PocketTts(
         override var id: Uuid = Uuid.random(),
@@ -461,7 +440,6 @@ sealed class TTSProviderSetting {
                 ElevenLabs::class,
                 Step::class,
                 FishAudio::class,
-                NekoSpeakTts::class,
                 PocketTts::class,
                 KittenTts::class,
                 Qwen3Tts::class,

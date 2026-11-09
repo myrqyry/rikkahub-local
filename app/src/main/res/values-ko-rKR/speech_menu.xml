@@ -5,5 +5,4 @@
     <string name="speech_empty_asr">음성 인식 제공자가 없습니다. +를 눌러 추가하세요.</string>
     <string name="speech_delete_provider_title">음성 제공자를 삭제할까요?</string>
     <string name="speech_delete_provider_message">%1$s을(를) 음성 제공자 목록에서 삭제할까요?</string>
-    <string name="speech_nekospeak_unavailable">NekoSpeak 사용 불가: 네이티브 엔진이 없습니다.</string>
 </resources>
