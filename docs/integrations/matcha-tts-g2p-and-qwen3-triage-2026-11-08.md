@@ -35,8 +35,12 @@ Upstream context:
 - `https://github.com/john-rocky/LiteRT-Models/blob/main/docs/LITERT_CONVERSION_GUIDE.md` (CTC input/output contract)
 - `https://huggingface.co/litert-community/Qwen3-TTS-12Hz-0.6B-Base`
 
+## Follow-up: real-use acceptance
+
+Mat later confirmed **“matcha works”** in RikkaHub. This supplies the user-side practical playback confirmation missing at the time of the device waveform test. It does not establish a formal audio-capture measurement or cover every voice-output route. No further Matcha work is indicated by this report; Qwen3 remains deferred.
+
 ## Remaining unverified
 
-- Actual phone speaker/headphone playback, sound routing and subjective intelligibility/quality in the RikkaHub UI (the native waveform and streaming admissions are proven; no actual listening acceptance).
+- Independent capture of speaker/headphone output, routing-specific behavior, and detailed subjective quality/intelligibility assessment. The user did confirm working playback in RikkaHub; don't portray that practical acceptance as still missing.
 - Several sequential long paragraphs, cancellation while a native graph is running, and error handling for overflow despite conservative chunking.
 - Qwen3 v2 Android TTS engine compatibility/performance in *this* pinned RikkaHub app (not implemented).

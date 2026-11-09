@@ -2,6 +2,7 @@
 # Active Work
 
 ## 2026-11-08 — Repair Matcha speech and triage slow legacy Qwen3 TTS
+- **User acceptance (later follow-up):** Mat confirmed “matcha works” in RikkaHub after the audio-path fixes. This resolves the outstanding practical playback concern from the user's perspective; it is user-reported success, not independently recorded speaker output. No additional changes required for Matcha. Qwen3 remains untouched and deferred.
 - Mat reported Qwen3 rendering extremely slowly and Matcha producing no audible speech in RikkaHub. Verified current branch was clean at `73fd3224b` and the Pixel 10 Pro contains both ~92 MB Matcha and ~1.88 GB legacy Qwen3 model bundles; preserved all configurations and model files.
 - **RED real device:** Normal sentence containing the out-of-dictionary word `matcha` threw `IllegalArgumentException: Matcha TTS text is too long` before returning audio. Model metadata says `char_repeats=3`, neural output 96×64 and text max 256. The local G2P path incorrectly repeated *decoded phonemes* 3× and did not use CTC collapse; input characters were not repeated.
 - **Fix:** Correct DeepPhonemizer input expansion and greedy CTC output, close G2P and Matcha graph buffers, split longer Matcha chat chunks into conservative 48-character word-boundary model-sized pieces, emit progressive PCM with one final marker, and use existing `AudioPlayer.playPcmStream` for Matcha when no voice effect is active (other effects retain full-buffer path). New RED-first G2P, segmentation and streaming-policy tests now pass.
