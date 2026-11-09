@@ -23,12 +23,16 @@ class MatchaTtsEngine private constructor(
         val encoded = preprocessor.encode(g2p, text)
         val textInputs = textEncoder.createInputBuffers()
         val textOutputs = textEncoder.createOutputBuffers()
-        textInputs[0].writeFloat(encoded.embeddings)
-        textInputs[1].writeFloat(encoded.mask)
-        textEncoder.run(textInputs, textOutputs)
-
-        val mu = textOutputs.maxBy { it.readFloat().size }.readFloat()
-        val logw = textOutputs.minBy { it.readFloat().size }.readFloat()
+        val (mu, logw) = try {
+            textInputs[0].writeFloat(encoded.embeddings)
+            textInputs[1].writeFloat(encoded.mask)
+            textEncoder.run(textInputs, textOutputs)
+            val values = textOutputs.map { it.readFloat() }
+            values.maxBy { it.size } to values.minBy { it.size }
+        } finally {
+            textInputs.forEach { it.close() }
+            textOutputs.forEach { it.close() }
+        }
         val regulated = preprocessor.regulate(
             encoded,
             mu = mu,
@@ -41,24 +45,34 @@ class MatchaTtsEngine private constructor(
 
         val decoderInputs = decoder.createInputBuffers()
         val decoderOutputs = decoder.createOutputBuffers()
-        repeat(config.flowSteps) { step ->
-            val t = step.toFloat() / config.flowSteps
-            decoderInputs[0].writeFloat(latent)
-            decoderInputs[1].writeFloat(regulated.mu)
-            decoderInputs[2].writeFloat(timeEmbedding(t))
-            decoderInputs[3].writeFloat(regulated.mask)
-            decoder.run(decoderInputs, decoderOutputs)
-            val velocity = decoderOutputs.first().readFloat()
-            for (index in latent.indices) latent[index] += velocity[index] / config.flowSteps
+        try {
+            repeat(config.flowSteps) { step ->
+                val t = step.toFloat() / config.flowSteps
+                decoderInputs[0].writeFloat(latent)
+                decoderInputs[1].writeFloat(regulated.mu)
+                decoderInputs[2].writeFloat(timeEmbedding(t))
+                decoderInputs[3].writeFloat(regulated.mask)
+                decoder.run(decoderInputs, decoderOutputs)
+                val velocity = decoderOutputs.first().readFloat()
+                for (index in latent.indices) latent[index] += velocity[index] / config.flowSteps
+            }
+        } finally {
+            decoderInputs.forEach { it.close() }
+            decoderOutputs.forEach { it.close() }
         }
 
         val mel = FloatArray(latent.size) { index -> latent[index] * MEL_STD + MEL_MEAN }
         val vocoderInputs = vocoder.createInputBuffers()
         val vocoderOutputs = vocoder.createOutputBuffers()
-        vocoderInputs[0].writeFloat(mel)
-        vocoder.run(vocoderInputs, vocoderOutputs)
-        val waveform = vocoderOutputs.first().readFloat()
-        return waveform.copyOf(minOf(waveform.size, regulated.frameCount * HOP))
+        return try {
+            vocoderInputs[0].writeFloat(mel)
+            vocoder.run(vocoderInputs, vocoderOutputs)
+            val waveform = vocoderOutputs.first().readFloat()
+            waveform.copyOf(minOf(waveform.size, regulated.frameCount * HOP))
+        } finally {
+            vocoderInputs.forEach { it.close() }
+            vocoderOutputs.forEach { it.close() }
+        }
     }
 
     override fun close() {

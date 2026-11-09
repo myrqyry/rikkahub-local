@@ -3,6 +3,8 @@ package me.rerere.tts.provider.providers
 import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -13,6 +15,7 @@ import kotlinx.coroutines.sync.withLock
 import me.rerere.tts.matcha.MatchaTtsBundle
 import me.rerere.tts.matcha.MatchaTtsConfig
 import me.rerere.tts.matcha.MatchaTtsEngine
+import me.rerere.tts.matcha.splitMatchaText
 import me.rerere.tts.model.AudioChunk
 import me.rerere.tts.model.AudioFormat
 import me.rerere.tts.model.TTSRequest
@@ -57,31 +60,39 @@ class MatchaTTSProvider : TTSProvider<TTSProviderSetting.MatchaTts> {
                 seed = providerSetting.seed,
             ),
         )
-        val waveform = mutex.withLock {
-            val active = session?.takeIf { it.key == key } ?: run {
-                session?.engine?.close()
-                val bundle = MatchaTtsBundle.open(File(key.path))
-                Session(key, MatchaTtsEngine.create(bundle, key.config)).also { session = it }
-            }
-            try {
-                active.engine.synthesize(text)
-            } catch (error: Throwable) {
-                if (session === active) {
-                    session = null
-                    active.engine.close()
+        val segments = splitMatchaText(text)
+        segments.forEachIndexed { index, segment ->
+            currentCoroutineContext().ensureActive()
+            val waveform = mutex.withLock {
+                val active = session?.takeIf { it.key == key } ?: run {
+                    session?.engine?.close()
+                    val bundle = MatchaTtsBundle.open(File(key.path))
+                    Session(key, MatchaTtsEngine.create(bundle, key.config)).also { session = it }
                 }
-                throw error
+                try {
+                    active.engine.synthesize(segment)
+                } catch (error: Throwable) {
+                    if (session === active) {
+                        session = null
+                        active.engine.close()
+                    }
+                    throw error
+                }
             }
+            check(waveform.isNotEmpty()) { "Matcha TTS generated no audio" }
+            emit(
+                AudioChunk(
+                    data = waveform.toPcm16(),
+                    format = AudioFormat.PCM,
+                    sampleRate = MatchaTtsEngine.SAMPLE_RATE,
+                    isLast = index == segments.lastIndex,
+                    metadata = mapOf(
+                        "provider" to "matcha-tts",
+                        "segment_index" to index.toString(),
+                    ),
+                ),
+            )
         }
-        emit(
-            AudioChunk(
-                data = waveform.toPcm16(),
-                format = AudioFormat.PCM,
-                sampleRate = MatchaTtsEngine.SAMPLE_RATE,
-                isLast = true,
-                metadata = mapOf("provider" to "matcha-tts"),
-            ),
-        )
     }.flowOn(Dispatchers.IO)
 
     private fun emptyChunk() = AudioChunk(

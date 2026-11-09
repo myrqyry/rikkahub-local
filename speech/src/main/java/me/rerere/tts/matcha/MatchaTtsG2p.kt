@@ -38,27 +38,16 @@ class MatchaTtsG2p(
         val model = neuralModel ?: throw IllegalArgumentException(
             "No neural G2P model available for out-of-vocabulary word: $word"
         )
-        val chars = FloatArray(96)
-        chars[0] = start.toFloat()
-        word.take(94).forEachIndexed { index, char ->
-            chars[index + 1] = (charToIndex[char.toString()] ?: 0).toFloat()
-        }
-        chars[minOf(word.length + 1, 95)] = end.toFloat()
+        val chars = encodeG2pCharacters(word, charToIndex, repeats, start, end)
         val inputs = model.createInputBuffers()
         val outputs = model.createOutputBuffers()
-        inputs.first().writeFloat(chars)
-        model.run(inputs, outputs)
-        val logits = outputs.first().readFloat()
-        val phonemes = buildString {
-            val frames = minOf(96, logits.size / max(1, indexToPhoneme.size))
-            repeat(frames) { frame ->
-                val offset = frame * indexToPhoneme.size
-                val id = (0 until indexToPhoneme.size).maxByOrNull { logits[offset + it] } ?: 0
-                val phoneme = indexToPhoneme[id].orEmpty()
-                if (phoneme != "_" && phoneme != "<en_us>" && phoneme != "<end>") {
-                    repeat(repeats) { append(phoneme) }
-                }
-            }
+        val phonemes = try {
+            inputs.first().writeFloat(chars)
+            model.run(inputs, outputs)
+            decodeG2pCtc(outputs.first().readFloat(), indexToPhoneme)
+        } finally {
+            inputs.forEach { it.close() }
+            outputs.forEach { it.close() }
         }
         return phonemes.ifEmpty { word }
     }

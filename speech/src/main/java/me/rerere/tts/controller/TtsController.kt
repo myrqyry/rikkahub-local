@@ -267,9 +267,9 @@ class TtsController(
                     // 预取下一窗口
                     prefetchFrom(chunk.index + 1)
 
-                    // Pocket emits incremental PCM frames; consume them as they arrive
-                    // rather than waiting for TtsSynthesizer to collect a full utterance.
-                    if (provider is TTSProviderSetting.PocketTts && voiceEffect == VoiceEffectPreset.OFF) {
+                    // Pocket and Matcha emit PCM progressively; start playback on the
+                    // first chunk instead of collecting the entire utterance.
+                    if (shouldPlayPcmStream(provider, voiceEffect)) {
                         try {
                             audio.playPcmStream(ttsManager.generateSpeech(provider, me.rerere.tts.model.TTSRequest(chunk.text)))
                         } catch (e: Exception) {

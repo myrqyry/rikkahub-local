@@ -14,6 +14,18 @@ Use entries like:
 **How to detect earlier:**  
 **Evidence / references:**
 
+## 2026-11-08 — Matcha neural G2P interpreted CTC repeats backward; normal TTS text overflowed
+
+**Observed failure:** Matcha had complete, installed model files but seemed silent. Real Pixel 10 Pro native synthesis of a normal sentence containing an out-of-vocabulary word (`matcha`) failed before audio generation with `Matcha TTS text is too long` in `MatchaTtsPreprocessor.encode`.
+
+**Root mechanism:** `g2p_meta.json` declares `char_repeats=3` for the DeepPhonemizer *input* representation; its 96-frame output uses CTC. The local Kotlin neural fallback wrote each input character once, then repeated **every decoded output phoneme three times** without CTC collapse. This inflated unfamiliar words and overflowed the fixed 256 text positions. The outer TTS chunker also allowed 160 characters per request despite the model's smaller 256-phoneme / 512-mel fixed shapes.
+
+**Recovery:** Implement correct repeated-input G2P and CTC greedy decode (including end-control), conservatively split longer text for the fixed graph, emit valid progressive PCM with exactly one final chunk, allow streaming playback to start before the entire parent request, and dispose per-invocation LiteRT tensor buffers. Preserve user's selected provider and model state.
+
+**Verification:** RED physical-device test threw at `MatchaTtsPreprocessor.encode`; final real-device test passed `OK (1 test)` with 2 PCM chunks, 100,608 samples, 4.56s audio, peak 0.6025, RMS 0.06646 and 7.49s wall. Full unit suites and APK builds passed. **Human-audible playback remains separately unverified**; don't substitute waveform amplitude for a hearing test. Use `MatchaG2pCodecTest`, `MatchaTextSegmentsTest`, `TtsStreamingSelectionTest` and manual Android `MatchaTtsWaveformDeviceTest`.
+
+**Evidence:** `docs/integrations/matcha-tts-g2p-and-qwen3-triage-2026-11-08.md`, `speech/src/main/java/me/rerere/tts/matcha/`; published converter and pinned Matcha metadata.
+
 ## 2026-11-08 — NekoSpeak provider exposes absent JNI library and can terminate TTS process
 
 **Observed failure:** User reported NekoSpeak crashes; local Android/JVM regression reproduced `UnsatisfiedLinkError` (rather than an ordinary exception) whenever the native synthesis method was reached.
