@@ -64,6 +64,8 @@ import me.rerere.rikkahub.ui.components.ui.AutoAIIcon
 import me.rerere.rikkahub.ui.components.ui.Tag
 import me.rerere.rikkahub.ui.components.ui.TagType
 import me.rerere.rikkahub.ui.context.LocalTTSState
+import me.rerere.rikkahub.ui.context.LocalToaster
+import me.rerere.tts.provider.providers.NekoSpeakTTSProvider
 import me.rerere.rikkahub.ui.pages.setting.components.ASRProviderConfigure
 import me.rerere.rikkahub.ui.pages.setting.components.TTSProviderConfigure
 import me.rerere.rikkahub.ui.theme.CustomColors
@@ -696,6 +698,14 @@ private fun TTSProviderItem(
     val isSpeaking by tts.isSpeaking.collectAsState()
     val isAvailable by tts.isAvailable.collectAsState()
     val testText = stringResource(R.string.setting_tts_page_test_text)
+    val toaster = LocalToaster.current
+    val nativeAvailable = remember(provider) {
+        provider !is TTSProviderSetting.NekoSpeakTts ||
+            NekoSpeakTTSProvider.isNativeBackendAvailable()
+    }
+    val unavailableMessage = if (!nativeAvailable) {
+        stringResource(R.string.speech_nekospeak_unavailable)
+    } else null
 
     val providerType = when (provider) {
         is TTSProviderSetting.OpenAI -> stringResource(R.string.setting_tts_page_provider_openai)
@@ -722,14 +732,18 @@ private fun TTSProviderItem(
         providerType = providerType,
         isSelected = isSelected,
         isFallback = isFallback,
+        warningText = unavailableMessage,
         canDelete = canRemoveTtsSpeechProvider(provider.id),
         modifier = modifier,
         dragHandle = dragHandle,
-        onSelect = onSelect,
+        onSelect = {
+            if (canSelectTtsSpeechProvider(provider, nativeAvailable)) onSelect()
+            else toaster.show(unavailableMessage.orEmpty())
+        },
         onEdit = onEdit,
         onDelete = onDelete,
         testIsSpeaking = isSpeaking,
-        onTest = if (isSelected && isAvailable) {
+        onTest = if (isSelected && isAvailable && nativeAvailable) {
             { if (isSpeaking) tts.stop() else tts.speak(testText) }
         } else null,
     )
@@ -780,6 +794,7 @@ private fun SpeechProviderCard(
     isSelected: Boolean,
     isFallback: Boolean,
     canDelete: Boolean,
+    warningText: String? = null,
     modifier: Modifier,
     dragHandle: @Composable () -> Unit,
     onSelect: () -> Unit,
@@ -821,6 +836,15 @@ private fun SpeechProviderCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (warningText != null) {
+                    Text(
+                        text = warningText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 if (isSelected) {
                     Tag(type = TagType.DEFAULT) {
                         Text(stringResource(

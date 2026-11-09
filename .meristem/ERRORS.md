@@ -14,6 +14,30 @@ Use entries like:
 **How to detect earlier:**  
 **Evidence / references:**
 
+## 2026-11-08 — NekoSpeak provider exposes absent JNI library and can terminate TTS process
+
+**Observed failure:** User reported NekoSpeak crashes; local Android/JVM regression reproduced `UnsatisfiedLinkError` (rather than an ordinary exception) whenever the native synthesis method was reached.
+
+**Root mechanism:** `NekoSpeakTTSProvider.kt` declared external `nativeSynthesize` and called it without a loaded JNI library. The repository's `speech/src/main/cpp/CMakeLists.txt` builds Scylla/Nemotron bridges, **not NekoSpeak**; the installed debug APK contains no `libnekospeak.so`. TTS worker catches `Exception`, not the `LinkageError` thrown by an unresolved native method.
+
+**Recovery / fix:** Require a guarded native loader before synthesis; represent library/symbol absence as `IllegalStateException` the worker already handles. Gate unsupported NekoSpeak selection and sample playback, label it unavailable on the provider card and editor, and retain editing/removal of its saved configuration. Do **not** claim NekoSpeak audio works; implementing and packaging its actual JNI backend is independent future work.
+
+**How to detect earlier:** Run `NekoSpeakTTSProviderTest` (originally RED with uncaught `UnsatisfiedLinkError`) and the manual physical-device `NekoSpeakNativeSafetyDeviceTest`, which passed **OK (1 test)** after fix. Inspect APK bundled libraries for `libnekospeak.so` before exposing native speech capability.
+
+**Evidence / references:** `speech/src/main/java/me/rerere/tts/provider/providers/NekoSpeakTTSProvider.kt`, `speech/src/main/cpp/CMakeLists.txt`, `app/src/androidTest/java/me/rerere/rikkahub/data/ai/NekoSpeakNativeSafetyDeviceTest.kt`, `ACTIVE_WORK.md` top entry.
+
+## 2026-11-08 — AiHubMix TTS removed but silently reappeared on every settings reload
+
+**Observed failure:** User could not keep optional AiHubMix removed from Speech → Text to Speech. After deletion, the default-provider list added the entry back.
+
+**Root mechanism:** `PreferencesStore.kt` treated all `DEFAULT_TTS_PROVIDERS` as mandatory during every settings flow emission; the list included both the System TTS and the optional fixed-ID AiHubMix provider.
+
+**Recovery / fix:** Bootstrap the *suggested* TTS list only when no providers preference was ever persisted; for existing saved lists maintain only System TTS as the required recovery provider. Never silently restore optional AiHubMix after a user deletes it. The user-requested AiHubMix was removed on the debug Pixel and confirmed absent after an explicit process stop/restart. Other configured voices remained, with System TTS selected.
+
+**How to detect earlier:** RED-first `TtsDefaultSeedingTest` covers first install, existing list without AiHubMix, an explicitly empty list and custom-only list. Verify persistence across a real process restart, not only the immediate deletion animation. Preserve an app settings backup before changing saved providers.
+
+**Evidence / references:** `app/src/main/java/me/rerere/rikkahub/data/datastore/{PreferencesStore,TtsDefaultSeeding}.kt`, `app/src/test/java/me/rerere/rikkahub/data/datastore/TtsDefaultSeedingTest.kt`, `ACTIVE_WORK.md`.
+
 ## 2026-11-08 — Native LiteRT-LM GPU benchmark delegate compilation fails on Tensor G5 + LFM2.5
 
 **Observed failure:** Explicit GPU 64-prefill/16-decode native benchmark of the installed `LFM2.5-1.2B-Instruct_int4.litertlm` returned `LiteRtLmJniException` from `nativeCreateBenchmark`: `Failed to modify graph with delegate`. Instrumentation FAILED; the debug process stayed alive. The same error was reproduced by the real Benchmark button, which now shows actionable guidance.

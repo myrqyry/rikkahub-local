@@ -5,4 +5,5 @@
     <string name="speech_empty_asr">Провайдеров распознавания речи пока нет. Добавьте через +.</string>
     <string name="speech_delete_provider_title">Удалить речевой провайдер?</string>
     <string name="speech_delete_provider_message">Удалить %1$s из речевых провайдеров?</string>
+    <string name="speech_nekospeak_unavailable">NekoSpeak недоступен: нет нативного движка.</string>
 </resources>

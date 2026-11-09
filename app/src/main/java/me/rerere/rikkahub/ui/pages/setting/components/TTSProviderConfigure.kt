@@ -56,6 +56,7 @@ import me.rerere.tts.matcha.MatchaTtsCatalog
 import me.rerere.tts.pocket.PocketTtsBundle
 import me.rerere.tts.pocket.PocketTtsCatalog
 import me.rerere.tts.provider.TTSProviderSetting
+import me.rerere.tts.provider.providers.NekoSpeakTTSProvider
 import me.rerere.tts.effects.VoiceEffectPreset
 import me.rerere.tts.qwen3.Qwen3TtsCatalog
 import me.rerere.tts.scylla.ScyllaTtsCatalog
@@ -1846,6 +1847,14 @@ private fun NekoSpeakTTSConfiguration(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val nativeUnavailable = remember { !NekoSpeakTTSProvider.isNativeBackendAvailable() }
+    if (nativeUnavailable) {
+        Text(
+            text = stringResource(R.string.speech_nekospeak_unavailable),
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->

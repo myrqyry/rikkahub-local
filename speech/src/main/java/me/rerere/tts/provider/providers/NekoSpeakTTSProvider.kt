@@ -10,6 +10,7 @@ import me.rerere.tts.model.AudioFormat
 import me.rerere.tts.model.TTSRequest
 import me.rerere.tts.provider.TTSProvider
 import me.rerere.tts.provider.TTSProviderSetting
+import java.io.File
 
 class NekoSpeakTTSProvider : TTSProvider<TTSProviderSetting.NekoSpeakTts> {
     override fun generateSpeech(
@@ -17,14 +18,33 @@ class NekoSpeakTTSProvider : TTSProvider<TTSProviderSetting.NekoSpeakTts> {
         providerSetting: TTSProviderSetting.NekoSpeakTts,
         request: TTSRequest
     ): Flow<AudioChunk> = flow {
+        // This provider historically called an external JNI method without loading
+        // its library. The Android build currently ships no libnekospeak.so at all:
+        // invoking nativeSynthesize therefore throws an uncaught UnsatisfiedLinkError.
+        // Fail with a normal, actionable Exception before reaching that path.
+        if (providerSetting.modelPath.isBlank()) {
+            throw IllegalStateException("NekoSpeak model file is not configured")
+        }
+
         val pcmData = withContext(Dispatchers.IO) {
-            nativeSynthesize(
-                modelPath = providerSetting.modelPath,
-                text = request.text,
-                voice = providerSetting.voice,
-                speed = providerSetting.speed,
-                pitch = providerSetting.pitch,
-            )
+            ensureLoaded()
+            check(File(providerSetting.modelPath).isFile) {
+                "NekoSpeak model file does not exist: ${providerSetting.modelPath}"
+            }
+            try {
+                nativeSynthesize(
+                    modelPath = providerSetting.modelPath,
+                    text = request.text,
+                    voice = providerSetting.voice,
+                    speed = providerSetting.speed,
+                    pitch = providerSetting.pitch,
+                )
+            } catch (error: UnsatisfiedLinkError) {
+                throw IllegalStateException(
+                    "NekoSpeak native synthesis is unavailable in this app build",
+                    error,
+                )
+            }
         }
         emit(
             AudioChunk(
@@ -49,10 +69,27 @@ class NekoSpeakTTSProvider : TTSProvider<TTSProviderSetting.NekoSpeakTts> {
     ): ByteArray
 
     companion object {
-        private var loaded = false
+        @Volatile private var loaded = false
+
+        /** A nonfatal capability query for settings UI; no model is loaded or synthesized. */
+        fun isNativeBackendAvailable(): Boolean = try {
+            ensureLoaded()
+            true
+        } catch (_: IllegalStateException) {
+            false
+        }
+
+        @Synchronized
         fun ensureLoaded() {
             if (!loaded) {
-                System.loadLibrary("nekospeak")
+                try {
+                    System.loadLibrary("nekospeak")
+                } catch (error: UnsatisfiedLinkError) {
+                    throw IllegalStateException(
+                        "NekoSpeak native engine is not bundled in this app build",
+                        error,
+                    )
+                }
                 loaded = true
             }
         }

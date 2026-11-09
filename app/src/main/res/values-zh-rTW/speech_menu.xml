@@ -5,4 +5,5 @@
     <string name="speech_empty_asr">尚未新增語音辨識提供者。點選 + 新增。</string>
     <string name="speech_delete_provider_title">移除語音提供者？</string>
     <string name="speech_delete_provider_message">要從語音提供者中移除 %1$s 嗎？</string>
+    <string name="speech_nekospeak_unavailable">NekoSpeak 無法使用：缺少原生引擎。</string>
 </resources>
