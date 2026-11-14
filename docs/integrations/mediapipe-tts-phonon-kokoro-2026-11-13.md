@@ -30,6 +30,8 @@ November 13, 2026:
 - `:app:compileDebugKotlin`: succeeded.
 - `:app:compileDebugAndroidTestKotlin`: succeeded, including the
   `MediaPipeTtsProviderDeviceTest` probe sources.
+- The unified RikkaHub branch also passed `:app:assembleDebug` (**293 tasks**)
+  and combined app/speech unit suites (**1,836 tests; 0 failures, 5 skipped**).
 - These checks establish compilation, serialization and deterministic
   audio conversion; they do **not** establish actual native model inference,
   elapsed time, audible playback, Bluetooth performance or thermal behavior.

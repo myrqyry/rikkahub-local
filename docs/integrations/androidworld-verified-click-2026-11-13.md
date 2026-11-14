@@ -48,8 +48,10 @@ performed. Full `./gradlew test` was blocked by an unrelated
 `local-llm/GgufClassifierTest` sparse-file test with
 `No space left on device`; a full APK from the isolated worktree
 was blocked by missing native CMake submodule source folders.
-Do not represent the above JVM result as end-to-end Android
-verification.
+After merge into the main RikkaHub working branch, the combined app and speech
+unit tasks (1,836 tests; no failures) and `:app:assembleDebug` (293 tasks)
+passed. These results establish integrated build compatibility, but **not**
+end-to-end Android UI verification.
 
 The next acceptance step is a disposable-emulator scenario covering
 a successful UI transition, an already-satisfied condition, an
