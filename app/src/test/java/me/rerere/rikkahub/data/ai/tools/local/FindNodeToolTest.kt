@@ -42,4 +42,25 @@ class FindNodeToolTest {
         val result = execTool(tool, """{"by":"id","value":"x"}""")
         assertTrue("expected error envelope, got: $result", result.contains("\"error\""))
     }
+
+    @Test
+    fun `click_node rejects contradictory postconditions before dispatch`() {
+        val result = execTool(clickNodeTool(),
+            """{"by":"text","value":"OK","expect_text":"Ready","expect_absent_text":"Ready"}""")
+        assertTrue(result.contains("invalid_verification_expectation"))
+    }
+
+    @Test
+    fun `click_node rejects timeout without an expected state`() {
+        val result = execTool(clickNodeTool(),
+            """{"by":"text","value":"OK","verify_timeout_ms":1000}""")
+        assertTrue(result.contains("invalid_verify_timeout_or_missing_expectation"))
+    }
+
+    @Test
+    fun `click_node accepts a verified-click request and reaches service gate`() {
+        val result = execTool(clickNodeTool(),
+            """{"by":"text","value":"OK","expect_text":"Done","expect_package":"com.example","verify_timeout_ms":1000}""")
+        assertTrue(result.contains("AccessibilityService not active"))
+    }
 }
