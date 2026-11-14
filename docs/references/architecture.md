@@ -153,6 +153,17 @@ budget, and a receipt.
 granted capabilities, status, error, duration). Receipts are routed into the append-only
 `AgentRun` event trace so a human or agent can replay what occurred.
 
+### Accessibility action postconditions
+
+The existing `click_node` accessibility tool can optionally verify a caller-specified
+observable UI postcondition using fresh accessibility state after an accepted click.
+It reports Android action acceptance separately from postcondition verification;
+preexisting conditions are not credited as newly achieved. This is a narrow
+app-side tool capability, **not** a general goal-completion verifier, a stale-node
+identity guard, or an AndroidWorld scenario harness. Real-device verification of
+this path is pending; see
+`docs/integrations/androidworld-verified-click-2026-11-13.md`.
+
 ### RikkaUI (human projection)
 
 Generated UI is a **typed** `UIMessagePart.GeneratedUi`, not JSON smuggled through text.

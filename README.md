@@ -96,10 +96,10 @@ The Provider/API picker is backed primarily by the public [models.dev](https://m
 | OCR | PP-OCRv5 detector + recognizer with pinned model package | Real Pixel 10 Pro instrumentation returned the expected `HELLO 123` text. Exact GPU residency was not proven, so CPU fallback remains part of the supported path. |
 | Embeddings / RAG | EmbeddingGemma 2 270M text, 440M text+vision, 740M multimodal | Native Pixel inference is verified for text, image, audio, and an isolated PDF-page retrieval smoke. Persistent user-file ingestion, ranking quality, multi-page/video retrieval, and the full SAF flow still need broader acceptance. |
 | Local ASR | Whisper paths plus experimental Nemotron 3.5 streaming GGUF through pinned `transcribe.cpp` | Nemotron Q5_K_M CPU inference, JNI load/feed/finalize, and English/Spanish transcription are verified on the Pixel. The installed app's complete microphone-to-chat flow still needs an end-to-end acceptance pass. |
-| Local TTS | Pocket TTS, Kitten TTS, and Qwen3 TTS providers | Integrated as separate speech providers with model-specific runtime handling. Treat model download/runtime success separately from voice-quality or device-thermal qualification. |
+| Local TTS | Pocket, Kitten, Qwen3, Matcha, and opt-in Phonon 31M / Kokoro 82M MediaPipe providers | Existing speech engines have separate acceptance levels. Phonon/Kokoro compile and pass JVM tests; their physical-device synthesis, audible playback and thermals remain unverified in this integration. |
 | Local image generation | `stable-diffusion.cpp` bridge and model management | Still experimental; catalog/install support is not proof that every checkpoint or device can generate successfully. |
 
-Detailed acceptance notes live under `docs/integrations/` and `speech/NEMOTRON-GGUF.md`. Those files intentionally distinguish build success, isolated inference, physical-device acceptance, and still-unverified product paths.
+Detailed acceptance notes live under `docs/integrations/` and `speech/NEMOTRON-GGUF.md`. New integration records cover [MediaPipe local Phonon/Kokoro TTS](docs/integrations/mediapipe-tts-phonon-kokoro-2026-11-13.md) and [AndroidWorld-inspired verified clicks](docs/integrations/androidworld-verified-click-2026-11-13.md). These files intentionally distinguish build success, isolated inference, physical-device acceptance, and still-unverified product paths.
 
 ### Assistants and prompt library
 
@@ -177,7 +177,7 @@ Use cloud or local speech components independently from the active chat model.
 - Whisper-based speech recognition with configurable local sampling options
 - Experimental **Nemotron 3.5 streaming GGUF ASR** through pinned `transcribe.cpp`, with a native Android JNI bridge, explicit CPU backend, revision-pinned Q5_K_M weights, and no silent cloud fallback
 - Live ASR transcript replacement in the multiline chat composer so revisable streaming hypotheses update the active transcription suffix instead of duplicating text
-- Local Pocket TTS, Kitten TTS, and Qwen3 TTS integrations
+- Local Pocket, Kitten, Qwen3, and Matcha TTS, plus opt-in MediaPipe Phonon 31M / Kokoro 82M integrations (device speech acceptance pending)
 - Cloud TTS providers and expanded provider-specific voice selections
 - Voice-note and audio handling through chat and remote integrations
 - Separate speech-to-text and text-to-speech configuration
@@ -305,7 +305,7 @@ The repository is functional but experimental. Large parts of the agent system a
 - Real PP-OCRv5 local OCR path with a pinned three-file package and physical Pixel acceptance
 - Native EmbeddingGemma 2 text/vision/audio embeddings with Pixel acceptance across the 270M, 440M, and 740M variants
 - Experimental Nemotron 3.5 GGUF streaming ASR with pinned `transcribe.cpp`, Android JNI, and real Pixel English/Spanish inference evidence
-- Local Pocket TTS, Kitten TTS, and Qwen3 TTS providers alongside cloud speech integrations
+- Local Pocket, Kitten, Qwen3, Matcha, and experimental MediaPipe Phonon/Kokoro providers alongside cloud speech integrations
 - Experimental Stable Diffusion model management and native bridge
 - Expanded document parsing, including XLSX and CSV
 - Per-assistant model-role and speech overrides with cloud attachment/image-processing privacy controls
