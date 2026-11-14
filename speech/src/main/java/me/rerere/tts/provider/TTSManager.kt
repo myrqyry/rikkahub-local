@@ -14,6 +14,7 @@ import me.rerere.tts.provider.providers.AudioCppTTSProvider
 import me.rerere.tts.provider.providers.OpenAITTSProvider
 import me.rerere.tts.provider.providers.KittenTTSProvider
 import me.rerere.tts.provider.providers.MatchaTTSProvider
+import me.rerere.tts.provider.providers.MediaPipeTTSProvider
 import me.rerere.tts.provider.providers.ScyllaTTSProvider
 import me.rerere.tts.provider.providers.PocketTTSProvider
 import me.rerere.tts.provider.providers.QwenTTSProvider
@@ -39,6 +40,7 @@ class TTSManager(private val context: Context) {
     private val kittenTTSProvider = KittenTTSProvider()
     private val qwen3TTSProvider = Qwen3TtsProvider()
     private val matchaTTSProvider = MatchaTTSProvider()
+    private val mediaPipeTTSProvider = MediaPipeTTSProvider()
     private val scyllaTTSProvider = ScyllaTTSProvider()
 
     fun generateSpeech(
@@ -62,6 +64,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.MatchaTts -> matchaTTSProvider.generateSpeech(context, providerSetting, request)
+            is TTSProviderSetting.PhononTts, is TTSProviderSetting.KokoroTts -> mediaPipeTTSProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.ScyllaTts -> scyllaTTSProvider.generateSpeech(context, providerSetting, request)
         }
     }
@@ -88,6 +91,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.promptGuidance
             is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.promptGuidance
             is TTSProviderSetting.MatchaTts -> matchaTTSProvider.promptGuidance
+            is TTSProviderSetting.PhononTts, is TTSProviderSetting.KokoroTts -> mediaPipeTTSProvider.promptGuidance
             is TTSProviderSetting.ScyllaTts -> scyllaTTSProvider.promptGuidance
         }
     }
@@ -113,6 +117,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.MatchaTts -> matchaTTSProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.PhononTts, is TTSProviderSetting.KokoroTts -> mediaPipeTTSProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.ScyllaTts -> scyllaTTSProvider.onSessionStart(providerSetting)
         }
     }
@@ -135,6 +140,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.onSessionEnd()
             is TTSProviderSetting.Qwen3Tts -> qwen3TTSProvider.onSessionEnd()
             is TTSProviderSetting.MatchaTts -> matchaTTSProvider.onSessionEnd()
+            is TTSProviderSetting.PhononTts, is TTSProviderSetting.KokoroTts -> mediaPipeTTSProvider.onSessionEnd()
             is TTSProviderSetting.ScyllaTts -> scyllaTTSProvider.onSessionEnd()
             null -> Unit
         }
@@ -147,6 +153,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.PocketTts -> pocketTTSProvider.reusesEngine
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.reusesEngine
             is TTSProviderSetting.MatchaTts -> matchaTTSProvider.reusesEngine
+            is TTSProviderSetting.PhononTts, is TTSProviderSetting.KokoroTts -> mediaPipeTTSProvider.reusesEngine
             is TTSProviderSetting.ScyllaTts -> scyllaTTSProvider.reusesEngine
             else -> false
         }

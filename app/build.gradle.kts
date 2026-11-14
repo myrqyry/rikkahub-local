@@ -415,6 +415,8 @@ dependencies {
     // tests
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
+    // Direct MediaPipe TTS device probes exercise the speech module's pinned SDK.
+    androidTestImplementation("com.google.mediapipe:tasks-audio:1.2.2")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

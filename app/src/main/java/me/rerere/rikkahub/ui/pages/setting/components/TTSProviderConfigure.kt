@@ -53,6 +53,7 @@ import me.rerere.tts.kitten.KittenTtsCatalog
 import me.rerere.tts.kitten.KittenTtsConfig
 import me.rerere.tts.matcha.MatchaTtsBundle
 import me.rerere.tts.matcha.MatchaTtsCatalog
+import me.rerere.tts.mediapipe.MediaPipeTtsCatalog
 import me.rerere.tts.pocket.PocketTtsBundle
 import me.rerere.tts.pocket.PocketTtsCatalog
 import me.rerere.tts.provider.TTSProviderSetting
@@ -88,6 +89,8 @@ fun TTSProviderConfigure(
                     it == TTSProviderSetting.KittenTts::class ||
                     it == TTSProviderSetting.Qwen3Tts::class ||
                     it == TTSProviderSetting.MatchaTts::class ||
+                    it == TTSProviderSetting.PhononTts::class ||
+                    it == TTSProviderSetting.KokoroTts::class ||
                     it == TTSProviderSetting.ScyllaTts::class
             }
             val cloud = types.filter {
@@ -97,6 +100,8 @@ fun TTSProviderConfigure(
                     it != TTSProviderSetting.KittenTts::class &&
                     it != TTSProviderSetting.Qwen3Tts::class &&
                     it != TTSProviderSetting.MatchaTts::class &&
+                    it != TTSProviderSetting.PhononTts::class &&
+                    it != TTSProviderSetting.KokoroTts::class &&
                     it != TTSProviderSetting.ScyllaTts::class
             }
             local + cloud
@@ -128,6 +133,8 @@ fun TTSProviderConfigure(
                         is TTSProviderSetting.KittenTts -> "Kitten TTS (Local)"
                         is TTSProviderSetting.Qwen3Tts -> "Qwen3 TTS (Local)"
                         is TTSProviderSetting.MatchaTts -> "Matcha TTS (Local)"
+                        is TTSProviderSetting.PhononTts -> "Phonon 31M (Local)"
+                        is TTSProviderSetting.KokoroTts -> "Kokoro 82M (Local)"
                         is TTSProviderSetting.ScyllaTts -> "Scylla's Band (Local)"
                     },
                     onValueChange = {},
@@ -164,6 +171,8 @@ fun TTSProviderConfigure(
                                         TTSProviderSetting.KittenTts::class -> "Kitten TTS (Local)"
                                         TTSProviderSetting.Qwen3Tts::class -> "Qwen3 TTS (Local)"
                                         TTSProviderSetting.MatchaTts::class -> "Matcha TTS (Local)"
+                                        TTSProviderSetting.PhononTts::class -> "Phonon 31M (Local)"
+                                        TTSProviderSetting.KokoroTts::class -> "Kokoro 82M (Local)"
                                         TTSProviderSetting.ScyllaTts::class -> "Scylla's Band (Local)"
                                         else -> providerClass.simpleName ?: "Unknown"
                                     }
@@ -249,6 +258,16 @@ fun TTSProviderConfigure(
                                     TTSProviderSetting.MatchaTts::class -> TTSProviderSetting.MatchaTts(
                                         id = setting.id,
                                         name = "Matcha TTS (Local)"
+                                    )
+
+                                    TTSProviderSetting.PhononTts::class -> TTSProviderSetting.PhononTts(
+                                        id = setting.id,
+                                        modelPath = LocalTtsModelManager.engineDir(context, MediaPipeTtsCatalog.PHONON.engineId).absolutePath,
+                                    )
+
+                                    TTSProviderSetting.KokoroTts::class -> TTSProviderSetting.KokoroTts(
+                                        id = setting.id,
+                                        modelPath = LocalTtsModelManager.engineDir(context, MediaPipeTtsCatalog.KOKORO.engineId).absolutePath,
                                     )
 
                                     TTSProviderSetting.ScyllaTts::class -> TTSProviderSetting.ScyllaTts(
@@ -345,6 +364,7 @@ fun TTSProviderConfigure(
             is TTSProviderSetting.KittenTts -> KittenTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.Qwen3Tts -> Qwen3TTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.MatchaTts -> MatchaTTSConfiguration(setting, onValueChange)
+            is TTSProviderSetting.PhononTts, is TTSProviderSetting.KokoroTts -> MediaPipeTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.ScyllaTts -> ScyllaTTSConfiguration(setting, onValueChange)
         }
     }
@@ -2535,6 +2555,206 @@ private fun Qwen3TTSConfiguration(
                 }
             }
         }
+    }
+}
+
+/**
+ * Shared local setup for Phonon and Kokoro. Both are real MediaPipe TextToSpeech
+ * bundles, and neither needs a cloud API key or a placeholder JNI backend.
+ */
+@Composable
+private fun MediaPipeTTSConfiguration(
+    setting: TTSProviderSetting,
+    onValueChange: (TTSProviderSetting) -> Unit,
+) {
+    val entry = when (setting) {
+        is TTSProviderSetting.PhononTts -> MediaPipeTtsCatalog.PHONON
+        is TTSProviderSetting.KokoroTts -> MediaPipeTtsCatalog.KOKORO
+        else -> error("Unexpected MediaPipe TTS settings type")
+    }
+    val modelPath = when (setting) {
+        is TTSProviderSetting.PhononTts -> setting.modelPath
+        is TTSProviderSetting.KokoroTts -> setting.modelPath
+        else -> ""
+    }
+    val voice = when (setting) {
+        is TTSProviderSetting.PhononTts -> setting.voice
+        is TTSProviderSetting.KokoroTts -> setting.voice
+        else -> ""
+    }
+    val speed = when (setting) {
+        is TTSProviderSetting.PhononTts -> setting.speed
+        is TTSProviderSetting.KokoroTts -> setting.speed
+        else -> 1f
+    }
+    fun updatePath(path: String) = onValueChange(when (setting) {
+        is TTSProviderSetting.PhononTts -> setting.copy(modelPath = path)
+        is TTSProviderSetting.KokoroTts -> setting.copy(modelPath = path)
+        else -> setting
+    })
+    fun updateVoice(next: String) = onValueChange(when (setting) {
+        is TTSProviderSetting.PhononTts -> setting.copy(voice = next)
+        is TTSProviderSetting.KokoroTts -> setting.copy(voice = next)
+        else -> setting
+    })
+    fun updateSpeed(next: Float) = onValueChange(when (setting) {
+        is TTSProviderSetting.PhononTts -> setting.copy(speed = next)
+        is TTSProviderSetting.KokoroTts -> setting.copy(speed = next)
+        else -> setting
+    })
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val client = koinInjectOkHttp()
+    val toaster = LocalToaster.current
+    val doneTemplate = stringResource(R.string.local_tts_download_done)
+    val errorTemplate = stringResource(R.string.local_tts_download_error)
+    var downloading by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf(0) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var voiceExpanded by remember { mutableStateOf(false) }
+    val installedDir = remember(entry.engineId) {
+        LocalTtsModelManager.engineDir(context, entry.engineId)
+    }
+    val configuredFile = runCatching { entry.bundleFile(modelPath) }.getOrNull()
+    val installed = configuredFile != null
+    val cached = entry.isInstalled(installedDir)
+
+    val picker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            runCatching {
+                val folder = LocalTtsModelManager.importBundleFromTree(
+                    context, entry.engineId, uri, listOf(entry.fileName),
+                )
+                withContext(Dispatchers.IO) { entry.verifyFile(File(folder, entry.fileName)) }
+                folder
+            }.onSuccess { folder ->
+                updatePath(folder.absolutePath)
+                toaster.show(doneTemplate.format(folder.absolutePath), type = ToastType.Success)
+            }.onFailure { cause ->
+                toaster.show(cause.message ?: "Model import failed", type = ToastType.Error)
+            }
+        }
+    }
+
+    Text(entry.description, style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
+    FormItem(
+        label = { Text(stringResource(R.string.local_tts_model_dir_label)) },
+        description = { Text("Single ${entry.fileName} file, stored on this device.") },
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = modelPath,
+                onValueChange = ::updatePath,
+                modifier = Modifier.weight(1f),
+                placeholder = { Text(installedDir.absolutePath) },
+            )
+            Button(onClick = { picker.launch(null) }) {
+                Text(stringResource(R.string.local_tts_browse))
+            }
+        }
+    }
+    FormItem(
+        label = { Text(stringResource(R.string.local_tts_download_section)) },
+        description = { Text("${entry.displayName} · ${entry.sizeBytes / 1_000_000} MB · Apache-2.0") },
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                entry.displayName,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            when {
+                installed -> Text(stringResource(R.string.local_tts_installed),
+                    color = MaterialTheme.colorScheme.primary)
+                cached -> Button(onClick = { updatePath(installedDir.absolutePath) }) {
+                    Text("Use installed")
+                }
+                else -> Button(
+                    enabled = !downloading,
+                    onClick = {
+                        scope.launch {
+                            downloading = true
+                            error = null
+                            runCatching {
+                                val folder = LocalTtsModelManager.downloadBundle(
+                                    context, client, entry.engineId,
+                                    listOf(entry.downloadUrl to entry.fileName),
+                                    onProgress = { progress = it },
+                                )
+                                withContext(Dispatchers.IO) {
+                                    entry.verifyFile(File(folder, entry.fileName))
+                                }
+                                folder
+                            }.onSuccess { folder ->
+                                updatePath(folder.absolutePath)
+                                toaster.show(doneTemplate.format(folder.absolutePath), type = ToastType.Success)
+                            }.onFailure { cause ->
+                                error = cause.message ?: "Model download failed"
+                                toaster.show(errorTemplate.format(error!!), type = ToastType.Error)
+                            }
+                            downloading = false
+                        }
+                    },
+                ) { Text(stringResource(R.string.local_tts_install)) }
+            }
+            OutlinedButton(onClick = { openModelSourceUrl(context, entry.sourceUrl) }) {
+                Text(stringResource(R.string.local_tts_source))
+            }
+        }
+    }
+    if (downloading) {
+        LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth())
+        Text(stringResource(R.string.local_tts_download_progress, progress))
+    }
+    error?.let { message -> Text(message, color = MaterialTheme.colorScheme.error) }
+
+    FormItem(
+        label = { Text(stringResource(R.string.setting_tts_page_voice)) },
+        description = { Text("${entry.voices.size} bundled voice IDs. All audio is generated on this device.") },
+    ) {
+        ExposedDropdownMenuBox(
+            expanded = voiceExpanded,
+            onExpandedChange = { voiceExpanded = !voiceExpanded },
+        ) {
+            OutlinedTextField(
+                value = voice,
+                onValueChange = ::updateVoice,
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(voiceExpanded) },
+                singleLine = true,
+            )
+            ExposedDropdownMenu(
+                expanded = voiceExpanded,
+                onDismissRequest = { voiceExpanded = false },
+                modifier = Modifier.heightIn(max = 320.dp),
+            ) {
+                entry.voices.forEach { (voiceId, description) ->
+                    DropdownMenuItem(
+                        text = { Text(description) },
+                        onClick = {
+                            voiceExpanded = false
+                            updateVoice(voiceId)
+                        },
+                    )
+                }
+            }
+        }
+    }
+    FormItem(
+        label = { Text(stringResource(R.string.setting_tts_page_speed)) },
+        description = { Text("Speech rate: ${"%.2f".format(speed)}×") },
+    ) {
+        Slider(
+            value = speed,
+            onValueChange = ::updateSpeed,
+            valueRange = 0.5f..2.0f,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 

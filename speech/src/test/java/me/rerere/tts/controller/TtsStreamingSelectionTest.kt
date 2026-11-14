@@ -11,6 +11,12 @@ class TtsStreamingSelectionTest {
         assertTrue(shouldPlayPcmStream(TTSProviderSetting.MatchaTts(), VoiceEffectPreset.OFF))
     }
 
+    @Test fun `Phonon and Kokoro stream their native PCM without full-buffer delay`() {
+        assertTrue(shouldPlayPcmStream(TTSProviderSetting.PhononTts(), VoiceEffectPreset.OFF))
+        assertTrue(shouldPlayPcmStream(TTSProviderSetting.KokoroTts(), VoiceEffectPreset.OFF))
+        assertFalse(shouldPlayPcmStream(TTSProviderSetting.KokoroTts(), VoiceEffectPreset.TELEPHONE))
+    }
+
     @Test fun `Pocket streaming remains enabled`() {
         assertTrue(shouldPlayPcmStream(TTSProviderSetting.PocketTts(), VoiceEffectPreset.OFF))
     }

@@ -713,6 +713,8 @@ private fun TTSProviderItem(
         is TTSProviderSetting.KittenTts -> "Kitten TTS"
         is TTSProviderSetting.Qwen3Tts -> "Qwen3 TTS"
         is TTSProviderSetting.MatchaTts -> "Matcha TTS"
+        is TTSProviderSetting.PhononTts -> "Phonon 31M"
+        is TTSProviderSetting.KokoroTts -> "Kokoro 82M"
         is TTSProviderSetting.ScyllaTts -> "Scylla's Band"
     }
     SpeechProviderCard(

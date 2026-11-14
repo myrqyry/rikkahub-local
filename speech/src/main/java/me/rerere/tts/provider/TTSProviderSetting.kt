@@ -376,6 +376,36 @@ sealed class TTSProviderSetting {
     }
 
     @Serializable
+    @SerialName("phonon-tts")
+    data class PhononTts(
+        override var id: Uuid = Uuid.random(),
+        override var name: String = "Phonon 31M (Local)",
+        val modelPath: String = "",
+        val voice: String = "freya",
+        val speed: Float = 1f,
+        val hfLink: String = "https://huggingface.co/litert-community/phonon-31m-en",
+    ) : TTSProviderSetting() {
+        init { require(speed.isFinite() && speed in 0.5f..2f) { "Phonon speed must be 0.5..2.0" } }
+        override fun copyProvider(id: Uuid, name: String): TTSProviderSetting =
+            copy(id = id, name = name)
+    }
+
+    @Serializable
+    @SerialName("kokoro-tts")
+    data class KokoroTts(
+        override var id: Uuid = Uuid.random(),
+        override var name: String = "Kokoro 82M (Local)",
+        val modelPath: String = "",
+        val voice: String = "af_heart",
+        val speed: Float = 1f,
+        val hfLink: String = "https://huggingface.co/litert-community/Kokoro-82M",
+    ) : TTSProviderSetting() {
+        init { require(speed.isFinite() && speed in 0.5f..2f) { "Kokoro speed must be 0.5..2.0" } }
+        override fun copyProvider(id: Uuid, name: String): TTSProviderSetting =
+            copy(id = id, name = name)
+    }
+
+    @Serializable
     @SerialName("matcha-tts")
     data class MatchaTts(
         override var id: Uuid = Uuid.random(),
@@ -444,6 +474,8 @@ sealed class TTSProviderSetting {
                 KittenTts::class,
                 Qwen3Tts::class,
                 MatchaTts::class,
+                PhononTts::class,
+                KokoroTts::class,
                 ScyllaTts::class,
             )
         }

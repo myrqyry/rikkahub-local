@@ -12,4 +12,5 @@ internal fun shouldPlayPcmStream(
     provider: TTSProviderSetting,
     effect: VoiceEffectPreset,
 ): Boolean = effect == VoiceEffectPreset.OFF &&
-    (provider is TTSProviderSetting.PocketTts || provider is TTSProviderSetting.MatchaTts)
+    (provider is TTSProviderSetting.PocketTts || provider is TTSProviderSetting.MatchaTts ||
+        provider is TTSProviderSetting.PhononTts || provider is TTSProviderSetting.KokoroTts)
