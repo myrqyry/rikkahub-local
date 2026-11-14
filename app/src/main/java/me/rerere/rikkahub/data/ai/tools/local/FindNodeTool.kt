@@ -1,12 +1,15 @@
 package me.rerere.rikkahub.data.ai.tools.local
 
+import android.os.SystemClock
 import android.view.accessibility.AccessibilityNodeInfo
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -49,6 +52,30 @@ private fun parseSelector(input: kotlinx.serialization.json.JsonElement): Triple
     val value = input.jsonObject["value"]?.jsonPrimitive?.contentOrNull
     val pkg = input.jsonObject["package_name"]?.jsonPrimitive?.contentOrNull
     return Triple(by, value, pkg)
+}
+
+private const val DEFAULT_VERIFY_TIMEOUT_MS = 1_800L
+private const val MAX_VERIFY_TIMEOUT_MS = 5_000L
+private const val VERIFY_POLL_MS = 150L
+
+/**
+ * A fresh, narrow observation. Only the caller's expected text is extracted;
+ * do not include the rest of the screen (which may contain private content).
+ */
+private fun observeUiPostcondition(
+    root: AccessibilityNodeInfo?,
+    condition: UiPostcondition,
+): UiObservedState? {
+    root ?: return null
+    val visibleMatches = setOfNotNull(condition.expectedText, condition.absentText).filter { value ->
+        root.findAccessibilityNodeInfosByText(value).orEmpty().any {
+            it.isVisibleToUser && it.text?.toString() == value
+        }
+    }.toSet()
+    return UiObservedState(
+        packageName = root.packageName?.toString(),
+        visibleTexts = visibleMatches,
+    )
 }
 
 fun findNodeTool(
@@ -138,8 +165,13 @@ fun clickNodeTool(
     description = """
         Find an accessibility node by selector and tap it via ACTION_CLICK. If the matched node
         is not clickable but a clickable ancestor exists, the ancestor is clicked instead.
-        nth (default 0) disambiguates when multiple nodes match. Returns {success, clicked, ...}
-        or a structured error.
+        nth (default 0) disambiguates when multiple nodes match. success means Android
+        accepted ACTION_CLICK, NOT that the user's goal was reached. Optionally supply
+        expect_text (exact visible text to appear), expect_absent_text (text to disappear),
+        and/or expect_package (foreground package) to verify the result from fresh
+        accessibility observations after the click. Verification has a bounded
+        verify_timeout_ms (default 1800, max 5000). verification.status reports passed,
+        already_satisfied, not_observed, action_rejected, or not_requested.
     """.trimIndent().replace("\n", " "),
     parameters = {
         InputSchema.Obj(
@@ -154,6 +186,24 @@ fun clickNodeTool(
                     put("type", "integer")
                     put("description", "Zero-based index when multiple nodes match (default 0)")
                 })
+                put("expect_text", buildJsonObject {
+                    put("type", "string")
+                    put("description", "Exact visible accessibility text expected after the click")
+                })
+                put("expect_absent_text", buildJsonObject {
+                    put("type", "string")
+                    put("description", "Exact accessibility text expected to disappear after the click")
+                })
+                put("expect_package", buildJsonObject {
+                    put("type", "string")
+                    put("description", "Foreground app package expected after the click")
+                })
+                put("verify_timeout_ms", buildJsonObject {
+                    put("type", "integer")
+                    put("minimum", 0)
+                    put("maximum", MAX_VERIFY_TIMEOUT_MS)
+                    put("description", "Postcondition observation budget in milliseconds (default 1800)")
+                })
             },
             required = listOf("by", "value")
         )
@@ -163,6 +213,28 @@ fun clickNodeTool(
         me.rerere.rikkahub.service.RikkaAccessibilityService.instance?.let { wakeScreenIfNeeded(it) }
         val (by, value, pkgFilter) = parseSelector(input)
         val nth = input.jsonObject["nth"]?.jsonPrimitive?.intOrNull ?: 0
+        val expectText = input.jsonObject["expect_text"]?.jsonPrimitive?.contentOrNull
+        val expectAbsentText = input.jsonObject["expect_absent_text"]?.jsonPrimitive?.contentOrNull
+        val expectPackage = input.jsonObject["expect_package"]?.jsonPrimitive?.contentOrNull
+        val timeoutField = input.jsonObject["verify_timeout_ms"]
+        val verifyTimeout = timeoutField?.jsonPrimitive?.longOrNull ?: DEFAULT_VERIFY_TIMEOUT_MS
+        val expectationFields = listOfNotNull(expectText, expectAbsentText, expectPackage)
+        if (expectationFields.any { it.isBlank() } || (expectText != null && expectText == expectAbsentText)) {
+            return@Tool listOf(UIMessagePart.Text(
+                buildJsonObject { put("error", "invalid_verification_expectation") }.toString()
+            ))
+        }
+        val expectation = if (expectationFields.isNotEmpty()) {
+            UiPostcondition(expectText, expectAbsentText, expectPackage)
+        } else null
+        if ((timeoutField != null && timeoutField.jsonPrimitive.longOrNull == null) ||
+            verifyTimeout !in 0L..MAX_VERIFY_TIMEOUT_MS ||
+            (timeoutField != null && expectation == null)
+        ) {
+            return@Tool listOf(UIMessagePart.Text(
+                buildJsonObject { put("error", "invalid_verify_timeout_or_missing_expectation") }.toString()
+            ))
+        }
         if (by == null || by !in ALLOWED_BY || value == null) {
             return@Tool listOf(
                 UIMessagePart.Text(
@@ -206,7 +278,34 @@ fun clickNodeTool(
             val target = matches[nth]
             val clickable = svc.resolveClickable(target)
                 ?: return@withService buildJsonObject { put("error", "no_clickable_ancestor") }
+            // Capture the original target before navigation invalidates accessibility nodes.
+            val clickedBounds = android.graphics.Rect().apply { clickable.getBoundsInScreen(this) }
+            val clickedText = clickable.text?.toString().orEmpty()
+            val resolvedViaAncestor = clickable !== target
+            // ACTION_CLICK returning true only acknowledges dispatch. Independently
+            // observe the next state when the caller supplies an explicit postcondition.
+            val initiallySatisfied = expectation?.let { it.matches(observeUiPostcondition(root, it)) } ?: false
             val ok = clickable.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            var lastObserved: UiObservedState? = null
+            var verifyElapsedMs = 0L
+            if (expectation != null && ok) {
+                val startMs = SystemClock.elapsedRealtime()
+                do {
+                    lastObserved = observeUiPostcondition(svc.rootInActiveWindow, expectation)
+                    if (expectation.matches(lastObserved)) break
+                    val elapsedMs = SystemClock.elapsedRealtime() - startMs
+                    if (elapsedMs >= verifyTimeout) break
+                    delay(minOf(VERIFY_POLL_MS, verifyTimeout - elapsedMs))
+                } while (true)
+                verifyElapsedMs = SystemClock.elapsedRealtime() - startMs
+            }
+            val verificationStatus = expectation?.let {
+                assessUiPostcondition(
+                    actionAccepted = ok,
+                    initiallySatisfied = initiallySatisfied,
+                    observedSatisfied = it.matches(lastObserved),
+                )
+            }
             svc.appendLog(
                 ActionLogEntry(
                     type = "click_node",
@@ -217,14 +316,24 @@ fun clickNodeTool(
             )
             buildJsonObject {
                 put("success", ok)
+                put("verification", buildJsonObject {
+                    put("status", verificationStatus?.wireValue ?: "not_requested")
+                    put("postcondition_verified", verificationStatus == UiVerificationStatus.PASSED)
+                    if (expectation != null) {
+                        put("initially_satisfied", initiallySatisfied)
+                        put("criteria_met_after", expectation.matches(lastObserved))
+                        put("observation_available", lastObserved != null)
+                        lastObserved?.packageName?.let { put("observed_package", it) }
+                        put("elapsed_ms", verifyElapsedMs)
+                    }
+                })
                 put("clicked", buildJsonObject {
-                    val rect = android.graphics.Rect()
-                    clickable.getBoundsInScreen(rect)
                     put("bounds", buildJsonArray {
-                        add(rect.left); add(rect.top); add(rect.right); add(rect.bottom)
+                        add(clickedBounds.left); add(clickedBounds.top)
+                        add(clickedBounds.right); add(clickedBounds.bottom)
                     })
-                    put("text", clickable.text?.toString() ?: "")
-                    put("resolved_via_ancestor", clickable !== target)
+                    put("text", clickedText)
+                    put("resolved_via_ancestor", resolvedViaAncestor)
                 })
             }
         }
