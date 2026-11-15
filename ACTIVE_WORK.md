@@ -1,6 +1,12 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-11-15 — Unified RikkaHub installed on Pixel 10 Pro
+- **User-authorized in-place update:** Installed the existing ARM64 debug APK from the unified and published `aster/mediapipe-parakeet-asr` branch (`caf485f57`, code built at `55010a771`; subsequent commit changes docs only). No uninstall, data clear, migration reset, model download or release-app modification.
+- **Preflight backup:** Private host-side archive of databases, shared preferences, DataStore and skills verified by tar listing and SHA-256: 8,954,880 bytes, 178 entries. Private archive remains outside Git.
+- **Verified installation:** `adb install -r` succeeded. Package `excp.rikkahub.local.debug`, version 2.4.1 (171), last updated 2026-11-15 16:55:44 local device time; original first-install timestamp retained. Installed base APK SHA-256 exactly matches the local ARM64 APK (`15857e4cc8f7015751c960a8b35e2f33558e92da0c39c5ae25f490c2e9f4dd53`). Model inventory unchanged: 57 files, 7,608,534 KiB. Core app-data directory groups remain present.
+- **Launch acceptance:** Cold launch returned Status: ok (1,834 ms); subsequent check found live process and resumed RouteActivity. This confirms installed build and startup, not the real-device functionality of the new TTS or verified-click paths; those remain open.
+
 ## 2026-11-13 — Consolidated RikkaHub integration (publish requested)
 - **Outcome requested:** Unify current RikkaHub work, reconcile documentation, and explicitly push the verified integration branch. Keep source/history and unrelated local work intact; do not publish a release or modify installed phone data.
 - **Integration owner:** `aster/mediapipe-parakeet-asr` in the existing `~/loam/rikkahub-local` checkout. On top of its prior 12 local commits, `51e7ee145` preserves opt-in MediaPipe Phonon/Kokoro TTS and device-probe source, and `54d31fb51` reconciles README/architecture and integration notes. Merge `d052a42bb` incorporates AndroidWorld verified-click commit `d84fe7231`; merge `55010a771` incorporates current `origin/master` history without rewriting either branch.
