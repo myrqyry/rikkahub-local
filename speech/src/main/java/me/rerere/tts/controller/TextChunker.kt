@@ -1,11 +1,20 @@
 package me.rerere.tts.controller
 
+import me.rerere.tts.provider.TTSProviderSetting
+import me.rerere.tts.provider.providers.splitTikTokText
+
 /**
  * Split long text into speakable chunks with basic punctuation-aware grouping.
  */
 class TextChunker(
     private val maxChunkLength: Int = 150
 ) {
+    internal fun splitForProvider(text: String, provider: TTSProviderSetting): List<TtsChunk> =
+        if (provider is TTSProviderSetting.TikTok) {
+            splitTikTokText(text).filter { it.isNotBlank() }
+                .mapIndexed { index, part -> TtsChunk(text = part, index = index) }
+        } else split(text)
+
     fun split(text: String): List<TtsChunk> {
         if (text.isBlank()) return emptyList()
 

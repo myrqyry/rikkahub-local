@@ -1,6 +1,13 @@
 <!-- meristem-template:v1 -->
 # Active Work
 
+## 2026-11-18 — TikTok cloud TTS option
+- Added opt-in `TikTok TTS (Cloud)` to the existing Speech → Text to Speech → Add Provider editor, with 106 voice IDs grouped into 16 categories. Catalog exactly matches the verified `tiktok-tts-service` snapshot at `78ec946`; labels are historical, not independent identity guarantees.
+- Native Kotlin adapter sends only the explicitly selected utterance text and voice to the community proxy at `https://ottsy.weilbyte.dev/api/generation`; no API key, PC daemon, model download, or independent proxy. Cancellable bounded OkHttp requests, explicit errors, MP3 response, UTF-8-safe 280-byte pieces queued independently in the existing player. No default provider change or silent provider fallback. PCM-only post-effects are not supported for this MP3 source; the editor warns about this.
+- RED missing implementation; GREEN speech and app JVM suites plus debug APK build: `RIKKAHUB_TIKTOK_ACCEPTANCE=1 ./gradlew :speech:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --offline --max-workers=2` (317 tasks). Speech 156 tests including 2 existing skips; app 1685 including 3 existing skips; zero failures. Live Kotlin adapter returned 30,765 and 31,533-byte MP3s for default and Stitch, FFmpeg decoded 1.920s and 1.968s respectively. This is host-side JVM/real network evidence, not physical Android playback or rendered Compose UI acceptance.
+- Active checkout remains `aster/mediapipe-parakeet-asr`. New ARM64 debug APK at `app/build/outputs/apk/debug/app-arm64-v8a-debug.apk`. No installed app changes, new selection, remote push or release; Pixel acceptance pending an in-place update. Other Gradle modules' full test suites were not run; no wider architecture change.
+
+
 ## 2026-11-15 — Unified RikkaHub installed on Pixel 10 Pro
 - **User-authorized in-place update:** Installed the existing ARM64 debug APK from the unified and published `aster/mediapipe-parakeet-asr` branch (`caf485f57`, code built at `55010a771`; subsequent commit changes docs only). No uninstall, data clear, migration reset, model download or release-app modification.
 - **Preflight backup:** Private host-side archive of databases, shared preferences, DataStore and skills verified by tar listing and SHA-256: 8,954,880 bytes, 178 entries. Private archive remains outside Git.

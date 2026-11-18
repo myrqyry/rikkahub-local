@@ -6,6 +6,7 @@ import me.rerere.tts.model.AudioChunk
 import me.rerere.tts.model.TTSRequest
 import me.rerere.tts.provider.providers.ElevenLabsTTSProvider
 import me.rerere.tts.provider.providers.FishAudioTTSProvider
+import me.rerere.tts.provider.providers.TikTokTTSProvider
 import me.rerere.tts.provider.providers.GeminiTTSProvider
 import me.rerere.tts.provider.providers.GroqTTSProvider
 import me.rerere.tts.provider.providers.MiMoTTSProvider
@@ -36,6 +37,7 @@ class TTSManager(private val context: Context) {
     private val stepProvider = StepTTSProvider()
     private val elevenLabsProvider = ElevenLabsTTSProvider()
     private val fishAudioProvider = FishAudioTTSProvider()
+    private val tikTokProvider = TikTokTTSProvider()
     private val pocketTTSProvider = PocketTTSProvider()
     private val kittenTTSProvider = KittenTTSProvider()
     private val qwen3TTSProvider = Qwen3TtsProvider()
@@ -59,6 +61,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.MiMo -> miMoProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.ElevenLabs -> elevenLabsProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.FishAudio -> fishAudioProvider.generateSpeech(context, providerSetting, request)
+            is TTSProviderSetting.TikTok -> tikTokProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.Step -> stepProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.PocketTts -> pocketTTSProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.generateSpeech(context, providerSetting, request)
@@ -86,6 +89,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.MiMo -> miMoProvider.promptGuidance
             is TTSProviderSetting.ElevenLabs -> elevenLabsProvider.promptGuidance
             is TTSProviderSetting.FishAudio -> fishAudioProvider.promptGuidance
+            is TTSProviderSetting.TikTok -> tikTokProvider.promptGuidance
             is TTSProviderSetting.Step -> stepProvider.promptGuidance
             is TTSProviderSetting.PocketTts -> pocketTTSProvider.promptGuidance
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.promptGuidance
@@ -112,6 +116,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.MiMo -> miMoProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.ElevenLabs -> elevenLabsProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.FishAudio -> fishAudioProvider.onSessionStart(providerSetting)
+            is TTSProviderSetting.TikTok -> tikTokProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.Step -> stepProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.PocketTts -> pocketTTSProvider.onSessionStart(providerSetting)
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.onSessionStart(providerSetting)
@@ -135,6 +140,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.MiMo -> miMoProvider.onSessionEnd()
             is TTSProviderSetting.ElevenLabs -> elevenLabsProvider.onSessionEnd()
             is TTSProviderSetting.FishAudio -> fishAudioProvider.onSessionEnd()
+            is TTSProviderSetting.TikTok -> tikTokProvider.onSessionEnd()
             is TTSProviderSetting.Step -> stepProvider.onSessionEnd()
             is TTSProviderSetting.PocketTts -> pocketTTSProvider.onSessionEnd()
             is TTSProviderSetting.KittenTts -> kittenTTSProvider.onSessionEnd()

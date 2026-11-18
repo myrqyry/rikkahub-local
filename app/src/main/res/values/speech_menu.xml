@@ -5,4 +5,6 @@
     <string name="speech_empty_asr">No speech recognition providers yet. Use + to add one.</string>
     <string name="speech_delete_provider_title">Remove speech provider?</string>
     <string name="speech_delete_provider_message">Remove %1$s from your speech providers?</string>
+    <string name="setting_tts_page_tiktok_cloud_description">Uses the community TikTok speech proxy. Text is sent online; no API key, desktop server or model download required. Voice availability may change. PCM-only voice effects are not supported for this MP3 provider.</string>
+    <string name="setting_tts_page_tiktok_category">Voice category</string>
 </resources>

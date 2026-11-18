@@ -57,6 +57,7 @@ import me.rerere.tts.mediapipe.MediaPipeTtsCatalog
 import me.rerere.tts.pocket.PocketTtsBundle
 import me.rerere.tts.pocket.PocketTtsCatalog
 import me.rerere.tts.provider.TTSProviderSetting
+import me.rerere.tts.provider.providers.TikTokVoiceCatalog
 import me.rerere.tts.effects.VoiceEffectPreset
 import me.rerere.tts.qwen3.Qwen3TtsCatalog
 import me.rerere.tts.scylla.ScyllaTtsCatalog
@@ -129,6 +130,7 @@ fun TTSProviderConfigure(
                         is TTSProviderSetting.Step -> "Step"
                         is TTSProviderSetting.ElevenLabs -> "ElevenLabs"
                         is TTSProviderSetting.FishAudio -> "Fish Audio"
+                        is TTSProviderSetting.TikTok -> "TikTok Cloud"
                         is TTSProviderSetting.PocketTts -> "Pocket TTS (Local)"
                         is TTSProviderSetting.KittenTts -> "Kitten TTS (Local)"
                         is TTSProviderSetting.Qwen3Tts -> "Qwen3 TTS (Local)"
@@ -166,6 +168,7 @@ fun TTSProviderConfigure(
                                         TTSProviderSetting.MiMo::class -> "MiMo"
                                         TTSProviderSetting.ElevenLabs::class -> "ElevenLabs"
                                         TTSProviderSetting.FishAudio::class -> "Fish Audio"
+                                        TTSProviderSetting.TikTok::class -> "TikTok Cloud"
                                         TTSProviderSetting.Step::class -> "Step"
                                         TTSProviderSetting.PocketTts::class -> "Pocket TTS (Local)"
                                         TTSProviderSetting.KittenTts::class -> "Kitten TTS (Local)"
@@ -229,6 +232,8 @@ fun TTSProviderConfigure(
                                         id = setting.id,
                                         name = "ElevenLabs TTS"
                                     )
+
+                                    TTSProviderSetting.TikTok::class -> TTSProviderSetting.TikTok(id = setting.id)
 
                                     TTSProviderSetting.FishAudio::class -> TTSProviderSetting.FishAudio(
                                         id = setting.id,
@@ -359,6 +364,7 @@ fun TTSProviderConfigure(
             is TTSProviderSetting.MiMo -> MiMoTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.ElevenLabs -> ElevenLabsTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.FishAudio -> FishAudioTTSConfiguration(setting, onValueChange)
+            is TTSProviderSetting.TikTok -> TikTokTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.Step -> StepTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.PocketTts -> PocketTTSConfiguration(setting, onValueChange)
             is TTSProviderSetting.KittenTts -> KittenTTSConfiguration(setting, onValueChange)
@@ -1427,6 +1433,63 @@ private fun ElevenLabsTTSConfiguration(
             modifier = Modifier.fillMaxWidth(),
             label = "0.75",
         )
+    }
+}
+
+@Composable
+private fun TikTokTTSConfiguration(
+    setting: TTSProviderSetting.TikTok,
+    onValueChange: (TTSProviderSetting) -> Unit,
+) {
+    val groups = TikTokVoiceCatalog.byCategory
+    val selected = TikTokVoiceCatalog.byId[setting.voice]
+    val category = selected?.category ?: groups.keys.first()
+    var categoryExpanded by remember { mutableStateOf(false) }
+    var voiceExpanded by remember { mutableStateOf(false) }
+
+    Text(
+        stringResource(R.string.setting_tts_page_tiktok_cloud_description),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    FormItem(label = { Text(stringResource(R.string.setting_tts_page_tiktok_category)) }) {
+        ExposedDropdownMenuBox(expanded = categoryExpanded, onExpandedChange = { categoryExpanded = it }) {
+            OutlinedTextField(
+                value = category,
+                onValueChange = {},
+                readOnly = true,
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(categoryExpanded) },
+            )
+            ExposedDropdownMenu(expanded = categoryExpanded, onDismissRequest = { categoryExpanded = false }) {
+                groups.forEach { (group, voices) ->
+                    DropdownMenuItem(text = { Text("$group (${voices.size})") }, onClick = {
+                        categoryExpanded = false
+                        if (group != category) onValueChange(setting.copy(voice = voices.first().id))
+                    })
+                }
+            }
+        }
+    }
+    FormItem(label = { Text(stringResource(R.string.setting_tts_page_voice)) }) {
+        ExposedDropdownMenuBox(expanded = voiceExpanded, onExpandedChange = { voiceExpanded = it }) {
+            OutlinedTextField(
+                value = selected?.name ?: setting.voice,
+                onValueChange = {},
+                readOnly = true,
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                supportingText = { Text(setting.voice) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(voiceExpanded) },
+            )
+            ExposedDropdownMenu(expanded = voiceExpanded, onDismissRequest = { voiceExpanded = false }) {
+                groups.getValue(category).forEach { voice ->
+                    DropdownMenuItem(text = { Text(voice.name) }, onClick = {
+                        voiceExpanded = false
+                        onValueChange(setting.copy(voice = voice.id))
+                    })
+                }
+            }
+        }
     }
 }
 

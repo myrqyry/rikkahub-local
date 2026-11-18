@@ -129,7 +129,7 @@ class TtsController(
 
         ttsManager.onSessionStart(provider)
 
-        val newChunks = chunker.split(text)
+        val newChunks = chunker.splitForProvider(text, provider)
         if (newChunks.isEmpty()) return
 
         if (flush) {

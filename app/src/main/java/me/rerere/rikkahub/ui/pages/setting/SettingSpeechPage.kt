@@ -709,6 +709,7 @@ private fun TTSProviderItem(
         is TTSProviderSetting.Step -> "Step"
         is TTSProviderSetting.ElevenLabs -> "ElevenLabs"
         is TTSProviderSetting.FishAudio -> "Fish Audio"
+        is TTSProviderSetting.TikTok -> "TikTok Cloud"
         is TTSProviderSetting.PocketTts -> "Pocket TTS"
         is TTSProviderSetting.KittenTts -> "Kitten TTS"
         is TTSProviderSetting.Qwen3Tts -> "Qwen3 TTS"

@@ -276,6 +276,17 @@ sealed class TTSProviderSetting {
     }
 
     @Serializable
+    @SerialName("tiktok-cloud")
+    data class TikTok(
+        override var id: Uuid = Uuid.random(),
+        override var name: String = "TikTok TTS (Cloud)",
+        val voice: String = "en_us_001",
+    ) : TTSProviderSetting() {
+        override fun copyProvider(id: Uuid, name: String): TTSProviderSetting =
+            copy(id = id, name = name)
+    }
+
+    @Serializable
     @SerialName("fish-audio")
     data class FishAudio(
         override var id: Uuid = Uuid.random(),
@@ -470,6 +481,7 @@ sealed class TTSProviderSetting {
                 ElevenLabs::class,
                 Step::class,
                 FishAudio::class,
+                TikTok::class,
                 PocketTts::class,
                 KittenTts::class,
                 Qwen3Tts::class,
